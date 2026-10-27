@@ -80,6 +80,12 @@ public interface IRegulator : IControlFrame
     /// <summary>The self-model the regulator keeps, read by the extensions and the layer's interlock; null for a design without one.</summary>
     SelfModel? Self => null;
 
+    /// <summary>
+    /// Where the layer's effect check records each outcome's reliability. Every design records into the self-model it
+    /// reads, except the hybrid, which records into its cell while the extensions read its organism (<see cref="Self"/>).
+    /// </summary>
+    SelfModel? Ledger => Self;
+
     PredictionTracker? Predictions => null;
 
     CoherenceAudit? Audit => null;

@@ -94,7 +94,8 @@ public sealed class ControlLayer
         PredictionTracker? predictions = null,
         CoherenceAudit? audit = null,
         List<TraceEvent>? trace = null,
-        List<string>? notes = null)
+        List<string>? notes = null,
+        SelfModel? ledger = null)
     {
         _world = world;
         _task = task;
@@ -103,6 +104,7 @@ public sealed class ControlLayer
         _trace = trace ?? [];
         _notes = notes ?? [];
         Self = self;
+        Ledger = ledger ?? self;
         Predictions = predictions ?? new PredictionTracker();
         Audit = audit ?? new CoherenceAudit();
         Quarantine = new Quarantine(_options.CooldownTicks);
@@ -119,6 +121,9 @@ public sealed class ControlLayer
     // ---- Ledger -------------------------------------------------------------------------------------------
 
     public SelfModel Self { get; }
+
+    /// <summary>The self-model the effect check records outcomes into: <see cref="Self"/> unless the regulator keeps two (the hybrid's cell).</summary>
+    public SelfModel Ledger { get; }
 
     public PredictionTracker Predictions { get; }
 
@@ -308,7 +313,7 @@ public sealed class ControlLayer
         }
 
         Predictions.Record(landed);
-        Self.RecordOutcome(tool.Id, landed);
+        Ledger.RecordOutcome(tool.Id, landed);
         Audit.Claim();
         if (verdict == ActionVerdict.Lied)
         {

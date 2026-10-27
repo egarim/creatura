@@ -46,7 +46,7 @@ public sealed class ReferenceLoop : IAgent
 
         _regulator.Begin(_task);
         var self = _regulator.Self ?? _regulator.Identity.NewSelfModel();
-        var layer = new ControlLayer(world, _task, self, _layerOptions, _regulator, _regulator.Predictions, _regulator.Audit, trace, notes);
+        var layer = new ControlLayer(world, _task, self, _layerOptions, _regulator, _regulator.Predictions, _regulator.Audit, trace, notes, _regulator.Ledger);
         var ctx = new RegulatorContext
         {
             Agent = Name, World = world, Task = _task, PolicyName = _policy.Name, Options = _options, MaxTicks = maxTicks,
@@ -79,7 +79,8 @@ public sealed class ReferenceLoop : IAgent
             tctx.Freedom = freedom;
             layer.BeginRound(freedom, budget);
 
-            // The regulator's own stop (an alarm, a story that closed); a hand-off inside it is vetoable.
+            // The regulator's own stop (an alarm, a story that closed); a hand-off inside it is vetoable, and one the
+            // extensions let stand is rendered by the regulator like any other.
             if (_regulator.Stop(ctx) is { } stop)
             {
                 if (stop.Cause == StopCause.GoalMet)
@@ -88,12 +89,14 @@ public sealed class ReferenceLoop : IAgent
                     break;
                 }
 
-                if (stop.HandOff is { } alarm && _ext.SuppressHandOff(tctx, alarm))
+                if (stop.HandOff is not { } alarm) break;
+                if (_ext.SuppressHandOff(tctx, alarm))
                 {
                     _regulator.Vetoed(ctx, alarm);
                 }
                 else
                 {
+                    _regulator.HandedOff(ctx, alarm, stop.Detail);
                     break;
                 }
             }
