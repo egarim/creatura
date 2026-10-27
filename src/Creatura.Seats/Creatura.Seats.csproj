@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Creatura.Seats</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The model seats: a transport per provider shape over an injected HttpClient, one client with one retry rule, one
+         policy and one judge, the catalog of endpoints by name with keys as environment-variable names, the biology of a
+         seat, the call log and the scoreboard. No packages: the providers are reached by HTTP and JSON from the base
+         library. Bench is referenced for the rows a seat's telemetry becomes and the seat seam a battery resolves through. -->
+    <ProjectReference Include="../Creatura/Creatura.csproj" />
+    <ProjectReference Include="../Creatura.Bench/Creatura.Bench.csproj" />
+  </ItemGroup>
+
+</Project>

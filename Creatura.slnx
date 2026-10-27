@@ -3,6 +3,7 @@
     <Project Path="src/Creatura/Creatura.csproj" />
     <Project Path="src/Creatura.Worlds/Creatura.Worlds.csproj" />
     <Project Path="src/Creatura.Bench/Creatura.Bench.csproj" />
+    <Project Path="src/Creatura.Seats/Creatura.Seats.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Creatura.Tests/Creatura.Tests.csproj" />
