@@ -56,8 +56,11 @@ public sealed class LiarWorld : IWorld, ICloneableWorld
         var tool = _inner.Tool(toolId);
         if (tool is not null && (_tools is null || _tools.Contains(toolId)) && tool.Requires.All(_inner.Facts.Contains) && (_always || _lied.Add(toolId)))
         {
-            Lies++;
-            return new ActionOutcome(toolId, true, [], "reported success");
+            // Counted as this world judges it: a lie is a reported success the registry does not back. A tool whose
+            // promise the registry already holds (by another road) reports a success that is not a lie.
+            var lie = new ActionOutcome(toolId, true, [], "reported success");
+            if (((IWorldView)this).Verdict(tool, lie) == ActionVerdict.Lied) Lies++;
+            return lie;
         }
 
         return _inner.Act(toolId, payload);
