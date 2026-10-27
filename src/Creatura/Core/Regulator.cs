@@ -8,6 +8,9 @@ public sealed record SeatView
 {
     public static readonly SeatView Plain = new();
 
+    /// <summary>The facts the seat reads; null for the registry. The adversary reads what the tools said, not what the registry shows.</summary>
+    public IReadOnlySet<string>? Facts { get; init; }
+
     /// <summary>The rendered self-model, when the regulator keeps one.</summary>
     public string? SelfModel { get; init; }
 
@@ -44,6 +47,9 @@ public sealed class RegulatorContext
 
     public required List<string> Notes { get; init; }
 
+    /// <summary>The seat's recent history, which the loop writes a line into per action and a design may add to.</summary>
+    public List<string> History { get; internal set; } = [];
+
     public ControlLayer Layer { get; internal set; } = null!;
 
     public int Tick { get; internal set; }
@@ -64,6 +70,12 @@ public sealed class RegulatorContext
         Trace.Add(new TraceEvent(Tick, level, setPoint, stress, freedom, action, kind, detail));
 
     public void Note(string note) => Notes.Add(note);
+}
+
+/// <summary>What a regulator decides about an admitted tool before it runs: hold it this tick, with the hand-off the hold may amount to.</summary>
+public sealed record HoldDecision(HandOff? HandOff = null)
+{
+    public static readonly HoldDecision Wait = new();
 }
 
 /// <summary>
@@ -89,6 +101,9 @@ public interface IRegulator : IControlFrame
     PredictionTracker? Predictions => null;
 
     CoherenceAudit? Audit => null;
+
+    /// <summary>Visibility's first pass, when the design has its own; null for the layer's quarantine.</summary>
+    IDistrust? Distrust => null;
 
     /// <summary>Fresh per-run state, before the layer is built. A run starts from the design's own record, never the last run's.</summary>
     void Begin(AgentTask task)
@@ -121,6 +136,37 @@ public interface IRegulator : IControlFrame
     /// <summary>The hand-off a tick with no route counts toward. The Bach agent and the hybrid say "no path"; the colony says "no route".</summary>
     HandOff NoRoute => HandOff.NoPath;
 
+    /// <summary>When the seat sees no route: the design's own step, before the extensions answer (the map-keeper enters unexplored territory). Null to let them.</summary>
+    PolicySuggestion? Unrouted(RegulatorContext context) => null;
+
+    /// <summary>
+    /// A failure the loop is about to count: no route, or an illegal action. The default spends it against the budget
+    /// (and lets the regulator note it through <see cref="Spent"/>) and returns the hand-off once the budget is past.
+    /// The map-keeper has no budget: it runs its collapse chain here and returns a hand-off only when the root fell.
+    /// </summary>
+    HandOff? Exhausted(RegulatorContext context, HandOff wouldBe, string detail)
+    {
+        if (context.Layer.Failures <= context.Layer.Budget)
+        {
+            Spent(context, wouldBe, detail);
+            return null;
+        }
+
+        return wouldBe;
+    }
+
+    /// <summary>Before an admitted tool runs: hold it this tick (the map-keeper opens a sub-story for a precondition that does not hold), or null to act.</summary>
+    HoldDecision? Hold(RegulatorContext context, Tool tool) => null;
+
+    /// <summary>The line the seat's history keeps for a judged action. The default is the designs' shared wording.</summary>
+    string Remembered(Tool tool, ActionOutcome outcome, ActionVerdict verdict, bool landed)
+    {
+        var observed = string.IsNullOrWhiteSpace(outcome.Observation) ? "" : $"\n{outcome.Observation}";
+        return verdict == ActionVerdict.HonestFailure
+            ? $"{tool.Id} → reported failure{observed}"
+            : $"{tool.Id} → {(landed ? "effect landed" : "no effect")}{observed}";
+    }
+
     /// <summary>The row for the tick's decision. The default is the designs' shared tissue row.</summary>
     void Suggested(RegulatorContext context, PolicySuggestion suggestion) =>
         context.Row("tissue", "obligations", context.Stress, context.Freedom, suggestion.Tool ?? TraceText.NoAction,
@@ -145,6 +191,9 @@ public interface IRegulator : IControlFrame
     /// <summary>The rows and notes of a hand-off the extensions did not veto. <paramref name="detail"/> is what the attempt was spent on (a rationale, "illegal action").</summary>
     void HandedOff(RegulatorContext context, HandOff handOff, string detail) =>
         context.Row("organism", "contract", 1.0, context.Freedom, TraceText.HandOff, TraceKind.Escalated, handOff.Text);
+
+    /// <summary>Whether the contract is met after a judged action. The default reads the task's goal over the registry; the map-keeper closes its stories here, and the adversary reads its beliefs.</summary>
+    bool ContractIsMet(RegulatorContext context) => context.Task.Goal(context.World.Facts);
 
     /// <summary>The contract is met.</summary>
     void ContractMet(RegulatorContext context) =>

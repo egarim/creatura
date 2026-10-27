@@ -31,6 +31,9 @@ public sealed record Identity(string Role, string Principal)
     /// <summary>The hybrid's cell: an effect cell whose principal is the colony.</summary>
     public static readonly Identity Cell = new("effect cell", "colony");
 
+    /// <summary>The map-keeper: it keeps no self-model of its own (its memory is the territory map), so this only names it to the layer's ledger.</summary>
+    public static readonly Identity MapKeeper = new("map-keeper", "joche");
+
     /// <summary>The Agent Framework host's operator. Its one commitment is the task's name, added at run time.</summary>
     public static readonly Identity Controlled = new("controlled operator", "joche");
 

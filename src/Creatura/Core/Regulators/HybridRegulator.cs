@@ -87,7 +87,7 @@ public sealed class HybridRegulator : IRegulator
     {
         _ctx = context;
         // The alarm's patience is the quarantine's cooldown plus two: a distrusted tool has had time to come back.
-        _alarm = new StuckRegulationAlarm(context.Layer.Quarantine.CooldownTicks + 2);
+        _alarm = new StuckRegulationAlarm(context.Layer.Options.CooldownTicks + 2);
         context.Note($"policy {context.PolicyName}; {context.Options.Describe()}");
     }
 

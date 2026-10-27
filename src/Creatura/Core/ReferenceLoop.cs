@@ -46,11 +46,11 @@ public sealed class ReferenceLoop : IAgent
 
         _regulator.Begin(_task);
         var self = _regulator.Self ?? _regulator.Identity.NewSelfModel();
-        var layer = new ControlLayer(world, _task, self, _layerOptions, _regulator, _regulator.Predictions, _regulator.Audit, trace, notes, _regulator.Ledger);
+        var layer = new ControlLayer(world, _task, self, _layerOptions, _regulator, _regulator.Predictions, _regulator.Audit, trace, notes, _regulator.Ledger, _regulator.Distrust);
         var ctx = new RegulatorContext
         {
             Agent = Name, World = world, Task = _task, PolicyName = _policy.Name, Options = _options, MaxTicks = maxTicks,
-            Trace = trace, Notes = notes, Layer = layer,
+            Trace = trace, Notes = notes, Layer = layer, History = history,
         };
         _regulator.BeforeRun(ctx);
 
@@ -119,7 +119,7 @@ public sealed class ReferenceLoop : IAgent
                 var seat = _regulator.Seat(ctx);
                 var context = new PolicyContext
                 {
-                    Facts = world.Facts,
+                    Facts = seat.Facts ?? world.Facts,
                     Tools = visible,
                     Goal = seat.Goal ?? _task.Goal,
                     GoalText = seat.GoalText ?? _task.GoalText,
@@ -133,6 +133,7 @@ public sealed class ReferenceLoop : IAgent
                     Notes = seat.Notes.Count == 0 ? _ext.PolicyNotes(tctx) : [.. seat.Notes, .. _ext.PolicyNotes(tctx)],
                 };
                 suggestion = await PolicyGuard.NextAsync(_policy, context, cancellationToken).ConfigureAwait(false);
+                if (suggestion.Tool is null && _regulator.Unrouted(ctx) is { Tool: not null } own) suggestion = own;
                 if (suggestion.Tool is null && _ext.NoRoute(tctx) is { Tool: not null } alternative) suggestion = alternative;
             }
 
@@ -144,7 +145,7 @@ public sealed class ReferenceLoop : IAgent
                 // cooldown, so the agent waits it out as long as its budget allows.
                 layer.Spend();
                 if (HandsOff(layer, ctx, tctx, _regulator.NoRoute, suggestion.Rationale)) break;
-                if (_layerOptions.ClearQuarantineOnNoRoute) layer.Quarantine.Clear();
+                if (_layerOptions.ClearQuarantineOnNoRoute) layer.Distrust.Clear();
                 continue;
             }
 
@@ -159,15 +160,19 @@ public sealed class ReferenceLoop : IAgent
             }
 
             var tool = admission.Tool!;
+            if (_regulator.Hold(ctx, tool) is { } hold)
+            {
+                // Held this tick (a sub-story opened); the hold may amount to a hand-off, which is vetoable and never budgeted.
+                if (hold.HandOff is { } held && Escalates(layer, ctx, tctx, held, held.Text)) break;
+                continue;
+            }
+
             var outcome = world.Act(tool.Id, suggestion.Content);
             var landed = world.EffectsLanded(tool);
             var judgement = layer.Judge(tool, ActionReport.Of(outcome),
                 v => _ext.Judge(tctx, tool, outcome, landed, v),
                 v => _ext.AfterAction(tctx, tool, outcome, v));
-            var observed = string.IsNullOrWhiteSpace(outcome.Observation) ? "" : $"\n{outcome.Observation}";
-            history.Add(judgement.Verdict == ActionVerdict.HonestFailure
-                ? $"{tool.Id} → reported failure{observed}"
-                : $"{tool.Id} → {(landed ? "effect landed" : "no effect")}{observed}");
+            history.Add(_regulator.Remembered(tool, outcome, judgement.Verdict, landed));
 
             if (judgement.Verdict == ActionVerdict.HonestFailure && _layerOptions.HonestFailureRule == HonestFailureRule.Habituate) continue;
 
@@ -177,7 +182,7 @@ public sealed class ReferenceLoop : IAgent
                 continue;
             }
 
-            if (_task.Goal(world.Facts))
+            if (_regulator.ContractIsMet(ctx))
             {
                 goalReached = true;
                 _regulator.ContractMet(ctx);
@@ -196,18 +201,19 @@ public sealed class ReferenceLoop : IAgent
     }
 
     /// <summary>
-    /// The budget check behind every hand-off: within budget the attempt is spent (and the regulator may note it);
-    /// past it the extensions may veto, which forgives the attempts when the regulator says so; otherwise the
-    /// regulator renders the hand-off and the loop stops. True when the loop stops.
+    /// The check behind a counted failure: the regulator says whether the attempts are exhausted (by default, the
+    /// layer's budget; the map-keeper runs its collapse chain instead) and which hand-off that is; then the hand-off
+    /// goes through <see cref="Escalates"/>. True when the loop stops.
     /// </summary>
-    private bool HandsOff(ControlLayer layer, RegulatorContext ctx, TickContext tctx, HandOff handOff, string detail)
-    {
-        if (layer.Failures <= layer.Budget)
-        {
-            _regulator.Spent(ctx, handOff, detail);
-            return false;
-        }
+    private bool HandsOff(ControlLayer layer, RegulatorContext ctx, TickContext tctx, HandOff wouldBe, string detail) =>
+        _regulator.Exhausted(ctx, wouldBe, detail) is { } handOff && Escalates(layer, ctx, tctx, handOff, detail);
 
+    /// <summary>
+    /// A hand-off about to be made: the extensions may veto, which forgives the attempts when the regulator says
+    /// so; otherwise the regulator renders the hand-off and the loop stops. True when the loop stops.
+    /// </summary>
+    private bool Escalates(ControlLayer layer, RegulatorContext ctx, TickContext tctx, HandOff handOff, string detail)
+    {
         if (_ext.SuppressHandOff(tctx, handOff))
         {
             if (_regulator.ForgivesOnVeto(handOff)) layer.Forgive();

@@ -92,7 +92,7 @@ public sealed class ColonyRegulator : IRegulator
 
     public void AfterRun(RegulatorContext context)
     {
-        var stillQuarantined = context.Layer.Quarantine.Quarantined(context.Tick);
+        var stillQuarantined = context.Layer.Distrust.Hidden(context.Tick);
         context.Note($"quarantined at end: {(stillQuarantined.Count == 0 ? "none" : string.Join(", ", stillQuarantined))}");
     }
 

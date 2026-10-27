@@ -114,6 +114,16 @@ public class JoinTests
     }
 
     [Fact]
+    public void TwoDistrustPoliciesCannotShareOneVisibleSet()
+    {
+        var ex = Assert.Throws<CompositionException>(() => Regulators.Join(new Distrusting("a"), new Distrusting("b")));
+        Assert.Contains("both carry a distrust policy", ex.Message);
+        // One is fine, and it is the join's.
+        var one = new Distrusting("a");
+        Assert.Same(one.Distrust, Regulators.Join(one, new Side("plain", 0, 1)).Distrust);
+    }
+
+    [Fact]
     public async Task TheOneFramerRendersTheLayersDecisionsForTheJoin()
     {
         // A seat that names a tool that is not there: the join's refusal row is the framer's, not the plain one.
@@ -122,6 +132,13 @@ public class JoinTests
         Assert.Contains(run.Trace, e => e.Level == "framer" && e.Detail == "framed refusal");
         Assert.DoesNotContain(run.Trace, e => e.Detail == TraceText.NotVisible);
         Assert.True(run.GoalReached);
+    }
+
+    private sealed class Distrusting(string name) : IRegulator
+    {
+        public Identity Identity => new(name, "tests");
+
+        public IDistrust? Distrust { get; } = new Quarantine(2);
     }
 
     private sealed class FreedomSpy : IAgentExtension

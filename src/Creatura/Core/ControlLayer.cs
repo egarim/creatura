@@ -8,6 +8,9 @@ public enum JudgeRule
 
     /// <summary>Landed, lied or honest failure. Landed is read first: a tool that delivered is never a liar whatever it said.</summary>
     ThreeWay,
+
+    /// <summary>The map-keeper's three-way rule: a report of failure is an honest failure whatever else moved in the registry; only a report of success with nothing landed is a lie.</summary>
+    ReportFirst,
 }
 
 /// <summary>What the layer does with an honest failure (reported failure, nothing landed).</summary>
@@ -95,7 +98,8 @@ public sealed class ControlLayer
         CoherenceAudit? audit = null,
         List<TraceEvent>? trace = null,
         List<string>? notes = null,
-        SelfModel? ledger = null)
+        SelfModel? ledger = null,
+        IDistrust? distrust = null)
     {
         _world = world;
         _task = task;
@@ -107,7 +111,7 @@ public sealed class ControlLayer
         Ledger = ledger ?? self;
         Predictions = predictions ?? new PredictionTracker();
         Audit = audit ?? new CoherenceAudit();
-        Quarantine = new Quarantine(_options.CooldownTicks);
+        Distrust = distrust ?? new Quarantine(_options.CooldownTicks);
         Interlock = new StageInterlock(Self, Predictions, task.ReleaseKind);
         Freedom = Self.Stage.FreedomCap;
     }
@@ -129,7 +133,8 @@ public sealed class ControlLayer
 
     public CoherenceAudit Audit { get; }
 
-    public Quarantine Quarantine { get; }
+    /// <summary>Visibility's first pass: the quarantine by default, or the regulator's own policy.</summary>
+    public IDistrust Distrust { get; }
 
     public StageInterlock Interlock { get; }
 
@@ -225,14 +230,14 @@ public sealed class ControlLayer
     /// <summary>Visibility with the option space shaped after the quarantine (the regulator's rule, then the extensions). The result is what <see cref="Admit"/> judges against.</summary>
     public IReadOnlyList<Tool> Offer(Func<IReadOnlyList<Tool>, IReadOnlyList<Tool>>? shape)
     {
-        var visible = Quarantine.Visible(_world, Tick);
+        var visible = Distrust.Visible(_world, Tick);
         _visible = shape is null ? visible : shape(visible);
         return _visible;
     }
 
     public bool IsVisible(string toolId) =>
         _world.AvailableTools.Any(t => string.Equals(t.Id, toolId, StringComparison.Ordinal))
-        && !Quarantine.IsQuarantined(toolId, Tick);
+        && !Distrust.Hides(toolId, Tick);
 
     /// <summary>What the seat reads before it acts on the host: its own record, and the row that says the round began.</summary>
     public string Assemble(int round)
@@ -252,7 +257,7 @@ public sealed class ControlLayer
         var tool = _world.Tool(toolId);
         var visible = Visible;
         RefusalReason? refusal = tool is null ? RefusalReason.NoSuchTool
-            : Quarantine.IsQuarantined(toolId, Tick) ? RefusalReason.Quarantined
+            : Distrust.Hides(toolId, Tick) ? RefusalReason.Quarantined
             : !IsVisible(toolId) ? RefusalReason.NotAvailable
             : visible.All(t => !string.Equals(t.Id, toolId, StringComparison.Ordinal)) ? RefusalReason.NotVisible
             : null;
@@ -296,7 +301,8 @@ public sealed class ControlLayer
     {
         var landed = _world.EffectsLanded(tool);
         var claimedSuccess = report.ReportedSuccess ?? true;
-        var verdict = landed ? ActionVerdict.Landed
+        var verdict = _options.JudgeRule == JudgeRule.ReportFirst && !claimedSuccess ? ActionVerdict.HonestFailure
+            : landed ? ActionVerdict.Landed
             : _options.JudgeRule == JudgeRule.ThreeWay && !claimedSuccess ? ActionVerdict.HonestFailure
             : ActionVerdict.Lied;
         if (rejudge is not null) verdict = rejudge(verdict);
@@ -306,7 +312,7 @@ public sealed class ControlLayer
         if (verdict == ActionVerdict.HonestFailure && _options.HonestFailureRule == HonestFailureRule.Habituate)
         {
             // Not a lie and not a wrong prediction about the tool: habituate, say so, spend nothing.
-            Quarantine.Add(tool.Id, Tick);
+            Distrust.Judged(tool.Id, verdict, Tick, habituated: true);
             _frame.Acted(this, tool, report, verdict, landed, habituated: true);
             return new EffectJudgement(verdict, false, missing, false,
                 $"{report.Reported}\n\n[not verified: {string.Join(", ", missing)} still false; the tool reported failure]");
@@ -320,6 +326,7 @@ public sealed class ControlLayer
             Audit.Accept($"{tool.Id} produces {string.Join(",", tool.Grants)}", false, _frame.Evidence(this, tool, report), Tick);
         }
 
+        Distrust.Judged(tool.Id, verdict, Tick, habituated: false);
         if (landed)
         {
             if (_options.ResetFailures == ResetFailures.Never) Failures = 0;
@@ -339,8 +346,7 @@ public sealed class ControlLayer
                 $"{report.Reported}\n\n[not verified: {string.Join(", ", missing)} still false; the tool reported failure]");
         }
 
-        // Reported success, effect missing: a contradiction. Quarantine the tool and tell the seat why.
-        Quarantine.Add(tool.Id, Tick);
+        // Reported success, effect missing: a contradiction. Distrust has hidden the tool; tell the seat why.
         _frame.Acted(this, tool, report, verdict, landed, habituated: false);
         return new EffectJudgement(verdict, false, missing, terminate,
             $"WARNING: {tool.Id} reported '{report.Summary}' but {string.Join(", ", missing)} did not become true. " +
@@ -381,14 +387,14 @@ public sealed class ControlLayer
         {
             // The seat sees no route with the trusted tools. If something is quarantined, waiting is a route;
             // otherwise the goal is unregulatable with what this agent has.
-            if (Quarantine.Quarantined(Tick).Count == 0)
+            if (Distrust.Hidden(Tick).Count == 0)
             {
                 Record("organism", "contract", 1.0 - _task.Progress(_world), TraceText.NoPath, TraceKind.Escalated, "no route with the available tools");
                 Note("escalated: no path with the available tools; the goal is unregulatable");
                 return new Closure(false, new StopReason(StopCause.NoPath, "no route with the available tools", HandOff.NoPath));
             }
 
-            if (_options.ClearQuarantineOnNoRoute) Quarantine.Clear();
+            if (_options.ClearQuarantineOnNoRoute) Distrust.Clear();
             Note("no path right now; a distrusted tool may return after its cooldown");
         }
 

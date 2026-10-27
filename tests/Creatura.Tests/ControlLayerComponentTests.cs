@@ -25,7 +25,7 @@ public class ControlLayerComponentTests
     {
         var (world, layer) = Fresh();
         world.Revoke("apply-config");
-        layer.Quarantine.Add("apply-patch", layer.Tick);
+        layer.Distrust.Judged("apply-patch", ActionVerdict.Lied, layer.Tick, habituated: false);
 
         var offered = layer.Offer().Select(t => t.Id).ToList();
         Assert.DoesNotContain("apply-patch", offered);
@@ -162,13 +162,13 @@ public class ControlLayerComponentTests
         var (world, layer) = Fresh();
 
         // Something quarantined: no route is a wait, not a hand-off.
-        layer.Quarantine.Add("apply-patch", layer.Tick);
+        layer.Distrust.Judged("apply-patch", ActionVerdict.Lied, layer.Tick, habituated: false);
         var waiting = layer.Close("NO PATH", noRoute: true);
         Assert.True(waiting.Continue);
         Assert.Contains(layer.Notes, n => n.StartsWith("no path right now", StringComparison.Ordinal));
 
         // Nothing quarantined: the goal is unregulatable with these tools.
-        layer.Quarantine.Clear();
+        layer.Distrust.Clear();
         var handedOff = layer.Close("NO PATH", noRoute: true);
         Assert.False(handedOff.Continue);
         Assert.Equal(StopCause.NoPath, handedOff.Stop!.Cause);
@@ -177,7 +177,7 @@ public class ControlLayerComponentTests
 
         // The colony's option: no route lifts the quarantine instead of waiting it out.
         var clearing = Fresh(ControlLayerOptions.Host with { ClearQuarantineOnNoRoute = true });
-        clearing.Layer.Quarantine.Add("apply-patch", clearing.Layer.Tick);
+        clearing.Layer.Distrust.Judged("apply-patch", ActionVerdict.Lied, clearing.Layer.Tick, habituated: false);
         Assert.True(clearing.Layer.Close("NO PATH", noRoute: true).Continue);
         Assert.Contains("apply-patch", clearing.Layer.Offer().Select(t => t.Id));
 

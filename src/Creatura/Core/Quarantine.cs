@@ -9,7 +9,7 @@ namespace Creatura;
 /// holding it stops being useful (01:21:27). Both point at the same operational rule, which is why it lives
 /// here rather than in either agent.
 /// </summary>
-public sealed class Quarantine
+public sealed class Quarantine : IDistrust
 {
     private readonly Dictionary<string, int> _since = new(StringComparer.Ordinal);
 
@@ -30,4 +30,14 @@ public sealed class Quarantine
     /// <summary>The tools the policy may see this tick.</summary>
     public IReadOnlyList<Tool> Visible(IWorldView world, int tick) =>
         world.AvailableTools.Where(t => !IsQuarantined(t.Id, tick)).ToList();
+
+    public bool Hides(string toolId, int tick) => IsQuarantined(toolId, tick);
+
+    public IReadOnlyList<string> Hidden(int tick) => Quarantined(tick);
+
+    /// <summary>A liar is distrusted for the cooldown; so is an honest failure the layer habituates.</summary>
+    public void Judged(string toolId, ActionVerdict verdict, int tick, bool habituated)
+    {
+        if (verdict == ActionVerdict.Lied || (verdict == ActionVerdict.HonestFailure && habituated)) Add(toolId, tick);
+    }
 }

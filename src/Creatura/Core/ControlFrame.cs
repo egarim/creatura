@@ -66,7 +66,7 @@ public sealed class HostFrame : IControlFrame
                 break;
             default:
                 layer.Record("cell", "effect", 1.0, tool.Id, TraceKind.Blocked, TraceText.ReportedButMissing(report.Summary));
-                layer.Note(TraceText.Distrusted(tool.Id, report.Summary, layer.Quarantine.CooldownTicks));
+                layer.Note(TraceText.Distrusted(tool.Id, report.Summary, layer.Options.CooldownTicks));
                 break;
         }
     }

@@ -39,24 +39,30 @@ public sealed record JoinRules
     public SleepRule Sleep { get; init; } = SleepRule.Both;
 }
 
-/// <summary>Two regulators that cannot share one creature: both render the frame.</summary>
+/// <summary>Two regulators that cannot share one creature: both render the frame, or both police distrust.</summary>
 public sealed class CompositionException(string message) : InvalidOperationException(message);
 
 /// <summary>
 /// Joins. A join puts two regulators in one creature under one fold law per slot. It is kept small on purpose:
 /// no replacement registry, no membrane keys, and no shipped design is a join (the hybrid is written by hand,
 /// design-framework.md refuted claim 5). What a join can and cannot hold is checked when it is made: two
-/// framers (regulators that render their own rows for the layer's decisions) cannot share one trace.
+/// framers (regulators that render their own rows for the layer's decisions) cannot share one trace, and two
+/// distrust policies cannot share one visible set.
 /// </summary>
 public static class Regulators
 {
-    /// <summary>Join two regulators. Throws <see cref="CompositionException"/> when both are framers.</summary>
+    /// <summary>Join two regulators. Throws <see cref="CompositionException"/> when both are framers or both carry a distrust policy.</summary>
     public static IRegulator Join(IRegulator first, IRegulator second, JoinRules? rules = null)
     {
         var framers = new[] { first, second }.Where(IsFramer).ToList();
         if (framers.Count == 2)
         {
             throw new CompositionException($"{first.GetType().Name} and {second.GetType().Name} both render the frame; a creature has one trace");
+        }
+
+        if (first.Distrust is not null && second.Distrust is not null)
+        {
+            throw new CompositionException($"{first.GetType().Name} and {second.GetType().Name} both carry a distrust policy; a creature has one visible set");
         }
 
         return new Joined(first, second, rules ?? JoinRules.Default, framers.SingleOrDefault());
@@ -89,6 +95,8 @@ public static class Regulators
         public SelfModel? Self => _a.Self ?? _b.Self;
 
         public SelfModel? Ledger => _a.Ledger ?? _b.Ledger;
+
+        public IDistrust? Distrust => _a.Distrust ?? _b.Distrust;
 
         public PredictionTracker? Predictions => _a.Predictions ?? _b.Predictions;
 
@@ -157,6 +165,16 @@ public static class Regulators
         }
 
         public HandOff NoRoute => _a.NoRoute;
+
+        public PolicySuggestion? Unrouted(RegulatorContext context) => _a.Unrouted(context) ?? _b.Unrouted(context);
+
+        public HandOff? Exhausted(RegulatorContext context, HandOff wouldBe, string detail) => _a.Exhausted(context, wouldBe, detail);
+
+        public HoldDecision? Hold(RegulatorContext context, Tool tool) => _a.Hold(context, tool) ?? _b.Hold(context, tool);
+
+        public bool ContractIsMet(RegulatorContext context) => _a.ContractIsMet(context);
+
+        public string Remembered(Tool tool, ActionOutcome outcome, ActionVerdict verdict, bool landed) => _a.Remembered(tool, outcome, verdict, landed);
 
         public void Suggested(RegulatorContext context, PolicySuggestion suggestion) => _a.Suggested(context, suggestion);
 
