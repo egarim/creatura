@@ -45,7 +45,9 @@ names, so re-record one with
 CREATURA_RECORD_GOLDENS=restore-patchlies-controlled dotnet test tests/Creatura.Hosts.AgentFramework.Tests --filter "FullyQualifiedName~ControlledGoldenTests"
 ```
 
-(`all` re-records both sets.)
+(`all` re-records both sets.) `FakeHost` in `Creatura.Tests` drives the same four scenarios through the layer's verbs
+with no Agent Framework at all and compares against these four files: a drift there with none here means the host
+and the verbs came apart.
 
 Format (`AgentRun.WriteJsonl` / `ReadJsonl` in `Core/Trace.cs`, System.Text.Json only): line 1 is the header
 (`agent`, `goalReached`, `ticks`), then one line per `TraceEvent` in order, then one line per note in order.

@@ -119,7 +119,7 @@ public class GoldenTraceTests
 ///
 /// The four <c>restore-*-controlled</c> goldens (the Agent Framework host, offline) live in
 /// tests/Creatura.Hosts.AgentFramework.Tests/golden with their own theory, since migration step 16: rebuilding them
-/// needs a package this project never references.
+/// needs a package this project never references. <c>FakeHost</c> here runs the same four scenarios without it.
 /// </summary>
 internal static class GoldenScenarios
 {
