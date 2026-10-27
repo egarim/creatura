@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Creatura/Creatura.csproj" />
     <Project Path="src/Creatura.Worlds/Creatura.Worlds.csproj" />
+    <Project Path="src/Creatura.Bench/Creatura.Bench.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Creatura.Tests/Creatura.Tests.csproj" />

@@ -94,7 +94,7 @@ public static class Series
             // A route is the chain of tools that first produced each goal fact; the shortcut and side-actions do not count.
             var shortcuts = inner.AllTools.Where(t => t.Kind == world.Task.ReleaseKind && t.Requires.Count == 0).Select(t => t.Id).ToHashSet(StringComparer.Ordinal);
             var landed = run.Trace.Where(e => e.Level == "cell" && e.Kind == TraceKind.Acted && !shortcuts.Contains(e.Action)).Select(e => e.Action).Distinct().ToList();
-            var route = Contributing(landed, inner, world);
+            var route = Route(landed, inner, world);
             var key = string.Join(">", route);
             if (!routes.Contains(key)) routes.Add(key);
 
@@ -117,12 +117,20 @@ public static class Series
         return new SeriesResult(label, opaque, routes.Count, routesExist, firstGoal, totalTicks, runs, tries, lies, endState, routes, revoked, journal, memory);
     }
 
+    /// <summary>The route a run took, as the series counts it: the landed cell actions that carried the goal, shortcuts and side-actions left out.</summary>
+    public static IReadOnlyList<string> Route(AgentRun run, IWorldView truth, WorldManifest world)
+    {
+        var shortcuts = truth.AllTools.Where(t => t.Kind == world.Task.ReleaseKind && t.Requires.Count == 0).Select(t => t.Id).ToHashSet(StringComparer.Ordinal);
+        var landed = run.Trace.Where(e => e.Level == "cell" && e.Kind == TraceKind.Acted && !shortcuts.Contains(e.Action)).Select(e => e.Action).Distinct().ToList();
+        return Route(landed, truth, world);
+    }
+
     /// <summary>
     /// The tools that carried the goal: walk back from the goal's facts; for each needed fact, the first landed
     /// tool that produced it is on the route, and its own requirements become needed in turn. One chain per
     /// run. A walker that also fuelled the boat on its way to driving the truck did not find a second route.
     /// </summary>
-    private static List<string> Contributing(IReadOnlyList<string> landed, IWorld truth, WorldManifest world)
+    private static List<string> Route(IReadOnlyList<string> landed, IWorldView truth, WorldManifest world)
     {
         var needed = new List<string>(world.GoalEvidence);
         if (needed.Count == 0) return landed.ToList();

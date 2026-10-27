@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Creatura\Creatura.csproj" />
     <ProjectReference Include="..\..\src\Creatura.Worlds\Creatura.Worlds.csproj" />
+    <ProjectReference Include="..\..\src\Creatura.Bench\Creatura.Bench.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Creatura.Bench</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The bench protocols: oracle and outcome, hypotheses, batteries, arms and rows, the trainer and the exam over the
+         record store, the legacy CSV writers and the fine-tune seam. No packages. This is the one project of the framework
+         that may do file IO (CSV, JSONL, markdown reports); the Core and Worlds never do, so a browser can host them. -->
+    <ProjectReference Include="../Creatura/Creatura.csproj" />
+    <ProjectReference Include="../Creatura.Worlds/Creatura.Worlds.csproj" />
+  </ItemGroup>
+
+</Project>
