@@ -25,9 +25,11 @@ public interface IHabitat
 }
 
 /// <summary>
-/// An isolated habitat in memory: the world is replaced by a snapshot that remembers facts and effects but
-/// cannot act on the original. Good enough for dreaming over a learned model; a Docker habitat would give the
-/// same interface to a dream that runs real tools against a disposable copy of a real system.
+/// An isolated habitat in memory: the world is replaced by its own copy (<see cref="ICloneableWorld.Clone"/>: every
+/// <see cref="CatalogueWorld"/>, the opaque and learned worlds, the barrier decorators), so a dream acts on the same
+/// catalogue, the same facts and the same barrier state and the live world never hears of it. A world that cannot
+/// give a copy is refused, not silently snapshotted. A habitat over a repository clone would give the same
+/// interface to a dream that runs real tools against a disposable copy of a real system.
 /// </summary>
 public sealed class InMemoryHabitat : IHabitat
 {
@@ -46,46 +48,8 @@ public sealed class InMemoryHabitat : IHabitat
 
     public IWorld World { get; private set; }
 
-    public IHabitat Isolate(IWorld world) => new InMemoryHabitat(new SnapshotWorld(world), isolated: true, $"isolated copy of {Name}");
+    public IHabitat Isolate(IWorld world) => new InMemoryHabitat(ICloneableWorld.CloneOf(world), isolated: true, $"isolated copy of {Name}");
 
-    public void Discard() => World = new SnapshotWorld(new World([], []));
-
-    /// <summary>A frozen copy of a world: same facts and tools, and acting on it changes only the copy.</summary>
-    private sealed class SnapshotWorld : IWorld
-    {
-        private readonly HashSet<string> _facts;
-        private readonly IReadOnlyList<Tool> _tools;
-        private readonly Dictionary<string, bool> _landed = new(StringComparer.Ordinal);
-
-        public SnapshotWorld(IWorld source)
-        {
-            _facts = new HashSet<string>(source.Facts, StringComparer.Ordinal);
-            _tools = source.AllTools.ToList();
-        }
-
-        public IReadOnlySet<string> Facts => _facts;
-
-        public IReadOnlyList<Tool> AvailableTools => _tools.Where(t => t.Requires.All(_facts.Contains) || true).ToList();
-
-        public IReadOnlyList<Tool> AllTools => _tools;
-
-        public int Ticks { get; private set; }
-
-        public bool Has(string fact) => _facts.Contains(fact);
-
-        public Tool? Tool(string id) => _tools.FirstOrDefault(t => t.Id == id);
-
-        public bool EffectsLanded(Tool tool) => tool.Grants.Count > 0 && tool.Grants.All(_facts.Contains);
-
-        public ActionOutcome Act(string toolId, string? payload = null)
-        {
-            Ticks++;
-            var tool = Tool(toolId);
-            if (tool is null) return new ActionOutcome(toolId, false, [], "unknown tool");
-            if (!tool.Requires.All(_facts.Contains)) return new ActionOutcome(toolId, false, [], "preconditions unmet (dreamed)");
-            _facts.UnionWith(tool.Grants);
-            _landed[toolId] = true;
-            return new ActionOutcome(toolId, true, tool.Grants, "dreamed");
-        }
-    }
+    /// <summary>The copy is let go; what is left is an empty world nobody can reach anything in.</summary>
+    public void Discard() => World = new World([], []);
 }

@@ -392,34 +392,45 @@ public sealed class DreamJournal
 public sealed record DreamSnapshot(List<string> Prefer, List<string> Avoid, int Nights, int DreamedRoutes, int Confirmed, int Tested);
 
 /// <summary>
-/// Sleep that dreams. At the end of a run, replay the day on the learned model: from the facts the day
-/// started with, search every route the learned effects allow, with the learned lies applied, and keep the
-/// tools that appear on dreamed routes to the goal as preferences and the tools that never led anywhere as
-/// things to avoid. Everything written is labelled dreamed, not seen; the exploration extension reads the
-/// journal and the next day's registry scores the dreams. Loaded beside a design's own sleep it adds to it;
-/// with <see cref="ReplacesSleep"/> it stands in for it, so both can be compared on the same world.
+/// Sleep as dreaming: at the end of a case the organism replays its learned model inside an isolated habitat and
+/// keeps two lists for tomorrow, the tools on routes that reached the goal and the tools that never landed and lie
+/// on no such route. The dream runs in <see cref="IHabitat.Isolate"/>: every route is acted out on a copy of the
+/// world taken at the day's start, one copy per branch, so the live world and the live map never hear of it. What
+/// a copy answers is what the world would answer (a lie already spent stays spent in the copy, a precondition the
+/// organism never learned still refuses), so a dream is a rehearsal in a sandbox, not a walk over beliefs. The
+/// journal scores each dream against the next day: a preferred tool that lands confirms it, one that does not
+/// refutes it. The exploration extension reads the journal; the dream never acts awake.
 /// </summary>
 public sealed class DreamSleepExtension : IAgentExtension
 {
     private readonly EffectMemory _memory;
     private readonly DreamJournal _journal;
     private readonly bool _replaces;
-    private HashSet<string>? _dayStart;
+    private IHabitat? _habitat;
+    private IHabitat? _dayStart;
 
-    public DreamSleepExtension(EffectMemory memory, DreamJournal journal, bool replacesDesignSleep = false)
+    /// <param name="memory">The organism's map: which tools to dream with.</param>
+    /// <param name="journal">Where the dreams go.</param>
+    /// <param name="replacesDesignSleep">Stand in for the design's own sleep instead of running after it.</param>
+    /// <param name="habitat">Where the dreams run; the in-memory habitat over the run's world when none is given.</param>
+    public DreamSleepExtension(EffectMemory memory, DreamJournal journal, bool replacesDesignSleep = false, IHabitat? habitat = null)
     {
         _memory = memory;
         _journal = journal;
         _replaces = replacesDesignSleep;
+        _habitat = habitat;
     }
 
     public string Name => _replaces ? "dream(replaces sleep)" : "dream";
 
     public bool ReplacesSleep => _replaces;
 
+    /// <summary>The day starts here: a copy of the world before the first tick is what tonight's dream will start from.</summary>
+    public void BeforeRun(TickContext context) => _dayStart ??= Habitat(context.World).Isolate(context.World);
+
     public void AfterAction(TickContext context, Tool tool, ActionOutcome outcome, ActionVerdict verdict)
     {
-        _dayStart ??= new HashSet<string>(context.World.Facts, StringComparer.Ordinal);
+        _dayStart ??= Habitat(context.World).Isolate(context.World);
         // Score yesterday's dreams against today's world: a preferred tool that landed confirms, one that did not refutes.
         if (_journal.Prefer.Contains(tool.Id))
         {
@@ -431,14 +442,16 @@ public sealed class DreamSleepExtension : IAgentExtension
     public void Sleep(SleepContext context)
     {
         _journal.Nights++;
-        var start = _dayStart ?? new HashSet<string>(context.World.Facts, StringComparer.Ordinal);
+        var habitat = Habitat(context.World);
+        var start = _dayStart ?? habitat.Isolate(context.World);
         var learned = context.World.AllTools.Select(_memory.Learned).Where(t => t.Grants.Count > 0).ToList();
 
-        // Dream: every route the learned model allows from the day's start, each tool usable once per dream.
+        // Dream: every route the learned model allows from the day's start, acted out on copies, each tool once per dream.
         var onGoodRoutes = new HashSet<string>(StringComparer.Ordinal);
         var dreamed = 0;
-        void Walk(HashSet<string> facts, List<string> path, int depth)
+        void Walk(IHabitat here, List<string> path, int depth)
         {
+            var facts = here.World.Facts;
             if (context.Task.Goal(facts))
             {
                 dreamed++;
@@ -450,15 +463,22 @@ public sealed class DreamSleepExtension : IAgentExtension
             foreach (var t in learned)
             {
                 if (path.Contains(t.Id) || !t.Requires.All(facts.Contains) || t.Grants.All(facts.Contains)) continue;
-                var next = new HashSet<string>(facts, StringComparer.Ordinal);
-                next.UnionWith(t.Grants);
-                path.Add(t.Id);
-                Walk(next, path, depth + 1);
-                path.RemoveAt(path.Count - 1);
+                var branch = habitat.Isolate(here.World);
+                var outcome = branch.World.Act(t.Id);
+                // Only a step that lands in the copy is a step of a route: the copy answers as the world would.
+                if (branch.World.Verdict(t, outcome) == ActionVerdict.Landed)
+                {
+                    path.Add(t.Id);
+                    Walk(branch, path, depth + 1);
+                    path.RemoveAt(path.Count - 1);
+                }
+
+                branch.Discard();
             }
         }
 
-        Walk(new HashSet<string>(start, StringComparer.Ordinal), [], 0);
+        Walk(start, [], 0);
+        start.Discard();
         _journal.DreamedRoutes += dreamed;
 
         _journal.Prefer.Clear();
@@ -475,6 +495,8 @@ public sealed class DreamSleepExtension : IAgentExtension
         context.Notes.Add($"dreamed (not seen): prefer [{string.Join(", ", _journal.Prefer.Order(StringComparer.Ordinal))}] avoid [{string.Join(", ", _journal.Avoid.Order(StringComparer.Ordinal))}]");
         _dayStart = null;
     }
+
+    private IHabitat Habitat(IWorld world) => _habitat ??= InMemoryHabitat.Live(world);
 }
 
 /// <summary>

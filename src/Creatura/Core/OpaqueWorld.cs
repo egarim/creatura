@@ -9,7 +9,7 @@ namespace Creatura;
 /// an effect landed means whether the registry gained anything. Tools can be revoked, which is how the
 /// harness blocks a route.
 /// </summary>
-public sealed class OpaqueWorld : IWorld
+public sealed class OpaqueWorld : IWorld, ICloneableWorld
 {
     private readonly IWorld _inner;
     private readonly HashSet<string> _revoked = new(StringComparer.Ordinal);
@@ -76,6 +76,16 @@ public sealed class OpaqueWorld : IWorld
     }
 
     private Tool Strip(Tool t) => Transparent ? t : new Tool(t.Id, [], [], t.Kind) { NeedsPayload = t.NeedsPayload, PayloadHint = t.PayloadHint };
+
+    /// <summary>A copy over a copy of the inner world, with the same revocations, last gains and counts.</summary>
+    public OpaqueWorld Clone()
+    {
+        var copy = new OpaqueWorld(ICloneableWorld.CloneOf(_inner), _revoked) { Transparent = Transparent, Lies = Lies, HonestFailures = HonestFailures };
+        foreach (var (id, gain) in _lastGain) copy._lastGain[id] = new HashSet<string>(gain, StringComparer.Ordinal);
+        return copy;
+    }
+
+    IWorld ICloneableWorld.Clone() => Clone();
 }
 
 /// <summary>
@@ -131,6 +141,14 @@ public sealed class EffectMemory
         kv => new EffectEntrySnapshot(kv.Value.Tried, kv.Value.Landed, kv.Value.Failed, kv.Value.Lied, kv.Value.Gains.Order(StringComparer.Ordinal).ToList(), kv.Value.RequiresGuess?.Order(StringComparer.Ordinal).ToList()),
         StringComparer.Ordinal));
 
+    /// <summary>An independent copy of the map, for a world a habitat isolates: what is learned there stays there.</summary>
+    public EffectMemory Copy()
+    {
+        var copy = new EffectMemory();
+        copy.Restore(Snapshot());
+        return copy;
+    }
+
     /// <summary>Replace the map with a snapshot's, in place (the learned world and the extensions hold the instance).</summary>
     public void Restore(EffectMemorySnapshot snapshot)
     {
@@ -156,7 +174,7 @@ public sealed record EffectEntrySnapshot(int Tried, int Landed, int Failed, int 
 /// learned preconditions and effects, so the architecture's planner, quarantine and stage interlock work
 /// unchanged over the organism's own map instead of the office's.
 /// </summary>
-public sealed class LearnedWorld : IWorld
+public sealed class LearnedWorld : IWorld, ICloneableWorld
 {
     private readonly OpaqueWorld _opaque;
     private readonly EffectMemory _memory;
@@ -192,4 +210,9 @@ public sealed class LearnedWorld : IWorld
         _memory.Observe(toolId, before, outcome, outcome.Granted);
         return outcome;
     }
+
+    /// <summary>A copy over a copy of the opaque world and a copy of the map: acting on it teaches the copy, never the organism.</summary>
+    public LearnedWorld Clone() => new(_opaque.Clone(), _memory.Copy());
+
+    IWorld ICloneableWorld.Clone() => Clone();
 }
