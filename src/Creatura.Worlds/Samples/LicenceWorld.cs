@@ -6,7 +6,7 @@ namespace Creatura.Worlds.Samples;
 /// starts each case from nothing refuses the release every time. Only a record that outlives the case can
 /// earn it.
 /// </summary>
-public sealed class LicenceWorld : IWorld
+public sealed class LicenceWorld : CatalogueWorld
 {
     private static readonly IReadOnlyList<Tool> Catalog =
     [
@@ -16,32 +16,11 @@ public sealed class LicenceWorld : IWorld
         new("notify", ["licence.issued"], ["citizen.notified"], "contact"),
     ];
 
-    private readonly HashSet<string> _facts = new(StringComparer.Ordinal) { "request.filed" };
-
-    public IReadOnlySet<string> Facts => _facts;
-
-    public IReadOnlyList<Tool> AvailableTools => Catalog;
-
-    public IReadOnlyList<Tool> AllTools => Catalog;
-
-    public int Ticks { get; private set; }
-
-    public bool Has(string fact) => _facts.Contains(fact);
-
-    public Tool? Tool(string id) => Catalog.FirstOrDefault(t => t.Id == id);
-
-    public bool EffectsLanded(Tool tool) => tool.Grants.All(_facts.Contains);
-
-    public ActionOutcome Act(string toolId, string? payload = null)
+    public LicenceWorld() : base(Catalog, ["request.filed"])
     {
-        Ticks++;
-        var tool = Tool(toolId);
-        if (tool is null) return new ActionOutcome(toolId, false, [], "unknown tool");
-        var missing = tool.Requires.Where(r => !_facts.Contains(r)).ToList();
-        if (missing.Count > 0) return new ActionOutcome(toolId, false, [], $"preconditions unmet: {string.Join(", ", missing)}");
-        _facts.UnionWith(tool.Grants);
-        return new ActionOutcome(toolId, true, tool.Grants, $"obs.{toolId}");
     }
+
+    protected override string? Observation(Tool tool) => $"obs.{tool.Id}";
 
     public static bool Contract(IReadOnlySet<string> facts) => facts.Contains("licence.issued") && facts.Contains("citizen.notified");
 
