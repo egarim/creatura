@@ -28,7 +28,12 @@ src/Creatura.Worlds/          the bench's worlds: sample worlds, manifests, barr
                               extension catalogs, the ingenuity series; no packages, no file IO (namespace Creatura.Worlds)
 src/Creatura.Bench/           the bench's protocols: oracle and outcome class, hypotheses, batteries, arms and rows,
                               the trainer and the exam over the record store, the legacy CSV writers, the fine-tune
-                              seam; the one project that may do file IO (namespace Creatura.Bench)
+                              seam; may do file IO (namespace Creatura.Bench)
+src/Creatura.Seats/           the model seats: IModelTransport (Ollama, OpenAI-compatible, Azure Foundry) over an
+                              injected HttpClient, ModelClient, ModelPolicy, ModelJudge, ModelCatalog from models.json,
+                              the seat's biology, SeatResolver, the call log and the scoreboard; no packages; may do
+                              file IO (namespace Creatura.Seats)
+samples/models.json           the compiled model catalog written out, to copy beside an executable and edit
 tests/Creatura.Tests/         xunit; the tests that need nothing but the Core and its toy domain, plus the golden traces
 ```
 
@@ -195,6 +200,39 @@ Console.WriteLine(exam.Report.ToMarkdown());
 `AppendOnlyCsv` only ever appends and sends a changed header to a new file name. `ExampleRecorder` is the fine-tune seam: one
 example per judged action (the rendered context, the suggestion, the registry's verdict) and the outcome class at sleep,
 into an `IExampleSink`; nothing consumes it yet.
+
+## The seats
+
+`Creatura.Seats` is where a model takes the decision seat or the critic's judge seat, with no package behind it:
+`IModelTransport` is one request shape in and one reply out, implemented three times over an injected `HttpClient`
+(`OllamaTransport` for `/api/chat`, `OpenAiCompatibleTransport` for `/chat/completions`, which DeepSeek, Azure OpenAI v1
+and Ollama's own `/v1` all speak, `AzureFoundryTransport` for `/models/chat/completions`). `ModelClient` picks the
+transport by the endpoint's `Provider`, reads the key by the environment-variable name the endpoint carries, and retries
+once on a dropped connection, a 401, a 408, a 429 or a 5xx; nothing that looks like a key reaches an error text or a log
+line (`Secrets.Scrub`).
+
+`ModelPolicy` is the one prompt layout and the one `{tool, why, content}` answer shape, by function calling or by one
+JSON object; only a visible tool id or no action is an answer, and a hidden tool named is refused, never obeyed. Every
+call leaves a `CallRecord` on the run's `CallLog` (the prompt verbatim, never a key) and moves the seat's
+`SeatTelemetry`, which `Scoreboard.RowFor` turns into a `Row` that keeps the log's path and never a prompt.
+`ModelJudge` seats a model in the critic's compare step with the closed answer set, four arms (weights, spec, memory,
+memory-spec) and a cache (`IJudgeCache`).
+
+`ModelCatalog` is the seats by name: an optional `models.json` beside the executable, else the compiled table
+([samples/models.json](samples/models.json) is that table written out; the schema is on `CatalogRow`). Rows whose
+base URL is somebody's own name an environment variable for it and are skipped, with a message, when it is unset.
+`SeatResolver` is what `BenchOptions.Seats` takes: `bfs`, `scripted:<path>` or `model:<name>` to an `IPolicy`;
+`SeatFactory` is the one place a program builds a seat by name. `BiologyExtension` tells a design what it runs on
+(the endpoint's sheet plus what the scoreboards measured) and asks it back at sleep.
+
+```csharp
+using Creatura.Seats;
+
+var seat = SeatFactory.Model("deepseek-chat", log: new CallLog("runs/calls.jsonl"));   // the key is read at the first call, by name
+var run  = await AgentCatalog.Make("bach", seat, WorldCatalog.Permit.Task).RunAsync(WorldCatalog.Permit.Create(WorldCatalog.Permit.Set("all")));
+var row  = Scoreboard.RowFor(DateTimeOffset.UtcNow, seat, "seat", "demo-worlds", "permit", "bach", 1,
+               RegistryOracle.For(WorldCatalog.Permit).Classify(run, world), run.Ticks, Measures.LiesCaught(run), false, "barriers=all");
+```
 
 ## Anatomy
 
