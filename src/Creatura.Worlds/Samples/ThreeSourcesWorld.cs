@@ -6,7 +6,7 @@ namespace Creatura.Worlds.Samples;
 /// needs the case opened first). The goal needs the fact verified and a letter sent. Built for the
 /// contradiction-load test: a coherent agent ends with `address.verified` and never `address.stale`.
 /// </summary>
-public sealed class ThreeSourcesWorld : IWorld
+public sealed class ThreeSourcesWorld : CatalogueWorld
 {
     private static readonly IReadOnlyList<Tool> Catalog =
     [
@@ -18,46 +18,26 @@ public sealed class ThreeSourcesWorld : IWorld
         new("mark-done", [], ["done"], "release"),
     ];
 
-    private readonly HashSet<string> _facts = new(StringComparer.Ordinal) { "request.filed" };
-    private bool _portalLied;
+    /// <summary>The two sources that lie: the directory always (an old address, and it sows the stale fact), the portal once (a timeout).</summary>
+    private static readonly IReadOnlyList<FaultRule> Faults =
+    [
+        FaultRule.LieAlways("stale-directory", "obs.directory-2019", "address.stale"),
+        FaultRule.LieOnce("flaky-portal", "obs.portal-timeout"),
+    ];
+
+    public ThreeSourcesWorld() : base(Catalog, ["request.filed"], Faults)
+    {
+    }
 
     /// <summary>Which source first put the verification in the registry.</summary>
     public string? VerifiedBy { get; private set; }
 
-    public IReadOnlySet<string> Facts => _facts;
+    protected override string? Observation(Tool tool) => $"obs.{tool.Id}";
 
-    public IReadOnlyList<Tool> AvailableTools => Catalog;
-
-    public IReadOnlyList<Tool> AllTools => Catalog;
-
-    public int Ticks { get; private set; }
-
-    public bool Has(string fact) => _facts.Contains(fact);
-
-    public Tool? Tool(string id) => Catalog.FirstOrDefault(t => t.Id == id);
-
-    public bool EffectsLanded(Tool tool) => tool.Grants.All(_facts.Contains);
-
-    public ActionOutcome Act(string toolId, string? payload = null)
+    protected override ActionOutcome Land(Tool tool, string? observation)
     {
-        Ticks++;
-        var tool = Tool(toolId);
-        if (tool is null) return new ActionOutcome(toolId, false, [], "unknown tool");
-        var missing = tool.Requires.Where(r => !_facts.Contains(r)).ToList();
-        if (missing.Count > 0) return new ActionOutcome(toolId, false, [], $"preconditions unmet: {string.Join(", ", missing)}");
-        switch (toolId)
-        {
-            case "stale-directory":
-                _facts.Add("address.stale");
-                return new ActionOutcome(toolId, true, [], "obs.directory-2019"); // always lies: an old address
-            case "flaky-portal":
-                if (!_portalLied) { _portalLied = true; return new ActionOutcome(toolId, true, [], "obs.portal-timeout"); }
-                break;
-        }
-
-        if (tool.Grants.Contains("address.verified") && VerifiedBy is null) VerifiedBy = toolId;
-        _facts.UnionWith(tool.Grants);
-        return new ActionOutcome(toolId, true, tool.Grants, $"obs.{toolId}");
+        if (tool.Grants.Contains("address.verified") && VerifiedBy is null) VerifiedBy = tool.Id;
+        return base.Land(tool, observation);
     }
 
     public static bool Contract(IReadOnlySet<string> facts) => facts.Contains("address.verified") && facts.Contains("letter.sent");
