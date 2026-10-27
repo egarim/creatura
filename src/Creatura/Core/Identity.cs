@@ -34,6 +34,9 @@ public sealed record Identity(string Role, string Principal)
     /// <summary>The map-keeper: it keeps no self-model of its own (its memory is the territory map), so this only names it to the layer's ledger.</summary>
     public static readonly Identity MapKeeper = new("map-keeper", "joche");
 
+    /// <summary>The orienting agent: it keeps no self-model (its memory is the trace and the weights), so this only names it to the layer's ledger.</summary>
+    public static readonly Identity Orienting = new("orienting agent", "joche");
+
     /// <summary>The Agent Framework host's operator. Its one commitment is the task's name, added at run time.</summary>
     public static readonly Identity Controlled = new("controlled operator", "joche");
 

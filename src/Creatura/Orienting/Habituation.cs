@@ -65,6 +65,14 @@ public sealed class HabituationByMatch
     public int Matches(string action, string situation) =>
         _entries.TryGetValue((action, situation), out var e) ? e.Matches : 0;
 
+    /// <summary>The trace table, for the sleep's account: every action and situation met, the outcome last seen there and the matches.</summary>
+    public IEnumerable<(string Action, string Situation, OutcomeSignature? Last, int Matches)> Entries =>
+        _entries.OrderBy(kv => kv.Key.Action, StringComparer.Ordinal).ThenBy(kv => kv.Key.Situation, StringComparer.Ordinal)
+            .Select(kv => (kv.Key.Action, kv.Key.Situation, kv.Value.Last, kv.Value.Matches));
+
+    /// <summary>The actions habituated in at least one situation.</summary>
+    public IEnumerable<string> Habituated => _entries.Where(kv => kv.Value.Matches >= Threshold).Select(kv => kv.Key.Action).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
+
     /// <summary>The situation key: the facts an action's known preconditions read, or every fact when none are known.</summary>
     public static string Situation(IReadOnlySet<string> facts, IReadOnlyList<string>? reads = null)
     {

@@ -16,4 +16,10 @@ public sealed record AgentTask(
     /// <summary>The tool kind gated by the stage interlock (release vs release of a code fix).</summary>
     public string ReleaseKind { get; init; } = "release";
 
+    /// <summary>
+    /// What this world's facts mean to an agent that judges outcomes against what it wants (the orienting regulator):
+    /// which facts are goals, which are steps toward them, which signal trouble. World data, carried by the task until
+    /// the world manifest exists; null for a table inferred from the tool catalogue (<see cref="Orienting.ValenceTable.Infer"/>).
+    /// </summary>
+    public Orienting.ValenceTable? Valence { get; init; }
 }

@@ -10,7 +10,7 @@ This repository is the framework's home. The code is being extracted step by ste
 repository [egarim/biological-agents](https://github.com/egarim/biological-agents), following its
 [design-framework.md](https://github.com/egarim/biological-agents/blob/main/design-framework.md), with
 golden traces as the gate for every step. The Core arrived here after migration step 5 (the control layer,
-the reference loop, the first two regulators); steps 6 and 7 added the hybrid and map-keeper regulators, the
+the reference loop, the first two regulators); steps 6 to 8 added the hybrid, map-keeper and orienting regulators, the
 join laws and the distrust policies; the remaining steps continue over there, on the branch `creatura-core`, against this checkout.
 
 ## Layout
@@ -20,9 +20,10 @@ Creatura.slnx
 src/Creatura/                 the framework Core: no package references, no project references
   Core/                       the loop, the control layer, worlds, tasks, trace, identity (namespace Creatura)
   Core/Regulators/            SelfModelRegulator, ColonyRegulator, HybridRegulator, MapKeeperRegulator (+ Story,
-                              TerritoryMap, Posture); Regulators.Join (namespace Creatura)
+                              TerritoryMap, Posture), OrientingRegulator; Regulators.Join (namespace Creatura)
   Hotz/                       the critic: claims, routes, the interrupt budget (namespace Creatura.Hotz)
-  Orienting/                  habituation by match, valence, affect (namespace Creatura.Orienting)
+  Orienting/                  habituation by match, valence, affect, the behaviourist control, the Sokolov
+                              hypotheses as rows (namespace Creatura.Orienting)
 tests/Creatura.Tests/         xunit; the tests that need nothing but the Core and its toy domain
 ```
 

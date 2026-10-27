@@ -23,6 +23,9 @@ public enum HandOffReason
 
     /// <summary>The root story fell ("root collapsed", with the map-keeper's own detail).</summary>
     RootCollapsed,
+
+    /// <summary>A punishment profound against the goal: the orienting agent proposed a revaluation of its ends ("revaluation proposed").</summary>
+    Revaluation,
 }
 
 /// <summary>
@@ -42,6 +45,8 @@ public sealed record HandOff(HandOffReason Reason, string Text)
     public static readonly HandOff RepeatedEffectFailure = new(HandOffReason.RepeatedEffectFailure, "repeated effect failure");
 
     public static readonly HandOff Incoherent = new(HandOffReason.Incoherent, "incoherent");
+
+    public static readonly HandOff Revaluation = new(HandOffReason.Revaluation, "revaluation proposed");
 
     /// <summary>The map-keeper's root fell: "root collapsed", or "root collapsed: {why}".</summary>
     public static HandOff RootCollapsed(string? why = null) =>

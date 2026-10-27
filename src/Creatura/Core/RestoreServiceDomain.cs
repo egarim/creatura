@@ -35,14 +35,27 @@ public static class RestoreServiceDomain
 
     public static bool Goal(IReadOnlySet<string> facts) => facts.Contains("alert.resolved");
 
-    /// <summary>The toy domain packaged as a task, so the agents take it as data.</summary>
+    /// <summary>The toy domain packaged as a task, so the agents take it as data. Its valence table: one goal, every other fact a step toward it, nothing that signals trouble.</summary>
     public static AgentTask Task { get; } = new(
         "restore the service",
         GoalText,
         Goal,
         Progress,
         ContractProgress,
-        Habit);
+        Habit)
+    {
+        Valence = new Orienting.ValenceTable(
+            new HashSet<string>(StringComparer.Ordinal) { "alert.resolved" },
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["logs.inspected"] = "alert.resolved",
+                ["component.identified"] = "alert.resolved",
+                ["patch.applied"] = "alert.resolved",
+                ["tests.green"] = "alert.resolved",
+                ["deployed"] = "alert.resolved",
+            },
+            new HashSet<string>(StringComparer.Ordinal)),
+    };
 
     public static double ContractProgress(IWorldView world) => world.Has("alert.resolved") ? 1.0 : 0.0;
 

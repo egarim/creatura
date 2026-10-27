@@ -52,6 +52,19 @@ public sealed class ValenceWeights
         return new ToolWeight(1.0 + (p - 1.0) * Generalisation, 1.0 + (th - 1.0) * Generalisation, 0);
     }
 
+    /// <summary>A lie that repeats on approach: the tool's threat on this goal goes to its ceiling and its promise to the floor (design-sokolov.md, §4).</summary>
+    public ToolWeight Ceiling(string tool, string goal)
+    {
+        var w = _weights.TryGetValue((tool, goal), out var own) ? own : Get(tool, goal);
+        var next = new ToolWeight(0.0, 1.0, w.Seen + 1);
+        _weights[(tool, goal)] = next;
+        return next;
+    }
+
+    /// <summary>Every weight learned so far, for the sleep's account.</summary>
+    public IEnumerable<(string Tool, string Goal, ToolWeight Weight)> Learned =>
+        _weights.OrderBy(kv => kv.Key.Tool, StringComparer.Ordinal).ThenBy(kv => kv.Key.Goal, StringComparer.Ordinal).Select(kv => (kv.Key.Tool, kv.Key.Goal, kv.Value));
+
     /// <summary>Move a tool's weights on a goal toward what this outcome was.</summary>
     public ToolWeight Learn(string tool, string goal, ValenceReading reading)
     {

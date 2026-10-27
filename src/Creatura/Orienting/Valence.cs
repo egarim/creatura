@@ -36,6 +36,50 @@ public sealed record ValenceTable(
     IReadOnlySet<string> Trouble)
 {
     public static ValenceTable Empty { get; } = new(new HashSet<string>(), new Dictionary<string, string>(), new HashSet<string>());
+
+    /// <summary>
+    /// A table read off the tool catalogue, for a task that states none: a goal is a fact some tool grants and no tool
+    /// requires (a terminal fact); a step is a fact granted by a tool from which a goal can be reached through the
+    /// catalogue, toward the first goal found; trouble is a fact some tool requires, no tool grants and the world did
+    /// not start with (the signal facts a failure leaves behind). A task that names its goal predicate has every goal
+    /// fact in it; the inference cannot read the predicate, so a world whose goal is not a terminal fact should state
+    /// its table.
+    /// </summary>
+    public static ValenceTable Infer(IEnumerable<Tool> tools, IReadOnlySet<string> initial)
+    {
+        var list = tools.ToList();
+        var granted = list.SelectMany(t => t.Grants).ToHashSet(StringComparer.Ordinal);
+        var required = list.SelectMany(t => t.Requires).ToHashSet(StringComparer.Ordinal);
+        var goals = granted.Where(f => !required.Contains(f)).ToHashSet(StringComparer.Ordinal);
+        var trouble = required.Where(f => !granted.Contains(f) && !initial.Contains(f)).ToHashSet(StringComparer.Ordinal);
+
+        var steps = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var fact in granted.Where(f => !goals.Contains(f)).Order(StringComparer.Ordinal))
+        {
+            // Forward through the catalogue: the tools this fact enables, what they grant, until a goal.
+            var seen = new HashSet<string>(StringComparer.Ordinal) { fact };
+            var frontier = new Queue<string>([fact]);
+            string? goal = null;
+            while (frontier.Count > 0 && goal is null)
+            {
+                var f = frontier.Dequeue();
+                foreach (var next in list.Where(t => t.Requires.Contains(f)).SelectMany(t => t.Grants).Order(StringComparer.Ordinal))
+                {
+                    if (goals.Contains(next))
+                    {
+                        goal = next;
+                        break;
+                    }
+
+                    if (seen.Add(next)) frontier.Enqueue(next);
+                }
+            }
+
+            if (goal is not null) steps[fact] = goal;
+        }
+
+        return new ValenceTable(goals, steps, trouble);
+    }
 }
 
 /// <summary>One outcome, classified. <see cref="Drives"/> names the goals each kind applies to.</summary>
