@@ -1,0 +1,15 @@
+{"agent":"Controlled (AF)","goalReached":true,"ticks":8}
+{"tick":0,"level":"organism","setPoint":"contract","stress":1,"freedom":0.65,"action":"round","kind":"Idle","detail":"round 1: budget 3, stage 3"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"inspect-logs","kind":"Acted","detail":"effect verified (100% recent)"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"identify-component","kind":"Acted","detail":"effect verified (100% recent)"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":1,"freedom":0.65,"action":"apply-patch","kind":"Blocked","detail":"reported 'reported success' but effect missing — distrusted"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"apply-config","kind":"Acted","detail":"effect verified (75% recent)"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"run-tests","kind":"Acted","detail":"effect verified (80% recent)"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"deploy","kind":"Acted","detail":"effect verified (83% recent)"}
+{"tick":7,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"resolve-alert","kind":"Acted","detail":"effect verified (86% recent)"}
+{"tick":8,"level":"organism","setPoint":"contract","stress":0,"freedom":0.65,"action":"contract met","kind":"Acted","detail":"restore the service complete"}
+{"tick":8,"level":"organism","setPoint":"consolidation","stress":0,"freedom":0.65,"action":"sleep","kind":"Consolidated","detail":"coherence 86%, predictions 86% over 7, stage 4"}
+{"note":"policy bfs; framework Microsoft.Agents.AI"}
+{"note":"apply-patch: claimed 'reported success', effect missing — distrusted for 3 ticks"}
+{"note":"stage advance: 4 (rational agency) after 80% recent prediction accuracy"}
+{"note":"coherence 86%; reliabilities: apply-config 100%, apply-patch 0%, deploy 100%, identify-component 100%, inspect-logs 100%, resolve-alert 100%, run-tests 100%"}

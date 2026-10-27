@@ -33,9 +33,19 @@ with `+` and a `:` in an extension name is written `_` (`explore:scaled` → `ex
 
 Ticks: 30 everywhere, as the offline tests use, except `*.opaque` (120, the battery's series length).
 
-Not here: the four `restore-*-controlled` goldens (the Agent Framework host, offline). The host needs a package
-the Core never references, so those four stay in the research repository under `csharp/tests/golden/` with
-their own theory.
+Not here: the four `restore-*-controlled` goldens (`ControlledAgent`, the Agent Framework host, run offline with
+the planner behind `PlannerChatClient` over the toy suite: `restore-{clean,patchrevoked,patchlies,deployrevoked}-controlled`).
+They live in [`tests/Creatura.Hosts.AgentFramework.Tests/golden/`](../../Creatura.Hosts.AgentFramework.Tests/golden/),
+compared by that project's `ControlledGoldenTests`, because rebuilding them needs `Microsoft.Agents.AI`, a package
+`Creatura.Tests` must never reference (`CorePurityTest`). They stayed in the research repository until migration
+step 16 and moved with the host byte for byte. Same format, same rule, same switch; the file names are the scenario
+names, so re-record one with
+
+```bash
+CREATURA_RECORD_GOLDENS=restore-patchlies-controlled dotnet test tests/Creatura.Hosts.AgentFramework.Tests --filter "FullyQualifiedName~ControlledGoldenTests"
+```
+
+(`all` re-records both sets.)
 
 Format (`AgentRun.WriteJsonl` / `ReadJsonl` in `Core/Trace.cs`, System.Text.Json only): line 1 is the header
 (`agent`, `goalReached`, `ticks`), then one line per `TraceEvent` in order, then one line per note in order.

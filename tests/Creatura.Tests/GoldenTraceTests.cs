@@ -117,8 +117,9 @@ public class GoldenTraceTests
 /// Ticks: 30 everywhere, as the offline tests use, except the opaque learned world (120, the battery's series
 /// length, since exploring a world without the map takes longer).
 ///
-/// The four <c>restore-*-controlled</c> goldens (the Agent Framework host, offline) stay in the research
-/// repository: the host needs a package the Core never references.
+/// The four <c>restore-*-controlled</c> goldens (the Agent Framework host, offline) live in
+/// tests/Creatura.Hosts.AgentFramework.Tests/golden with their own theory, since migration step 16: rebuilding them
+/// needs a package this project never references.
 /// </summary>
 internal static class GoldenScenarios
 {

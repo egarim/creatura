@@ -1,0 +1,8 @@
+{"agent":"Controlled (AF)","goalReached":false,"ticks":1}
+{"tick":0,"level":"organism","setPoint":"contract","stress":1,"freedom":0.65,"action":"round","kind":"Idle","detail":"round 1: budget 3, stage 3"}
+{"tick":1,"level":"model","setPoint":"reply","stress":1,"freedom":0.65,"action":"reply","kind":"Idle","detail":"NO PATH: no offered tool can make progress toward the goal."}
+{"tick":1,"level":"organism","setPoint":"contract","stress":1,"freedom":0.65,"action":"no path","kind":"Escalated","detail":"no route with the available tools"}
+{"tick":1,"level":"organism","setPoint":"consolidation","stress":0,"freedom":0.65,"action":"sleep","kind":"Consolidated","detail":"coherence 100%, predictions 0% over 0, stage 3"}
+{"note":"policy bfs; framework Microsoft.Agents.AI"}
+{"note":"escalated: no path with the available tools; the goal is unregulatable"}
+{"note":"coherence 100%; reliabilities: none"}
