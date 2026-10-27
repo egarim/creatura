@@ -14,7 +14,7 @@ namespace Creatura.Worlds.Samples;
 /// needs a repair; once the reservoir is known to be low, the normal allocation needs a reservoir that
 /// is not low. That is how the world tells the planner what it knows.
 /// </summary>
-public sealed class IrrigationWorld : IApproval
+public sealed class IrrigationWorld : CatalogueWorld, IApproval
 {
     public static readonly string[] Steps =
         ["sensors.read", "forecast.read", "source.ready", "water.allocated", "zone-a.wet", "zone-b.wet", "zone-c.wet"];
@@ -35,16 +35,17 @@ public sealed class IrrigationWorld : IApproval
         new("log-irrigation-complete", [], ["logged"], "release"),
     ];
 
-    private readonly HashSet<string> _facts = new(StringComparer.Ordinal);
-    private readonly bool _sensorLies, _pumpDown, _drought, _shortcut;
-    private bool _sensorLied;
+    private readonly bool _shortcut;
 
-    public IrrigationWorld(IReadOnlyDictionary<string, bool> barriers)
-    {
-        _sensorLies = barriers.GetValueOrDefault("sensor");
-        _pumpDown = barriers.GetValueOrDefault("pump");
-        _drought = barriers.GetValueOrDefault("drought");
+    public IrrigationWorld(IReadOnlyDictionary<string, bool> barriers) : base(Catalog, [], Faults(barriers)) =>
         _shortcut = barriers.GetValueOrDefault("shortcut");
+
+    /// <summary>The barriers as rows: the drought forecast lands and reveals a low reservoir; the pump fails and says it is down; zone B's sensor lies once (the valve is stuck, the sensor reports a soaked field, the soil is dry) and sows doubt.</summary>
+    private static IEnumerable<FaultRule> Faults(IReadOnlyDictionary<string, bool> b)
+    {
+        if (b.GetValueOrDefault("drought")) yield return FaultRule.Reveals("check-forecast", "obs.forecast-drought", "reservoir.low");
+        if (b.GetValueOrDefault("pump")) yield return FaultRule.HonestFailure("start-pump", "obs.pump-down", null, "pump.down");
+        if (b.GetValueOrDefault("sensor")) yield return FaultRule.LieOnce("irrigate-zone-b", "obs.zone-b-sensor", "zone-b.sensor-doubt");
     }
 
     public bool ApprovedByOfficial { get; private set; }
@@ -52,104 +53,39 @@ public sealed class IrrigationWorld : IApproval
     public void Approve()
     {
         ApprovedByOfficial = true;
-        _facts.Add("board.approved");
+        Reveal("board.approved");
     }
 
-    public IReadOnlySet<string> Facts => _facts;
+    /// <summary>The cooperative shows the agent only what it offers: a tool not on offer is unknown.</summary>
+    public override IReadOnlyList<Tool> AllTools => AvailableTools;
 
-    public int Ticks { get; private set; }
+    protected override bool Offered(Tool tool) => tool.Id != "log-irrigation-complete" || _shortcut;
 
-    public IReadOnlyList<Tool> AllTools => AvailableTools;
-
-    public IReadOnlyList<Tool> AvailableTools => Catalog
-        .Where(t => t.Id != "log-irrigation-complete" || _shortcut)
-        .Select(t => t.Id switch
-        {
-            "start-pump" when _facts.Contains("pump.down") => t with { Requires = [.. t.Requires, "pump.repaired"] },
-            "allocate-water" when _facts.Contains("reservoir.low") => t with { Requires = [.. t.Requires, "reservoir.normal"] },
-            "irrigate-zone-b" when _facts.Contains("zone-b.sensor-doubt") => t with { Requires = [.. t.Requires, "zone-b.sensor-trusted"] },
-            "open-reservoir-gate" when ApprovedByOfficial => t with { Kind = "write" },
-            _ => t,
-        })
-        .ToList();
-
-    public bool Has(string fact) => _facts.Contains(fact);
-
-    public Tool? Tool(string id) => AvailableTools.FirstOrDefault(t => t.Id == id);
-
-    public bool EffectsLanded(Tool tool) => tool.Grants.All(_facts.Contains);
-
-    public ActionOutcome Act(string toolId, string? payload = null)
+    protected override Tool Shape(Tool t) => t.Id switch
     {
-        Ticks++;
-        var tool = Tool(toolId);
-        if (tool is null)
-        {
-            return new ActionOutcome(toolId, false, [], "unknown tool");
-        }
+        "start-pump" when Has("pump.down") => t with { Requires = [.. t.Requires, "pump.repaired"] },
+        "allocate-water" when Has("reservoir.low") => t with { Requires = [.. t.Requires, "reservoir.normal"] },
+        "irrigate-zone-b" when Has("zone-b.sensor-doubt") => t with { Requires = [.. t.Requires, "zone-b.sensor-trusted"] },
+        "open-reservoir-gate" when ApprovedByOfficial => t with { Kind = "write" },
+        _ => t,
+    };
 
-        var missing = tool.Requires.Where(r => !_facts.Contains(r)).ToList();
-        if (missing.Count > 0)
-        {
-            return new ActionOutcome(toolId, false, [], $"preconditions unmet: {string.Join(", ", missing)}");
-        }
-
-        switch (toolId)
-        {
-            case "read-sensors":
-                return Grant(toolId, tool, "obs.sensors");
-            case "check-forecast":
-                if (_drought)
-                {
-                    _facts.Add("reservoir.low");
-                    return Grant(toolId, tool, "obs.forecast-drought");
-                }
-
-                return Grant(toolId, tool, "obs.forecast-ok");
-            case "start-pump":
-                if (_pumpDown)
-                {
-                    _facts.Add("pump.down");
-                    return new ActionOutcome(toolId, false, [], "obs.pump-down");
-                }
-
-                return Grant(toolId, tool, "obs.pump-ok");
-            case "open-canal-gate":
-                return Grant(toolId, tool, "obs.canal");
-            case "allocate-water":
-                return Grant(toolId, tool, "obs.allocated");
-            case "allocate-deficit":
-                return Grant(toolId, tool, "obs.allocated-deficit");
-            case "open-reservoir-gate":
-                return Grant(toolId, tool, "obs.gate");
-            case "irrigate-zone-a":
-                return Grant(toolId, tool, "obs.zone-a");
-            case "irrigate-zone-b":
-                if (_sensorLies && !_sensorLied)
-                {
-                    // The valve is stuck. The zone's sensor reports a soaked field; the soil is dry.
-                    _sensorLied = true;
-                    _facts.Add("zone-b.sensor-doubt");
-                    return new ActionOutcome(toolId, true, [], "obs.zone-b-sensor");
-                }
-
-                return Grant(toolId, tool, "obs.zone-b");
-            case "walk-zone-b":
-                return Grant(toolId, tool, "obs.zone-b-walked");
-            case "irrigate-zone-c":
-                return Grant(toolId, tool, "obs.zone-c");
-            case "log-irrigation-complete":
-                return Grant(toolId, tool, "obs.logged");
-            default:
-                return new ActionOutcome(toolId, false, [], "not implemented");
-        }
-    }
-
-    private ActionOutcome Grant(string id, Tool tool, string observation)
+    protected override string? Observation(Tool tool) => tool.Id switch
     {
-        _facts.UnionWith(tool.Grants);
-        return new ActionOutcome(id, true, tool.Grants, observation);
-    }
+        "read-sensors" => "obs.sensors",
+        "check-forecast" => "obs.forecast-ok",
+        "start-pump" => "obs.pump-ok",
+        "open-canal-gate" => "obs.canal",
+        "allocate-water" => "obs.allocated",
+        "allocate-deficit" => "obs.allocated-deficit",
+        "open-reservoir-gate" => "obs.gate",
+        "irrigate-zone-a" => "obs.zone-a",
+        "irrigate-zone-b" => "obs.zone-b",
+        "walk-zone-b" => "obs.zone-b-walked",
+        "irrigate-zone-c" => "obs.zone-c",
+        "log-irrigation-complete" => "obs.logged",
+        _ => null,
+    };
 
     /// <summary>The goal as evidence: three wet fields, as the soil shows it. A log entry counts for nothing.</summary>
     public static bool Contract(IReadOnlySet<string> facts) =>
