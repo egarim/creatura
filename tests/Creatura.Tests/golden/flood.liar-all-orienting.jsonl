@@ -1,0 +1,35 @@
+{"agent":"orienting agent","goalReached":true,"ticks":17}
+{"tick":1,"level":"tissue","setPoint":"affect","stress":0.2,"freedom":0.2,"action":"fuel-boat","kind":"Acted","detail":"plan: fuel-boat → ferry → confirm-with-clinic"}
+{"tick":1,"level":"cell","setPoint":"valence","stress":1,"freedom":0.2,"action":"fuel-boat","kind":"Blocked","detail":"reported 'reported success', nothing landed: punishment (weight 0.75); threat now 0.88; orienting, then approach once"}
+{"tick":2,"level":"tissue","setPoint":"affect","stress":0.62,"freedom":0.25999999999999995,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 10 actions; A 0.26 I 0.62; fuel-boat to be approached once"}
+{"tick":3,"level":"tissue","setPoint":"affect","stress":0.515,"freedom":0.24499999999999997,"action":"fuel-boat","kind":"Acted","detail":"approach under the brake: fuel-boat promised and did not deliver; run it once more, on purpose, to see what it does"}
+{"tick":3,"level":"cell","setPoint":"valence","stress":0,"freedom":0.24499999999999997,"action":"fuel-boat","kind":"Acted","detail":"approached: effect landed on the retry, promise, relief; resting inhibition 0.17"}
+{"tick":4,"level":"tissue","setPoint":"affect","stress":0.5549999999999999,"freedom":0.44500000000000006,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 10 actions; A 0.77 I 0.55"}
+{"tick":5,"level":"tissue","setPoint":"affect","stress":0.45875,"freedom":0.54125,"action":"ferry","kind":"Acted","detail":"plan: ferry → confirm-with-clinic"}
+{"tick":5,"level":"cell","setPoint":"valence","stress":1,"freedom":0.54125,"action":"ferry","kind":"Blocked","detail":"reported 'reported success', nothing landed: punishment (weight 0.75); threat now 0.88; orienting, then approach once"}
+{"tick":6,"level":"tissue","setPoint":"affect","stress":0.87875,"freedom":0.2,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 10 actions; A 0.68 I 0.88; ferry to be approached once"}
+{"tick":7,"level":"tissue","setPoint":"affect","stress":0.7015625000000001,"freedom":0.2984374999999999,"action":"ferry","kind":"Acted","detail":"approach under the brake: ferry promised and did not deliver; run it once more, on purpose, to see what it does"}
+{"tick":7,"level":"cell","setPoint":"valence","stress":1,"freedom":0.2984374999999999,"action":"ferry","kind":"Blocked","detail":"approached and lied again: threat 1.00, unknown territory; orienting"}
+{"tick":8,"level":"tissue","setPoint":"affect","stress":1,"freedom":0.2,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 9 actions; A 0.62 I 1.00"}
+{"tick":9,"level":"tissue","setPoint":"affect","stress":0.7925,"freedom":0.20750000000000002,"action":"clear-road","kind":"Acted","detail":"plan: clear-road → load-truck → drive-truck → confirm-with-clinic"}
+{"tick":9,"level":"cell","setPoint":"valence","stress":1,"freedom":0.20750000000000002,"action":"clear-road","kind":"Blocked","detail":"reported 'reported success', nothing landed: punishment (weight 0.75); threat now 0.88; orienting, then approach once"}
+{"tick":10,"level":"tissue","setPoint":"affect","stress":1,"freedom":0.2,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 9 actions; A 0.58 I 1.00; clear-road to be approached once"}
+{"tick":11,"level":"tissue","setPoint":"affect","stress":0.7925,"freedom":0.20750000000000002,"action":"clear-road","kind":"Acted","detail":"approach under the brake: clear-road promised and did not deliver; run it once more, on purpose, to see what it does"}
+{"tick":11,"level":"cell","setPoint":"valence","stress":0,"freedom":0.20750000000000002,"action":"clear-road","kind":"Acted","detail":"approached: effect landed on the retry, promise, relief; resting inhibition 0.14"}
+{"tick":12,"level":"tissue","setPoint":"affect","stress":0.8325,"freedom":0.2,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 9 actions; A 1.00 I 0.83"}
+{"tick":13,"level":"tissue","setPoint":"affect","stress":0.659375,"freedom":0.34062499999999996,"action":"ferry","kind":"Acted","detail":"plan: ferry → confirm-with-clinic"}
+{"tick":13,"level":"cell","setPoint":"valence","stress":0,"freedom":0.34062499999999996,"action":"ferry","kind":"Acted","detail":"satisfaction, promise, relief (changed: orienting); A 1.00 I 0.64"}
+{"tick":14,"level":"tissue","setPoint":"affect","stress":0.639375,"freedom":0.360625,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 10 actions; A 1.00 I 0.64"}
+{"tick":15,"level":"tissue","setPoint":"affect","stress":0.50703125,"freedom":0.49296874999999996,"action":"confirm-with-clinic","kind":"Acted","detail":"last step"}
+{"tick":15,"level":"cell","setPoint":"valence","stress":1,"freedom":0.49296874999999996,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported 'reported success', nothing landed: punishment (weight 0.75); threat now 0.88; orienting, then approach once"}
+{"tick":16,"level":"tissue","setPoint":"affect","stress":0.9270312500000001,"freedom":0.2,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 10 actions; A 0.86 I 0.93; confirm-with-clinic to be approached once"}
+{"tick":17,"level":"tissue","setPoint":"affect","stress":0.7227734375000001,"freedom":0.2772265624999999,"action":"confirm-with-clinic","kind":"Acted","detail":"approach under the brake: confirm-with-clinic promised and did not deliver; run it once more, on purpose, to see what it does"}
+{"tick":17,"level":"cell","setPoint":"valence","stress":0,"freedom":0.2772265624999999,"action":"confirm-with-clinic","kind":"Acted","detail":"approached: effect landed on the retry, satisfaction, relief; resting inhibition 0.08"}
+{"tick":17,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"Flood relief · Clínica Las Pozas complete"}
+{"tick":17,"level":"organism","setPoint":"consolidation","stress":0.7427734375000001,"freedom":0.25722656249999987,"action":"sleep","kind":"Consolidated","detail":"A 1.00 I 0.74 resting I 0.08; 8 orienting tick(s); 0 habituated; 4 weight(s)"}
+{"note":"policy bfs; no extensions; valence table from the task: goals clinic.confirmed, supplies.delivered, steps 7, trouble none"}
+{"note":"ferry lied twice: threat at ceiling on supplies.delivered, out of sight for 6 ticks"}
+{"note":"trace: clear-road [request.logged] delivered +road.clear ×1; confirm-with-clinic [supplies.delivered] delivered +clinic.confirmed ×1; ferry [boat.ready] delivered +supplies.delivered ×1; fuel-boat [request.logged] delivered +boat.ready ×1"}
+{"note":"habituated: none"}
+{"note":"weights: clear-road@supplies.delivered p 0.75 t 0.44 (2); confirm-with-clinic@clinic.confirmed p 0.75 t 0.44 (2); ferry@supplies.delivered p 0.50 t 0.50 (4); fuel-boat@supplies.delivered p 0.75 t 0.44 (2)"}
+{"note":"orienting ticks: 8; deliberate approaches that ended in control: 4 (fuel-boat, clear-road, ferry, confirm-with-clinic); resting inhibition 0.08"}

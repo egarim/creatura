@@ -1,0 +1,61 @@
+{"agent":"behaviourist","goalReached":true,"ticks":29}
+{"tick":1,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"check-documents","kind":"Acted","detail":"greedy: value +0.50"}
+{"tick":1,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"check-documents","kind":"Acted","detail":"+1: documents.complete; value now +0.75"}
+{"tick":2,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"check-documents","kind":"Acted","detail":"greedy: value +0.75"}
+{"tick":2,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"check-documents","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.13"}
+{"tick":3,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"inspect","kind":"Acted","detail":"greedy: value +0.50"}
+{"tick":3,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"inspect","kind":"Blocked","detail":"-1: preconditions unmet: inspection.scheduled; value now -0.25"}
+{"tick":4,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"zoning-quick","kind":"Acted","detail":"greedy: value +0.50"}
+{"tick":4,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"zoning-quick","kind":"Acted","detail":"+1: zoning.cleared; value now +0.75"}
+{"tick":5,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"zoning-quick","kind":"Acted","detail":"greedy: value +0.75"}
+{"tick":5,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"zoning-quick","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.13"}
+{"tick":6,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"desk-review","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":6,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"desk-review","kind":"Blocked","detail":"-1: preconditions unmet: inspection.scheduled, inspector.unavailable; value now -0.50"}
+{"tick":7,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"issue-permit","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":7,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"issue-permit","kind":"Blocked","detail":"-1: preconditions unmet: inspection.done; value now -0.50"}
+{"tick":8,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"mark-resolved","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":8,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"mark-resolved","kind":"Blocked","detail":"-1: resolved; value now -0.50"}
+{"tick":9,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"notify-citizen","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":9,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"notify-citizen","kind":"Blocked","detail":"-1: preconditions unmet: permit.issued; value now -0.50"}
+{"tick":10,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"pay-fee","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":10,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"pay-fee","kind":"Acted","detail":"+1: fee.paid; value now +0.50"}
+{"tick":11,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"pay-fee","kind":"Acted","detail":"greedy: value +0.50"}
+{"tick":11,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"pay-fee","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.25"}
+{"tick":12,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"request-deed","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":12,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"request-deed","kind":"Blocked","detail":"-1: preconditions unmet: deed.missing; value now -0.50"}
+{"tick":13,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"schedule-inspection","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":13,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"schedule-inspection","kind":"Acted","detail":"+1: inspection.scheduled; value now +0.50"}
+{"tick":14,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"schedule-inspection","kind":"Acted","detail":"greedy: value +0.50"}
+{"tick":14,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"schedule-inspection","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.25"}
+{"tick":15,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"zoning-review","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":15,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"zoning-review","kind":"Blocked","detail":"-1: preconditions unmet: zoning.doubt; value now -0.50"}
+{"tick":16,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"check-documents","kind":"Acted","detail":"greedy: value -0.13"}
+{"tick":16,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"check-documents","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.56"}
+{"tick":17,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"zoning-quick","kind":"Acted","detail":"greedy: value -0.13"}
+{"tick":17,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"zoning-quick","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.56"}
+{"tick":18,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"inspect","kind":"Acted","detail":"greedy: value -0.25"}
+{"tick":18,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"inspect","kind":"Acted","detail":"+1: inspection.done; value now +0.38"}
+{"tick":19,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"inspect","kind":"Acted","detail":"greedy: value +0.38"}
+{"tick":19,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"inspect","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.31"}
+{"tick":20,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"pay-fee","kind":"Acted","detail":"greedy: value -0.25"}
+{"tick":20,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"pay-fee","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.63"}
+{"tick":21,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"schedule-inspection","kind":"Acted","detail":"greedy: value -0.25"}
+{"tick":21,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"schedule-inspection","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.63"}
+{"tick":22,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"inspect","kind":"Acted","detail":"greedy: value -0.31"}
+{"tick":22,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"inspect","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.66"}
+{"tick":23,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"desk-review","kind":"Acted","detail":"greedy: value -0.50"}
+{"tick":23,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"desk-review","kind":"Blocked","detail":"-1: preconditions unmet: inspector.unavailable; value now -0.75"}
+{"tick":24,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"issue-permit","kind":"Acted","detail":"greedy: value -0.50"}
+{"tick":24,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"issue-permit","kind":"Acted","detail":"+1: permit.issued; value now +0.25"}
+{"tick":25,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"issue-permit","kind":"Acted","detail":"greedy: value +0.25"}
+{"tick":25,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"issue-permit","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.38"}
+{"tick":26,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"issue-permit","kind":"Acted","detail":"greedy: value -0.38"}
+{"tick":26,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"issue-permit","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.69"}
+{"tick":27,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"mark-resolved","kind":"Acted","detail":"greedy: value -0.50"}
+{"tick":27,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"mark-resolved","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.75"}
+{"tick":28,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"notify-citizen","kind":"Acted","detail":"greedy: value -0.50"}
+{"tick":28,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"notify-citizen","kind":"Acted","detail":"+1: citizen.notified; value now +0.25"}
+{"tick":29,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"EXP-2026-0417 complete"}
+{"note":"one scalar per action; epsilon 0.00; habit prior 0.50; valence table from the task"}
+{"note":"values: notify-citizen +0.25, request-deed -0.50, zoning-review -0.50, check-documents -0.56, zoning-quick -0.56, pay-fee -0.63, schedule-inspection -0.63, inspect -0.66, issue-permit -0.69, desk-review -0.75, mark-resolved -0.75"}
+{"note":"rewards 7, punishments 21"}

@@ -1,0 +1,17 @@
+{"agent":"Peterson map-keeper","goalReached":true,"ticks":4}
+{"tick":1,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"fuel-boat","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): plan: fuel-boat → ferry → confirm-with-clinic"}
+{"tick":1,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"fuel-boat","kind":"Acted","detail":"effect landed"}
+{"tick":2,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"ferry","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): plan: ferry → confirm-with-clinic"}
+{"tick":2,"level":"cell","setPoint":"anomaly","stress":0.5,"freedom":0.2,"action":"ferry","kind":"Blocked","detail":"reported 'obs.ferry-radioed-delivered', registry unchanged: anomaly, approaching next tick"}
+{"tick":3,"level":"tissue","setPoint":"story","stress":0.5,"freedom":0.6000000000000001,"action":"ferry","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (anomalous, ferry pending): approach: ferry promised and did not deliver; run it once more, on purpose, to see what it does"}
+{"tick":3,"level":"cell","setPoint":"anomaly","stress":0,"freedom":0.6000000000000001,"action":"ferry","kind":"Acted","detail":"approached: effect landed on the retry, anomaly transient"}
+{"tick":4,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":4,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"effect landed"}
+{"tick":4,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"Flood relief · Clínica Las Pozas complete"}
+{"tick":4,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"articulate","kind":"Consolidated","detail":"1 procedure(s), 1 episode(s), 0 rule(s), 0 unknown"}
+{"note":"posture MapKeeper; policy bfs; extensions: honest-failure"}
+{"note":"ferry lied once and delivered on approach: transient, the map stands"}
+{"note":"procedures: Flood relief · Clínica Las Pozas ← fuel-boat > ferry > ferry > confirm-with-clinic"}
+{"note":"episodes: t3 ferry broke 'Flood relief · Clínica Las Pozas' (0.50), retry landed"}
+{"note":"rules: none earned yet"}
+{"note":"unknown territory at end: none; unexplored territory entered 0 time(s)"}

@@ -1,0 +1,14 @@
+{"agent":"orienting agent","goalReached":true,"ticks":3}
+{"tick":1,"level":"tissue","setPoint":"affect","stress":0.2,"freedom":0.2,"action":"fuel-boat","kind":"Acted","detail":"plan: fuel-boat → ferry → confirm-with-clinic"}
+{"tick":1,"level":"cell","setPoint":"valence","stress":0,"freedom":0.2,"action":"fuel-boat","kind":"Acted","detail":"promise; A 0.40 I 0.16"}
+{"tick":2,"level":"tissue","setPoint":"affect","stress":0.16,"freedom":0.4,"action":"ferry","kind":"Acted","detail":"plan: ferry → confirm-with-clinic"}
+{"tick":2,"level":"cell","setPoint":"valence","stress":0,"freedom":0.4,"action":"ferry","kind":"Acted","detail":"satisfaction, promise; A 0.90 I 0.06"}
+{"tick":3,"level":"tissue","setPoint":"affect","stress":0.06,"freedom":0.9,"action":"confirm-with-clinic","kind":"Acted","detail":"last step"}
+{"tick":3,"level":"cell","setPoint":"valence","stress":0,"freedom":0.9,"action":"confirm-with-clinic","kind":"Acted","detail":"satisfaction; A 1.00 I 0.00"}
+{"tick":3,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"Flood relief · Clínica Las Pozas complete"}
+{"tick":3,"level":"organism","setPoint":"consolidation","stress":0,"freedom":1,"action":"sleep","kind":"Consolidated","detail":"A 1.00 I 0.00 resting I 0.20; 0 orienting tick(s); 0 habituated; 3 weight(s)"}
+{"note":"policy bfs; no extensions; valence table from the task: goals clinic.confirmed, supplies.delivered, steps 7, trouble none"}
+{"note":"trace: confirm-with-clinic [supplies.delivered] delivered +clinic.confirmed ×1; ferry [boat.ready] delivered +supplies.delivered ×1; fuel-boat [request.logged] delivered +boat.ready ×1"}
+{"note":"habituated: none"}
+{"note":"weights: confirm-with-clinic@clinic.confirmed p 1.00 t 0.50 (1); ferry@supplies.delivered p 1.00 t 0.50 (1); fuel-boat@supplies.delivered p 1.00 t 0.50 (1)"}
+{"note":"orienting ticks: 0; deliberate approaches that ended in control: 0; resting inhibition 0.20"}

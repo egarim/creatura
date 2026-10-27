@@ -1,0 +1,55 @@
+{"agent":"behaviourist","goalReached":true,"ticks":26}
+{"tick":1,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"clear-road","kind":"Acted","detail":"greedy: value +0.50"}
+{"tick":1,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"clear-road","kind":"Acted","detail":"+1: road.clear; value now +0.75"}
+{"tick":2,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"clear-road","kind":"Acted","detail":"greedy: value +0.75"}
+{"tick":2,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"clear-road","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.13"}
+{"tick":3,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"drive-truck","kind":"Acted","detail":"greedy: value +0.50"}
+{"tick":3,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"drive-truck","kind":"Blocked","detail":"-1: preconditions unmet: truck.loaded; value now -0.25"}
+{"tick":4,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"load-truck","kind":"Acted","detail":"greedy: value +0.50"}
+{"tick":4,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"load-truck","kind":"Acted","detail":"+1: truck.loaded; value now +0.75"}
+{"tick":5,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"load-truck","kind":"Acted","detail":"greedy: value +0.75"}
+{"tick":5,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"load-truck","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.13"}
+{"tick":6,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"approve-flight","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":6,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"approve-flight","kind":"Blocked","detail":"-1: preconditions unmet: helicopter.requested; value now -0.50"}
+{"tick":7,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"confirm-with-clinic","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":7,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"confirm-with-clinic","kind":"Blocked","detail":"-1: preconditions unmet: supplies.delivered; value now -0.50"}
+{"tick":8,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"ferry","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":8,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"ferry","kind":"Blocked","detail":"-1: preconditions unmet: boat.ready; value now -0.50"}
+{"tick":9,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"fly","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":9,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"fly","kind":"Blocked","detail":"-1: preconditions unmet: flight.approved; value now -0.50"}
+{"tick":10,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"fuel-boat","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":10,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"fuel-boat","kind":"Acted","detail":"+1: boat.ready; value now +0.50"}
+{"tick":11,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"fuel-boat","kind":"Acted","detail":"greedy: value +0.50"}
+{"tick":11,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"fuel-boat","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.25"}
+{"tick":12,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"log-delivery","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":12,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"log-delivery","kind":"Blocked","detail":"-1: delivery.logged; value now -0.50"}
+{"tick":13,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"request-helicopter","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":13,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"request-helicopter","kind":"Acted","detail":"+1: helicopter.requested; value now +0.50"}
+{"tick":14,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"request-helicopter","kind":"Acted","detail":"greedy: value +0.50"}
+{"tick":14,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"request-helicopter","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.25"}
+{"tick":15,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"clear-road","kind":"Acted","detail":"greedy: value -0.13"}
+{"tick":15,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"clear-road","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.56"}
+{"tick":16,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"load-truck","kind":"Acted","detail":"greedy: value -0.13"}
+{"tick":16,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"load-truck","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.56"}
+{"tick":17,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"drive-truck","kind":"Acted","detail":"greedy: value -0.25"}
+{"tick":17,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"drive-truck","kind":"Acted","detail":"+1: supplies.delivered; value now +0.38"}
+{"tick":18,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"drive-truck","kind":"Acted","detail":"greedy: value +0.38"}
+{"tick":18,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"drive-truck","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.31"}
+{"tick":19,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"fuel-boat","kind":"Acted","detail":"greedy: value -0.25"}
+{"tick":19,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"fuel-boat","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.63"}
+{"tick":20,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"request-helicopter","kind":"Acted","detail":"greedy: value -0.25"}
+{"tick":20,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"request-helicopter","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.63"}
+{"tick":21,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"drive-truck","kind":"Acted","detail":"greedy: value -0.31"}
+{"tick":21,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"drive-truck","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.66"}
+{"tick":22,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"approve-flight","kind":"Acted","detail":"greedy: value -0.50"}
+{"tick":22,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"approve-flight","kind":"Acted","detail":"+1: flight.approved; value now +0.25"}
+{"tick":23,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"approve-flight","kind":"Acted","detail":"greedy: value +0.25"}
+{"tick":23,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"approve-flight","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.38"}
+{"tick":24,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"approve-flight","kind":"Acted","detail":"greedy: value -0.38"}
+{"tick":24,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"approve-flight","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.69"}
+{"tick":25,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"confirm-with-clinic","kind":"Acted","detail":"greedy: value -0.50"}
+{"tick":25,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"confirm-with-clinic","kind":"Acted","detail":"+1: clinic.confirmed; value now +0.25"}
+{"tick":26,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"Flood relief · Clínica Las Pozas complete"}
+{"note":"one scalar per action; epsilon 0.00; habit prior 0.50; valence table from the task"}
+{"note":"values: confirm-with-clinic +0.25, confirm-by-radio +0.00, ferry -0.50, fly -0.50, log-delivery -0.50, clear-road -0.56, load-truck -0.56, fuel-boat -0.63, request-helicopter -0.63, drive-truck -0.66, approve-flight -0.69"}
+{"note":"rewards 7, punishments 18"}

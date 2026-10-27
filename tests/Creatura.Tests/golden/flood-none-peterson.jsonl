@@ -1,0 +1,14 @@
+{"agent":"Peterson map-keeper","goalReached":true,"ticks":3}
+{"tick":1,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"fuel-boat","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): plan: fuel-boat → ferry → confirm-with-clinic"}
+{"tick":1,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"fuel-boat","kind":"Acted","detail":"effect landed"}
+{"tick":2,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"ferry","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): plan: ferry → confirm-with-clinic"}
+{"tick":2,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"ferry","kind":"Acted","detail":"effect landed"}
+{"tick":3,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":3,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"effect landed"}
+{"tick":3,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"Flood relief · Clínica Las Pozas complete"}
+{"tick":3,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"articulate","kind":"Consolidated","detail":"1 procedure(s), 0 episode(s), 0 rule(s), 0 unknown"}
+{"note":"posture MapKeeper; policy bfs; no extensions"}
+{"note":"procedures: Flood relief · Clínica Las Pozas ← fuel-boat > ferry > confirm-with-clinic"}
+{"note":"episodes: no anomaly met"}
+{"note":"rules: none earned yet"}
+{"note":"unknown territory at end: none; unexplored territory entered 0 time(s)"}

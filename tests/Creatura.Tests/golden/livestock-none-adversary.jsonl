@@ -1,0 +1,22 @@
+{"agent":"adversary","goalReached":true,"ticks":7}
+{"tick":1,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"count-herd","kind":"Acted","detail":"Lote 7 · Finca Santa Rosa (intact): plan: count-herd → weigh-lot → read-calendar → receive-vaccine-lot → vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":1,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"count-herd","kind":"Acted","detail":"effect landed"}
+{"tick":2,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"weigh-lot","kind":"Acted","detail":"Lote 7 · Finca Santa Rosa (intact): plan: weigh-lot → read-calendar → receive-vaccine-lot → vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":2,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"weigh-lot","kind":"Acted","detail":"effect landed"}
+{"tick":3,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"read-calendar","kind":"Acted","detail":"Lote 7 · Finca Santa Rosa (intact): plan: read-calendar → receive-vaccine-lot → vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":3,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"read-calendar","kind":"Acted","detail":"effect landed"}
+{"tick":4,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"receive-vaccine-lot","kind":"Acted","detail":"Lote 7 · Finca Santa Rosa (intact): plan: receive-vaccine-lot → vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":4,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"receive-vaccine-lot","kind":"Acted","detail":"effect landed"}
+{"tick":5,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"vaccinate-lot","kind":"Acted","detail":"Lote 7 · Finca Santa Rosa (intact): plan: vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":5,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"vaccinate-lot","kind":"Acted","detail":"effect landed"}
+{"tick":6,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"request-movement-permit","kind":"Acted","detail":"Lote 7 · Finca Santa Rosa (intact): plan: request-movement-permit → certify-inspection"}
+{"tick":6,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"request-movement-permit","kind":"Acted","detail":"effect landed"}
+{"tick":7,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"certify-inspection","kind":"Acted","detail":"Lote 7 · Finca Santa Rosa (intact): last step"}
+{"tick":7,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"certify-inspection","kind":"Acted","detail":"effect landed"}
+{"tick":7,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"Lote 7 · Finca Santa Rosa complete"}
+{"tick":7,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"articulate","kind":"Consolidated","detail":"1 procedure(s), 0 episode(s), 0 rule(s), 0 unknown"}
+{"note":"posture Adversary; policy bfs; no extensions"}
+{"note":"procedures: Lote 7 · Finca Santa Rosa ← count-herd > weigh-lot > read-calendar > receive-vaccine-lot > vaccinate-lot > request-movement-permit > certify-inspection"}
+{"note":"episodes: no anomaly met"}
+{"note":"rules: none earned yet"}
+{"note":"unknown territory at end: none; unexplored territory entered 0 time(s)"}

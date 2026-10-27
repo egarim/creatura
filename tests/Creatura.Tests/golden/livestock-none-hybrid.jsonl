@@ -1,0 +1,21 @@
+{"agent":"Hybrid colony","goalReached":true,"ticks":7}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":1,"freedom":0.65,"action":"count-herd","kind":"Acted","detail":"plan: count-herd → weigh-lot → read-calendar → receive-vaccine-lot → vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"count-herd","kind":"Acted","detail":"coherence 100%"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.65,"action":"weigh-lot","kind":"Acted","detail":"plan: weigh-lot → read-calendar → receive-vaccine-lot → vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"weigh-lot","kind":"Acted","detail":"coherence 100%"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.7142857142857143,"freedom":0.65,"action":"read-calendar","kind":"Acted","detail":"plan: read-calendar → receive-vaccine-lot → vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"read-calendar","kind":"Acted","detail":"coherence 100%"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.5714285714285714,"freedom":0.65,"action":"receive-vaccine-lot","kind":"Acted","detail":"plan: receive-vaccine-lot → vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"receive-vaccine-lot","kind":"Acted","detail":"coherence 100%"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.4285714285714286,"freedom":0.65,"action":"vaccinate-lot","kind":"Acted","detail":"plan: vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"vaccinate-lot","kind":"Acted","detail":"coherence 100%"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0.2857142857142857,"freedom":0.65,"action":"request-movement-permit","kind":"Acted","detail":"plan: request-movement-permit → certify-inspection"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"request-movement-permit","kind":"Acted","detail":"coherence 100%"}
+{"tick":7,"level":"tissue","setPoint":"obligations","stress":0.1428571428571429,"freedom":0.8,"action":"certify-inspection","kind":"Acted","detail":"last step"}
+{"tick":7,"level":"cell","setPoint":"effect","stress":0,"freedom":0.8,"action":"certify-inspection","kind":"Acted","detail":"coherence 100%"}
+{"tick":7,"level":"organism","setPoint":"contract","stress":0,"freedom":0.8,"action":"contract met","kind":"Acted","detail":"Lote 7 · Finca Santa Rosa complete"}
+{"tick":7,"level":"organism","setPoint":"consolidation","stress":0,"freedom":0,"action":"sleep","kind":"Consolidated","detail":"coherence 100%, predictions 100%, stage 4"}
+{"note":"policy bfs; no extensions"}
+{"note":"organism stage advance: 4 (rational agency)"}
+{"note":"coherence 100%; cell reliabilities: certify-inspection 100%, count-herd 100%, read-calendar 100%, receive-vaccine-lot 100%, request-movement-permit 100%, vaccinate-lot 100%, weigh-lot 100%"}
+{"note":"propose: keep the contract set point as it is"}

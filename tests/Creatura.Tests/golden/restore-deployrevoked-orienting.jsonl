@@ -1,0 +1,12 @@
+{"agent":"orienting agent","goalReached":false,"ticks":3}
+{"tick":1,"level":"tissue","setPoint":"affect","stress":0.2,"freedom":0.2,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":2,"level":"tissue","setPoint":"affect","stress":0.2,"freedom":0.2,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":3,"level":"tissue","setPoint":"affect","stress":0.2,"freedom":0.2,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":3,"level":"organism","setPoint":"goal","stress":0.2,"freedom":0.2,"action":"no path","kind":"Escalated","detail":"no path within budget"}
+{"tick":3,"level":"organism","setPoint":"consolidation","stress":0.2,"freedom":0.2,"action":"sleep","kind":"Consolidated","detail":"A 0.20 I 0.20 resting I 0.20; 0 orienting tick(s); 0 habituated; 0 weight(s)"}
+{"note":"policy bfs; no extensions; valence table from the task: goals alert.resolved, steps 5, trouble none"}
+{"note":"escalated: no path with the actions in sight"}
+{"note":"trace: nothing met"}
+{"note":"habituated: none"}
+{"note":"weights: none learned"}
+{"note":"orienting ticks: 0; deliberate approaches that ended in control: 0; resting inhibition 0.20"}

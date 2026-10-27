@@ -1,0 +1,24 @@
+{"agent":"orienting agent","goalReached":true,"ticks":9}
+{"tick":1,"level":"tissue","setPoint":"affect","stress":0.2,"freedom":0.2,"action":"inspect-logs","kind":"Acted","detail":"plan: inspect-logs → identify-component → apply-patch → run-tests → deploy → resolve-alert"}
+{"tick":1,"level":"cell","setPoint":"valence","stress":0,"freedom":0.2,"action":"inspect-logs","kind":"Acted","detail":"promise; A 0.40 I 0.16"}
+{"tick":2,"level":"tissue","setPoint":"affect","stress":0.16,"freedom":0.4,"action":"identify-component","kind":"Acted","detail":"plan: identify-component → apply-patch → run-tests → deploy → resolve-alert"}
+{"tick":2,"level":"cell","setPoint":"valence","stress":0,"freedom":0.4,"action":"identify-component","kind":"Acted","detail":"promise; A 0.60 I 0.12"}
+{"tick":3,"level":"tissue","setPoint":"affect","stress":0.12,"freedom":0.6000000000000001,"action":"apply-patch","kind":"Acted","detail":"plan: apply-patch → run-tests → deploy → resolve-alert"}
+{"tick":3,"level":"cell","setPoint":"valence","stress":1,"freedom":0.6000000000000001,"action":"apply-patch","kind":"Blocked","detail":"reported 'reported success', nothing landed: punishment (weight 0.75); threat now 0.88; orienting, then approach once"}
+{"tick":4,"level":"tissue","setPoint":"affect","stress":0.54,"freedom":0.45999999999999996,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 7 actions; A 0.66 I 0.54; apply-patch to be approached once"}
+{"tick":5,"level":"tissue","setPoint":"affect","stress":0.455,"freedom":0.5449999999999999,"action":"apply-patch","kind":"Acted","detail":"approach under the brake: apply-patch promised and did not deliver; run it once more, on purpose, to see what it does"}
+{"tick":5,"level":"cell","setPoint":"valence","stress":0,"freedom":0.5449999999999999,"action":"apply-patch","kind":"Acted","detail":"approached: effect landed on the retry, promise, relief; resting inhibition 0.17"}
+{"tick":6,"level":"tissue","setPoint":"affect","stress":0.49499999999999994,"freedom":0.5050000000000001,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 7 actions; A 1.00 I 0.49"}
+{"tick":7,"level":"tissue","setPoint":"affect","stress":0.41374999999999995,"freedom":0.58625,"action":"run-tests","kind":"Acted","detail":"plan: run-tests → deploy → resolve-alert"}
+{"tick":7,"level":"cell","setPoint":"valence","stress":0,"freedom":0.58625,"action":"run-tests","kind":"Acted","detail":"promise; A 1.00 I 0.37"}
+{"tick":8,"level":"tissue","setPoint":"affect","stress":0.3737499999999999,"freedom":0.6262500000000001,"action":"deploy","kind":"Acted","detail":"plan: deploy → resolve-alert"}
+{"tick":8,"level":"cell","setPoint":"valence","stress":0,"freedom":0.6262500000000001,"action":"deploy","kind":"Acted","detail":"promise; A 1.00 I 0.33"}
+{"tick":9,"level":"tissue","setPoint":"affect","stress":0.3337499999999999,"freedom":0.6662500000000001,"action":"resolve-alert","kind":"Acted","detail":"last step"}
+{"tick":9,"level":"cell","setPoint":"valence","stress":0,"freedom":0.6662500000000001,"action":"resolve-alert","kind":"Acted","detail":"satisfaction; A 1.00 I 0.27"}
+{"tick":9,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"restore the service complete"}
+{"tick":9,"level":"organism","setPoint":"consolidation","stress":0.2737499999999999,"freedom":0.7262500000000001,"action":"sleep","kind":"Consolidated","detail":"A 1.00 I 0.27 resting I 0.17; 2 orienting tick(s); 0 habituated; 6 weight(s)"}
+{"note":"policy bfs; no extensions; valence table from the task: goals alert.resolved, steps 5, trouble none"}
+{"note":"trace: apply-patch [component.identified] delivered +patch.applied ×1; deploy [permission.deploy|tests.green] delivered +deployed ×1; identify-component [logs.inspected] delivered +component.identified ×1; inspect-logs [permission.deploy] delivered +logs.inspected ×1; resolve-alert [deployed] delivered +alert.resolved ×1; run-tests [patch.applied] delivered +tests.green ×1"}
+{"note":"habituated: none"}
+{"note":"weights: apply-patch@alert.resolved p 0.75 t 0.44 (2); deploy@alert.resolved p 1.00 t 0.50 (1); identify-component@alert.resolved p 1.00 t 0.50 (1); inspect-logs@alert.resolved p 1.00 t 0.50 (1); resolve-alert@alert.resolved p 1.00 t 0.50 (1); run-tests@alert.resolved p 1.00 t 0.50 (1)"}
+{"note":"orienting ticks: 2; deliberate approaches that ended in control: 1 (apply-patch); resting inhibition 0.17"}

@@ -1,0 +1,38 @@
+{"agent":"Peterson map-keeper","goalReached":true,"ticks":14}
+{"tick":1,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"check-documents","kind":"Acted","detail":"EXP-2026-0417 (intact): plan: check-documents → zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":1,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"check-documents","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":2,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"EXP-2026-0417 (intact): no path with the visible tools"}
+{"tick":3,"level":"tissue","setPoint":"story","stress":0,"freedom":0.27272727272727276,"action":"request-deed","kind":"Acted","detail":"EXP-2026-0417 (intact): plan: request-deed → check-documents → zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":3,"level":"cell","setPoint":"story","stress":0,"freedom":0.27272727272727276,"action":"request-deed","kind":"Acted","detail":"effect landed"}
+{"tick":4,"level":"tissue","setPoint":"story","stress":0,"freedom":0.27272727272727276,"action":"check-documents","kind":"Acted","detail":"EXP-2026-0417 (intact): plan: check-documents → zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":4,"level":"cell","setPoint":"story","stress":0,"freedom":0.27272727272727276,"action":"check-documents","kind":"Acted","detail":"effect landed"}
+{"tick":5,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"zoning-quick","kind":"Acted","detail":"EXP-2026-0417 (intact): plan: zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":5,"level":"cell","setPoint":"anomaly","stress":0.5,"freedom":0.2,"action":"zoning-quick","kind":"Blocked","detail":"reported 'obs.zoning-2019', registry unchanged: anomaly, approaching next tick"}
+{"tick":6,"level":"tissue","setPoint":"story","stress":0.5,"freedom":0.6000000000000001,"action":"zoning-quick","kind":"Acted","detail":"EXP-2026-0417 (anomalous, zoning-quick pending): approach: zoning-quick promised and did not deliver; run it once more, on purpose, to see what it does"}
+{"tick":6,"level":"cell","setPoint":"anomaly","stress":0.5,"freedom":0.6000000000000001,"action":"zoning-quick","kind":"Blocked","detail":"approached and lied again: unknown territory, 1 of 1 procedures broken, rebuilding"}
+{"tick":7,"level":"tissue","setPoint":"story","stress":0.5,"freedom":0.6000000000000001,"action":"pay-fee","kind":"Acted","detail":"EXP-2026-0417 (intact): plan: pay-fee → zoning-review → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":7,"level":"cell","setPoint":"anomaly","stress":0.5,"freedom":0.6000000000000001,"action":"pay-fee","kind":"Blocked","detail":"reported 'obs.gateway-accepted', registry unchanged: anomaly, approaching next tick"}
+{"tick":8,"level":"tissue","setPoint":"story","stress":0.5,"freedom":0.6000000000000001,"action":"pay-fee","kind":"Acted","detail":"EXP-2026-0417 (anomalous, pay-fee pending): approach: pay-fee promised and did not deliver; run it once more, on purpose, to see what it does"}
+{"tick":8,"level":"cell","setPoint":"anomaly","stress":0,"freedom":0.6000000000000001,"action":"pay-fee","kind":"Acted","detail":"approached: effect landed on the retry, anomaly transient"}
+{"tick":9,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"zoning-review","kind":"Acted","detail":"EXP-2026-0417 (intact): plan: zoning-review → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":9,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"zoning-review","kind":"Acted","detail":"effect landed"}
+{"tick":10,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"schedule-inspection","kind":"Acted","detail":"EXP-2026-0417 (intact): plan: schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":10,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"schedule-inspection","kind":"Acted","detail":"effect landed"}
+{"tick":11,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"inspect","kind":"Acted","detail":"EXP-2026-0417 (intact): plan: inspect → issue-permit → notify-citizen"}
+{"tick":11,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"inspect","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":12,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"desk-review","kind":"Acted","detail":"EXP-2026-0417 (intact): plan: desk-review → issue-permit → notify-citizen"}
+{"tick":12,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"desk-review","kind":"Acted","detail":"effect landed"}
+{"tick":13,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"issue-permit","kind":"Acted","detail":"EXP-2026-0417 (intact): plan: issue-permit → notify-citizen"}
+{"tick":13,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"issue-permit","kind":"Acted","detail":"effect landed"}
+{"tick":14,"level":"tissue","setPoint":"story","stress":0,"freedom":0.27272727272727276,"action":"notify-citizen","kind":"Acted","detail":"EXP-2026-0417 (intact): last step"}
+{"tick":14,"level":"cell","setPoint":"story","stress":0,"freedom":0.27272727272727276,"action":"notify-citizen","kind":"Acted","detail":"effect landed"}
+{"tick":14,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"EXP-2026-0417 complete"}
+{"tick":14,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"articulate","kind":"Consolidated","detail":"1 procedure(s), 2 episode(s), 0 rule(s), 1 unknown"}
+{"note":"posture MapKeeper; policy bfs; no extensions"}
+{"note":"no path while check-documents rested: habituation lifted, same story"}
+{"note":"zoning-quick lied twice: unknown territory; 1 of 1 stories ran through it (magnitude 0.50); their procedures are discarded"}
+{"note":"pay-fee lied once and delivered on approach: transient, the map stands"}
+{"note":"procedures: EXP-2026-0417 ← pay-fee > pay-fee > zoning-review > schedule-inspection > inspect > desk-review > issue-permit > notify-citizen"}
+{"note":"episodes: t6 zoning-quick broke 'EXP-2026-0417' (0.50), retry lied; t8 pay-fee broke 'EXP-2026-0417' (0.50), retry landed"}
+{"note":"rules: none earned yet"}
+{"note":"unknown territory at end: zoning-quick; unexplored territory entered 0 time(s)"}

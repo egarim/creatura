@@ -1,0 +1,20 @@
+{"agent":"Levin colony","goalReached":true,"ticks":7}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":1,"freedom":1,"action":"inspect-logs","kind":"Acted","detail":"plan: inspect-logs → identify-component → apply-patch → run-tests → deploy → resolve-alert"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"inspect-logs","kind":"Acted","detail":"effect landed"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0.8333333333333334,"freedom":0.8666666666666667,"action":"identify-component","kind":"Acted","detail":"plan: identify-component → apply-patch → run-tests → deploy → resolve-alert"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"identify-component","kind":"Acted","detail":"effect landed"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.7333333333333334,"action":"apply-patch","kind":"Acted","detail":"plan: apply-patch → run-tests → deploy → resolve-alert"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"apply-patch","kind":"Blocked","detail":"reported 'reported success' but effect missing"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.7333333333333334,"action":"apply-config","kind":"Acted","detail":"plan: apply-config → run-tests → deploy → resolve-alert"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"apply-config","kind":"Acted","detail":"effect landed"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.5,"freedom":0.6000000000000001,"action":"run-tests","kind":"Acted","detail":"plan: run-tests → deploy → resolve-alert"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"run-tests","kind":"Acted","detail":"effect landed"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0.33333333333333337,"freedom":0.6000000000000001,"action":"deploy","kind":"Acted","detail":"plan: deploy → resolve-alert"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"deploy","kind":"Acted","detail":"effect landed"}
+{"tick":7,"level":"tissue","setPoint":"obligations","stress":0.16666666666666663,"freedom":0.6000000000000001,"action":"resolve-alert","kind":"Acted","detail":"last step"}
+{"tick":7,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"resolve-alert","kind":"Acted","detail":"effect landed"}
+{"tick":7,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"restore the service complete"}
+{"note":"levels: cell(effect) → tissue(obligations) → organism(contract); policy bfs; no extensions"}
+{"note":"apply-patch: claimed success, effect missing — distrusted, re-planning"}
+{"note":"organism shaping: budget 3/4, attempts 1 — widening autonomy (repeated effect failure)"}
+{"note":"quarantined at end: none"}

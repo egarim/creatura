@@ -1,0 +1,20 @@
+{"agent":"Bach agent","goalReached":true,"ticks":6}
+{"tick":0,"level":"self","setPoint":"self-model","stress":0,"freedom":0,"action":"read self-model","kind":"Idle","detail":"role=service operator principal=joche stage=3 (social self)"}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"fuel-boat","kind":"Acted","detail":"plan: fuel-boat → ferry → confirm-with-clinic"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"fuel-boat","kind":"Acted","detail":"predicted correctly (100%)"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"ferry","kind":"Acted","detail":"plan: ferry → confirm-with-clinic"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":1,"freedom":0.2,"action":"ferry","kind":"Blocked","detail":"contradiction: reported 'obs.ferry-radioed-delivered', no effect"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.5,"freedom":0.6000000000000001,"action":"clear-road","kind":"Acted","detail":"plan: clear-road → load-truck → drive-truck → confirm-with-clinic"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"clear-road","kind":"Acted","detail":"predicted correctly (67%)"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.33333333333333326,"freedom":0.4666666666666666,"action":"load-truck","kind":"Acted","detail":"plan: load-truck → drive-truck → confirm-with-clinic"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.4666666666666666,"action":"load-truck","kind":"Acted","detail":"predicted correctly (75%)"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.25,"freedom":0.4,"action":"drive-truck","kind":"Acted","detail":"plan: drive-truck → confirm-with-clinic"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":0,"freedom":0.4,"action":"drive-truck","kind":"Acted","detail":"predicted correctly (80%)"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0.19999999999999996,"freedom":0.36,"action":"confirm-with-clinic","kind":"Acted","detail":"last step"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.36,"action":"confirm-with-clinic","kind":"Acted","detail":"predicted correctly (83%)"}
+{"tick":6,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"Flood relief · Clínica Las Pozas complete"}
+{"tick":6,"level":"self","setPoint":"consolidation","stress":0,"freedom":0,"action":"sleep","kind":"Consolidated","detail":"coherence 83%, predictions 83% over 6, stage 3"}
+{"note":"policy bfs; no extensions"}
+{"note":"belief quarantined: ferry produces supplies.delivered — obs.ferry-radioed-delivered"}
+{"note":"consolidated: fuel-boat 100%, clear-road 100%, load-truck 100%, drive-truck 100%, confirm-with-clinic 100%, ferry 0%"}
+{"note":"coherence 83% (1 contradictions)"}

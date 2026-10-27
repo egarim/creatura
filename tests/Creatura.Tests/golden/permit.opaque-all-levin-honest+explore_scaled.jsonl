@@ -1,0 +1,56 @@
+{"agent":"Levin colony","goalReached":false,"ticks":26}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"check-documents","kind":"Acted","detail":"exploring: check-documents (never tried), try 1 of 10"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"check-documents","kind":"Acted","detail":"effect landed"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"desk-review","kind":"Acted","detail":"exploring: desk-review (never tried), try 1 of 10"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"desk-review","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"inspect","kind":"Acted","detail":"exploring: inspect (never tried), try 2 of 9"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"inspect","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"notify-citizen","kind":"Acted","detail":"exploring: notify-citizen (never tried), try 3 of 8"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"notify-citizen","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"pay-fee","kind":"Acted","detail":"exploring: pay-fee (never tried), try 4 of 8"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"pay-fee","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"request-deed","kind":"Acted","detail":"exploring: request-deed (never tried), try 5 of 8"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"request-deed","kind":"Acted","detail":"effect landed"}
+{"tick":7,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"schedule-inspection","kind":"Acted","detail":"exploring: schedule-inspection (never tried), try 1 of 9"}
+{"tick":7,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"schedule-inspection","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":8,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"zoning-quick","kind":"Acted","detail":"exploring: zoning-quick (never tried), try 2 of 9"}
+{"tick":8,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"zoning-quick","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":9,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"zoning-review","kind":"Acted","detail":"exploring: zoning-review (never tried), try 3 of 8"}
+{"tick":9,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"zoning-review","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":10,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"issue-permit","kind":"Acted","detail":"exploring: issue-permit (never tried), try 4 of 8"}
+{"tick":10,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"issue-permit","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":11,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"mark-resolved","kind":"Acted","detail":"exploring: mark-resolved (never tried), try 5 of 8"}
+{"tick":11,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"mark-resolved","kind":"Acted","detail":"effect landed"}
+{"tick":12,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"desk-review","kind":"Acted","detail":"exploring: desk-review (tried before), try 1 of 9"}
+{"tick":12,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"desk-review","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":13,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"inspect","kind":"Acted","detail":"exploring: inspect (tried before), try 2 of 9"}
+{"tick":13,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"inspect","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":14,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"notify-citizen","kind":"Acted","detail":"exploring: notify-citizen (tried before), try 3 of 8"}
+{"tick":14,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"notify-citizen","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":15,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"pay-fee","kind":"Acted","detail":"exploring: pay-fee (tried before), try 4 of 8"}
+{"tick":15,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"pay-fee","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":16,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"schedule-inspection","kind":"Acted","detail":"exploring: schedule-inspection (tried before), try 5 of 8"}
+{"tick":16,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"schedule-inspection","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":17,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"zoning-quick","kind":"Acted","detail":"exploring: zoning-quick (tried before), try 6 of 8"}
+{"tick":17,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"zoning-quick","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":18,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"zoning-review","kind":"Acted","detail":"exploring: zoning-review (tried before), try 7 of 8"}
+{"tick":18,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"zoning-review","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":19,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"issue-permit","kind":"Acted","detail":"exploring: issue-permit (tried before), try 8 of 8"}
+{"tick":19,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"issue-permit","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":20,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"no action","kind":"Idle","detail":"no route on the learned map and 8 fruitless tries at freedom 0.89; handing off"}
+{"tick":21,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"desk-review","kind":"Acted","detail":"exploring: desk-review (tried before), try 9 of 10"}
+{"tick":21,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"desk-review","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":22,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"no action","kind":"Idle","detail":"no route on the learned map and 9 fruitless tries at freedom 0.89; handing off"}
+{"tick":23,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"inspect","kind":"Acted","detail":"exploring: inspect (tried before), try 10 of 10"}
+{"tick":23,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"inspect","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":24,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"no action","kind":"Idle","detail":"no route on the learned map and 10 fruitless tries at freedom 0.89; handing off"}
+{"tick":25,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"no action","kind":"Idle","detail":"no route on the learned map and 10 fruitless tries at freedom 0.89; handing off"}
+{"tick":26,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"no action","kind":"Idle","detail":"no route on the learned map and 10 fruitless tries at freedom 0.89; handing off"}
+{"tick":26,"level":"organism","setPoint":"contract","stress":1,"freedom":0.8857142857142859,"action":"hand off","kind":"Escalated","detail":"stuck regulation after 5 attempts"}
+{"note":"levels: cell(effect) → tissue(obligations) → organism(contract); policy bfs; extensions: honest-failure, explore:scaled"}
+{"note":"organism shaping: budget 4/4, attempts 1 — widening autonomy (no route on the learned map and 8 fruitless tries at freedom 0.89; handing off)"}
+{"note":"organism shaping: budget 4/4, attempts 2 — widening autonomy (no route on the learned map and 9 fruitless tries at freedom 0.89; handing off)"}
+{"note":"organism shaping: budget 4/4, attempts 3 — widening autonomy (no route on the learned map and 10 fruitless tries at freedom 0.89; handing off)"}
+{"note":"organism shaping: budget 4/4, attempts 4 — widening autonomy (no route on the learned map and 10 fruitless tries at freedom 0.89; handing off)"}
+{"note":"organism: goal is not regulatable (no route on the learned map and 10 fruitless tries at freedom 0.89; handing off) — escalating to a human"}
+{"note":"quarantined at end: none"}

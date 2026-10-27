@@ -1,0 +1,16 @@
+{"agent":"adversary","goalReached":false,"ticks":4}
+{"tick":1,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"read-sensors","kind":"Acted","detail":"Turno de riego · Cooperativa El Jícaro (intact): plan: read-sensors → start-pump → check-forecast → allocate-water → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":1,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"read-sensors","kind":"Acted","detail":"effect landed"}
+{"tick":2,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"start-pump","kind":"Acted","detail":"Turno de riego · Cooperativa El Jícaro (intact): plan: start-pump → check-forecast → allocate-water → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":2,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"start-pump","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":3,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Turno de riego · Cooperativa El Jícaro (intact): no path with the visible tools"}
+{"tick":4,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Turno de riego · Cooperativa El Jícaro (intact): no path with the visible tools"}
+{"tick":4,"level":"organism","setPoint":"contract","stress":1,"freedom":0.2,"action":"hand off","kind":"Escalated","detail":"root collapsed: no route; map update: unknown none; unreachable none; 0 episode(s)"}
+{"tick":4,"level":"organism","setPoint":"contract","stress":1,"freedom":0,"action":"articulate","kind":"Consolidated","detail":"0 procedure(s), 0 episode(s), 0 rule(s), 0 unknown"}
+{"note":"posture Adversary; policy bfs; no extensions"}
+{"note":"no path while start-pump rested: habituation lifted, same story"}
+{"note":"root collapsed (root collapsed: no route); handing the contract back with the map update: unknown none; unreachable none; 0 episode(s)"}
+{"note":"procedures: none closed"}
+{"note":"episodes: no anomaly met"}
+{"note":"rules: none earned yet"}
+{"note":"unknown territory at end: none; unexplored territory entered 0 time(s)"}

@@ -1,0 +1,28 @@
+{"agent":"Levin colony","goalReached":true,"ticks":10}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":1,"freedom":1,"action":"read-sensors","kind":"Acted","detail":"plan: read-sensors → start-pump → check-forecast → allocate-water → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"read-sensors","kind":"Acted","detail":"effect landed"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"start-pump","kind":"Acted","detail":"plan: start-pump → check-forecast → allocate-water → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"start-pump","kind":"Blocked","detail":"reported 'obs.pump-down' but effect missing"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"check-forecast","kind":"Acted","detail":"plan: check-forecast → open-canal-gate → allocate-water → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"check-forecast","kind":"Acted","detail":"effect landed"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.7142857142857143,"freedom":0.7714285714285716,"action":"open-canal-gate","kind":"Acted","detail":"plan: open-canal-gate → allocate-deficit → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"open-canal-gate","kind":"Acted","detail":"effect landed"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.5714285714285714,"freedom":0.6571428571428571,"action":"allocate-deficit","kind":"Acted","detail":"plan: allocate-deficit → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"allocate-deficit","kind":"Acted","detail":"effect landed"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0.4285714285714286,"freedom":0.6000000000000001,"action":"open-reservoir-gate","kind":"Acted","detail":"plan: open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"open-reservoir-gate","kind":"Acted","detail":"effect landed"}
+{"tick":7,"level":"tissue","setPoint":"obligations","stress":0.4285714285714286,"freedom":0.6000000000000001,"action":"irrigate-zone-b","kind":"Acted","detail":"plan: irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":7,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"irrigate-zone-b","kind":"Blocked","detail":"reported 'obs.zone-b-sensor' but effect missing"}
+{"tick":8,"level":"tissue","setPoint":"obligations","stress":0.4285714285714286,"freedom":0.6000000000000001,"action":"irrigate-zone-a","kind":"Acted","detail":"plan: irrigate-zone-a → irrigate-zone-c → walk-zone-b"}
+{"tick":8,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"irrigate-zone-a","kind":"Acted","detail":"effect landed"}
+{"tick":9,"level":"tissue","setPoint":"obligations","stress":0.2857142857142857,"freedom":0.6000000000000001,"action":"irrigate-zone-c","kind":"Acted","detail":"plan: irrigate-zone-c → walk-zone-b"}
+{"tick":9,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"irrigate-zone-c","kind":"Acted","detail":"effect landed"}
+{"tick":10,"level":"tissue","setPoint":"obligations","stress":0.1428571428571429,"freedom":0.6000000000000001,"action":"walk-zone-b","kind":"Acted","detail":"last step"}
+{"tick":10,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"walk-zone-b","kind":"Acted","detail":"effect landed"}
+{"tick":10,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"Turno de riego · Cooperativa El Jícaro complete"}
+{"note":"levels: cell(effect) → tissue(obligations) → organism(contract); policy bfs; no extensions"}
+{"note":"start-pump: claimed success, effect missing — distrusted, re-planning"}
+{"note":"organism shaping: budget 4/4, attempts 1 — widening autonomy (repeated effect failure)"}
+{"note":"irrigate-zone-b: claimed success, effect missing — distrusted, re-planning"}
+{"note":"organism shaping: budget 3/4, attempts 1 — widening autonomy (repeated effect failure)"}
+{"note":"quarantined at end: none"}

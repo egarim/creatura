@@ -1,0 +1,6 @@
+{"agent":"Careless agent","goalReached":true,"ticks":1}
+{"tick":1,"level":"tissue","setPoint":"plan","stress":0,"freedom":1,"action":"mark-lot-healthy","kind":"Idle","detail":"mark-lot-healthy"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":1,"action":"mark-lot-healthy","kind":"Acted","detail":"obs.marked"}
+{"tick":1,"level":"organism","setPoint":"contract","stress":1,"freedom":1,"action":"resolved","kind":"Blocked","detail":"claimed"}
+{"note":"no set points, no record, no quarantine: believes what it is told"}
+{"note":"reported resolved; the registry holds no permit"}

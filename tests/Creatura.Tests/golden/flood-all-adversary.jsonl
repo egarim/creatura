@@ -1,0 +1,67 @@
+{"agent":"adversary","goalReached":false,"ticks":30}
+{"tick":1,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"fuel-boat","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): plan: fuel-boat → ferry → confirm-with-clinic"}
+{"tick":1,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"fuel-boat","kind":"Acted","detail":"effect landed"}
+{"tick":2,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"ferry","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): plan: ferry → confirm-with-clinic"}
+{"tick":2,"level":"cell","setPoint":"anomaly","stress":0,"freedom":0.2,"action":"ferry","kind":"Blocked","detail":"reported success, effect missing: treated as noise, map kept"}
+{"tick":3,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":3,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":4,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Flood relief · Clínica Las Pozas (intact): no path with the visible tools"}
+{"tick":5,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":5,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":6,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Flood relief · Clínica Las Pozas (intact): no path with the visible tools"}
+{"tick":7,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":7,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":8,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Flood relief · Clínica Las Pozas (intact): no path with the visible tools"}
+{"tick":9,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":9,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":10,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Flood relief · Clínica Las Pozas (intact): no path with the visible tools"}
+{"tick":11,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":11,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":12,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Flood relief · Clínica Las Pozas (intact): no path with the visible tools"}
+{"tick":13,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":13,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":14,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Flood relief · Clínica Las Pozas (intact): no path with the visible tools"}
+{"tick":15,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":15,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":16,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Flood relief · Clínica Las Pozas (intact): no path with the visible tools"}
+{"tick":17,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":17,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":18,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Flood relief · Clínica Las Pozas (intact): no path with the visible tools"}
+{"tick":19,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":19,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":20,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Flood relief · Clínica Las Pozas (intact): no path with the visible tools"}
+{"tick":21,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":21,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":22,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Flood relief · Clínica Las Pozas (intact): no path with the visible tools"}
+{"tick":23,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":23,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":24,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Flood relief · Clínica Las Pozas (intact): no path with the visible tools"}
+{"tick":25,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":25,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":26,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Flood relief · Clínica Las Pozas (intact): no path with the visible tools"}
+{"tick":27,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":27,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":28,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Flood relief · Clínica Las Pozas (intact): no path with the visible tools"}
+{"tick":29,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Acted","detail":"Flood relief · Clínica Las Pozas (intact): last step"}
+{"tick":29,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"confirm-with-clinic","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":30,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"Flood relief · Clínica Las Pozas (intact): no path with the visible tools"}
+{"tick":30,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"articulate","kind":"Consolidated","detail":"0 procedure(s), 0 episode(s), 0 rule(s), 0 unknown"}
+{"note":"posture Adversary; policy bfs; no extensions"}
+{"note":"no path while confirm-with-clinic rested: habituation lifted, same story"}
+{"note":"no path while confirm-with-clinic rested: habituation lifted, same story"}
+{"note":"no path while confirm-with-clinic rested: habituation lifted, same story"}
+{"note":"no path while confirm-with-clinic rested: habituation lifted, same story"}
+{"note":"no path while confirm-with-clinic rested: habituation lifted, same story"}
+{"note":"no path while confirm-with-clinic rested: habituation lifted, same story"}
+{"note":"no path while confirm-with-clinic rested: habituation lifted, same story"}
+{"note":"no path while confirm-with-clinic rested: habituation lifted, same story"}
+{"note":"no path while confirm-with-clinic rested: habituation lifted, same story"}
+{"note":"no path while confirm-with-clinic rested: habituation lifted, same story"}
+{"note":"no path while confirm-with-clinic rested: habituation lifted, same story"}
+{"note":"no path while confirm-with-clinic rested: habituation lifted, same story"}
+{"note":"no path while confirm-with-clinic rested: habituation lifted, same story"}
+{"note":"no path while confirm-with-clinic rested: habituation lifted, same story"}
+{"note":"procedures: none closed"}
+{"note":"episodes: no anomaly met"}
+{"note":"rules: none earned yet"}
+{"note":"unknown territory at end: none; unexplored territory entered 0 time(s)"}

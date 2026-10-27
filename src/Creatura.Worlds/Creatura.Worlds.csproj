@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Creatura.Worlds</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The bench: sample worlds, manifests, controls and catalogs. No packages and no file IO, so the
+         Blazor WebAssembly demos can reference it. -->
+    <ProjectReference Include="../Creatura/Creatura.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,14 @@
+{"agent":"Levin colony","goalReached":false,"ticks":5}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":1,"freedom":1,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":1,"freedom":1,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":1,"freedom":1,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":1,"freedom":1,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":1,"freedom":1,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":5,"level":"organism","setPoint":"contract","stress":1,"freedom":1,"action":"hand off","kind":"Escalated","detail":"stuck regulation after 5 attempts"}
+{"note":"levels: cell(effect) → tissue(obligations) → organism(contract); policy bfs; no extensions"}
+{"note":"organism shaping: budget 4/4, attempts 1 — widening autonomy (no path with the visible tools)"}
+{"note":"organism shaping: budget 4/4, attempts 2 — widening autonomy (no path with the visible tools)"}
+{"note":"organism shaping: budget 4/4, attempts 3 — widening autonomy (no path with the visible tools)"}
+{"note":"organism shaping: budget 4/4, attempts 4 — widening autonomy (no path with the visible tools)"}
+{"note":"organism: goal is not regulatable (no path with the visible tools) — escalating to a human"}
+{"note":"quarantined at end: none"}

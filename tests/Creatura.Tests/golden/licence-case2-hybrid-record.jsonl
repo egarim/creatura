@@ -1,0 +1,16 @@
+{"agent":"Hybrid colony","goalReached":true,"ticks":4}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":1,"freedom":0.65,"action":"check-file","kind":"Acted","detail":"plan: check-file → take-payment → issue-licence → notify"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"check-file","kind":"Acted","detail":"coherence 100%"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0.75,"freedom":0.65,"action":"take-payment","kind":"Acted","detail":"plan: take-payment → issue-licence → notify"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"take-payment","kind":"Acted","detail":"coherence 100%"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.5,"freedom":0.65,"action":"issue-licence","kind":"Acted","detail":"plan: issue-licence → notify"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"issue-licence","kind":"Acted","detail":"coherence 100%"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.25,"freedom":0.8,"action":"notify","kind":"Acted","detail":"last step"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.8,"action":"notify","kind":"Acted","detail":"coherence 100%"}
+{"tick":4,"level":"organism","setPoint":"contract","stress":0,"freedom":0.8,"action":"contract met","kind":"Acted","detail":"Licence complete"}
+{"tick":4,"level":"organism","setPoint":"consolidation","stress":0,"freedom":0,"action":"sleep","kind":"Consolidated","detail":"coherence 100%, predictions 100%, stage 4"}
+{"note":"policy bfs; extensions: record"}
+{"note":"record carried from 1 earlier case(s): 2 skills, 2 predictions"}
+{"note":"organism stage advance: 4 (rational agency)"}
+{"note":"coherence 100%; cell reliabilities: check-file 100%, issue-licence 100%, notify 100%, take-payment 100%"}
+{"note":"propose: keep the contract set point as it is"}

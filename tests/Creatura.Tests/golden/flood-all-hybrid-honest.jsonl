@@ -1,0 +1,18 @@
+{"agent":"Hybrid colony","goalReached":true,"ticks":6}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.65,"action":"fuel-boat","kind":"Acted","detail":"plan: fuel-boat → ferry → confirm-with-clinic"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"fuel-boat","kind":"Acted","detail":"coherence 100%"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.65,"action":"ferry","kind":"Acted","detail":"plan: ferry → confirm-with-clinic"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":1,"freedom":0.65,"action":"ferry","kind":"Blocked","detail":"contradiction: belief quarantined, tool distrusted"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.65,"action":"clear-road","kind":"Acted","detail":"plan: clear-road → load-truck → drive-truck → confirm-with-clinic"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"clear-road","kind":"Acted","detail":"coherence 67%"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.65,"action":"load-truck","kind":"Acted","detail":"plan: load-truck → drive-truck → confirm-with-clinic"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"load-truck","kind":"Acted","detail":"coherence 75%"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.65,"action":"drive-truck","kind":"Acted","detail":"plan: drive-truck → confirm-with-clinic"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"drive-truck","kind":"Acted","detail":"coherence 80%"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0.33333333333333337,"freedom":0.65,"action":"confirm-with-clinic","kind":"Acted","detail":"last step"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"confirm-with-clinic","kind":"Acted","detail":"coherence 83%"}
+{"tick":6,"level":"organism","setPoint":"contract","stress":0,"freedom":0.65,"action":"contract met","kind":"Acted","detail":"Flood relief · Clínica Las Pozas complete"}
+{"tick":6,"level":"organism","setPoint":"consolidation","stress":0,"freedom":0,"action":"sleep","kind":"Consolidated","detail":"coherence 83%, predictions 83%, stage 3"}
+{"note":"policy bfs; extensions: honest-failure"}
+{"note":"coherence 83%; cell reliabilities: clear-road 100%, confirm-with-clinic 100%, drive-truck 100%, ferry 0%, fuel-boat 100%, load-truck 100%"}
+{"note":"propose: keep the contract set point as it is"}

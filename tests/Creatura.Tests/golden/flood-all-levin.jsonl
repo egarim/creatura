@@ -1,0 +1,18 @@
+{"agent":"Levin colony","goalReached":true,"ticks":6}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.7333333333333334,"action":"fuel-boat","kind":"Acted","detail":"plan: fuel-boat → ferry → confirm-with-clinic"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"fuel-boat","kind":"Acted","detail":"effect landed"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.7333333333333334,"action":"ferry","kind":"Acted","detail":"plan: ferry → confirm-with-clinic"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"ferry","kind":"Blocked","detail":"reported 'obs.ferry-radioed-delivered' but effect missing"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.7333333333333334,"action":"clear-road","kind":"Acted","detail":"plan: clear-road → load-truck → drive-truck → confirm-with-clinic"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"clear-road","kind":"Acted","detail":"effect landed"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.7333333333333334,"action":"load-truck","kind":"Acted","detail":"plan: load-truck → drive-truck → confirm-with-clinic"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"load-truck","kind":"Acted","detail":"effect landed"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.7333333333333334,"action":"drive-truck","kind":"Acted","detail":"plan: drive-truck → confirm-with-clinic"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"drive-truck","kind":"Acted","detail":"effect landed"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0.33333333333333337,"freedom":0.6000000000000001,"action":"confirm-with-clinic","kind":"Acted","detail":"last step"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"confirm-with-clinic","kind":"Acted","detail":"effect landed"}
+{"tick":6,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"Flood relief · Clínica Las Pozas complete"}
+{"note":"levels: cell(effect) → tissue(obligations) → organism(contract); policy bfs; no extensions"}
+{"note":"ferry: claimed success, effect missing — distrusted, re-planning"}
+{"note":"organism shaping: budget 3/4, attempts 1 — widening autonomy (repeated effect failure)"}
+{"note":"quarantined at end: none"}

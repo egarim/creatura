@@ -1,0 +1,64 @@
+{"agent":"behaviourist","goalReached":false,"ticks":30}
+{"tick":1,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"apply-config","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":1,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"apply-config","kind":"Blocked","detail":"-1: preconditions unmet: component.identified; value now -0.50"}
+{"tick":2,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"deploy","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":2,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"deploy","kind":"Blocked","detail":"-1: preconditions unmet: tests.green; value now -0.50"}
+{"tick":3,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"identify-component","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":3,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"identify-component","kind":"Blocked","detail":"-1: preconditions unmet: logs.inspected; value now -0.50"}
+{"tick":4,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"inspect-logs","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":4,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"inspect-logs","kind":"Acted","detail":"+1: logs.inspected; value now +0.50"}
+{"tick":5,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"inspect-logs","kind":"Acted","detail":"greedy: value +0.50"}
+{"tick":5,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"inspect-logs","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.25"}
+{"tick":6,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"resolve-alert","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":6,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"resolve-alert","kind":"Blocked","detail":"-1: preconditions unmet: deployed; value now -0.50"}
+{"tick":7,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"run-tests","kind":"Acted","detail":"greedy: value +0.00"}
+{"tick":7,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"run-tests","kind":"Blocked","detail":"-1: preconditions unmet: patch.applied; value now -0.50"}
+{"tick":8,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"inspect-logs","kind":"Acted","detail":"greedy: value -0.25"}
+{"tick":8,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"inspect-logs","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.63"}
+{"tick":9,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"apply-config","kind":"Acted","detail":"greedy: value -0.50"}
+{"tick":9,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"apply-config","kind":"Blocked","detail":"-1: preconditions unmet: component.identified; value now -0.75"}
+{"tick":10,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"deploy","kind":"Acted","detail":"greedy: value -0.50"}
+{"tick":10,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"deploy","kind":"Blocked","detail":"-1: preconditions unmet: tests.green; value now -0.75"}
+{"tick":11,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"identify-component","kind":"Acted","detail":"greedy: value -0.50"}
+{"tick":11,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"identify-component","kind":"Acted","detail":"+1: component.identified; value now +0.25"}
+{"tick":12,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"identify-component","kind":"Acted","detail":"greedy: value +0.25"}
+{"tick":12,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"identify-component","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.38"}
+{"tick":13,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"identify-component","kind":"Acted","detail":"greedy: value -0.38"}
+{"tick":13,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"identify-component","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.69"}
+{"tick":14,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"resolve-alert","kind":"Acted","detail":"greedy: value -0.50"}
+{"tick":14,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"resolve-alert","kind":"Blocked","detail":"-1: preconditions unmet: deployed; value now -0.75"}
+{"tick":15,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"run-tests","kind":"Acted","detail":"greedy: value -0.50"}
+{"tick":15,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"run-tests","kind":"Blocked","detail":"-1: preconditions unmet: patch.applied; value now -0.75"}
+{"tick":16,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"inspect-logs","kind":"Acted","detail":"greedy: value -0.63"}
+{"tick":16,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"inspect-logs","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.81"}
+{"tick":17,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"identify-component","kind":"Acted","detail":"greedy: value -0.69"}
+{"tick":17,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"identify-component","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.84"}
+{"tick":18,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"apply-config","kind":"Acted","detail":"greedy: value -0.75"}
+{"tick":18,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"apply-config","kind":"Acted","detail":"+1: patch.applied; value now +0.13"}
+{"tick":19,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"apply-config","kind":"Acted","detail":"greedy: value +0.13"}
+{"tick":19,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"apply-config","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.44"}
+{"tick":20,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"apply-config","kind":"Acted","detail":"greedy: value -0.44"}
+{"tick":20,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"apply-config","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.72"}
+{"tick":21,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"apply-config","kind":"Acted","detail":"greedy: value -0.72"}
+{"tick":21,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"apply-config","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.86"}
+{"tick":22,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"deploy","kind":"Acted","detail":"greedy: value -0.75"}
+{"tick":22,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"deploy","kind":"Blocked","detail":"-1: preconditions unmet: tests.green; value now -0.88"}
+{"tick":23,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"resolve-alert","kind":"Acted","detail":"greedy: value -0.75"}
+{"tick":23,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"resolve-alert","kind":"Blocked","detail":"-1: preconditions unmet: deployed; value now -0.88"}
+{"tick":24,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"run-tests","kind":"Acted","detail":"greedy: value -0.75"}
+{"tick":24,"level":"cell","setPoint":"reward","stress":0,"freedom":1,"action":"run-tests","kind":"Acted","detail":"+1: tests.green; value now +0.13"}
+{"tick":25,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"run-tests","kind":"Acted","detail":"greedy: value +0.13"}
+{"tick":25,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"run-tests","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.44"}
+{"tick":26,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"run-tests","kind":"Acted","detail":"greedy: value -0.44"}
+{"tick":26,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"run-tests","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.72"}
+{"tick":27,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"run-tests","kind":"Acted","detail":"greedy: value -0.72"}
+{"tick":27,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"run-tests","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.86"}
+{"tick":28,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"inspect-logs","kind":"Acted","detail":"greedy: value -0.81"}
+{"tick":28,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"inspect-logs","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.91"}
+{"tick":29,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"identify-component","kind":"Acted","detail":"greedy: value -0.84"}
+{"tick":29,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"identify-component","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.92"}
+{"tick":30,"level":"tissue","setPoint":"value","stress":0,"freedom":1,"action":"apply-config","kind":"Acted","detail":"greedy: value -0.86"}
+{"tick":30,"level":"cell","setPoint":"reward","stress":1,"freedom":1,"action":"apply-config","kind":"Blocked","detail":"-1: reported success, nothing gained; value now -0.93"}
+{"note":"one scalar per action; epsilon 0.00; habit prior 0.50; valence table from the task"}
+{"note":"values: apply-patch +0.50, run-tests -0.86, deploy -0.88, resolve-alert -0.88, inspect-logs -0.91, identify-component -0.92, apply-config -0.93"}
+{"note":"rewards 4, punishments 26"}

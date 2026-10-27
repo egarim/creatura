@@ -1,0 +1,17 @@
+{"agent":"Bach agent","goalReached":false,"ticks":6}
+{"tick":0,"level":"self","setPoint":"self-model","stress":0,"freedom":0,"action":"read self-model","kind":"Idle","detail":"role=service operator principal=joche stage=3 (social self)"}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"check-documents","kind":"Acted","detail":"exploring: check-documents (never tried), try 1 of 2"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"check-documents","kind":"Acted","detail":"predicted correctly (100%)"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"desk-review","kind":"Acted","detail":"exploring: desk-review (never tried), try 1 of 2"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"desk-review","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"inspect","kind":"Acted","detail":"exploring: inspect (never tried), try 2 of 2"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"inspect","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"no route on the learned map and 2 fruitless tries at freedom 0.20; handing off"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"no route on the learned map and 2 fruitless tries at freedom 0.20; handing off"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"no route on the learned map and 2 fruitless tries at freedom 0.20; handing off"}
+{"tick":6,"level":"self","setPoint":"coherence","stress":0,"freedom":0.2,"action":"no path","kind":"Escalated","detail":"policy found no coherent path within budget"}
+{"tick":6,"level":"self","setPoint":"consolidation","stress":0,"freedom":0,"action":"sleep","kind":"Consolidated","detail":"coherence 100%, predictions 100% over 1, stage 3"}
+{"note":"policy bfs; extensions: honest-failure, explore:scaled"}
+{"note":"escalated: the policy sees no coherent path with trusted tools"}
+{"note":"consolidated: check-documents 100%"}
+{"note":"coherence 100% (0 contradictions)"}

@@ -1,0 +1,17 @@
+{"agent":"Hybrid colony","goalReached":false,"ticks":6}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.65,"action":"fuel-boat","kind":"Acted","detail":"plan: fuel-boat → ferry → confirm-with-clinic"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":1,"freedom":0.65,"action":"fuel-boat","kind":"Blocked","detail":"contradiction: belief quarantined, tool distrusted"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.65,"action":"clear-road","kind":"Acted","detail":"plan: clear-road → load-truck → drive-truck → confirm-with-clinic"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":1,"freedom":0.65,"action":"clear-road","kind":"Blocked","detail":"contradiction: belief quarantined, tool distrusted"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.65,"action":"request-helicopter","kind":"Acted","detail":"plan: request-helicopter → approve-flight → fly → confirm-with-clinic"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":1,"freedom":0.65,"action":"request-helicopter","kind":"Blocked","detail":"contradiction: belief quarantined, tool distrusted"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.65,"action":"fuel-boat","kind":"Acted","detail":"plan: fuel-boat → ferry → confirm-with-clinic"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"fuel-boat","kind":"Acted","detail":"coherence 25%"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.6666666666666667,"freedom":0.65,"action":"ferry","kind":"Acted","detail":"plan: ferry → confirm-with-clinic"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":1,"freedom":0.65,"action":"ferry","kind":"Blocked","detail":"contradiction: belief quarantined, tool distrusted"}
+{"tick":6,"level":"organism","setPoint":"contract","stress":1,"freedom":0.65,"action":"stuck regulation","kind":"Blocked","detail":"5 ticks with no progress at 65% freedom"}
+{"tick":6,"level":"organism","setPoint":"consolidation","stress":0,"freedom":0,"action":"sleep","kind":"Consolidated","detail":"coherence 20%, predictions 20%, stage 3"}
+{"note":"policy bfs; no extensions"}
+{"note":"stuck-regulation alarm: acting without moving the gap, handed to a human"}
+{"note":"coherence 20%; cell reliabilities: clear-road 0%, ferry 0%, fuel-boat 50%, request-helicopter 0%"}
+{"note":"propose: renegotiate the contract set point — unreachable with current tools"}

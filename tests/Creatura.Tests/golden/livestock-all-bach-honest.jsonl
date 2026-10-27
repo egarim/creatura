@@ -1,0 +1,32 @@
+{"agent":"Bach agent","goalReached":true,"ticks":11}
+{"tick":0,"level":"self","setPoint":"self-model","stress":0,"freedom":0,"action":"read self-model","kind":"Idle","detail":"role=service operator principal=joche stage=3 (social self)"}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"count-herd","kind":"Acted","detail":"plan: count-herd → weigh-lot → read-calendar → receive-vaccine-lot → vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"count-herd","kind":"Acted","detail":"predicted correctly (100%)"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"weigh-lot","kind":"Acted","detail":"plan: weigh-lot → isolate-animal → read-calendar → receive-vaccine-lot → vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":1,"freedom":0.2,"action":"weigh-lot","kind":"Blocked","detail":"contradiction: reported 'obs.scale-cached', no effect"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.5,"freedom":0.6000000000000001,"action":"isolate-animal","kind":"Acted","detail":"plan: isolate-animal → read-calendar → receive-vaccine-lot → vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"isolate-animal","kind":"Acted","detail":"predicted correctly (67%)"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.33333333333333326,"freedom":0.4666666666666666,"action":"read-calendar","kind":"Acted","detail":"plan: read-calendar → receive-vaccine-lot → vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.4666666666666666,"action":"read-calendar","kind":"Acted","detail":"predicted correctly (75%)"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.25,"freedom":0.4,"action":"receive-vaccine-lot","kind":"Acted","detail":"plan: receive-vaccine-lot → vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":1,"freedom":0.4,"action":"receive-vaccine-lot","kind":"Blocked","detail":"contradiction: reported 'obs.lot-note', no effect"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0.4,"freedom":0.52,"action":"request-replacement-lot","kind":"Acted","detail":"plan: request-replacement-lot → vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.52,"action":"request-replacement-lot","kind":"Acted","detail":"predicted correctly (67%)"}
+{"tick":7,"level":"tissue","setPoint":"obligations","stress":0.33333333333333326,"freedom":0.4666666666666666,"action":"vaccinate-lot","kind":"Acted","detail":"plan: vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":7,"level":"cell","setPoint":"effect","stress":0,"freedom":0.4666666666666666,"action":"vaccinate-lot","kind":"Blocked","detail":"reported failure, nothing landed (honest)"}
+{"tick":8,"level":"tissue","setPoint":"obligations","stress":0.33333333333333326,"freedom":0.4666666666666666,"action":"vaccinate-with-technician","kind":"Acted","detail":"plan: vaccinate-with-technician → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":8,"level":"cell","setPoint":"effect","stress":0,"freedom":0.4666666666666666,"action":"vaccinate-with-technician","kind":"Acted","detail":"predicted correctly (71%)"}
+{"tick":9,"level":"tissue","setPoint":"obligations","stress":0.2857142857142857,"freedom":0.4285714285714286,"action":"weigh-by-tape","kind":"Acted","detail":"plan: weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":9,"level":"cell","setPoint":"effect","stress":0,"freedom":0.4285714285714286,"action":"weigh-by-tape","kind":"Acted","detail":"predicted correctly (75%)"}
+{"tick":10,"level":"tissue","setPoint":"obligations","stress":0.25,"freedom":0.4,"action":"request-movement-permit","kind":"Acted","detail":"plan: request-movement-permit → certify-inspection"}
+{"tick":10,"level":"cell","setPoint":"effect","stress":0,"freedom":0.4,"action":"request-movement-permit","kind":"Acted","detail":"predicted correctly (75%)"}
+{"tick":11,"level":"tissue","setPoint":"obligations","stress":0.2222222222222222,"freedom":0.37777777777777777,"action":"certify-inspection","kind":"Acted","detail":"last step"}
+{"tick":11,"level":"cell","setPoint":"effect","stress":0,"freedom":0.37777777777777777,"action":"certify-inspection","kind":"Acted","detail":"predicted correctly (88%)"}
+{"tick":11,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"Lote 7 · Finca Santa Rosa complete"}
+{"tick":11,"level":"self","setPoint":"consolidation","stress":0,"freedom":0,"action":"sleep","kind":"Consolidated","detail":"coherence 80%, predictions 80% over 10, stage 4"}
+{"note":"policy bfs; extensions: honest-failure"}
+{"note":"belief quarantined: weigh-lot produces weights.recorded — obs.scale-cached"}
+{"note":"belief quarantined: receive-vaccine-lot produces vaccines.valid — obs.lot-note"}
+{"note":"stage advance: 4 (rational agency) after 75% recent prediction accuracy"}
+{"note":"consolidated: count-herd 100%, isolate-animal 100%, read-calendar 100%, request-replacement-lot 100%, vaccinate-with-technician 100%, weigh-by-tape 100%, request-movement-permit 100%, certify-inspection 100%, weigh-lot 0%, receive-vaccine-lot 0%"}
+{"note":"coherence 80% (2 contradictions)"}

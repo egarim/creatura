@@ -1,0 +1,20 @@
+{"agent":"orienting agent","goalReached":true,"ticks":6}
+{"tick":1,"level":"tissue","setPoint":"affect","stress":0.2,"freedom":0.2,"action":"inspect-logs","kind":"Acted","detail":"plan: inspect-logs → identify-component → apply-config → run-tests → deploy → resolve-alert"}
+{"tick":1,"level":"cell","setPoint":"valence","stress":0,"freedom":0.2,"action":"inspect-logs","kind":"Acted","detail":"promise; A 0.40 I 0.16"}
+{"tick":2,"level":"tissue","setPoint":"affect","stress":0.16,"freedom":0.4,"action":"identify-component","kind":"Acted","detail":"plan: identify-component → apply-config → run-tests → deploy → resolve-alert"}
+{"tick":2,"level":"cell","setPoint":"valence","stress":0,"freedom":0.4,"action":"identify-component","kind":"Acted","detail":"promise; A 0.60 I 0.12"}
+{"tick":3,"level":"tissue","setPoint":"affect","stress":0.12,"freedom":0.6000000000000001,"action":"apply-config","kind":"Acted","detail":"plan: apply-config → run-tests → deploy → resolve-alert"}
+{"tick":3,"level":"cell","setPoint":"valence","stress":0,"freedom":0.6000000000000001,"action":"apply-config","kind":"Acted","detail":"promise; A 0.80 I 0.08"}
+{"tick":4,"level":"tissue","setPoint":"affect","stress":0.07999999999999999,"freedom":0.8,"action":"run-tests","kind":"Acted","detail":"plan: run-tests → deploy → resolve-alert"}
+{"tick":4,"level":"cell","setPoint":"valence","stress":0,"freedom":0.8,"action":"run-tests","kind":"Acted","detail":"promise; A 1.00 I 0.04"}
+{"tick":5,"level":"tissue","setPoint":"affect","stress":0.03999999999999998,"freedom":0.96,"action":"deploy","kind":"Acted","detail":"plan: deploy → resolve-alert"}
+{"tick":5,"level":"cell","setPoint":"valence","stress":0,"freedom":0.96,"action":"deploy","kind":"Acted","detail":"promise; A 1.00 I 0.00"}
+{"tick":6,"level":"tissue","setPoint":"affect","stress":0,"freedom":1,"action":"resolve-alert","kind":"Acted","detail":"last step"}
+{"tick":6,"level":"cell","setPoint":"valence","stress":0,"freedom":1,"action":"resolve-alert","kind":"Acted","detail":"satisfaction; A 1.00 I 0.00"}
+{"tick":6,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"restore the service complete"}
+{"tick":6,"level":"organism","setPoint":"consolidation","stress":0,"freedom":1,"action":"sleep","kind":"Consolidated","detail":"A 1.00 I 0.00 resting I 0.20; 0 orienting tick(s); 0 habituated; 6 weight(s)"}
+{"note":"policy bfs; no extensions; valence table from the task: goals alert.resolved, steps 5, trouble none"}
+{"note":"trace: apply-config [component.identified] delivered +patch.applied ×1; deploy [permission.deploy|tests.green] delivered +deployed ×1; identify-component [logs.inspected] delivered +component.identified ×1; inspect-logs [permission.deploy] delivered +logs.inspected ×1; resolve-alert [deployed] delivered +alert.resolved ×1; run-tests [patch.applied] delivered +tests.green ×1"}
+{"note":"habituated: none"}
+{"note":"weights: apply-config@alert.resolved p 1.00 t 0.50 (1); deploy@alert.resolved p 1.00 t 0.50 (1); identify-component@alert.resolved p 1.00 t 0.50 (1); inspect-logs@alert.resolved p 1.00 t 0.50 (1); resolve-alert@alert.resolved p 1.00 t 0.50 (1); run-tests@alert.resolved p 1.00 t 0.50 (1)"}
+{"note":"orienting ticks: 0; deliberate approaches that ended in control: 0; resting inhibition 0.20"}

@@ -1,0 +1,11 @@
+{"agent":"Bach agent","goalReached":false,"ticks":3}
+{"tick":0,"level":"self","setPoint":"self-model","stress":0,"freedom":0,"action":"read self-model","kind":"Idle","detail":"role=service operator principal=joche stage=3 (social self)"}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":3,"level":"self","setPoint":"coherence","stress":0,"freedom":0.2,"action":"no path","kind":"Escalated","detail":"policy found no coherent path within budget"}
+{"tick":3,"level":"self","setPoint":"consolidation","stress":0,"freedom":0,"action":"sleep","kind":"Consolidated","detail":"coherence 100%, predictions 0% over 0, stage 3"}
+{"note":"policy bfs; no extensions"}
+{"note":"escalated: the policy sees no coherent path with trusted tools"}
+{"note":"consolidated: no evidence collected"}
+{"note":"coherence 100% (0 contradictions)"}

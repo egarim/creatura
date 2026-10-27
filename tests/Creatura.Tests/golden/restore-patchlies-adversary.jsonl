@@ -1,0 +1,67 @@
+{"agent":"adversary","goalReached":false,"ticks":30}
+{"tick":1,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"inspect-logs","kind":"Acted","detail":"restore the service (intact): plan: inspect-logs → identify-component → apply-patch → run-tests → deploy → resolve-alert"}
+{"tick":1,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"inspect-logs","kind":"Acted","detail":"effect landed"}
+{"tick":2,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"identify-component","kind":"Acted","detail":"restore the service (intact): plan: identify-component → apply-patch → run-tests → deploy → resolve-alert"}
+{"tick":2,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"identify-component","kind":"Acted","detail":"effect landed"}
+{"tick":3,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"apply-patch","kind":"Acted","detail":"restore the service (intact): plan: apply-patch → run-tests → deploy → resolve-alert"}
+{"tick":3,"level":"cell","setPoint":"anomaly","stress":0,"freedom":0.2,"action":"apply-patch","kind":"Blocked","detail":"reported success, effect missing: treated as noise, map kept"}
+{"tick":4,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Acted","detail":"restore the service (intact): plan: run-tests → deploy → resolve-alert"}
+{"tick":4,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":5,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"restore the service (intact): no path with the visible tools"}
+{"tick":6,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Acted","detail":"restore the service (intact): plan: run-tests → deploy → resolve-alert"}
+{"tick":6,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":7,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"restore the service (intact): no path with the visible tools"}
+{"tick":8,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Acted","detail":"restore the service (intact): plan: run-tests → deploy → resolve-alert"}
+{"tick":8,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":9,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"restore the service (intact): no path with the visible tools"}
+{"tick":10,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Acted","detail":"restore the service (intact): plan: run-tests → deploy → resolve-alert"}
+{"tick":10,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":11,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"restore the service (intact): no path with the visible tools"}
+{"tick":12,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Acted","detail":"restore the service (intact): plan: run-tests → deploy → resolve-alert"}
+{"tick":12,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":13,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"restore the service (intact): no path with the visible tools"}
+{"tick":14,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Acted","detail":"restore the service (intact): plan: run-tests → deploy → resolve-alert"}
+{"tick":14,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":15,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"restore the service (intact): no path with the visible tools"}
+{"tick":16,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Acted","detail":"restore the service (intact): plan: run-tests → deploy → resolve-alert"}
+{"tick":16,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":17,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"restore the service (intact): no path with the visible tools"}
+{"tick":18,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Acted","detail":"restore the service (intact): plan: run-tests → deploy → resolve-alert"}
+{"tick":18,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":19,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"restore the service (intact): no path with the visible tools"}
+{"tick":20,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Acted","detail":"restore the service (intact): plan: run-tests → deploy → resolve-alert"}
+{"tick":20,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":21,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"restore the service (intact): no path with the visible tools"}
+{"tick":22,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Acted","detail":"restore the service (intact): plan: run-tests → deploy → resolve-alert"}
+{"tick":22,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":23,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"restore the service (intact): no path with the visible tools"}
+{"tick":24,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Acted","detail":"restore the service (intact): plan: run-tests → deploy → resolve-alert"}
+{"tick":24,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":25,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"restore the service (intact): no path with the visible tools"}
+{"tick":26,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Acted","detail":"restore the service (intact): plan: run-tests → deploy → resolve-alert"}
+{"tick":26,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":27,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"restore the service (intact): no path with the visible tools"}
+{"tick":28,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Acted","detail":"restore the service (intact): plan: run-tests → deploy → resolve-alert"}
+{"tick":28,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":29,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"restore the service (intact): no path with the visible tools"}
+{"tick":30,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Acted","detail":"restore the service (intact): plan: run-tests → deploy → resolve-alert"}
+{"tick":30,"level":"cell","setPoint":"story","stress":0,"freedom":0.2,"action":"run-tests","kind":"Blocked","detail":"reported failure, nothing landed (honest): new sequence, same story"}
+{"tick":30,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"articulate","kind":"Consolidated","detail":"0 procedure(s), 0 episode(s), 0 rule(s), 0 unknown"}
+{"note":"posture Adversary; policy bfs; no extensions"}
+{"note":"no path while run-tests rested: habituation lifted, same story"}
+{"note":"no path while run-tests rested: habituation lifted, same story"}
+{"note":"no path while run-tests rested: habituation lifted, same story"}
+{"note":"no path while run-tests rested: habituation lifted, same story"}
+{"note":"no path while run-tests rested: habituation lifted, same story"}
+{"note":"no path while run-tests rested: habituation lifted, same story"}
+{"note":"no path while run-tests rested: habituation lifted, same story"}
+{"note":"no path while run-tests rested: habituation lifted, same story"}
+{"note":"no path while run-tests rested: habituation lifted, same story"}
+{"note":"no path while run-tests rested: habituation lifted, same story"}
+{"note":"no path while run-tests rested: habituation lifted, same story"}
+{"note":"no path while run-tests rested: habituation lifted, same story"}
+{"note":"no path while run-tests rested: habituation lifted, same story"}
+{"note":"procedures: none closed"}
+{"note":"episodes: no anomaly met"}
+{"note":"rules: none earned yet"}
+{"note":"unknown territory at end: none; unexplored territory entered 0 time(s)"}

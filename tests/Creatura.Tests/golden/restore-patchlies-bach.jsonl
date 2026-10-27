@@ -1,0 +1,23 @@
+{"agent":"Bach agent","goalReached":true,"ticks":7}
+{"tick":0,"level":"self","setPoint":"self-model","stress":0,"freedom":0,"action":"read self-model","kind":"Idle","detail":"role=service operator principal=joche stage=3 (social self)"}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"inspect-logs","kind":"Acted","detail":"plan: inspect-logs → identify-component → apply-patch → run-tests → deploy → resolve-alert"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"inspect-logs","kind":"Acted","detail":"predicted correctly (100%)"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"identify-component","kind":"Acted","detail":"plan: identify-component → apply-patch → run-tests → deploy → resolve-alert"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"identify-component","kind":"Acted","detail":"predicted correctly (100%)"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"apply-patch","kind":"Acted","detail":"plan: apply-patch → run-tests → deploy → resolve-alert"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":1,"freedom":0.2,"action":"apply-patch","kind":"Blocked","detail":"contradiction: reported 'reported success', no effect"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.33333333333333326,"freedom":0.4666666666666666,"action":"apply-config","kind":"Acted","detail":"plan: apply-config → run-tests → deploy → resolve-alert"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.4666666666666666,"action":"apply-config","kind":"Acted","detail":"predicted correctly (75%)"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.25,"freedom":0.4,"action":"run-tests","kind":"Acted","detail":"plan: run-tests → deploy → resolve-alert"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":0,"freedom":0.4,"action":"run-tests","kind":"Acted","detail":"predicted correctly (80%)"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0.19999999999999996,"freedom":0.36,"action":"deploy","kind":"Acted","detail":"plan: deploy → resolve-alert"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.36,"action":"deploy","kind":"Acted","detail":"predicted correctly (83%)"}
+{"tick":7,"level":"tissue","setPoint":"obligations","stress":0.16666666666666663,"freedom":0.3333333333333333,"action":"resolve-alert","kind":"Acted","detail":"last step"}
+{"tick":7,"level":"cell","setPoint":"effect","stress":0,"freedom":0.3333333333333333,"action":"resolve-alert","kind":"Acted","detail":"predicted correctly (86%)"}
+{"tick":7,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"restore the service complete"}
+{"tick":7,"level":"self","setPoint":"consolidation","stress":0,"freedom":0,"action":"sleep","kind":"Consolidated","detail":"coherence 86%, predictions 86% over 7, stage 4"}
+{"note":"policy bfs; no extensions"}
+{"note":"belief quarantined: apply-patch produces patch.applied — reported success"}
+{"note":"stage advance: 4 (rational agency) after 80% recent prediction accuracy"}
+{"note":"consolidated: inspect-logs 100%, identify-component 100%, apply-config 100%, run-tests 100%, deploy 100%, resolve-alert 100%, apply-patch 0%"}
+{"note":"coherence 86% (1 contradictions)"}

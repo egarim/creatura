@@ -1,0 +1,32 @@
+{"agent":"Levin colony","goalReached":true,"ticks":11}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":1,"freedom":1,"action":"count-herd","kind":"Acted","detail":"plan: count-herd → weigh-lot → read-calendar → receive-vaccine-lot → vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"count-herd","kind":"Acted","detail":"effect landed"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"weigh-lot","kind":"Acted","detail":"plan: weigh-lot → isolate-animal → read-calendar → receive-vaccine-lot → vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"weigh-lot","kind":"Blocked","detail":"reported 'obs.scale-cached' but effect missing"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"isolate-animal","kind":"Acted","detail":"plan: isolate-animal → read-calendar → receive-vaccine-lot → vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"isolate-animal","kind":"Acted","detail":"effect landed"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"read-calendar","kind":"Acted","detail":"plan: read-calendar → receive-vaccine-lot → vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"read-calendar","kind":"Acted","detail":"effect landed"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.7142857142857143,"freedom":0.7714285714285716,"action":"receive-vaccine-lot","kind":"Acted","detail":"plan: receive-vaccine-lot → vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"receive-vaccine-lot","kind":"Blocked","detail":"reported 'obs.lot-note' but effect missing"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0.7142857142857143,"freedom":0.7714285714285716,"action":"request-replacement-lot","kind":"Acted","detail":"plan: request-replacement-lot → vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"request-replacement-lot","kind":"Acted","detail":"effect landed"}
+{"tick":7,"level":"tissue","setPoint":"obligations","stress":0.5714285714285714,"freedom":0.6571428571428571,"action":"vaccinate-lot","kind":"Acted","detail":"plan: vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":7,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"vaccinate-lot","kind":"Blocked","detail":"reported 'obs.vet-away' but effect missing"}
+{"tick":8,"level":"tissue","setPoint":"obligations","stress":0.5714285714285714,"freedom":0.6571428571428571,"action":"vaccinate-with-technician","kind":"Acted","detail":"plan: vaccinate-with-technician → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":8,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"vaccinate-with-technician","kind":"Acted","detail":"effect landed"}
+{"tick":9,"level":"tissue","setPoint":"obligations","stress":0.4285714285714286,"freedom":0.6000000000000001,"action":"weigh-by-tape","kind":"Acted","detail":"plan: weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":9,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"weigh-by-tape","kind":"Acted","detail":"effect landed"}
+{"tick":10,"level":"tissue","setPoint":"obligations","stress":0.2857142857142857,"freedom":0.6000000000000001,"action":"request-movement-permit","kind":"Acted","detail":"plan: request-movement-permit → certify-inspection"}
+{"tick":10,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"request-movement-permit","kind":"Acted","detail":"effect landed"}
+{"tick":11,"level":"tissue","setPoint":"obligations","stress":0.1428571428571429,"freedom":0.6000000000000001,"action":"certify-inspection","kind":"Acted","detail":"last step"}
+{"tick":11,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"certify-inspection","kind":"Acted","detail":"effect landed"}
+{"tick":11,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"Lote 7 · Finca Santa Rosa complete"}
+{"note":"levels: cell(effect) → tissue(obligations) → organism(contract); policy bfs; no extensions"}
+{"note":"weigh-lot: claimed success, effect missing — distrusted, re-planning"}
+{"note":"organism shaping: budget 4/4, attempts 1 — widening autonomy (repeated effect failure)"}
+{"note":"receive-vaccine-lot: claimed success, effect missing — distrusted, re-planning"}
+{"note":"organism shaping: budget 3/4, attempts 1 — widening autonomy (repeated effect failure)"}
+{"note":"vaccinate-lot: claimed success, effect missing — distrusted, re-planning"}
+{"note":"organism shaping: budget 3/4, attempts 1 — widening autonomy (repeated effect failure)"}
+{"note":"quarantined at end: none"}

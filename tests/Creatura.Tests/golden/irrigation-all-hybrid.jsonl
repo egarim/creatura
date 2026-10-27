@@ -1,0 +1,27 @@
+{"agent":"Hybrid colony","goalReached":true,"ticks":10}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":1,"freedom":0.65,"action":"read-sensors","kind":"Acted","detail":"plan: read-sensors → start-pump → check-forecast → allocate-water → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"read-sensors","kind":"Acted","detail":"coherence 100%"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.65,"action":"start-pump","kind":"Acted","detail":"plan: start-pump → check-forecast → allocate-water → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":1,"freedom":0.65,"action":"start-pump","kind":"Blocked","detail":"contradiction: belief quarantined, tool distrusted"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.65,"action":"check-forecast","kind":"Acted","detail":"plan: check-forecast → open-canal-gate → allocate-water → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"check-forecast","kind":"Acted","detail":"coherence 67%"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.7142857142857143,"freedom":0.65,"action":"open-canal-gate","kind":"Acted","detail":"plan: open-canal-gate → allocate-deficit → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"open-canal-gate","kind":"Acted","detail":"coherence 75%"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.5714285714285714,"freedom":0.65,"action":"allocate-deficit","kind":"Acted","detail":"plan: allocate-deficit → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"allocate-deficit","kind":"Acted","detail":"coherence 80%"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0.4285714285714286,"freedom":0.65,"action":"open-reservoir-gate","kind":"Acted","detail":"plan: open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"open-reservoir-gate","kind":"Acted","detail":"coherence 83%"}
+{"tick":7,"level":"tissue","setPoint":"obligations","stress":0.4285714285714286,"freedom":0.8,"action":"irrigate-zone-b","kind":"Acted","detail":"plan: irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":7,"level":"cell","setPoint":"effect","stress":1,"freedom":0.8,"action":"irrigate-zone-b","kind":"Blocked","detail":"contradiction: belief quarantined, tool distrusted"}
+{"tick":8,"level":"tissue","setPoint":"obligations","stress":0.4285714285714286,"freedom":0.8,"action":"irrigate-zone-a","kind":"Acted","detail":"plan: irrigate-zone-a → irrigate-zone-c → walk-zone-b"}
+{"tick":8,"level":"cell","setPoint":"effect","stress":0,"freedom":0.8,"action":"irrigate-zone-a","kind":"Acted","detail":"coherence 75%"}
+{"tick":9,"level":"tissue","setPoint":"obligations","stress":0.2857142857142857,"freedom":0.8,"action":"irrigate-zone-c","kind":"Acted","detail":"plan: irrigate-zone-c → walk-zone-b"}
+{"tick":9,"level":"cell","setPoint":"effect","stress":0,"freedom":0.8,"action":"irrigate-zone-c","kind":"Acted","detail":"coherence 78%"}
+{"tick":10,"level":"tissue","setPoint":"obligations","stress":0.1428571428571429,"freedom":0.8,"action":"walk-zone-b","kind":"Acted","detail":"last step"}
+{"tick":10,"level":"cell","setPoint":"effect","stress":0,"freedom":0.8,"action":"walk-zone-b","kind":"Acted","detail":"coherence 80%"}
+{"tick":10,"level":"organism","setPoint":"contract","stress":0,"freedom":0.8,"action":"contract met","kind":"Acted","detail":"Turno de riego · Cooperativa El Jícaro complete"}
+{"tick":10,"level":"organism","setPoint":"consolidation","stress":0,"freedom":0,"action":"sleep","kind":"Consolidated","detail":"coherence 80%, predictions 80%, stage 4"}
+{"note":"policy bfs; no extensions"}
+{"note":"organism stage advance: 4 (rational agency)"}
+{"note":"coherence 80%; cell reliabilities: allocate-deficit 100%, check-forecast 100%, irrigate-zone-a 100%, irrigate-zone-b 0%, irrigate-zone-c 100%, open-canal-gate 100%, open-reservoir-gate 100%, read-sensors 100%, start-pump 0%, walk-zone-b 100%"}
+{"note":"propose: keep the contract set point as it is"}

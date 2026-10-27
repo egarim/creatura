@@ -1,0 +1,11 @@
+{"agent":"Hybrid colony","goalReached":false,"ticks":4}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":1,"freedom":0.65,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":1,"freedom":0.65,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":1,"freedom":0.65,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":1,"freedom":0.65,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":4,"level":"organism","setPoint":"contract","stress":1,"freedom":0.65,"action":"no path","kind":"Escalated","detail":"no coherent path within budget"}
+{"tick":4,"level":"organism","setPoint":"consolidation","stress":0,"freedom":0,"action":"sleep","kind":"Consolidated","detail":"coherence 100%, predictions 0%, stage 3"}
+{"note":"policy bfs; no extensions"}
+{"note":"escalated: no coherent path; the goal is unregulatable with trusted tools"}
+{"note":"coherence 100%; cell reliabilities: "}
+{"note":"propose: renegotiate the contract set point — unreachable with current tools"}

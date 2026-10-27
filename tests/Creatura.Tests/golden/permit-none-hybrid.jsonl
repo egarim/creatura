@@ -1,0 +1,21 @@
+{"agent":"Hybrid colony","goalReached":true,"ticks":7}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.65,"action":"check-documents","kind":"Acted","detail":"plan: check-documents → zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"check-documents","kind":"Acted","detail":"coherence 100%"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0.7142857142857143,"freedom":0.65,"action":"zoning-quick","kind":"Acted","detail":"plan: zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"zoning-quick","kind":"Acted","detail":"coherence 100%"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.5714285714285714,"freedom":0.65,"action":"pay-fee","kind":"Acted","detail":"plan: pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"pay-fee","kind":"Acted","detail":"coherence 100%"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.4285714285714286,"freedom":0.65,"action":"schedule-inspection","kind":"Acted","detail":"plan: schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"schedule-inspection","kind":"Acted","detail":"coherence 100%"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.4285714285714286,"freedom":0.65,"action":"inspect","kind":"Acted","detail":"plan: inspect → issue-permit → notify-citizen"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"inspect","kind":"Acted","detail":"coherence 100%"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0.2857142857142857,"freedom":0.65,"action":"issue-permit","kind":"Acted","detail":"plan: issue-permit → notify-citizen"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"issue-permit","kind":"Acted","detail":"coherence 100%"}
+{"tick":7,"level":"tissue","setPoint":"obligations","stress":0.1428571428571429,"freedom":0.8,"action":"notify-citizen","kind":"Acted","detail":"last step"}
+{"tick":7,"level":"cell","setPoint":"effect","stress":0,"freedom":0.8,"action":"notify-citizen","kind":"Acted","detail":"coherence 100%"}
+{"tick":7,"level":"organism","setPoint":"contract","stress":0,"freedom":0.8,"action":"contract met","kind":"Acted","detail":"EXP-2026-0417 complete"}
+{"tick":7,"level":"organism","setPoint":"consolidation","stress":0,"freedom":0,"action":"sleep","kind":"Consolidated","detail":"coherence 100%, predictions 100%, stage 4"}
+{"note":"policy bfs; no extensions"}
+{"note":"organism stage advance: 4 (rational agency)"}
+{"note":"coherence 100%; cell reliabilities: check-documents 100%, inspect 100%, issue-permit 100%, notify-citizen 100%, pay-fee 100%, schedule-inspection 100%, zoning-quick 100%"}
+{"note":"propose: keep the contract set point as it is"}

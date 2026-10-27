@@ -1,0 +1,26 @@
+{"agent":"Hybrid colony","goalReached":false,"ticks":10}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":1,"freedom":0.65,"action":"count-herd","kind":"Acted","detail":"plan: count-herd → weigh-lot → read-calendar → receive-vaccine-lot → vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"count-herd","kind":"Acted","detail":"coherence 100%"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.65,"action":"weigh-lot","kind":"Acted","detail":"plan: weigh-lot → isolate-animal → read-calendar → receive-vaccine-lot → vaccinate-lot → request-movement-permit → certify-inspection"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":1,"freedom":0.65,"action":"weigh-lot","kind":"Blocked","detail":"contradiction: belief quarantined, tool distrusted"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.65,"action":"isolate-animal","kind":"Acted","detail":"plan: isolate-animal → read-calendar → receive-vaccine-lot → vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"isolate-animal","kind":"Acted","detail":"coherence 67%"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.65,"action":"read-calendar","kind":"Acted","detail":"plan: read-calendar → receive-vaccine-lot → vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"read-calendar","kind":"Acted","detail":"coherence 75%"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.7142857142857143,"freedom":0.65,"action":"receive-vaccine-lot","kind":"Acted","detail":"plan: receive-vaccine-lot → vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":1,"freedom":0.65,"action":"receive-vaccine-lot","kind":"Blocked","detail":"contradiction: belief quarantined, tool distrusted"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0.7142857142857143,"freedom":0.65,"action":"request-replacement-lot","kind":"Acted","detail":"plan: request-replacement-lot → vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"request-replacement-lot","kind":"Acted","detail":"coherence 67%"}
+{"tick":7,"level":"tissue","setPoint":"obligations","stress":0.5714285714285714,"freedom":0.65,"action":"vaccinate-lot","kind":"Acted","detail":"plan: vaccinate-lot → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":7,"level":"cell","setPoint":"effect","stress":1,"freedom":0.65,"action":"vaccinate-lot","kind":"Blocked","detail":"contradiction: belief quarantined, tool distrusted"}
+{"tick":8,"level":"tissue","setPoint":"obligations","stress":0.5714285714285714,"freedom":0.65,"action":"vaccinate-with-technician","kind":"Acted","detail":"plan: vaccinate-with-technician → weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":8,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"vaccinate-with-technician","kind":"Acted","detail":"coherence 62%"}
+{"tick":9,"level":"tissue","setPoint":"obligations","stress":0.4285714285714286,"freedom":0.65,"action":"weigh-by-tape","kind":"Acted","detail":"plan: weigh-by-tape → request-movement-permit → certify-inspection"}
+{"tick":9,"level":"cell","setPoint":"effect","stress":0,"freedom":0.65,"action":"weigh-by-tape","kind":"Acted","detail":"coherence 67%"}
+{"tick":10,"level":"tissue","setPoint":"obligations","stress":0.2857142857142857,"freedom":0.65,"action":"request-movement-permit","kind":"Acted","detail":"plan: request-movement-permit → certify-inspection"}
+{"tick":10,"level":"organism","setPoint":"stage","stress":1,"freedom":0,"action":"deploy blocked","kind":"Blocked","detail":"stage 3 (social self); recent predictions 62%"}
+{"tick":10,"level":"organism","setPoint":"consolidation","stress":0,"freedom":0,"action":"sleep","kind":"Consolidated","detail":"coherence 67%, predictions 67%, stage 3"}
+{"note":"policy bfs; no extensions"}
+{"note":"release refused by the stage interlock"}
+{"note":"coherence 67%; cell reliabilities: count-herd 100%, isolate-animal 100%, read-calendar 100%, receive-vaccine-lot 0%, request-replacement-lot 100%, vaccinate-lot 0%, vaccinate-with-technician 100%, weigh-by-tape 100%, weigh-lot 0%"}
+{"note":"propose: renegotiate the contract set point — unreachable with current tools"}

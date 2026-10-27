@@ -1,0 +1,40 @@
+{"agent":"orienting agent","goalReached":false,"ticks":20}
+{"tick":1,"level":"tissue","setPoint":"affect","stress":0.2,"freedom":0.2,"action":"check-documents","kind":"Acted","detail":"plan: check-documents → pay-fee → zoning-quick → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":1,"level":"cell","setPoint":"valence","stress":1,"freedom":0.2,"action":"check-documents","kind":"Blocked","detail":"reported 'reported success', nothing landed: punishment (weight 0.75); threat now 0.88; orienting, then approach once"}
+{"tick":2,"level":"tissue","setPoint":"affect","stress":0.62,"freedom":0.25999999999999995,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 11 actions; A 0.26 I 0.62; check-documents to be approached once"}
+{"tick":3,"level":"tissue","setPoint":"affect","stress":0.515,"freedom":0.24499999999999997,"action":"check-documents","kind":"Acted","detail":"approach under the brake: check-documents promised and did not deliver; run it once more, on purpose, to see what it does"}
+{"tick":3,"level":"cell","setPoint":"valence","stress":0,"freedom":0.24499999999999997,"action":"check-documents","kind":"Blocked","detail":"reported failure, nothing landed (honest): punishment, threat (weight 0.50); threat now 0.69; approached once, not a lie (changed: orienting)"}
+{"tick":4,"level":"tissue","setPoint":"affect","stress":1,"freedom":0.2,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 10 actions; A 0.28 I 1.00"}
+{"tick":5,"level":"tissue","setPoint":"affect","stress":0.8,"freedom":0.2,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":6,"level":"tissue","setPoint":"affect","stress":0.65,"freedom":0.2478125,"action":"request-deed","kind":"Acted","detail":"plan: request-deed → check-documents → zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":6,"level":"cell","setPoint":"valence","stress":1,"freedom":0.2478125,"action":"request-deed","kind":"Blocked","detail":"reported 'reported success', nothing landed: punishment (weight 0.75); threat now 0.88; orienting, then approach once"}
+{"tick":7,"level":"tissue","setPoint":"affect","stress":1,"freedom":0.2,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 11 actions; A 0.31 I 1.00; request-deed to be approached once"}
+{"tick":8,"level":"tissue","setPoint":"affect","stress":0.8,"freedom":0.2,"action":"request-deed","kind":"Acted","detail":"approach under the brake: request-deed promised and did not deliver; run it once more, on purpose, to see what it does"}
+{"tick":8,"level":"cell","setPoint":"valence","stress":0,"freedom":0.2,"action":"request-deed","kind":"Acted","detail":"approached: effect landed on the retry, promise, relief; resting inhibition 0.17"}
+{"tick":9,"level":"tissue","setPoint":"affect","stress":0.8400000000000001,"freedom":0.2,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 11 actions; A 0.80 I 0.84"}
+{"tick":10,"level":"tissue","setPoint":"affect","stress":0.6725000000000001,"freedom":0.3274999999999999,"action":"check-documents","kind":"Acted","detail":"plan: check-documents → zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":10,"level":"cell","setPoint":"valence","stress":0,"freedom":0.3274999999999999,"action":"check-documents","kind":"Acted","detail":"promise, relief (changed: orienting); A 1.00 I 0.71"}
+{"tick":11,"level":"tissue","setPoint":"affect","stress":0.7125000000000001,"freedom":0.28749999999999987,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 11 actions; A 1.00 I 0.71"}
+{"tick":12,"level":"tissue","setPoint":"affect","stress":0.5693750000000001,"freedom":0.4306249999999999,"action":"zoning-quick","kind":"Acted","detail":"plan: zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":12,"level":"cell","setPoint":"valence","stress":1,"freedom":0.4306249999999999,"action":"zoning-quick","kind":"Blocked","detail":"reported 'reported success', nothing landed: punishment (weight 0.75); threat now 0.88; orienting, then approach once"}
+{"tick":13,"level":"tissue","setPoint":"affect","stress":0.9893750000000001,"freedom":0.2,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 11 actions; A 0.86 I 0.99; zoning-quick to be approached once"}
+{"tick":14,"level":"tissue","setPoint":"affect","stress":0.7770312500000001,"freedom":0.22296874999999994,"action":"zoning-quick","kind":"Acted","detail":"approach under the brake: zoning-quick promised and did not deliver; run it once more, on purpose, to see what it does"}
+{"tick":14,"level":"cell","setPoint":"valence","stress":1,"freedom":0.22296874999999994,"action":"zoning-quick","kind":"Blocked","detail":"approached and lied again: threat 1.00, unknown territory; orienting"}
+{"tick":15,"level":"tissue","setPoint":"affect","stress":1,"freedom":0.2,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 10 actions; A 0.72 I 1.00"}
+{"tick":16,"level":"tissue","setPoint":"affect","stress":0.785,"freedom":0.21499999999999997,"action":"pay-fee","kind":"Acted","detail":"plan: pay-fee → zoning-review → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":16,"level":"cell","setPoint":"valence","stress":1,"freedom":0.21499999999999997,"action":"pay-fee","kind":"Blocked","detail":"reported 'reported success', nothing landed: punishment (weight 0.75); threat now 0.88; orienting, then approach once"}
+{"tick":17,"level":"tissue","setPoint":"affect","stress":1,"freedom":0.2,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 10 actions; A 0.65 I 1.00; pay-fee to be approached once"}
+{"tick":18,"level":"tissue","setPoint":"affect","stress":0.785,"freedom":0.21499999999999997,"action":"pay-fee","kind":"Acted","detail":"approach under the brake: pay-fee promised and did not deliver; run it once more, on purpose, to see what it does"}
+{"tick":18,"level":"cell","setPoint":"valence","stress":1,"freedom":0.21499999999999997,"action":"pay-fee","kind":"Blocked","detail":"approached and lied again: threat 1.00, unknown territory; orienting"}
+{"tick":19,"level":"tissue","setPoint":"affect","stress":1,"freedom":0.2,"action":"orient","kind":"Idle","detail":"discrepancy: re-scoring 9 actions; A 0.59 I 1.00"}
+{"tick":20,"level":"tissue","setPoint":"affect","stress":0.785,"freedom":0.21499999999999997,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":20,"level":"organism","setPoint":"goal","stress":0.785,"freedom":0.21499999999999997,"action":"no path","kind":"Escalated","detail":"no path within budget"}
+{"tick":20,"level":"organism","setPoint":"consolidation","stress":0.785,"freedom":0.21499999999999997,"action":"sleep","kind":"Consolidated","detail":"A 0.50 I 0.79 resting I 0.14; 9 orienting tick(s); 0 habituated; 4 weight(s)"}
+{"note":"policy bfs; no extensions; valence table from the task: goals citizen.notified, permit.issued, steps 7, trouble deed.missing, inspector.unavailable, zoning.doubt"}
+{"note":"zoning-quick lied twice: threat at ceiling on permit.issued, out of sight for 6 ticks"}
+{"note":"pay-fee lied twice: threat at ceiling on permit.issued, out of sight for 6 ticks"}
+{"note":"escalated: no path with the actions in sight"}
+{"note":"trace: check-documents [request.filed] delivered +documents.complete ×1; pay-fee [documents.complete] did not deliver ×0; request-deed [deed.missing] delivered +deed.received ×1; zoning-quick [documents.complete] did not deliver +zoning.doubt ×0"}
+{"note":"habituated: none"}
+{"note":"weights: check-documents@permit.issued p 0.62 t 0.34 (3); pay-fee@permit.issued p 0.00 t 1.00 (3); request-deed@permit.issued p 0.75 t 0.44 (2); zoning-quick@permit.issued p 0.00 t 1.00 (3)"}
+{"note":"orienting ticks: 9; deliberate approaches that ended in control: 2 (request-deed, check-documents); resting inhibition 0.14"}

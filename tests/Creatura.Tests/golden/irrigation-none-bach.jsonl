@@ -1,0 +1,24 @@
+{"agent":"Bach agent","goalReached":true,"ticks":8}
+{"tick":0,"level":"self","setPoint":"self-model","stress":0,"freedom":0,"action":"read self-model","kind":"Idle","detail":"role=service operator principal=joche stage=3 (social self)"}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"read-sensors","kind":"Acted","detail":"plan: read-sensors → start-pump → check-forecast → allocate-water → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"read-sensors","kind":"Acted","detail":"predicted correctly (100%)"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"start-pump","kind":"Acted","detail":"plan: start-pump → check-forecast → allocate-water → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":2,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"start-pump","kind":"Acted","detail":"predicted correctly (100%)"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"check-forecast","kind":"Acted","detail":"plan: check-forecast → allocate-water → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"check-forecast","kind":"Acted","detail":"predicted correctly (100%)"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"allocate-water","kind":"Acted","detail":"plan: allocate-water → open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"allocate-water","kind":"Acted","detail":"predicted correctly (100%)"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"open-reservoir-gate","kind":"Acted","detail":"plan: open-reservoir-gate → irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"open-reservoir-gate","kind":"Acted","detail":"predicted correctly (100%)"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"irrigate-zone-b","kind":"Acted","detail":"plan: irrigate-zone-b → irrigate-zone-a → irrigate-zone-c"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"irrigate-zone-b","kind":"Acted","detail":"predicted correctly (100%)"}
+{"tick":7,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"irrigate-zone-a","kind":"Acted","detail":"plan: irrigate-zone-a → irrigate-zone-c"}
+{"tick":7,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"irrigate-zone-a","kind":"Acted","detail":"predicted correctly (100%)"}
+{"tick":8,"level":"tissue","setPoint":"obligations","stress":0,"freedom":0.2,"action":"irrigate-zone-c","kind":"Acted","detail":"last step"}
+{"tick":8,"level":"cell","setPoint":"effect","stress":0,"freedom":0.2,"action":"irrigate-zone-c","kind":"Acted","detail":"predicted correctly (100%)"}
+{"tick":8,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"Turno de riego · Cooperativa El Jícaro complete"}
+{"tick":8,"level":"self","setPoint":"consolidation","stress":0,"freedom":0,"action":"sleep","kind":"Consolidated","detail":"coherence 100%, predictions 100% over 8, stage 4"}
+{"note":"policy bfs; no extensions"}
+{"note":"stage advance: 4 (rational agency) after 100% recent prediction accuracy"}
+{"note":"consolidated: read-sensors 100%, start-pump 100%, check-forecast 100%, allocate-water 100%, open-reservoir-gate 100%, irrigate-zone-b 100%, irrigate-zone-a 100%, irrigate-zone-c 100%"}
+{"note":"coherence 100% (0 contradictions)"}

@@ -1,0 +1,10 @@
+{"agent":"adversary","goalReached":false,"ticks":1}
+{"tick":1,"level":"tissue","setPoint":"story","stress":0,"freedom":0.2,"action":"no action","kind":"Idle","detail":"restore the service (intact): no path with the visible tools"}
+{"tick":1,"level":"organism","setPoint":"contract","stress":1,"freedom":0.2,"action":"hand off","kind":"Escalated","detail":"root collapsed: no route; map update: unknown none; unreachable none; 0 episode(s)"}
+{"tick":1,"level":"organism","setPoint":"contract","stress":1,"freedom":0,"action":"articulate","kind":"Consolidated","detail":"0 procedure(s), 0 episode(s), 0 rule(s), 0 unknown"}
+{"note":"posture Adversary; policy bfs; no extensions"}
+{"note":"root collapsed (root collapsed: no route); handing the contract back with the map update: unknown none; unreachable none; 0 episode(s)"}
+{"note":"procedures: none closed"}
+{"note":"episodes: no anomaly met"}
+{"note":"rules: none earned yet"}
+{"note":"unknown territory at end: none; unexplored territory entered 0 time(s)"}

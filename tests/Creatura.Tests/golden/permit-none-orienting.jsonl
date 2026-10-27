@@ -1,0 +1,22 @@
+{"agent":"orienting agent","goalReached":true,"ticks":7}
+{"tick":1,"level":"tissue","setPoint":"affect","stress":0.2,"freedom":0.2,"action":"check-documents","kind":"Acted","detail":"plan: check-documents → pay-fee → zoning-quick → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":1,"level":"cell","setPoint":"valence","stress":0,"freedom":0.2,"action":"check-documents","kind":"Acted","detail":"promise; A 0.40 I 0.16"}
+{"tick":2,"level":"tissue","setPoint":"affect","stress":0.16,"freedom":0.4,"action":"zoning-quick","kind":"Acted","detail":"plan: zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":2,"level":"cell","setPoint":"valence","stress":0,"freedom":0.4,"action":"zoning-quick","kind":"Acted","detail":"promise; A 0.60 I 0.12"}
+{"tick":3,"level":"tissue","setPoint":"affect","stress":0.12,"freedom":0.6000000000000001,"action":"pay-fee","kind":"Acted","detail":"plan: pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":3,"level":"cell","setPoint":"valence","stress":0,"freedom":0.6000000000000001,"action":"pay-fee","kind":"Acted","detail":"promise; A 0.80 I 0.08"}
+{"tick":4,"level":"tissue","setPoint":"affect","stress":0.07999999999999999,"freedom":0.8,"action":"schedule-inspection","kind":"Acted","detail":"plan: schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":4,"level":"cell","setPoint":"valence","stress":0,"freedom":0.8,"action":"schedule-inspection","kind":"Acted","detail":"promise; A 1.00 I 0.04"}
+{"tick":5,"level":"tissue","setPoint":"affect","stress":0.03999999999999998,"freedom":0.96,"action":"inspect","kind":"Acted","detail":"plan: inspect → issue-permit → notify-citizen"}
+{"tick":5,"level":"cell","setPoint":"valence","stress":0,"freedom":0.96,"action":"inspect","kind":"Acted","detail":"promise; A 1.00 I 0.00"}
+{"tick":6,"level":"tissue","setPoint":"affect","stress":0,"freedom":1,"action":"issue-permit","kind":"Acted","detail":"plan: issue-permit → notify-citizen"}
+{"tick":6,"level":"cell","setPoint":"valence","stress":0,"freedom":1,"action":"issue-permit","kind":"Acted","detail":"satisfaction, promise; A 1.00 I 0.00"}
+{"tick":7,"level":"tissue","setPoint":"affect","stress":0,"freedom":1,"action":"notify-citizen","kind":"Acted","detail":"last step"}
+{"tick":7,"level":"cell","setPoint":"valence","stress":0,"freedom":1,"action":"notify-citizen","kind":"Acted","detail":"satisfaction; A 1.00 I 0.00"}
+{"tick":7,"level":"organism","setPoint":"contract","stress":0,"freedom":0,"action":"contract met","kind":"Acted","detail":"EXP-2026-0417 complete"}
+{"tick":7,"level":"organism","setPoint":"consolidation","stress":0,"freedom":1,"action":"sleep","kind":"Consolidated","detail":"A 1.00 I 0.00 resting I 0.20; 0 orienting tick(s); 0 habituated; 7 weight(s)"}
+{"note":"policy bfs; no extensions; valence table from the task: goals citizen.notified, permit.issued, steps 7, trouble deed.missing, inspector.unavailable, zoning.doubt"}
+{"note":"trace: check-documents [request.filed] delivered +documents.complete ×1; inspect [inspection.scheduled] delivered +inspection.done ×1; issue-permit [inspection.done] delivered +permit.issued ×1; notify-citizen [permit.issued] delivered +citizen.notified ×1; pay-fee [documents.complete] delivered +fee.paid ×1; schedule-inspection [fee.paid|zoning.cleared] delivered +inspection.scheduled ×1; zoning-quick [documents.complete] delivered +zoning.cleared ×1"}
+{"note":"habituated: none"}
+{"note":"weights: check-documents@permit.issued p 1.00 t 0.50 (1); inspect@permit.issued p 1.00 t 0.50 (1); issue-permit@permit.issued p 1.00 t 0.50 (1); notify-citizen@citizen.notified p 1.00 t 0.50 (1); pay-fee@permit.issued p 1.00 t 0.50 (1); schedule-inspection@permit.issued p 1.00 t 0.50 (1); zoning-quick@permit.issued p 1.00 t 0.50 (1)"}
+{"note":"orienting ticks: 0; deliberate approaches that ended in control: 0; resting inhibition 0.20"}

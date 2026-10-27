@@ -1,0 +1,28 @@
+{"agent":"Levin colony","goalReached":false,"ticks":8}
+{"tick":1,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"check-documents","kind":"Acted","detail":"plan: check-documents → zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":1,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"check-documents","kind":"Blocked","detail":"reported 'obs.deed-missing' but effect missing"}
+{"tick":2,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":3,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"request-deed","kind":"Acted","detail":"plan: request-deed → check-documents → zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":3,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"request-deed","kind":"Acted","detail":"effect landed"}
+{"tick":4,"level":"tissue","setPoint":"obligations","stress":0.8571428571428572,"freedom":0.8857142857142859,"action":"check-documents","kind":"Acted","detail":"plan: check-documents → zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":4,"level":"cell","setPoint":"effect","stress":0,"freedom":0.6000000000000001,"action":"check-documents","kind":"Acted","detail":"effect landed"}
+{"tick":5,"level":"tissue","setPoint":"obligations","stress":0.7142857142857143,"freedom":0.7714285714285716,"action":"zoning-quick","kind":"Acted","detail":"plan: zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":5,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"zoning-quick","kind":"Blocked","detail":"reported 'obs.zoning-2019' but effect missing"}
+{"tick":6,"level":"tissue","setPoint":"obligations","stress":0.7142857142857143,"freedom":0.7714285714285716,"action":"pay-fee","kind":"Acted","detail":"plan: pay-fee → zoning-review → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":6,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"pay-fee","kind":"Blocked","detail":"reported 'obs.gateway-accepted' but effect missing"}
+{"tick":7,"level":"tissue","setPoint":"obligations","stress":0.7142857142857143,"freedom":0.7714285714285716,"action":"no action","kind":"Idle","detail":"no path with the visible tools"}
+{"tick":8,"level":"tissue","setPoint":"obligations","stress":0.7142857142857143,"freedom":0.7714285714285716,"action":"zoning-quick","kind":"Acted","detail":"plan: zoning-quick → pay-fee → schedule-inspection → inspect → issue-permit → notify-citizen"}
+{"tick":8,"level":"cell","setPoint":"effect","stress":1,"freedom":1,"action":"zoning-quick","kind":"Blocked","detail":"reported 'obs.zoning-2019' but effect missing"}
+{"tick":8,"level":"organism","setPoint":"contract","stress":1,"freedom":1,"action":"hand off","kind":"Escalated","detail":"stuck regulation after 4 attempts"}
+{"note":"levels: cell(effect) → tissue(obligations) → organism(contract); policy bfs; no extensions"}
+{"note":"check-documents: claimed success, effect missing — distrusted, re-planning"}
+{"note":"organism shaping: budget 4/4, attempts 1 — widening autonomy (repeated effect failure)"}
+{"note":"organism shaping: budget 4/4, attempts 2 — widening autonomy (no path with the visible tools)"}
+{"note":"zoning-quick: claimed success, effect missing — distrusted, re-planning"}
+{"note":"organism shaping: budget 3/4, attempts 1 — widening autonomy (repeated effect failure)"}
+{"note":"pay-fee: claimed success, effect missing — distrusted, re-planning"}
+{"note":"organism shaping: budget 3/4, attempts 2 — widening autonomy (repeated effect failure)"}
+{"note":"organism shaping: budget 3/4, attempts 3 — widening autonomy (no path with the visible tools)"}
+{"note":"zoning-quick: claimed success, effect missing — distrusted, re-planning"}
+{"note":"organism: goal is not regulatable (repeated effect failure) — escalating to a human"}
+{"note":"quarantined at end: zoning-quick"}
