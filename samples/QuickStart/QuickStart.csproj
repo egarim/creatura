@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Creatura/Creatura.csproj" />
+    <ProjectReference Include="../../src/Creatura.Worlds/Creatura.Worlds.csproj" />
   </ItemGroup>
 </Project>

@@ -137,22 +137,30 @@ sealed class CautiousRegulator : IRegulator
 }
 ```
 
-A **critic with no hands** watches the run through the world and reads the route afterwards:
+A **critic with no hands** watches the run and reads the route afterwards. It can wrap the world the agent
+acts on, or ride the loop as an observer-only extension (the rows are identical with or without it); a host
+that owns its control layer can also hand it the layer (`citizen.Watch(layer)`, fed by the layer's
+`ActionObserved` event):
 
 ```csharp
 using Creatura.Hotz;
 
 var owner   = new OwnerToken();
 var citizen = new HotzAgent(owner, RestoreServiceDomain.Task, goalEvidence: ["alert.resolved"]);
-var watched = citizen.Watch(world);
+
+var watched = citizen.Watch(world);                 // through the world
 var run     = await bach.RunAsync(watched);
-var route   = citizen.Close(run, watched);        // claims, judgements, what was filtered and why
+var route   = citizen.Close(run, watched);          // claims, judgements, what was filtered and why
+
+ExtensionCatalog.Register("critic", _ => new CriticExtension(citizen));   // through the loop, by name
+run   = await new ReferenceLoop(regulator, options: ExtensionCatalog.Parse(["critic"])).RunAsync(world);
+route = citizen.Close(run, world);
 ```
 
 What a run of the sample prints: every regulator reaches the goal in 7 to 9 ticks, every one catches the
 same lie at tick 3 in its own vocabulary (`effect missing`, `contradiction`, `anomaly, approaching next
-tick`, `punishment … orienting, then approach once`), and the critic closes with eight claims and eight
-judgements.
+tick`, `punishment … orienting, then approach once`), and the critic closes each case with eight claims,
+eight judgements and one flag.
 
 ## Anatomy
 

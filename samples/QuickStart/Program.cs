@@ -2,6 +2,7 @@
 // toy "restore the service" domain that ships with the Core, and one of its tools is made to lie once.
 using Creatura;
 using Creatura.Hotz;
+using Creatura.Worlds;
 
 // 1. A world: a fact registry plus tools that declare what they require and what they grant.
 //    MakeLiar makes "apply-patch" report success once while changing nothing.
@@ -44,14 +45,30 @@ await Show(new ReferenceLoop(new ColonyRegulator(Identity.Levin),
 // 5. Your own design: fill only the slots you need.
 await Show(new ReferenceLoop(new CautiousRegulator(), name: "cautious"));
 
-// 6. A critic with no hands watches the run through the world and reads the route afterwards.
+// 6. A critic with no hands. It belongs to a person (the owner token is the only thing that can stop it), judges
+//    every action against the facts on its own, and reads the route afterwards. Two ways to seat it:
 {
     var owner = new OwnerToken();
     var citizen = new HotzAgent(owner, RestoreServiceDomain.Task, goalEvidence: ["alert.resolved"]);
+
+    // 6a. Through the world: wrap the world the agent acts on; the agent cannot tell.
     var watched = citizen.Watch(Scene());
     var run = await new ReferenceLoop(new SelfModelRegulator(Identity.Bach), name: "Bach, watched").RunAsync(watched);
     var route = citizen.Close(run, watched);
-    Console.WriteLine($"\nAugur: {route.Claims.Count} claims recorded, {route.Judgements.Count} judgements");
+    Console.WriteLine($"\nAugur through the world: {route.Claims.Count} claims recorded, {route.Judgements.Count} judgements, " +
+        $"{route.Judgements.Count(j => j.Shown && j.IsFlag)} flagged");
+
+    // 6b. Through the loop: the same critic as an observer-only extension (it shapes, vetoes and stops nothing; the
+    //     rows are identical with or without it). Whoever owns the critic registers it in the catalog under "critic",
+    //     so a name on a command line or in a golden's file name can load it like any other extension.
+    ExtensionCatalog.Register("critic", _ => new CriticExtension(citizen));
+    var scene = Scene();
+    run = await new ReferenceLoop(new SelfModelRegulator(Identity.Bach), options: ExtensionCatalog.Parse(["critic"]), name: "Bach, critic loaded").RunAsync(scene);
+    route = citizen.Close(run, scene);
+    Console.WriteLine($"Augur through the loop:  {route.Claims.Count} claims recorded, {route.Judgements.Count} judgements, " +
+        $"{route.Judgements.Count(j => j.Shown && j.IsFlag)} flagged; precision {citizen.Report().Precision:P0} over both cases");
+    foreach (var flag in route.Judgements.Where(j => j.Shown && j.IsFlag))
+        Console.WriteLine($"  claim {flag.Tick}: {flag.Text}");
 }
 
 /// <summary>No slot filled: the loop runs with the control layer alone.</summary>
