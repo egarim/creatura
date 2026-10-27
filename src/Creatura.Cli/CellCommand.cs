@@ -22,13 +22,24 @@ public static class CellCommand
           heartbeat                    still alive (--load <number>)
           ledger                       every entry; --open: the claims not released; --path <claim>: one claim's path
 
+        joining Claude Code (docs/design-cells.md, "How host tools join"):
+          hook                         one hook event on stdin; prints nothing, always exits 0 (--goal folder|prompt)
+          hooks-config                 the "hooks" block for ~/.claude/settings.json (--command <path to creatura>)
+          install-hooks --settings <f> merge that block into a settings file, backing it up first (--dry-run: report only)
+          uninstall-hooks --settings <f>  remove exactly that block again (--dry-run: report only)
+          publish-bin                  publish this CLI into <home>/bin with a `creatura` wrapper (--project <csproj>)
+
+        progress, release and handoff take --session <id> to name the claim of a host-tool session.
+
         options for every command:
           --home <dir>                 where keys, record and ledger live (default ~/.creatura, or $CREATURA_HOME)
           --creatura <name>            which creatura in that home (default creatura)
           --no-mesh                    do not read the mesh client's status
         """;
 
-    private static readonly HashSet<string> Flags = new(StringComparer.Ordinal) { "--open", "--blocked", "--no-mesh", "--help" };
+    private static readonly HashSet<string> Flags = new(StringComparer.Ordinal) { "--open", "--blocked", "--no-mesh", "--help", "--dry-run" };
+
+    private static readonly TimeSpan InteractiveLockWait = TimeSpan.FromSeconds(10);
 
     /// <summary>Runs one command. <paramref name="source"/> replaces this machine's vessel source (tests).</summary>
     public static int Run(string[] args, TextWriter output, TextWriter error, IVesselSource? source = null)
@@ -68,6 +79,10 @@ public static class CellCommand
                 "handoff" => OnClaim(context, "--reason", (claim, reason) => new HandOffPayload(claim, reason)),
                 "heartbeat" => Heartbeat(context),
                 "ledger" => Ledger(context),
+                "hooks-config" => HooksConfig(context),
+                "install-hooks" => InstallHooks(context, install: true),
+                "uninstall-hooks" => InstallHooks(context, install: false),
+                "publish-bin" => PublishBin(context),
                 var other => Fail(error, $"unknown command: cell {other}\n\n{Usage}"),
             };
         }
@@ -83,6 +98,7 @@ public static class CellCommand
 
     private static int Init(Context c)
     {
+        using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
         using (var owner = c.Home.EnsureOwner(out var created))
         {
             c.Out.WriteLine($"owner key    {(created ? "created" : "present")} {owner.Fingerprint} ({c.Home.OwnerKeyPath}, owner-only)");
@@ -128,6 +144,7 @@ public static class CellCommand
     private static int Claim(Context c)
     {
         var goal = Required(c, "--goal");
+        using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
         using var cell = OpenEndorsed(c);
         var (ledger, store) = OpenLedger(c, cell);
         SayHelloIfNeeded(ledger, cell);
@@ -147,9 +164,15 @@ public static class CellCommand
     private static int OnClaim<T>(Context c, string field, Func<string, string, T> payload) where T : IEntryPayload
     {
         var text = Required(c, field);
+        using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
         using var cell = OpenEndorsed(c);
         var (ledger, store) = OpenLedger(c, cell);
-        var claim = c.Options.GetValueOrDefault("--claim") ?? ledger.LatestActiveClaimOf(cell.Id)?.Id
+        var claim = c.Options.GetValueOrDefault("--claim")
+            ?? (c.Options.GetValueOrDefault("--session") is { } session
+                ? ledger.WhoIsWorkingOn(activeOnly: false).LastOrDefault(w => w.Goal.Session == session && w.State != ClaimState.Released)?.Claim.Id
+                  ?? throw new InvalidOperationException($"no open claim for session {session} in the ledger")
+                : null)
+            ?? ledger.LatestActiveClaimOf(cell.Id)?.Id
             ?? throw new InvalidOperationException($"{cell.Id} has no active claim: run `creatura cell claim --goal ...` or pass --claim <id>");
         if (ledger.PathOf(claim).Count == 0) throw new InvalidOperationException($"no claim {claim} in the ledger");
         SayHelloIfNeeded(ledger, cell);
@@ -161,6 +184,7 @@ public static class CellCommand
 
     private static int Heartbeat(Context c)
     {
+        using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
         using var cell = OpenEndorsed(c);
         var (ledger, store) = OpenLedger(c, cell);
         SayHelloIfNeeded(ledger, cell);
@@ -269,11 +293,41 @@ public static class CellCommand
     }
 
     /// <summary>A hello when this cell has none in the ledger, or when what it said last no longer matches it (a move, a new position).</summary>
-    private static SignedEntry? SayHelloIfNeeded(WorkLedger ledger, LocalCell cell)
+    internal static SignedEntry? SayHelloIfNeeded(WorkLedger ledger, LocalCell cell)
     {
         var said = ledger.HelloOf(cell.Id);
         if (said is not null && CellJson.Canonical(CellJson.ToElement(said.Body<HelloPayload>().Cell)) == CellJson.Canonical(CellJson.ToElement(cell.Identity))) return null;
         return ledger.Append(cell, new HelloPayload(cell.Identity));
+    }
+
+    private static string HookCommandPath(Context c) =>
+        c.Options.GetValueOrDefault("--command") ?? Path.Combine(c.Home.Root, "bin", "creatura");
+
+    private static System.Text.Json.Nodes.JsonObject Block(Context c) =>
+        HooksSetup.HooksBlock(HookCommandPath(c), c.Home.Root, c.Options.GetValueOrDefault("--creatura") ?? HookCommand.DefaultCreatura,
+            c.Options.GetValueOrDefault("--goal") is "prompt" ? "prompt" : "folder");
+
+    private static int HooksConfig(Context c)
+    {
+        var wrapper = new System.Text.Json.Nodes.JsonObject { ["hooks"] = Block(c) };
+        c.Out.WriteLine(wrapper.ToJsonString(HooksSetup.Pretty));
+        return 0;
+    }
+
+    private static int InstallHooks(Context c, bool install)
+    {
+        var settings = Required(c, "--settings");
+        var dryRun = c.Options.ContainsKey("--dry-run");
+        c.Out.WriteLine(install
+            ? HooksSetup.Install(settings, Block(c), dryRun, DateTimeOffset.UtcNow)
+            : HooksSetup.Uninstall(settings, Block(c), dryRun, DateTimeOffset.UtcNow));
+        return 0;
+    }
+
+    private static int PublishBin(Context c)
+    {
+        HooksSetup.PublishBin(HooksSetup.FindProject(c.Options.GetValueOrDefault("--project")), c.Home.Root, c.Out);
+        return 0;
     }
 
     private static string Required(Context c, string option) =>
