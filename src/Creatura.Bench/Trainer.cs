@@ -10,6 +10,13 @@ public sealed record TrainerOptions
 
     public SeatSpec Seat { get; init; } = SeatSpec.Planner;
 
+    /// <summary>
+    /// Whether the record is carried: a <see cref="RecordCarryExtension"/> over the store (and, by name, the store bound into the
+    /// loop). False is the control arm of the learning test ("no record"): the same cases in a row with nothing carried; the
+    /// store is then neither read nor written.
+    /// </summary>
+    public bool CarryRecord { get; init; } = true;
+
     /// <summary>The control layer's switches for a catalogued loop (<see cref="Trainer.RunAsync(string, Curriculum, IRecordStore, string, TrainerOptions?, BenchOptions?, CancellationToken)"/>); null keeps the design's own.</summary>
     public ControlLayerOptions? Layer { get; init; }
 
@@ -50,7 +57,9 @@ public static class Trainer
         var memory = new EffectMemory();
         var journal = new DreamJournal();
         // One record extension for the whole training, as the learning test ran it: it re-reads the store before every case.
-        var agentOptions = BenchRuns.OptionsFor(options.Extensions, memory, journal, store, key, recordAlways: true);
+        var agentOptions = options.CarryRecord
+            ? BenchRuns.OptionsFor(options.Extensions, memory, journal, store, key, recordAlways: true)
+            : BenchRuns.OptionsFor(options.Extensions, memory, journal, null, null, recordAlways: false);
         var cases = new List<TrainingCase>();
         var index = 0;
         foreach (var @case in curriculum.Cases)
@@ -63,7 +72,7 @@ public static class Trainer
             var started = DateTimeOffset.UtcNow;
             var run = await agent.RunAsync(target, @case.MaxTicks, cancellationToken).ConfigureAwait(false);
             var oracle = bench.Oracle ?? new RegistryOracle(task);
-            var after = store.Load(key) ?? run.Record ?? new AgentRecord { Key = key };
+            var after = (options.CarryRecord ? store.Load(key) : null) ?? run.Record ?? new AgentRecord { Key = key };
             var row = BenchRuns.RowFor(run, truth, task, oracle, bench.Battery ?? "training", curriculum.Id, options.Seat.Name, @case.World, agent.Name,
                 agentOptions.Extensions.Count == 0 ? "none" : string.Join("+", agentOptions.Extensions.Select(e => e.Name)), @case.Label, index, 1, started,
                 $"stage carried {after.StageLevel}");
@@ -73,10 +82,13 @@ public static class Trainer
             bench.Log?.Invoke($"{curriculum.Id} case {index} {agent.Name} {row.Outcome.AsRow()} ticks {run.Ticks} stage {after.StageLevel}");
         }
 
-        return new TrainingReport(key, curriculum, cases, store.Load(key) ?? new AgentRecord { Key = key });
+        return new TrainingReport(key, curriculum, cases, (options.CarryRecord ? store.Load(key) : cases.LastOrDefault()?.RecordAfter) ?? new AgentRecord { Key = key });
     }
 
-    /// <summary>Trains a catalogued agent by name, with the store bound into its loop so regulator parts are carried too.</summary>
-    public static Task<TrainingReport> RunAsync(string agentKind, Curriculum curriculum, IRecordStore store, string key, TrainerOptions? options = null, BenchOptions? bench = null, CancellationToken cancellationToken = default) =>
-        RunAsync(AgentCatalog.Factory(agentKind, options?.Layer, AgentCatalog.Find(agentKind).Build is null ? null : store, key), curriculum, store, key, options, bench, cancellationToken);
+    /// <summary>Trains a catalogued agent by name, with the store bound into its loop (when the record is carried) so regulator parts are carried too.</summary>
+    public static Task<TrainingReport> RunAsync(string agentKind, Curriculum curriculum, IRecordStore store, string key, TrainerOptions? options = null, BenchOptions? bench = null, CancellationToken cancellationToken = default)
+    {
+        var bound = (options?.CarryRecord ?? true) && AgentCatalog.Find(agentKind).Build is not null;
+        return RunAsync(AgentCatalog.Factory(agentKind, options?.Layer, bound ? store : null, bound ? key : null), curriculum, store, key, options, bench, cancellationToken);
+    }
 }

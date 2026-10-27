@@ -48,6 +48,17 @@ public class BenchTrainerExamTests
     }
 
     [Fact]
+    public async Task WithoutTheCarryTheStagedDesignRefusesEveryCaseAndTheStoreStaysEmpty()
+    {
+        var store = new InMemoryRecordStore();
+        var report = await Trainer.RunAsync("bach", Curriculum.Licence(3), store, "control", new TrainerOptions { CarryRecord = false });
+        Assert.All(report.Cases, c => Assert.Equal(OutcomeClass.HandedOff, c.Outcome));
+        Assert.Null(report.FirstRealCase);
+        Assert.Null(store.Load("control"));
+        Assert.Equal("none", report.Rows[0].Extensions);
+    }
+
+    [Fact]
     public async Task TheColonyDoesNotImproveFromItsRecord()
     {
         // H5's other half: the colony keeps no stage, so a short case with a release reads the same every time.
