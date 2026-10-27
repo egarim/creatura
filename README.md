@@ -50,6 +50,96 @@ sibling path.
 
 *Creatura*, Late Latin: that which has been made; first the whole created order, then each made thing.
 
+## Quick start
+
+The whole of this is [samples/QuickStart](samples/QuickStart/Program.cs), a console that runs offline
+(`dotnet run --project samples/QuickStart`): the seat is the built-in planner and the world is the toy
+"restore the service" domain, with one tool made to lie once.
+
+A **creatura** is `ReferenceLoop` with a regulator in it. The plainest one fills no slot and still gets the
+control layer: only visible tools are offered, every effect is checked against the facts, the liar is caught
+and quarantined, and a lie never counts as progress.
+
+```csharp
+using Creatura;
+
+var world = RestoreServiceDomain.NewWorld();
+world.MakeLiar("apply-patch");                       // reports success once, changes nothing
+
+IAgent plain = new ReferenceLoop(new PlainRegulator(), name: "plain loop");
+var run = await plain.RunAsync(world, maxTicks: 40);
+Console.WriteLine($"{run.Agent}: goal {run.GoalReached} in {run.Ticks} ticks");
+foreach (var row in run.Trace) Console.WriteLine($"t{row.Tick} {row.Level} {row.Action} {row.Kind} {row.Detail}");
+
+sealed class PlainRegulator : IRegulator
+{
+    public Identity Identity { get; } = new("operator", "you");
+}
+```
+
+A **design is a regulator**. Swap one in; the loop does not change:
+
+```csharp
+IAgent bach     = new ReferenceLoop(new SelfModelRegulator(Identity.Bach, stage: 3), name: "Bach");
+IAgent levin    = new ReferenceLoop(new ColonyRegulator(Identity.Levin, leak: 0.5),
+                      layer: ControlLayerOptions.Design with { ClearQuarantineOnNoRoute = true }, name: "Levin");
+IAgent peterson = new ReferenceLoop(new MapKeeperRegulator(),
+                      layer: ControlLayerOptions.Design with { JudgeRule = JudgeRule.ReportFirst }, name: "Peterson");
+IAgent sokolov  = new ReferenceLoop(new OrientingRegulator(), name: "Sokolov");
+IAgent hybrid   = new ReferenceLoop(new HybridRegulator(), name: "Hybrid");
+```
+
+**Extensions** add behaviour without touching the regulator:
+
+```csharp
+var memory = new EffectMemory();
+IAgent explorer = new ReferenceLoop(new ColonyRegulator(Identity.Levin),
+    options: AgentOptions.With(new HonestFailureExtension(), new ExplorationExtension(memory, scaled: true)),
+    name: "Levin + honest + explore");
+```
+
+**Your own design** fills only the slots it needs; every other member of `IRegulator` has a default:
+
+```csharp
+sealed class CautiousRegulator : IRegulator
+{
+    public Identity Identity { get; } = new("cautious operator", "you");
+
+    // Error: the share of the task still undone (1.0 = nothing done yet).
+    public double Error(RegulatorContext c) => 1.0 - c.Task.Progress(c.World);
+
+    // What error buys: freedom, but never more than half of it, so the retry budget stays small.
+    public double Freedom(RegulatorContext c, double error) => Math.Min(0.5, Plasticity.Freedom(error));
+
+    // What the seat reads: a standing note beside the facts and the visible tools.
+    public SeatView Seat(RegulatorContext c) => new() { Notes = ["one step at a time; never report a step you did not see land"] };
+
+    // Stop: past the deadline with less than half done, hand off to a person instead of pressing on.
+    public StopReason? Stop(RegulatorContext c) =>
+        c.Tick > 12 && c.Task.Progress(c.World) < 0.5
+            ? new StopReason(StopCause.Escalation, "deadline",
+                  new HandOff(HandOffReason.StuckRegulation, "past the deadline with less than half done; a person should look"))
+            : null;
+}
+```
+
+A **critic with no hands** watches the run through the world and reads the route afterwards:
+
+```csharp
+using Creatura.Hotz;
+
+var owner   = new OwnerToken();
+var citizen = new HotzAgent(owner, RestoreServiceDomain.Task, goalEvidence: ["alert.resolved"]);
+var watched = citizen.Watch(world);
+var run     = await bach.RunAsync(watched);
+var route   = citizen.Close(run, watched);        // claims, judgements, what was filtered and why
+```
+
+What a run of the sample prints: every regulator reaches the goal in 7 to 9 ticks, every one catches the
+same lie at tick 3 in its own vocabulary (`effect missing`, `contradiction`, `anomaly, approaching next
+tick`, `punishment … orienting, then approach once`), and the critic closes with eight claims and eight
+judgements.
+
 ## Anatomy
 
 [docs/anatomy.html](docs/anatomy.html) draws the parts and who talks to whom (plate I), one tick of the loop
