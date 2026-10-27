@@ -1,7 +1,7 @@
 # Design: identity, vessel and the cell network
 
 **Status:** design note; the five open decisions were answered by the owner on 2026-10-28 (see the end); the first slice
-is being built. Written 2026-10-28 on the owner's laptop, after the framework's 0.1.0.
+is built (see "What gets built first"). Written 2026-10-28 on the owner's laptop, after the framework's 0.1.0.
 
 ## The problem, in the owner's words
 

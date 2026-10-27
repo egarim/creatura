@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### The cells, first slice (`src/Creatura.Cells`, `src/Creatura.Cli`, no package references)
+Built from [docs/design-cells.md](docs/design-cells.md), "What gets built first", with the five pre-registered
+tests (C1 to C5, `tests/Creatura.Cells.Tests`) committed before the code. Offline; no mesh, relay or host-tool hooks.
+- `CreaturaId`, kept in the creatura's `AgentRecord` (part `cells.creatura-id`), with its vessel history
+  (part `cells.vessels`): a move to another vessel is an event, not a new agent.
+- `CellKey` and `OwnerKey` (ECDSA P-256, PKCS#8 PEM in owner-only files); `VesselEndorsement`, the owner's
+  signature binding a cell key to a vessel and a creatura.
+- `VesselProbe` and `Hardware` (macOS, Linux, Windows): the hardware identifier hashed with the owner's salt into
+  the `VesselId` and never kept. The Core's `Vessel` is unchanged; `Hardware` is a sibling record.
+- `Position` (in-process, mesh read from `tailscale status --json`, relay) and `CellIdentity`.
+- `SignedEntry` with the six entry kinds (`Hello`, `Claim`, `Progress`, `HandOff`, `Release`, `Heartbeat`), signed
+  over canonical JSON; `WorkLedger` (append, merge as a verified union by cell and sequence, who is working on
+  what, open claims, the path of a claim, cursor and sync); `JsonLedgerStore`.
+- `ICellNetwork` as designed and `InProcessCellNetwork` (channels, at least once, idempotent by cell and sequence).
+- The `creatura cell` command: `init`, `whoami`, `claim`, `progress`, `release`, `handoff`, `heartbeat`, `ledger`.
+- `CellsPurityTest`: `Creatura.Cells` and `Creatura.Cli` reference nothing but the BCL and Creatura.
+
 ## 0.1.0 (2026-10-28)
 
 The first version: the framework extracted from the research repository

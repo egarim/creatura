@@ -38,12 +38,17 @@ src/Creatura.Hosts.AgentFramework/
                               WorldTools, ControlledAgent, PlannerChatClient (the offline model) and ChatClientPolicy
                               (any IChatClient in the loop's seat); the ONLY project here with a package reference
                               (Microsoft.Agents.AI.OpenAI) (namespace Creatura.Hosts.AgentFramework)
+src/Creatura.Cells/           the cells: CreaturaId, CellKey / OwnerKey (ECDSA P-256), VesselProbe and Hardware, Position,
+                              CellIdentity, SignedEntry and the six entry kinds, WorkLedger, JsonLedgerStore, ICellNetwork
+                              and InProcessCellNetwork; no packages (namespace Creatura.Cells)
+src/Creatura.Cli/             the `creatura cell` command over Creatura.Cells; no packages
 samples/QuickStart/           the quick start below, offline
 samples/AgentFrameworkHost/   the control layer on Agent Framework over the toy suite's four barriers, offline by
                               default; --compare runs it beside the designs, --seat <catalog name> puts a model in it
 samples/models.json           the compiled model catalog written out, to copy beside an executable and edit
 tests/Creatura.Tests/         xunit; the tests that need nothing but the Core and its toy domain, plus the golden traces,
                               FakeHost and CorePurityTest; no Agent Framework package
+tests/Creatura.Cells.Tests/   the cells' pre-registered tests C1 to C5, the command's tests and CellsPurityTest
 tests/Creatura.Hosts.AgentFramework.Tests/
                               the host's tests and its four goldens (golden/restore-*-controlled.jsonl)
 ```
@@ -274,8 +279,28 @@ same verbs in the research repository's
 https://claude.ai/artifact/QncbLz7HcCTxKbUQQPksKA. Scenario pictures come later, when there are test
 scenarios to picture.
 
-## Next: identity and the cell network
+## Cells
 
-[docs/design-cells.md](docs/design-cells.md) designs a strong identity for each agent (who it is, the vessel it runs on, where it
-sits on the network), a signed append-only work ledger that says who is working on what, and a cell network with
-in-process, mesh and relay implementations. Not built yet; its open decisions are the owner's.
+[docs/design-cells.md](docs/design-cells.md) gives each agent an identity bound to its hardware and network, and a
+signed, append-only work ledger that says who is working on what. The first slice is built and runs offline:
+`Creatura.Cells` (identity, keys, the vessel probe, the ledger, the in-process network) and the `creatura cell`
+command. The mesh network, the relay and the host-tool hooks are not built yet.
+
+```bash
+dotnet run --project src/Creatura.Cli -- cell init
+```
+
+| command | what it does |
+|---|---|
+| `creatura cell init` | creates the owner key if absent, endorses this vessel's cell, writes its hello (idempotent) |
+| `creatura cell whoami` | creatura id, vessel id (the hardware identifier hashed with the owner's salt), hardware, position, key fingerprint, endorsement |
+| `creatura cell claim --goal <text> [--repo --branch --folder --tool --session]` | claims work |
+| `creatura cell progress --row <text> [--claim <id>] [--stress <0..1>] [--blocked]` | a step of the latest active claim |
+| `creatura cell release --evidence <text> [--claim <id>]` | done, with evidence |
+| `creatura cell handoff --reason <text> [--claim <id>]` | stopping, and why |
+| `creatura cell heartbeat [--load <n>]` | still alive |
+| `creatura cell ledger [--open] [--path <claim>]` | every entry, the claims not released, or one claim's path |
+
+Every command takes `--home <dir>` (default `~/.creatura`, or `$CREATURA_HOME`), `--creatura <name>` and
+`--no-mesh`. Private keys, the vessel salt and the ledger are written owner-only; the raw hardware identifier is
+never written or printed (C4). To install the command as `creatura`, pack `src/Creatura.Cli` as a .NET tool.
