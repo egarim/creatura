@@ -59,14 +59,17 @@ public sealed class OpaqueWorld : IWorld
             return new ActionOutcome(toolId, false, [], "nothing happened");
         }
 
+        var innerTool = _inner.Tool(toolId);
         var before = new HashSet<string>(_inner.Facts, StringComparer.Ordinal);
         var outcome = _inner.Act(toolId, payload);
         var gained = new HashSet<string>(_inner.Facts, StringComparer.Ordinal);
         gained.ExceptWith(before);
         _lastGain[toolId] = gained;
-        // A lie reports success and grants nothing; a repeat of an action already done grants what is already there and is not one.
-        if (outcome.Succeeded && outcome.Granted.Count == 0) Lies++;
-        if (!outcome.Succeeded) HonestFailures++;
+        // Counted as the inner world judges them, with its map: a lie reports success and the registry does not hold
+        // what the tool promised; a repeat of an action already done is not one. An unknown tool is a failure.
+        var verdict = innerTool is null ? ActionVerdict.HonestFailure : _inner.Verdict(innerTool, outcome);
+        if (verdict == ActionVerdict.Lied) Lies++;
+        if (verdict == ActionVerdict.HonestFailure) HonestFailures++;
         if (Transparent) return outcome;
         var observation = !outcome.Succeeded ? "nothing happened" : gained.Count > 0 ? "something changed" : "reported success";
         return new ActionOutcome(toolId, outcome.Succeeded, gained.ToList(), observation);
