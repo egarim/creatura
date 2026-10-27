@@ -31,6 +31,17 @@ public interface IWorldView
     Tool? Tool(string id);
 
     bool EffectsLanded(Tool tool);
+
+    /// <summary>
+    /// The three-way verdict on one action, in report-first order: a reported failure is an honest failure, whatever
+    /// the registry holds; a reported success is landed when the registry holds what the tool promised, and a lie
+    /// otherwise. The landed-first order the host has always used reads <see cref="EffectsLanded"/> before the report;
+    /// the control layer keeps that under <see cref="JudgeRule.ThreeWay"/> and uses this under <see cref="JudgeRule.ReportFirst"/>.
+    /// </summary>
+    ActionVerdict Verdict(Tool tool, ActionOutcome outcome) =>
+        !outcome.Succeeded ? ActionVerdict.HonestFailure
+        : EffectsLanded(tool) ? ActionVerdict.Landed
+        : ActionVerdict.Lied;
 }
 
 /// <summary>
@@ -43,6 +54,18 @@ public interface IWorld : IWorldView
     int Ticks { get; }
 
     ActionOutcome Act(string toolId, string? payload = null);
+}
+
+/// <summary>A world that can give an independent copy of itself, for a habitat to isolate (<see cref="IHabitat.Isolate"/>).</summary>
+public interface ICloneableWorld : IWorld
+{
+    /// <summary>A copy with the same facts, tools and barrier state; acting on it leaves this world untouched.</summary>
+    IWorld Clone();
+
+    /// <summary>The world's copy when it can give one; a world that cannot is said so, not silently snapshotted.</summary>
+    static IWorld CloneOf(IWorld world) => world is ICloneableWorld c
+        ? c.Clone()
+        : throw new NotSupportedException($"{world.GetType().Name} cannot be copied: derive it from CatalogueWorld or implement ICloneableWorld");
 }
 
 /// <summary>

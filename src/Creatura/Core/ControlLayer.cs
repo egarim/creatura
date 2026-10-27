@@ -300,11 +300,16 @@ public sealed class ControlLayer
     public EffectJudgement Judge(Tool tool, ActionReport report, Func<ActionVerdict, ActionVerdict>? rejudge = null, Action<ActionVerdict>? observed = null)
     {
         var landed = _world.EffectsLanded(tool);
-        var claimedSuccess = report.ReportedSuccess ?? true;
-        var verdict = _options.JudgeRule == JudgeRule.ReportFirst && !claimedSuccess ? ActionVerdict.HonestFailure
-            : landed ? ActionVerdict.Landed
-            : _options.JudgeRule == JudgeRule.ThreeWay && !claimedSuccess ? ActionVerdict.HonestFailure
-            : ActionVerdict.Lied;
+        // A report the host did not see is a claim of success.
+        var outcome = report.Outcome ?? new ActionOutcome(tool.Id, true, [], null);
+        var verdict = _options.JudgeRule switch
+        {
+            // The world's own three-way verdict, report first (the map-keeper's order).
+            JudgeRule.ReportFirst => _world.Verdict(tool, outcome),
+            // Landed first, as the host has always judged; the world's verdict tells the honest failure from the lie.
+            JudgeRule.ThreeWay => landed ? ActionVerdict.Landed : _world.Verdict(tool, outcome),
+            _ => landed ? ActionVerdict.Landed : ActionVerdict.Lied,
+        };
         if (rejudge is not null) verdict = rejudge(verdict);
         observed?.Invoke(verdict);
         var missing = tool.Grants.Where(g => !_world.Has(g)).ToList();
