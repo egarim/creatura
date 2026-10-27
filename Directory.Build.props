@@ -1,0 +1,13 @@
+<Project>
+  <!-- Shared by every project under this folder. Version metadata only: each .csproj keeps its own
+       target framework, nullable and implicit-usings settings, and the purity rule (no package references
+       outside Creatura.Hosts.AgentFramework and the test projects) is enforced by CorePurityTest. -->
+  <PropertyGroup>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <Product>Creatura</Product>
+    <Authors>Jose Ojeda</Authors>
+    <Description>An agent framework: one loop, a control layer between the model and its tools, and worlds that can lie. Regulators, extensions and worlds plug in.</Description>
+    <RepositoryUrl>https://github.com/egarim/creatura</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+</Project>
