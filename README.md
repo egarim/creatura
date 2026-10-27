@@ -24,7 +24,12 @@ src/Creatura/                 the framework Core: no package references, no proj
   Hotz/                       the critic: claims, routes, the interrupt budget (namespace Creatura.Hotz)
   Orienting/                  habituation by match, valence, affect, the behaviourist control, the Sokolov
                               hypotheses as rows (namespace Creatura.Orienting)
-tests/Creatura.Tests/         xunit; the tests that need nothing but the Core and its toy domain
+src/Creatura.Worlds/          the bench's worlds: sample worlds, manifests, barrier sets, controls, the agent and
+                              extension catalogs, the ingenuity series; no packages, no file IO (namespace Creatura.Worlds)
+src/Creatura.Bench/           the bench's protocols: oracle and outcome class, hypotheses, batteries, arms and rows,
+                              the trainer and the exam over the record store, the legacy CSV writers, the fine-tune
+                              seam; the one project that may do file IO (namespace Creatura.Bench)
+tests/Creatura.Tests/         xunit; the tests that need nothing but the Core and its toy domain, plus the golden traces
 ```
 
 ```sh
@@ -161,6 +166,35 @@ What a run of the sample prints: every regulator reaches the goal in 7 to 9 tick
 same lie at tick 3 in its own vocabulary (`effect missing`, `contradiction`, `anomaly, approaching next
 tick`, `punishment … orienting, then approach once`), and the critic closes each case with eight claims,
 eight judgements and one flag.
+
+## The bench
+
+`Creatura.Bench` is where a design is trained and tested. An **oracle** (`IOracle`) classifies a run by evidence the
+agent cannot author: `RegistryOracle` reads the task's goal over the facts of the world the agent could not write to, and
+a run that reports the goal without them is *claimed*, never *real*. A **battery** is a pre-registered experiment:
+`Hypothesis` rows stated first with their falsifiers, `Arm`s naming an agent, extensions, a seat, a world and its
+barriers, repeats, and the oracle; `BatteryReport.Score` says held / failed / mixed / not run per hypothesis. The research
+batteries (H1 to H20, P1 to P4) are transcribed in `ClosedBatteries` with their recorded verdicts; the Sokolov hypotheses
+(S1 to S7) are a battery that can run.
+
+**Train and test** go through the record store. `Trainer.RunAsync` runs a creature through a `Curriculum` case after
+case with its `AgentRecord` saved after each (ten licence cases is the canonical one: a design that starts every case from
+nothing refuses the release every time, a carried record earns it by case 2). `Exam.RunAsync` loads the record once into
+a `ReadOnlyRecordStore` that refuses every save, runs the battery's arms on it, and scores the hypotheses.
+
+```csharp
+using Creatura.Bench;
+
+var store = new JsonRecordStore("records");
+var training = await Trainer.RunAsync("bach", Curriculum.Licence(10), store, "bach");   // releases from case 2
+var exam = await Exam.RunAsync(SokolovBattery.Battery, store, "bach");                   // never writes to "bach"
+Console.WriteLine(exam.Report.ToMarkdown());
+```
+
+`Row` carries the columns every result file has had, and `Row.ToLegacyCsv` writes the two archived shapes byte for byte;
+`AppendOnlyCsv` only ever appends and sends a changed header to a new file name. `ExampleRecorder` is the fine-tune seam: one
+example per judged action (the rendered context, the suggestion, the registry's verdict) and the outcome class at sleep,
+into an `IExampleSink`; nothing consumes it yet.
 
 ## Anatomy
 
