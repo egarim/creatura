@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Creatura.Hosts.AgentFramework</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The one project in src/ with a package reference: Microsoft Agent Framework owns the model call and the
+         function-calling loop, and the control layer rides it as middleware. Everything the host decides with lives in
+         the Core; CorePurityTest keeps the four other projects free of this package and of what it brings. -->
+    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.25.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Creatura/Creatura.csproj" />
+  </ItemGroup>
+
+</Project>
