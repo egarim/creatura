@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Cells slice 2: Claude Code joins.** `creatura cell hook` reads one Claude Code hook event on stdin, prints
+  nothing and always exits 0: the first prompt of a session writes a `Claim` (goal from the folder and branch, or the
+  first line of the prompt scrubbed of secret-shaped text with `--goal prompt`), each finished turn writes one
+  `Progress` with tool counts only, and a session's end writes a `HandOff`. `hooks-config`, `install-hooks` and
+  `uninstall-hooks` (backup first, merge, `--dry-run`), `publish-bin`; `--session` on progress, release and handoff;
+  a cross-process `LedgerLock` on every write. Not installed anywhere by this change.
+
 ### The cells, first slice (`src/Creatura.Cells`, `src/Creatura.Cli`, no package references)
 Built from [docs/design-cells.md](docs/design-cells.md), "What gets built first", with the five pre-registered
 tests (C1 to C5, `tests/Creatura.Cells.Tests`) committed before the code. Offline; no mesh, relay or host-tool hooks.
