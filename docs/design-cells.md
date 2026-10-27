@@ -1,7 +1,7 @@
 # Design: identity, vessel and the cell network
 
-**Status:** design note, not built. Written 2026-10-28 on the owner's laptop, after the framework's 0.1.0. Nothing here
-is decided until the owner answers the open decisions at the end.
+**Status:** design note; the five open decisions were answered by the owner on 2026-10-28 (see the end); the first slice
+is being built. Written 2026-10-28 on the owner's laptop, after the framework's 0.1.0.
 
 ## The problem, in the owner's words
 
@@ -144,7 +144,16 @@ Pre-registered tests, written before the code:
 
 The mesh implementation and the host-tool hooks come after the owner has read the first slice running.
 
-## Open decisions
+## Decided (owner, 2026-10-28)
+
+1. **Root of trust: both.** An owner key signs each vessel once (the ledger's trust); the mesh admits the machine (the
+   transport's trust).
+2. **The ledger lives on every cell**, whole; compaction later if it grows.
+3. **Claude Code joins first**, through its hooks.
+4. **Mesh test bed: the owner's laptop and the second machine.** Never production servers, never the VPN endpoints.
+5. **The command is `creatura cell`.**
+
+## Open decisions (as first written)
 
 1. **Root of trust.** Who vouches that a vessel is the owner's? (a) An owner key on one machine that signs each
    vessel once, like the critic's owner token; (b) the mesh: a vessel is the owner's if the mesh admits it, read from
