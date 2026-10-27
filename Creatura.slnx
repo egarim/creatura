@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Creatura/Creatura.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Creatura.Tests/Creatura.Tests.csproj" />
+  </Folder>
+</Solution>
