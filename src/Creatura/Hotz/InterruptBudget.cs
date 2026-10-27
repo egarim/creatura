@@ -45,5 +45,18 @@ public sealed class InterruptBudget
 
     public InterruptBudget Fresh() => new() { Threshold = Threshold, Warmup = Warmup };
 
+    /// <summary>The budget's record as data: raised, upheld and dismissed. The threshold and the warm-up are configuration, not record.</summary>
+    public InterruptSnapshot Snapshot() => new(Raised, Upheld, Dismissed);
+
+    /// <summary>Replace the record with a snapshot's, in place; the threshold and the warm-up stay as configured.</summary>
+    public void Restore(InterruptSnapshot snapshot)
+    {
+        Raised = snapshot.Raised;
+        Upheld = snapshot.Upheld;
+    }
+
     public override string ToString() => $"precision {Precision:P0} ({Upheld}/{Raised}), {(MayInterrupt ? "may interrupt" : "silenced")}";
 }
+
+/// <summary>An <see cref="InterruptBudget"/>'s record as data: what an <see cref="AgentRecord"/> keeps of it. <c>Dismissed</c> is written for readers; <see cref="InterruptBudget.Restore"/> reads raised and upheld.</summary>
+public sealed record InterruptSnapshot(int Raised, int Upheld, int Dismissed);

@@ -105,6 +105,17 @@ public sealed class OrientingRegulator : IRegulator
         OrientingTicks = 0;
     }
 
+    /// <summary>The key the resting inhibition is kept under in a record's parts.</summary>
+    public const string RestingInhibitionPart = "orienting:resting-inhibition";
+
+    /// <summary>Courage carries (claim 10): a record's resting inhibition replaces the configured one for this run.</summary>
+    public void Load(AgentRecord record)
+    {
+        if (record.GetPart<double?>(RestingInhibitionPart) is { } resting) _affect = new Affect(resting);
+    }
+
+    public void Store(AgentRecord record) => record.SetPart(RestingInhibitionPart, _affect.RestingI);
+
     public void BeforeRun(RegulatorContext context)
     {
         _ctx = context;

@@ -98,6 +98,20 @@ IAgent explorer = new ReferenceLoop(new ColonyRegulator(Identity.Levin),
     name: "Levin + honest + explore");
 ```
 
+**The record** is what a creature earns across cases. `RecordCarryExtension` seeds a design's self-model and
+prediction record before the first tick and writes them back at sleep; given a store, the loop loads the
+record before the run (a regulator's private parts: the hybrid's cell, the orienting agent's resting
+inhibition, the map-keeper's territory) and saves it after sleep. Every run leaves its record on
+`AgentRun.Record`; `InMemoryRecordStore` and `JsonRecordStore` (one file per key) are the two stores.
+Quarantine is never persisted: a new case starts trusting.
+
+```csharp
+var store = new JsonRecordStore("records");
+IAgent trained = new ReferenceLoop(new SelfModelRegulator(Identity.Bach),
+    options: AgentOptions.With(new RecordCarryExtension(store, "bach")),
+    store: store, recordKey: "bach");          // case ten knows what case one learned
+```
+
 **Your own design** fills only the slots it needs; every other member of `IRegulator` has a default:
 
 ```csharp

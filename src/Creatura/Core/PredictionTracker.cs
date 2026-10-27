@@ -46,4 +46,13 @@ public sealed class PredictionTracker
         _recent.Clear();
         foreach (var r in recent.TakeLast(8)) _recent.Enqueue(r);
     }
+
+    /// <summary>The record as data: the totals and the last eight, oldest first.</summary>
+    public PredictionSnapshot Snapshot() => new(Correct, Total, [.. _recent]);
+
+    /// <summary>Start from a snapshot: <see cref="Seed"/> with its fields.</summary>
+    public void Restore(PredictionSnapshot snapshot) => Seed(snapshot.Correct, snapshot.Total, snapshot.Recent);
 }
+
+/// <summary>A <see cref="PredictionTracker"/> as data: what a record keeps of it.</summary>
+public sealed record PredictionSnapshot(int Correct, int Total, List<bool> Recent);

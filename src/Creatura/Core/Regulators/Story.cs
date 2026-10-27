@@ -92,4 +92,33 @@ public sealed class TerritoryMap
             .Select(kv => $"{kv.Key} cannot be relied on: found lying {kv.Value} times");
 
     public int Unreliability(string tool) => _unreliable.GetValueOrDefault(tool);
+
+    /// <summary>The map as data, in Peterson's order: procedures, episodes, then what the rules are written from.</summary>
+    public TerritorySnapshot Snapshot() => new(
+        Procedures.ToDictionary(kv => kv.Key, kv => kv.Value.ToList(), StringComparer.Ordinal),
+        [.. Episodes],
+        Unknown.Order(StringComparer.Ordinal).ToList(),
+        Unreachable.Order(StringComparer.Ordinal).ToList(),
+        Dead.Order(StringComparer.Ordinal).ToList(),
+        _unreliable.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal));
+
+    /// <summary>Replace the map with a snapshot's, in place (the map-keeper holds the instance for the run).</summary>
+    public void Restore(TerritorySnapshot snapshot)
+    {
+        Procedures.Clear();
+        foreach (var (k, v) in snapshot.Procedures) Procedures[k] = [.. v];
+        Episodes.Clear();
+        Episodes.AddRange(snapshot.Episodes);
+        Unknown.Clear();
+        Unknown.UnionWith(snapshot.Unknown);
+        Unreachable.Clear();
+        Unreachable.UnionWith(snapshot.Unreachable);
+        Dead.Clear();
+        Dead.UnionWith(snapshot.Dead);
+        _unreliable.Clear();
+        foreach (var (k, v) in snapshot.Unreliable) _unreliable[k] = v;
+    }
 }
+
+/// <summary>A <see cref="TerritoryMap"/> as data: what a record keeps of it. <c>Unreliable</c> is the count behind each rule, so the rules come back exactly.</summary>
+public sealed record TerritorySnapshot(Dictionary<string, List<string>> Procedures, List<Episode> Episodes, List<string> Unknown, List<string> Unreachable, List<string> Dead, Dictionary<string, int> Unreliable);

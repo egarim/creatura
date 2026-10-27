@@ -17,6 +17,8 @@ public sealed class ReferenceLoop : IAgent
     private readonly AgentOptions _options;
     private readonly ExtensionSet _ext;
     private readonly ControlLayerOptions _layerOptions;
+    private readonly IRecordStore? _store;
+    private readonly string _recordKey;
 
     /// <param name="regulator">The design in the slots.</param>
     /// <param name="policy">The seat; the planner when null.</param>
@@ -24,7 +26,9 @@ public sealed class ReferenceLoop : IAgent
     /// <param name="options">The extensions; none when null.</param>
     /// <param name="layer">The layer's switches; the designs' (<see cref="ControlLayerOptions.Design"/>) when null.</param>
     /// <param name="name">The run's agent name; the regulator's type name when null.</param>
-    public ReferenceLoop(IRegulator regulator, IPolicy? policy = null, AgentTask? task = null, AgentOptions? options = null, ControlLayerOptions? layer = null, string? name = null)
+    /// <param name="store">Where the record is loaded from before the run and saved to after sleep; none when null (the run still leaves its record on <see cref="AgentRun.Record"/>).</param>
+    /// <param name="recordKey">The record's key in the store; the agent name when null.</param>
+    public ReferenceLoop(IRegulator regulator, IPolicy? policy = null, AgentTask? task = null, AgentOptions? options = null, ControlLayerOptions? layer = null, string? name = null, IRecordStore? store = null, string? recordKey = null)
     {
         _regulator = regulator;
         _policy = policy ?? new PlannerPolicy();
@@ -33,11 +37,16 @@ public sealed class ReferenceLoop : IAgent
         _ext = new ExtensionSet(_options);
         _layerOptions = layer ?? ControlLayerOptions.Design;
         Name = name ?? regulator.GetType().Name;
+        _store = store;
+        _recordKey = recordKey ?? Name;
     }
 
     public string Name { get; }
 
     public IRegulator Regulator => _regulator;
+
+    /// <summary>The record's key in the store: the one given, else the agent name.</summary>
+    public string RecordKey => _recordKey;
 
     public async Task<AgentRun> RunAsync(IWorld world, int maxTicks = 40, CancellationToken cancellationToken = default)
     {
@@ -45,7 +54,13 @@ public sealed class ReferenceLoop : IAgent
         var notes = new List<string>();
         var history = new List<string>();
 
+        var counters = new RunCounters();
+
         _regulator.Begin(_task);
+        // The record: loaded before the layer is built, so a regulator restores its parts into the instances the layer will hold.
+        var record = _store?.Load(_recordKey) ?? new AgentRecord { Key = _recordKey };
+        var casesBefore = record.Cases;
+        _regulator.Load(record);
         var self = _regulator.Self ?? _regulator.Identity.NewSelfModel();
         var layer = new ControlLayer(world, _task, self, _layerOptions, _regulator, _regulator.Predictions, _regulator.Audit, trace, notes, _regulator.Ledger, _regulator.Distrust);
         var ctx = new RegulatorContext
@@ -54,6 +69,12 @@ public sealed class ReferenceLoop : IAgent
             Trace = trace, Notes = notes, Layer = layer, History = history,
         };
         _regulator.BeforeRun(ctx);
+        ctx.Extensions = new TickContext
+        {
+            Agent = Name, World = world, Task = _task, Tick = 0, MaxTicks = maxTicks, Notes = notes, Trace = trace,
+            SelfModel = _regulator.Self, Predictions = _regulator.Predictions, Counters = counters,
+        };
+        _ext.BeforeRun(ctx.Extensions);
 
         var goalReached = false;
         var lastTick = 0;
@@ -66,7 +87,7 @@ public sealed class ReferenceLoop : IAgent
             var tctx = new TickContext
             {
                 Agent = Name, World = world, Task = _task, Tick = tick, MaxTicks = maxTicks, Notes = notes, Trace = trace,
-                SelfModel = _regulator.Self, Predictions = _regulator.Predictions,
+                SelfModel = _regulator.Self, Predictions = _regulator.Predictions, Counters = counters,
             };
             ctx.Extensions = tctx;
 
@@ -202,10 +223,28 @@ public sealed class ReferenceLoop : IAgent
         var sleep = new SleepContext
         {
             Agent = Name, World = world, Task = _task, LastTick = lastTick, GoalReached = goalReached, Notes = notes, Trace = trace,
-            SelfModel = _regulator.Self, Audit = _regulator.Audit, Predictions = _regulator.Predictions,
+            SelfModel = _regulator.Self, Audit = _regulator.Audit, Predictions = _regulator.Predictions, Counters = counters,
         };
         _ext.Sleep(sleep, () => _regulator.Sleep(sleep));
-        return new AgentRun(Name, goalReached, lastTick, trace, notes);
+
+        // The record after sleep. Read the store again first: a record extension sharing it has just saved its carry and its
+        // parts, and this must build on that, not on what was loaded before the run. Then the Core's own state after sleep,
+        // the regulator's parts, and the case count: one more than before the run, unless a sharer counted it already.
+        record = _store?.Load(_recordKey) ?? record;
+        record.Key = _recordKey;
+        record.Cases = Math.Max(record.Cases, casesBefore + 1);
+        if (_regulator.Self is { } model)
+        {
+            record.Skills = new Dictionary<string, SkillBelief>(model.Skills, StringComparer.Ordinal);
+            record.RecentErrors = [.. model.RecentErrors];
+            record.StageLevel = Math.Max(record.StageLevel, model.StageLevel);
+        }
+
+        if (_regulator.Predictions is { } predictions) record.Predictions = predictions.Snapshot();
+        if (_regulator.Audit is { } audit) record.Coherence = audit.Snapshot();
+        _regulator.Store(record);
+        _store?.Save(_recordKey, record);
+        return new AgentRun(Name, goalReached, lastTick, trace, notes) { Record = record, Proposals = _regulator.Proposals, Counters = counters };
     }
 
     /// <summary>

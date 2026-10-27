@@ -48,4 +48,18 @@ public sealed class CoherenceAudit
 
     /// <summary>An expectation that was formed and then broke — the strongest evidence of a bad model.</summary>
     public void Contradict(int tick, string claim, string evidence) => _found.Add(new Contradiction(tick, claim, evidence));
+
+    /// <summary>The audit as data: the claims counted and every contradiction found, in order.</summary>
+    public CoherenceSnapshot Snapshot() => new(Claims, [.. _found]);
+
+    /// <summary>Replace the audit's state with a snapshot's, in place.</summary>
+    public void Restore(CoherenceSnapshot snapshot)
+    {
+        Claims = snapshot.Claims;
+        _found.Clear();
+        _found.AddRange(snapshot.Contradictions);
+    }
 }
+
+/// <summary>A <see cref="CoherenceAudit"/> as data: what a record keeps of it.</summary>
+public sealed record CoherenceSnapshot(int Claims, List<Contradiction> Contradictions);

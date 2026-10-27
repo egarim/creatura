@@ -41,6 +41,9 @@ public sealed class TickContext
 
     /// <summary>The design's prediction record, when it keeps one.</summary>
     public PredictionTracker? Predictions { get; init; }
+
+    /// <summary>The run's counts (<see cref="AgentRun.Counters"/>), shared with the sleep context.</summary>
+    public RunCounters Counters { get; init; } = new();
 }
 
 /// <summary>What an extension sees when the run is over: everything the design would consolidate from.</summary>
@@ -65,6 +68,9 @@ public sealed class SleepContext
     public CoherenceAudit? Audit { get; init; }
 
     public PredictionTracker? Predictions { get; init; }
+
+    /// <summary>The run's counts (<see cref="AgentRun.Counters"/>); an extension or a design that counted something writes it here.</summary>
+    public RunCounters Counters { get; init; } = new();
 }
 
 /// <summary>
@@ -77,6 +83,14 @@ public sealed class SleepContext
 public interface IAgentExtension
 {
     string Name { get; }
+
+    /// <summary>
+    /// Before the first tick, after the regulator's own <c>BeforeRun</c>: the context is tick 0 with nothing visible yet.
+    /// Where a record is seeded into the design's self-model and prediction record, so the first tick already reads it.
+    /// </summary>
+    void BeforeRun(TickContext context)
+    {
+    }
 
     /// <summary>Shape the option space after the design has applied its own quarantine.</summary>
     IReadOnlyList<Tool> VisibleTools(TickContext context, IReadOnlyList<Tool> visible) => visible;
@@ -131,6 +145,11 @@ public sealed class ExtensionSet
     public ExtensionSet(AgentOptions? options) => _extensions = options?.Extensions ?? [];
 
     public int Count => _extensions.Count;
+
+    public void BeforeRun(TickContext context)
+    {
+        foreach (var e in _extensions) e.BeforeRun(context);
+    }
 
     public IReadOnlyList<Tool> VisibleTools(TickContext context, IReadOnlyList<Tool> visible)
     {
@@ -226,6 +245,7 @@ public sealed class ExplorationExtension : IAgentExtension
     private readonly DreamJournal? _dreams;
     private int _fruitless;
     private int _landedSeen;
+    private int _triesAtRunStart;
 
     public ExplorationExtension(EffectMemory memory, bool scaled = false, DreamJournal? dreams = null, bool developmental = false)
     {
@@ -239,7 +259,13 @@ public sealed class ExplorationExtension : IAgentExtension
 
     public string Name => _scaled ? "explore:scaled" : "explore:budget";
 
+    /// <summary>Tries over every run this instance has made; the run's own count is in <see cref="AgentRun.Counters"/>.</summary>
     public int ExploratoryTries { get; private set; }
+
+    public void BeforeRun(TickContext context) => _triesAtRunStart = ExploratoryTries;
+
+    /// <summary>This run's tries go on the run's counters, so a series reads them from the run and not from this instance.</summary>
+    public void Sleep(SleepContext context) => context.Counters.ExploratoryTries += ExploratoryTries - _triesAtRunStart;
 
     /// <summary>The dreams, while they are worth listening to: untested dreams get the benefit of the doubt, tested ones must be right half the time.</summary>
     private DreamJournal? Dreams => _dreams is null ? null : _dreams.Tested < 4 || _dreams.Trust >= 0.5 ? _dreams : null;
@@ -344,7 +370,26 @@ public sealed class DreamJournal
     public int Tested { get; set; }
 
     public double Trust => Tested == 0 ? 0.5 : (double)Confirmed / Tested;
+
+    /// <summary>The journal as data: the two lists and the dreams' record.</summary>
+    public DreamSnapshot Snapshot() => new(Prefer.Order(StringComparer.Ordinal).ToList(), Avoid.Order(StringComparer.Ordinal).ToList(), Nights, DreamedRoutes, Confirmed, Tested);
+
+    /// <summary>Replace the journal with a snapshot's, in place (the exploration and dream extensions hold the instance).</summary>
+    public void Restore(DreamSnapshot snapshot)
+    {
+        Prefer.Clear();
+        Prefer.UnionWith(snapshot.Prefer);
+        Avoid.Clear();
+        Avoid.UnionWith(snapshot.Avoid);
+        Nights = snapshot.Nights;
+        DreamedRoutes = snapshot.DreamedRoutes;
+        Confirmed = snapshot.Confirmed;
+        Tested = snapshot.Tested;
+    }
 }
+
+/// <summary>A <see cref="DreamJournal"/> as data: what a record keeps of it.</summary>
+public sealed record DreamSnapshot(List<string> Prefer, List<string> Avoid, int Nights, int DreamedRoutes, int Confirmed, int Tested);
 
 /// <summary>
 /// Sleep that dreams. At the end of a run, replay the day on the learned model: from the facts the day
@@ -434,21 +479,24 @@ public sealed class DreamSleepExtension : IAgentExtension
 
 /// <summary>
 /// The record carried across cases. Each design starts a run with a fresh self-model and a fresh prediction
-/// record; this extension stores both at sleep and seeds the next run with them before its first decision,
-/// so case ten knows what case one learned. Loaded into the Levin colony it does nothing, because the
-/// colony keeps no record, which is the control battery 2 needs.
+/// record; this extension reads an <see cref="AgentRecord"/> from its store before the first tick
+/// (<see cref="BeforeRun"/>) and seeds the design's self-model and prediction record from it, then writes the
+/// record back at sleep, so case ten knows what case one learned. With no store given it keeps one in memory,
+/// per instance, which is how the batteries have always used it; given a store and a key it reads and writes
+/// the record the loop or a trainer keeps there. Loaded into the Levin colony it seeds nothing, because the
+/// colony keeps no self-model, which is the control battery 2 needs; the colony's skills are kept in the
+/// record from the verdicts and read to the seat as notes.
 /// </summary>
 public sealed class RecordCarryExtension : IAgentExtension
 {
-    private readonly Dictionary<string, SkillBelief> _skills = new(StringComparer.Ordinal);
-    private readonly List<string> _errors = [];
-    private int _correct;
-    private int _total;
-    private int _stage;
-    private List<bool> _recent = [];
-    private bool _seededThisRun;
+    /// <summary>The key the stale-record bookkeeping (when each tool was last tried) is kept under in the record's parts.</summary>
+    public const string LastTriedPart = "record:last-tried";
+
+    private readonly IRecordStore _store;
+    private readonly string _key;
     private readonly int _resampleEvery;
-    private readonly Dictionary<string, int> _lastTried = new(StringComparer.Ordinal);
+    private AgentRecord _record = new();
+    private Dictionary<string, int> _lastTried = new(StringComparer.Ordinal);
 
     /// <param name="resampleEvery">
     /// When above zero, a tool whose record is below perfect and that has not been tried for this many cases is
@@ -456,17 +504,57 @@ public sealed class RecordCarryExtension : IAgentExtension
     /// never re-sampled cannot recover, which battery 2 saw: DeepSeek left a gateway after one lie and never
     /// learned it was honest again. Zero (the default) keeps the design as documented.
     /// </param>
-    public RecordCarryExtension(int resampleEvery = 0) => _resampleEvery = resampleEvery;
+    public RecordCarryExtension(int resampleEvery = 0) : this(new InMemoryRecordStore(), "record", resampleEvery)
+    {
+    }
+
+    /// <param name="store">Where the record is read before the run and written at sleep.</param>
+    /// <param name="key">The record's key in the store.</param>
+    /// <param name="resampleEvery">See <see cref="RecordCarryExtension(int)"/>.</param>
+    public RecordCarryExtension(IRecordStore store, string key, int resampleEvery = 0)
+    {
+        _store = store;
+        _key = key;
+        _resampleEvery = resampleEvery;
+        _record = store.Load(key) ?? new AgentRecord { Key = key };
+        _lastTried = _record.GetPart<Dictionary<string, int>>(LastTriedPart) ?? new Dictionary<string, int>(StringComparer.Ordinal);
+    }
 
     public string Name => _resampleEvery > 0 ? "record:resample" : "record";
 
-    public int Stage => _stage;
+    public IRecordStore Store => _store;
 
-    public int Cases { get; private set; }
+    public string Key => _key;
 
-    public IReadOnlyDictionary<string, SkillBelief> Skills => _skills;
+    /// <summary>The record as last read or written: what the next case will be seeded from.</summary>
+    public AgentRecord Record => _record;
 
-    public double Reliability(string action) => _skills.TryGetValue(action, out var b) ? b.Reliability : 0.5;
+    public int Stage => _record.StageLevel;
+
+    public int Cases => _record.Cases;
+
+    public IReadOnlyDictionary<string, SkillBelief> Skills => _record.Skills;
+
+    public double Reliability(string action) => _record.Skills.TryGetValue(action, out var b) ? b.Reliability : 0.5;
+
+    /// <summary>
+    /// The record is read from the store and seeded before the first tick: a design with a self-model gets the skills,
+    /// the recent errors and the stage it earned; a design with a prediction record gets that. The note says what came.
+    /// </summary>
+    public void BeforeRun(TickContext context)
+    {
+        _record = _store.Load(_key) ?? new AgentRecord { Key = _key };
+        _lastTried = _record.GetPart<Dictionary<string, int>>(LastTriedPart) ?? new Dictionary<string, int>(StringComparer.Ordinal);
+        if (context.SelfModel is not null)
+        {
+            foreach (var (k, v) in _record.Skills) context.SelfModel.Skills[k] = v;
+            context.SelfModel.RecentErrors.AddRange(_record.RecentErrors.TakeLast(4));
+            if (_record.StageLevel > context.SelfModel.StageLevel) context.SelfModel.StageLevel = _record.StageLevel;
+        }
+
+        if (_record.Predictions is { } predictions) context.Predictions?.Restore(predictions);
+        if (_record.Cases > 0) context.Notes.Add($"record carried from {_record.Cases} earlier case(s): {_record.Skills.Count} skills, {_record.Predictions?.Total ?? 0} predictions");
+    }
 
     /// <summary>
     /// A design with a self-model reads the record there. One without (the colony) gets it as notes, so the
@@ -474,10 +562,10 @@ public sealed class RecordCarryExtension : IAgentExtension
     /// </summary>
     public IEnumerable<string> PolicyNotes(TickContext context)
     {
-        if (context.SelfModel is null && _skills.Count > 0)
+        if (context.SelfModel is null && _record.Skills.Count > 0)
         {
             yield return $"YOUR RECORD from {Cases} earlier case(s), how often each tool's effect landed when it said so:";
-            foreach (var s in _skills.Values.OrderByDescending(s => s.Attempted).ThenBy(s => s.Action, StringComparer.Ordinal).Take(8))
+            foreach (var s in _record.Skills.Values.OrderByDescending(s => s.Attempted).ThenBy(s => s.Action, StringComparer.Ordinal).Take(8))
             {
                 yield return $"  {s.Action}: reliable {s.Reliability:P0} ({s.Supported}/{s.Attempted})";
             }
@@ -487,7 +575,7 @@ public sealed class RecordCarryExtension : IAgentExtension
         foreach (var (action, last) in _lastTried.OrderBy(kv => kv.Key, StringComparer.Ordinal))
         {
             var idle = Cases - last;
-            if (idle < _resampleEvery || !_skills.TryGetValue(action, out var belief) || belief.Reliability >= 1.0) continue;
+            if (idle < _resampleEvery || !_record.Skills.TryGetValue(action, out var belief) || belief.Reliability >= 1.0) continue;
             yield return $"RECORD GOING STALE: {action} was last tried {idle} cases ago, at {belief.Reliability:P0}. A record that is never re-tested cannot recover; if {action} is on a route this case, try it once.";
         }
     }
@@ -497,46 +585,22 @@ public sealed class RecordCarryExtension : IAgentExtension
     {
         _lastTried[tool.Id] = Cases;
         if (context.SelfModel is not null || verdict == ActionVerdict.HonestFailure) return;
-        _skills[tool.Id] = _skills.TryGetValue(tool.Id, out var b) ? b.With(verdict == ActionVerdict.Landed) : new SkillBelief(tool.Id, verdict == ActionVerdict.Landed ? 1 : 0, 1);
+        _record.Skills[tool.Id] = _record.Skills.TryGetValue(tool.Id, out var b) ? b.With(verdict == ActionVerdict.Landed) : new SkillBelief(tool.Id, verdict == ActionVerdict.Landed ? 1 : 0, 1);
     }
 
-    public IReadOnlyList<Tool> VisibleTools(TickContext context, IReadOnlyList<Tool> visible)
-    {
-        if (!_seededThisRun)
-        {
-            _seededThisRun = true;
-            if (context.SelfModel is not null)
-            {
-                foreach (var (k, v) in _skills) context.SelfModel.Skills[k] = v;
-                context.SelfModel.RecentErrors.AddRange(_errors.TakeLast(4));
-                if (_stage > context.SelfModel.StageLevel) context.SelfModel.StageLevel = _stage;
-            }
-
-            context.Predictions?.Seed(_correct, _total, _recent);
-            if (Cases > 0) context.Notes.Add($"record carried from {Cases} earlier case(s): {_skills.Count} skills, {_total} predictions");
-        }
-
-        return visible;
-    }
-
+    /// <summary>At sleep the record is written back: the self-model's skills, errors and stage replace the carried ones, the prediction record is copied, and the case is counted.</summary>
     public void Sleep(SleepContext context)
     {
-        Cases++;
-        _seededThisRun = false;
+        _record.Cases++;
         if (context.SelfModel is not null)
         {
-            _skills.Clear();
-            foreach (var (k, v) in context.SelfModel.Skills) _skills[k] = v;
-            _errors.Clear();
-            _errors.AddRange(context.SelfModel.RecentErrors);
-            _stage = Math.Max(_stage, context.SelfModel.StageLevel);
+            _record.Skills = new Dictionary<string, SkillBelief>(context.SelfModel.Skills, StringComparer.Ordinal);
+            _record.RecentErrors = [.. context.SelfModel.RecentErrors];
+            _record.StageLevel = Math.Max(_record.StageLevel, context.SelfModel.StageLevel);
         }
 
-        if (context.Predictions is not null)
-        {
-            _correct = context.Predictions.Correct;
-            _total = context.Predictions.Total;
-            _recent = context.Predictions.Recent.ToList();
-        }
+        if (context.Predictions is not null) _record.Predictions = context.Predictions.Snapshot();
+        _record.SetPart(LastTriedPart, _lastTried);
+        _store.Save(_key, _record);
     }
 }

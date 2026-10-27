@@ -83,6 +83,18 @@ public sealed class HybridRegulator : IRegulator
         _organismPoint = new SetPoint { Id = "contract", Space = "service health", Progress = task.Contract };
     }
 
+    /// <summary>The key the cell's self-model is kept under in a record's parts.</summary>
+    public const string CellPart = "hybrid:cell";
+
+    /// <summary>A carried cell arrives whole: the ledger of what each tool's effect came to, so the lazy organism-to-cell copy finds it full and leaves it.</summary>
+    public void Load(AgentRecord record)
+    {
+        if (record.GetPart<SelfModelSnapshot>(CellPart) is { } cell) _cell.Restore(cell);
+    }
+
+    /// <summary>The cell is the part of this design worth keeping privately: the organism's model is the Core carry a record extension already keeps.</summary>
+    public void Store(AgentRecord record) => record.SetPart(CellPart, _cell.Snapshot());
+
     public void BeforeRun(RegulatorContext context)
     {
         _ctx = context;

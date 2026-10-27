@@ -113,6 +113,14 @@ public sealed class MapKeeperRegulator : IRegulator
         Explorations = 0;
     }
 
+    /// <summary>The territory is the map-keeper's memory; a record carries it (open decision 11 says under which battery).</summary>
+    public void Load(AgentRecord record)
+    {
+        if (record.Territory is { } territory) _map.Restore(territory);
+    }
+
+    public void Store(AgentRecord record) => record.Territory = _map.Snapshot();
+
     public void BeforeRun(RegulatorContext context)
     {
         _ctx = context;
@@ -327,6 +335,7 @@ public sealed class MapKeeperRegulator : IRegulator
     /// <summary>Articulation, in Peterson's order: what it did, what surprised it, what it can now say.</summary>
     public void Sleep(SleepContext context)
     {
+        context.Counters.Explorations = Explorations;
         context.Notes.Add("procedures: " + (_map.Procedures.Count == 0 ? "none closed" : string.Join("; ", _map.Procedures.Select(kv => $"{kv.Key} ← {string.Join(" > ", kv.Value)}"))));
         context.Notes.Add("episodes: " + (_map.Episodes.Count == 0 ? "no anomaly met" : string.Join("; ", _map.Episodes.Select(e => $"t{e.Tick} {e.Tool} broke '{e.Story}' ({e.Magnitude:F2}), retry {(e.RetryLanded switch { true => "landed", false => "lied", null => "pending" })}"))));
         var rules = _map.Rules().ToList();

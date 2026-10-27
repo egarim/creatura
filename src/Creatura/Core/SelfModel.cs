@@ -6,6 +6,7 @@ namespace Creatura;
 /// </summary>
 public sealed record SkillBelief(string Action, int Supported, int Attempted)
 {
+    [System.Text.Json.Serialization.JsonIgnore]
     public double Reliability => Attempted == 0 ? 0.5 : (double)Supported / Attempted;
 
     public SkillBelief With(bool held) =>
@@ -38,6 +39,24 @@ public sealed class SelfModel
 
     public double Reliability(string action) =>
         Skills.TryGetValue(action, out var belief) ? belief.Reliability : 0.5;
+
+    /// <summary>The model as data, for a record (<see cref="AgentRecord"/>): every field, so <see cref="Restore"/> rebuilds the same model.</summary>
+    public SelfModelSnapshot Snapshot() => new(Role, Principal, StageLevel, new Dictionary<string, SkillBelief>(Skills, StringComparer.Ordinal), [.. OpenCommitments], [.. RecentErrors], Vessel);
+
+    /// <summary>Replace this model's state with a snapshot's, in place (the layer and the regulator hold the instance).</summary>
+    public void Restore(SelfModelSnapshot snapshot)
+    {
+        Role = snapshot.Role;
+        Principal = snapshot.Principal;
+        StageLevel = snapshot.StageLevel;
+        Vessel = snapshot.Vessel;
+        Skills.Clear();
+        foreach (var (k, v) in snapshot.Skills) Skills[k] = v;
+        OpenCommitments.Clear();
+        OpenCommitments.AddRange(snapshot.OpenCommitments);
+        RecentErrors.Clear();
+        RecentErrors.AddRange(snapshot.RecentErrors);
+    }
 
     public void RecordOutcome(string action, bool asPredicted)
     {
@@ -82,3 +101,6 @@ public sealed class SelfModel
             """;
     }
 }
+
+/// <summary>A <see cref="SelfModel"/> as data: what a record keeps of it and what <see cref="SelfModel.Restore"/> reads back.</summary>
+public sealed record SelfModelSnapshot(string Role, string Principal, int StageLevel, Dictionary<string, SkillBelief> Skills, List<string> OpenCommitments, List<string> RecentErrors, Vessel? Vessel);

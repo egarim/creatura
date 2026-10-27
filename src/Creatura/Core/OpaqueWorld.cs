@@ -121,7 +121,32 @@ public sealed class EffectMemory
         if (!_entries.TryGetValue(opaque.Id, out var e) || e.Landed == 0) return opaque;
         return opaque with { Requires = e.RequiresGuess?.Order(StringComparer.Ordinal).ToList() ?? [], Grants = e.Gains.Order(StringComparer.Ordinal).ToList() };
     }
+
+    /// <summary>The map as data: every entry with its counts, gains and precondition guess (null when nothing has landed yet).</summary>
+    public EffectMemorySnapshot Snapshot() => new(_entries.ToDictionary(
+        kv => kv.Key,
+        kv => new EffectEntrySnapshot(kv.Value.Tried, kv.Value.Landed, kv.Value.Failed, kv.Value.Lied, kv.Value.Gains.Order(StringComparer.Ordinal).ToList(), kv.Value.RequiresGuess?.Order(StringComparer.Ordinal).ToList()),
+        StringComparer.Ordinal));
+
+    /// <summary>Replace the map with a snapshot's, in place (the learned world and the extensions hold the instance).</summary>
+    public void Restore(EffectMemorySnapshot snapshot)
+    {
+        _entries.Clear();
+        foreach (var (id, e) in snapshot.Entries)
+        {
+            var entry = new Entry { Tried = e.Tried, Landed = e.Landed, Failed = e.Failed, Lied = e.Lied };
+            entry.Gains.UnionWith(e.Gains);
+            if (e.RequiresGuess is not null) entry.RequiresGuess = new HashSet<string>(e.RequiresGuess, StringComparer.Ordinal);
+            _entries[id] = entry;
+        }
+    }
 }
+
+/// <summary>An <see cref="EffectMemory"/> as data: what a record keeps of it.</summary>
+public sealed record EffectMemorySnapshot(Dictionary<string, EffectEntrySnapshot> Entries);
+
+/// <summary>One tool's entry in an <see cref="EffectMemorySnapshot"/>.</summary>
+public sealed record EffectEntrySnapshot(int Tried, int Landed, int Failed, int Lied, List<string> Gains, List<string>? RequiresGuess);
 
 /// <summary>
 /// What the agent actually acts on: the opaque world, seen through the effect memory. Tools carry the

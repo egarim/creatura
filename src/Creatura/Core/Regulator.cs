@@ -110,6 +110,24 @@ public interface IRegulator : IControlFrame
     {
     }
 
+    /// <summary>
+    /// Read the regulator's private parts of a carried record, after <see cref="Begin"/> and before the layer is built:
+    /// the hybrid's cell, the orienting agent's resting inhibition, the map-keeper's territory. The Core carry
+    /// (skills, predictions, stage) is not read here; that is <see cref="RecordCarryExtension"/>'s job, so a design
+    /// with no extensions still starts every run from its own record.
+    /// </summary>
+    void Load(AgentRecord record)
+    {
+    }
+
+    /// <summary>Write the regulator's private parts into the record the run leaves, after sleep.</summary>
+    void Store(AgentRecord record)
+    {
+    }
+
+    /// <summary>What the regulator proposed and never applied; the loop hands it back on the run.</summary>
+    IReadOnlyList<string> Proposals => [];
+
     /// <summary>The header note and any tick-0 rows (the Bach agent reads its self-model before anything happens).</summary>
     void BeforeRun(RegulatorContext context)
     {

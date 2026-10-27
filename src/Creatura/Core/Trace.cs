@@ -43,6 +43,15 @@ public sealed record AgentRun(
 
     public int Blocks => Trace.Count(t => t.Kind == TraceKind.Blocked);
 
+    /// <summary>The record after sleep: what this run left for the next case. The <see cref="ReferenceLoop"/> always writes one; a run read from a file has none.</summary>
+    public AgentRecord? Record { get; init; }
+
+    /// <summary>What the regulator proposed and never applied (set-point edits, a revaluation of the ends).</summary>
+    public IReadOnlyList<string> Proposals { get; init; } = [];
+
+    /// <summary>The run's counts, filled at sleep by whoever counted: exploratory tries by the exploration extension, explorations by the map-keeper.</summary>
+    public RunCounters Counters { get; init; } = new();
+
     /// <summary>
     /// The run as JSON lines, one object per line: the header first (agent, goal, ticks), then every trace
     /// row in order, then every note in order. The golden traces under tests/golden are written with this;
@@ -154,6 +163,16 @@ public sealed record AgentRun(
 
         return new AgentRun(agent ?? throw new FormatException("no run header"), goalReached, ticks, trace, notes);
     }
+}
+
+/// <summary>Counts a run leaves beside its trace, so a series never reaches into an extension or casts to a design to read them.</summary>
+public sealed class RunCounters
+{
+    /// <summary>Tries an exploration extension made this run when the seat saw no route.</summary>
+    public int ExploratoryTries { get; set; }
+
+    /// <summary>Unexplored tools the map-keeper entered this run.</summary>
+    public int Explorations { get; set; }
 }
 
 public interface IAgent
