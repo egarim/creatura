@@ -146,15 +146,18 @@ public sealed class ExtensionSet
 
     public IReadOnlyList<string> PolicyNotes(TickContext context) => _extensions.SelectMany(e => e.PolicyNotes(context)).ToList();
 
+    /// <summary>The first extension that proposes a tool answers no route; failing that, the last one that answered with a reason, so an explorer's "handing off" reaches the tissue row.</summary>
     public PolicySuggestion? NoRoute(TickContext context)
     {
+        PolicySuggestion? reason = null;
         foreach (var e in _extensions)
         {
             var s = e.NoRoute(context);
             if (s?.Tool is not null) return s;
+            if (s is not null) reason = s;
         }
 
-        return null;
+        return reason;
     }
 
     public ActionVerdict Judge(TickContext context, Tool tool, ActionOutcome outcome, bool landed) =>

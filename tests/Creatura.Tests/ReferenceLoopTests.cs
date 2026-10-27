@@ -95,6 +95,47 @@ public class ReferenceLoopTests
     }
 
     [Fact]
+    public async Task AnExtensionsNoRouteReasonReachesTheTissueRow()
+    {
+        // No tool reaches the goal; an explorer that has nothing left to try says so, and that reason, not the seat's
+        // "no path with the visible tools", is what the tick's row and the hand-off carry (migration step 9, named change).
+        var world = new World([new Tool("deploy", ["permission.deploy"], ["deployed"], "release")], ["permission.deploy"]);
+        var task = RestoreServiceDomain.Task with { Habit = [] };
+        var run = await new ReferenceLoop(new PlainRegulator(), new PlannerPolicy(), task, AgentOptions.With(new GivesUp()), ControlLayerOptions.Design).RunAsync(world, 10);
+
+        Assert.All(run.Trace.Where(e => e.Level == "tissue"), e => Assert.Equal("explorer: nothing left to try; handing off", e.Detail));
+        Assert.DoesNotContain(run.Trace, e => e.Detail == "no path with the visible tools");
+        // An extension that proposes a tool still wins over one that only gives a reason.
+        var proposing = await new ReferenceLoop(new PlainRegulator(), new PlannerPolicy(), task, AgentOptions.With(new GivesUp(), new Proposes("deploy")), ControlLayerOptions.Design).RunAsync(
+            new World([new Tool("deploy", ["permission.deploy"], ["deployed"], "release")], ["permission.deploy"]), 10);
+        Assert.Contains(proposing.Trace, e => e.Level == "tissue" && e.Action == "deploy" && e.Detail == "proposed by the second extension");
+    }
+
+    [Fact]
+    public async Task TheStageRefusalIsVetoableAndTheVetoCancelsTheHandOffNotTheRefusal()
+    {
+        // deploy is the first reachable step and the Bach agent sits at stage 3: refused. Without a veto the run stops
+        // there; with one it goes on, refused every tick, the release never run (migration step 9, named change).
+        var tools = new List<Tool>
+        {
+            new("deploy", ["permission.deploy"], ["deployed"], "release"),
+            new("resolve-alert", ["deployed"], ["alert.resolved"], "close"),
+        };
+        var task = RestoreServiceDomain.Task with { Habit = [] };
+        var stopped = await Bach(new PlannerPolicy(), task).RunAsync(new World(tools, ["permission.deploy"]), 8);
+        Assert.Equal(1, stopped.Ticks);
+        Assert.Single(stopped.Trace, e => e.Action == TraceText.DeployBlocked);
+
+        var kept = await Bach(new PlannerPolicy(), task, AgentOptions.With(new VetoAll())).RunAsync(new World(tools, ["permission.deploy"]), 8);
+        Assert.Equal(8, kept.Ticks);
+        Assert.False(kept.GoalReached);
+        Assert.Equal(8, kept.Trace.Count(e => e.Action == TraceText.DeployBlocked));
+        Assert.DoesNotContain(kept.Trace, e => e.Level == "cell" && e.Action == "deploy");
+        Assert.Equal(8, kept.Notes.Count(n => n.Contains("kept going past 'release refused'", StringComparison.Ordinal)));
+        Assert.Equal(8, kept.Notes.Count(n => n == "release refused: the record does not support the capability"));
+    }
+
+    [Fact]
     public void TheLoopNamesItselfAfterTheRegulatorWhenNoNameIsGiven()
     {
         Assert.Equal("PlainRegulator", new ReferenceLoop(new PlainRegulator()).Name);
@@ -106,5 +147,19 @@ public class ReferenceLoopTests
         public string Name => "veto-all";
 
         public bool SuppressHandOff(TickContext context, HandOff handOff) => true;
+    }
+
+    private sealed class GivesUp : IAgentExtension
+    {
+        public string Name => "explorer";
+
+        public PolicySuggestion? NoRoute(TickContext context) => new(null, "explorer: nothing left to try; handing off");
+    }
+
+    private sealed class Proposes(string tool) : IAgentExtension
+    {
+        public string Name => "proposer";
+
+        public PolicySuggestion? NoRoute(TickContext context) => new(tool, "proposed by the second extension");
     }
 }

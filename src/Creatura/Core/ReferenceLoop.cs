@@ -4,8 +4,9 @@ namespace Creatura;
 /// The one in-process loop. Per tick: begin → the regulator's stop check → offer (quarantine, regulator shaping,
 /// extensions) → error and freedom (regulator, then the extension chain) → budget → the regulator's pre-decision
 /// → assemble and ask the seat → the decision row → no-route handling → admit → gate → act → judge → the
-/// regulator's record → verdict stop → goal check. Every hand-off goes through the extensions' veto. After the
-/// loop: the regulator's notes, sleep, and the run. The control layer does the mechanics; the regulator fills
+/// regulator's record → verdict stop → goal check. Every hand-off goes through the extensions' veto, the stage
+/// refusal's included (the veto cancels the hand-off, never the refusal). After the loop: the regulator's notes,
+/// sleep, and the run. The control layer does the mechanics; the regulator fills
 /// the slots and writes the words; nothing design-specific lives here.
 /// </summary>
 public sealed class ReferenceLoop : IAgent
@@ -134,7 +135,7 @@ public sealed class ReferenceLoop : IAgent
                 };
                 suggestion = await PolicyGuard.NextAsync(_policy, context, cancellationToken).ConfigureAwait(false);
                 if (suggestion.Tool is null && _regulator.Unrouted(ctx) is { Tool: not null } own) suggestion = own;
-                if (suggestion.Tool is null && _ext.NoRoute(tctx) is { Tool: not null } alternative) suggestion = alternative;
+                if (suggestion.Tool is null && _ext.NoRoute(tctx) is { } alternative) suggestion = alternative;
             }
 
             _regulator.Suggested(ctx, suggestion);
@@ -152,8 +153,15 @@ public sealed class ReferenceLoop : IAgent
             var admission = layer.Admit(suggestion.Tool);
             if (!admission.Admitted)
             {
-                // The stage refusal is the one stop no extension vetoes (until step 9 names that change).
-                if (admission.Refusal == RefusalReason.ReleaseNotEarned) break;
+                // The stage refusal stands whatever happens next (the frame wrote it; the tool did not run); the hand-off
+                // it amounts to is vetoable, and a veto keeps the run going past it.
+                if (admission.Refusal == RefusalReason.ReleaseNotEarned)
+                {
+                    if (!_ext.SuppressHandOff(tctx, HandOff.ReleaseRefused)) break;
+                    _regulator.Vetoed(ctx, HandOff.ReleaseRefused);
+                    continue;
+                }
+
                 history.Add($"{suggestion.Tool} → refused: not visible");
                 if (HandsOff(layer, ctx, tctx, HandOff.IllegalAction, "illegal action")) break;
                 continue;
