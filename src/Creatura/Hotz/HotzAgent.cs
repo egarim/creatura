@@ -130,8 +130,9 @@ public sealed class HotzAgent
         var missing = promised.Where(f => !claim.Registry.Contains(f)).ToList();
         if (claim.IsClosure)
         {
-            // The closing claim cites what the shortcut left behind, if anything, beside what the contract lacks.
-            cites = claim.Registry.Where(f => f is "resolved" || _goalEvidence.Contains(f)).ToList();
+            // The closing claim cites the goal evidence the registry holds beside what the contract lacks; nothing
+            // else, whatever a shortcut left behind. A world's own fact ids are its business, never this rule's.
+            cites = claim.Registry.Where(_goalEvidence.Contains).ToList();
         }
 
         var (shown, rule) = verdict switch
