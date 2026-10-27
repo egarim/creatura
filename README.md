@@ -273,3 +273,9 @@ same verbs in the research repository's
 (plate II), the kinds of things with their types, and the five Latin names. The same page is published at
 https://claude.ai/artifact/QncbLz7HcCTxKbUQQPksKA. Scenario pictures come later, when there are test
 scenarios to picture.
+
+## Next: identity and the cell network
+
+[docs/design-cells.md](docs/design-cells.md) designs a strong identity for each agent (who it is, the vessel it runs on, where it
+sits on the network), a signed append-only work ledger that says who is working on what, and a cell network with
+in-process, mesh and relay implementations. Not built yet; its open decisions are the owner's.

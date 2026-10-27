@@ -1,0 +1,163 @@
+# Design: identity, vessel and the cell network
+
+**Status:** design note, not built. Written 2026-10-28 on the owner's laptop, after the framework's 0.1.0. Nothing here
+is decided until the owner answers the open decisions at the end.
+
+## The problem, in the owner's words
+
+> I run agents that run tools on several computers, all with different specs, OS and so on. The setup can be
+> confusing and messy, and since the agents depend on tools like Codex and Claude Code to keep their state, it gets
+> really messy to know who is working on what and the path of that work. So I want to give the agents a strong
+> identity linked to the hardware and the network, and a broadcast and communication network for the agents to
+> communicate as cells. The network is an abstraction that can be implemented in-process, on a local network, or on
+> the real internet where each node is somewhere else on the planet.
+
+What that looks like on this machine today:
+
+| tool | where an agent's history lives | what the location says | what it does not say |
+|---|---|---|---|
+| Claude Code | `~/.claude/projects/<folder path, dashes for slashes>/<session id>.jsonl` | which folder it ran in | which machine, which agent, which task, whether it is still working |
+| Codex | `~/.codex/sessions/<year>/<month>/<day>/rollout-<time>-<id>.jsonl` | when it started | which folder, which machine, which task |
+
+Each tool keeps its own record, on its own machine, keyed by something other than the agent. Answering "who is
+working on what" means visiting every machine and reading every tool's files. The design below makes an agent say it
+itself, in a form any other agent, or the owner, can read and check.
+
+## Three principles carried over from the framework
+
+1. **Judge by effect, not by report.** A cell's claim that it is working on something is a claim. What the ledger
+   trusts is a signed entry from a known vessel, and the goal is evidence the cell cannot author.
+2. **The sign belongs to whoever reads it.** A cell writes its monstra; it cannot take them back. The ledger is
+   append-only, and the reader decides what it means.
+3. **Start from identity and the record, not from transport.** The network is the replaceable part. Who a cell is,
+   what it says it is doing, and where that record lives are the hard part, so they come first and must work with
+   no network at all.
+
+## The parts
+
+### Identity: who, vessel, where
+
+`Identity` already has *who* (role, principal, open commitments, scope) and a `Vessel`. It gains two things.
+
+- **`CreaturaId`**: the creature's own stable id, created once and kept in its `AgentRecord`. It survives a move to
+  another vessel, a change of seat, or a change of host tool. It answers "the same agent?" across machines and tools.
+- **`CellKey`**: a signing key pair generated **on the vessel** and never copied off it. A cell is one creatura on
+  one vessel; its key signs everything it publishes. The private key lives in a file readable only by its owner
+  (`chmod 600`), or in the platform key store where one exists. Algorithm: ECDSA P-256, which .NET ships without a
+  package, so `Creatura.Cells` stays package-free like the Core.
+
+### Vessel: the hardware and the model
+
+`Vessel` today describes the model (name, protocol, window, speed, price) and has three loose strings for machine,
+OS and network. It becomes two typed halves:
+
+- **`Hardware`**: a `VesselId` derived from the platform's hardware identifier (macOS `IOPlatformUUID`, Linux
+  `/etc/machine-id`, Windows `MachineGuid`), **hashed with a per-owner salt** so the raw identifier never leaves the
+  machine or appears in a log; plus chip, cores, memory, OS and version. A `VesselProbe` reads these per platform.
+- **`Model`**: the existing model fields, unchanged.
+
+A creatura can change model on the same hardware (new seat, same vessel id) or move hardware (new vessel id, same
+creatura id). Both show up in its record as events, not as a new agent.
+
+### Where: the network position
+
+`Position` records how the cell is reachable: in-process (a process and a channel), on the mesh (node name and mesh
+address, read from `tailscale status`), or on the internet (a relay address). It is a fact the cell reports and a
+peer can check, not configuration.
+
+### The work ledger
+
+The part that answers "who is working on what, and the path of that work". An append-only log of signed entries,
+one sequence per cell:
+
+| entry | says |
+|---|---|
+| `Hello` | this cell exists: creatura id, vessel, position, public key |
+| `Claim` | I am working on this: goal text, repository and branch or folder, host tool and session id |
+| `Progress` | a monstrum: a trace row, a stress level, a blocked or escalated step |
+| `HandOff` | I am stopping; this is where the work stands and why |
+| `Release` | done, with the evidence the goal cites (facts, a commit, a test result) |
+| `Heartbeat` | still alive, with the vessel's load |
+
+Each entry carries the cell's id, its own sequence number and its signature. Two ledgers merge by taking the union
+of entries and dropping any that fail verification. That is all the agreement the ledger needs: no leader, no
+consensus, and it converges whatever order the entries arrive in. The *path of the work* is the chain of a claim's
+entries, readable afterwards like a route, and the Augur can read it like any other trace.
+
+### The cell network
+
+```csharp
+public interface ICellNetwork
+{
+    Task PublishAsync(SignedEntry entry, CancellationToken ct);                          // broadcast to every cell
+    Task SendAsync(CellAddress to, SignedEntry entry, CancellationToken ct);             // to one cell
+    IAsyncEnumerable<SignedEntry> ReceiveAsync(CancellationToken ct);                    // everything addressed to this cell or broadcast
+    Task<IReadOnlyList<SignedEntry>> SyncAsync(CellAddress peer, LedgerCursor since, CancellationToken ct);   // catch up after being away
+}
+```
+
+Delivery is at least once; entries are idempotent by (cell, sequence), so duplicates are harmless and a cell that was
+offline catches up with `SyncAsync`. Three implementations, in this order:
+
+1. **`InProcessCellNetwork`**: channels in one process. Tests and simulations; no sockets.
+2. **`MeshCellNetwork`**: HTTP on the mesh address only (never a public interface), peers discovered from the mesh's
+   own peer list. The mesh already authenticates machines; the cell signature authenticates the agent on them.
+3. **`RelayCellNetwork`**: for cells off the mesh, a small relay that stores and forwards signed entries it cannot
+   forge. Designed last, because the mesh already reaches every machine the owner has.
+
+Biology, kept as vocabulary: a **cell** is one creatura on one vessel; a **tissue** is the cells on one vessel or on
+one project; the **organism** is the owner's whole fleet. Levin's stress bus becomes literal: a blocked cell's
+`Progress` entry carries its stress, and its tissue can see it.
+
+### How host tools join
+
+The first agents on the network are not Creatura's own; they are the owner's Claude Code and Codex sessions. They join
+through their hooks, calling a small command:
+
+```bash
+creatura cell claim --goal "migration step 16" --repo egarim/biological-agents --branch creatura-core
+creatura cell progress --row "golden diff empty"
+creatura cell release --evidence "529 tests green; commit 9d8616a"
+```
+
+Claude Code's hooks (session start, after a tool, stop) and Codex's notify command can call it. The host tool keeps
+its own history as it does now; the ledger records who, on which vessel, claimed what, and how it ended.
+
+## What gets built first
+
+A package-free `Creatura.Cells` project, offline, testable without a network:
+
+1. `CreaturaId`, `CellKey`, `VesselProbe` (macOS first, Linux and Windows after), `Position`, `CellIdentity`.
+2. `SignedEntry`, the six entry kinds, `WorkLedger` with verify and merge, a `JsonLedgerStore`.
+3. `ICellNetwork` and `InProcessCellNetwork`.
+4. A `creatura cell` command: `whoami`, `claim`, `progress`, `release`, `ledger`.
+
+Pre-registered tests, written before the code:
+
+| id | claim | falsifier |
+|---|---|---|
+| C1 | two cells on one in-process network that each claim work end with identical ledgers, whatever order entries arrive | any difference after both have synced |
+| C2 | an entry altered after signing is rejected on merge | a tampered entry accepted |
+| C3 | a creatura moved to another vessel keeps its id and record and gets a new vessel id and key | a new creatura id, or the old key still valid for the new vessel |
+| C4 | the raw hardware identifier never appears in an entry, a log line or a file the cell writes | the identifier found anywhere outside the probe |
+| C5 | a cell offline during three claims catches up with one sync and ends identical | a missing or duplicated entry after sync |
+
+The mesh implementation and the host-tool hooks come after the owner has read the first slice running.
+
+## Open decisions
+
+1. **Root of trust.** Who vouches that a vessel is the owner's? (a) An owner key on one machine that signs each
+   vessel once, like the critic's owner token; (b) the mesh: a vessel is the owner's if the mesh admits it, read from
+   its peer identity; (c) both, the owner key for the ledger and the mesh for transport. Recommendation: (c).
+2. **Where the ledger lives.** Every cell keeps the whole ledger (simple, small for one owner's fleet), or one hub
+   keeps it and cells keep their own entries. Recommendation: every cell, with compaction later if it grows.
+3. **The first host tool to join.** Claude Code (hooks are richest) or Codex. Recommendation: Claude Code.
+4. **The test bed for the mesh slice.** Which two machines first. Recommendation: the owner's laptop and the second machine, both the
+   owner's own, never production servers or the VPN endpoints.
+5. **Name of the command.** `creatura cell …`, or a shorter word of its own.
+
+## What this note does not cover
+
+Model seats on remote vessels (a cell asking another vessel's model), task assignment between cells (who should take
+the next job), and anything that changes a server, a firewall or the mesh's configuration. Each of those is a later
+note, and the last needs the owner's approval per machine.
