@@ -49,3 +49,10 @@ it did there. The research repository's rebuild benchmark also grades the Core m
 sibling path.
 
 *Creatura*, Late Latin: that which has been made; first the whole created order, then each made thing.
+
+## Anatomy
+
+[docs/anatomy.html](docs/anatomy.html) draws the parts and who talks to whom (plate I), one tick of the loop
+(plate II), the kinds of things with their types, and the five Latin names. The same page is published at
+https://claude.ai/artifact/QncbLz7HcCTxKbUQQPksKA. Scenario pictures come later, when there are test
+scenarios to picture.

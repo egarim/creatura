@@ -1,0 +1,409 @@
+<title>Creatura Anatomy</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: a field guide. One reading column, two wide plates that may scroll sideways on a phone. */
+  :root {
+    --bg: #f5f7f3;
+    --bg-2: #eaeee6;
+    --fg: #1b231f;
+    --fg-2: #4b5a52;
+    --line: #c3cdc4;
+    --accent: #2f8a78;      /* verdigris: the creature */
+    --accent-soft: #d9ece6;
+    --world: #d9dde8;       /* the world: cool slate */
+    --world-soft: #eef0f6;
+    --lie: #a8423a;         /* a lie, and only a lie */
+    --display: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+    --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121816; --bg-2: #1a221f; --fg: #e4ebe6; --fg-2: #a3b1a9; --line: #35423b;
+      --accent: #5fc0a8; --accent-soft: #1d3a33; --world: #2b3240; --world-soft: #1c2129; --lie: #e0776d;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121816; --bg-2: #1a221f; --fg: #e4ebe6; --fg-2: #a3b1a9; --line: #35423b;
+    --accent: #5fc0a8; --accent-soft: #1d3a33; --world: #2b3240; --world-soft: #1c2129; --lie: #e0776d;
+    color-scheme: dark;
+  }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: var(--body); font-size: 15px; line-height: 1.55;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 32px 64px;
+  }
+  main { max-width: 1120px; margin: 0 auto; display: grid; gap: 40px; }
+  .prose { max-width: 68ch; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--fg-2); }
+  h1 { font-family: var(--display); font-weight: 600; font-size: clamp(32px, 5vw, 48px); line-height: 1.1; margin: 6px 0 14px; text-wrap: balance; }
+  h2 { font-family: var(--display); font-weight: 600; font-size: 24px; line-height: 1.2; margin: 0 0 6px; text-wrap: balance; }
+  p { margin: 0 0 12px; }
+  .lede { font-size: 17px; color: var(--fg); }
+  figure { margin: 0; display: grid; gap: 12px; }
+  .plate { overflow-x: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding-block: 18px; }
+  .plate svg { display: block; min-width: 960px; width: 100%; height: auto; font-family: var(--body); }
+  .plate svg .t { font-size: 12.5px; fill: var(--fg); }
+  .plate svg .s { font-size: 11.5px; fill: var(--fg-2); }
+  .plate svg .h { font-family: var(--display); font-size: 16px; font-weight: 600; fill: var(--fg); }
+  .plate svg .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; fill: var(--fg-2); }
+  .plate svg .m { font-family: var(--mono); font-size: 11.5px; fill: var(--fg); }
+  .plate svg .a { font-size: 11px; fill: var(--fg-2); font-style: italic; }
+  .plate svg .acc { fill: var(--accent); }
+  .plate svg .lie { fill: var(--lie); }
+  figcaption { font-size: 14px; color: var(--fg-2); max-width: 72ch; }
+  figcaption b { color: var(--fg); font-weight: 600; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px 40px; align-items: start; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th { text-align: left; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--fg-2); font-weight: 500; padding: 0 12px 8px 0; border-bottom: 1px solid var(--line); }
+  td { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; min-width: 0; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  code { font-family: var(--mono); font-size: 12.5px; background: var(--bg-2); padding: 1px 5px; border-radius: 3px; }
+  .latin dt { font-family: var(--display); font-size: 20px; font-weight: 600; margin-top: 14px; }
+  .latin dt small { font-family: var(--mono); font-size: 11px; font-weight: 400; color: var(--fg-2); margin-left: 8px; letter-spacing: .04em; }
+  .latin dd { margin: 2px 0 0; color: var(--fg); }
+  .note { font-size: 13px; color: var(--fg-2); border-top: 1px solid var(--line); padding-top: 14px; max-width: 72ch; }
+  a { color: var(--accent); }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<main>
+  <header class="prose">
+    <div class="eyebrow">Creatura · plate I and II · 2026-10-28</div>
+    <h1>The anatomy of a creatura</h1>
+    <p class="lede">Creatura is an agent framework for building agents out of regulation patterns taken from how living things and minds keep themselves on course. The core is one generic agent: a loop, a control layer between the model and its tools, and a contract for worlds that can lie. Everything else plugs in. A design is a <b>regulator</b> that fills the loop's slots, a behaviour is an <b>extension</b> that hooks into its verbs, and a <b>world</b> is where both are trained and tested.</p>
+    <p>Two plates: what the parts are and which of them talk, then what happens in one tick. Names in monospace are the types in the code.</p>
+  </header>
+
+  <!-- ====================== PLATE I: ANATOMY ====================== -->
+  <figure>
+    <div class="eyebrow">Plate I</div>
+    <h2>The parts, and who talks to whom</h2>
+    <div class="plate">
+    <svg viewBox="0 0 1200 720" role="img" aria-label="A creatura (identity, regulator, seat, extensions, loop, record) on the left; the control layer with Visibility, Gatekeeper, EffectCheck and Ledger in the middle; the world with facts, tools, barriers, oracle and controls on the right; the trace below the creatura feeding the Augur below the world. Arrows: the layer offers visible tools to the seat, the seat proposes a tool, the gatekeeper acts in the world, the effect check reads the facts, the verdict goes back into the loop, the ledger snapshots into the record, the creatura gives off a trace that the Augur reads.">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+        <marker id="ar-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+
+      <!-- ===== the creatura ===== -->
+      <rect x="30" y="60" width="530" height="540" rx="10" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="50" y="88" class="h">Creatura</text>
+      <text x="138" y="88" class="s">the agent: a loop with a regulator in it</text>
+
+      <!-- identity -->
+      <rect x="50" y="105" width="490" height="66" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <line x1="175" y1="105" x2="175" y2="171" stroke="var(--line)"/>
+      <line x1="360" y1="105" x2="360" y2="171" stroke="var(--line)"/>
+      <text x="62" y="124" class="k">IDENTITY · WHO</text>
+      <text x="62" y="143" class="t">role · principal</text>
+      <text x="62" y="160" class="s">commitments · scope</text>
+      <text x="187" y="124" class="k">VESSEL</text>
+      <text x="187" y="143" class="t">the hardware + the model</text>
+      <text x="187" y="160" class="s">machine · OS · model · window</text>
+      <text x="372" y="124" class="k">WHERE</text>
+      <text x="372" y="143" class="t">its place on the network</text>
+      <text x="372" y="160" class="s">in-process · mesh · internet</text>
+
+      <!-- regulator -->
+      <rect x="50" y="190" width="300" height="210" rx="4" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="62" y="213" class="h" style="font-size:15px">Regulator</text>
+      <text x="152" y="213" class="s">the design · fills the loop's slots</text>
+      <line x1="62" y1="224" x2="338" y2="224" stroke="var(--line)"/>
+      <text x="62" y="246" class="k">SLOT</text>
+      <text x="62" y="264" class="t">error signal</text>
+      <text x="200" y="264" class="s">set point · prediction · anomaly</text>
+      <text x="62" y="288" class="t">what error buys</text>
+      <text x="200" y="288" class="s">freedom, a retry budget</text>
+      <text x="62" y="312" class="t">memory</text>
+      <text x="200" y="312" class="s">colony · self-model · story map</text>
+      <text x="62" y="336" class="t">gate and stop</text>
+      <text x="200" y="336" class="s">stage interlock · collapse · hand-off</text>
+      <line x1="62" y1="352" x2="338" y2="352" stroke="var(--line)"/>
+      <text x="62" y="373" class="m">Colony · SelfModel · MapKeeper</text>
+      <text x="62" y="390" class="m">Orienting · Hybrid</text>
+
+      <!-- seat -->
+      <rect x="380" y="190" width="160" height="95" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="392" y="213" class="h" style="font-size:15px">Seat</text>
+      <text x="392" y="236" class="t">the model, or the planner</text>
+      <text x="392" y="254" class="s">answers one tool, or none</text>
+      <text x="392" y="272" class="s">reads only the SeatView</text>
+
+      <!-- extensions -->
+      <rect x="380" y="305" width="160" height="95" rx="4" fill="var(--bg)" stroke="var(--line)" stroke-dasharray="4 3"/>
+      <text x="392" y="328" class="h" style="font-size:15px">Extensions</text>
+      <text x="392" y="350" class="m">honest · explore · record</text>
+      <text x="392" y="367" class="m">dream · critic · biology</text>
+      <text x="392" y="387" class="s">hooked on the loop's verbs</text>
+
+      <!-- loop -->
+      <rect x="50" y="420" width="490" height="50" rx="4" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="62" y="441" class="h" style="font-size:15px">ReferenceLoop</text>
+      <text x="62" y="460" class="s">one tick: offer → decide → admit → act → judge → record → stop? (plate II)</text>
+
+      <!-- record -->
+      <rect x="50" y="490" width="490" height="90" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="62" y="513" class="h" style="font-size:15px">Record</text>
+      <text x="130" y="513" class="s">what it has earned</text>
+      <text x="62" y="536" class="m">skills · predictions · stage · coherence · territory</text>
+      <text x="62" y="556" class="s">carried across cases by the record store: a Trainer earns it, an Exam freezes it.</text>
+      <text x="62" y="572" class="s">A creatura can change seat or move vessel and keep its record.</text>
+
+      <!-- ===== the control layer ===== -->
+      <rect x="600" y="60" width="150" height="540" rx="10" fill="var(--bg-2)" stroke="var(--line)"/>
+      <text x="612" y="84" class="h" style="font-size:15px">Control layer</text>
+      <text x="612" y="101" class="s">the membrane</text>
+
+      <rect x="612" y="120" width="126" height="100" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="622" y="140" class="t" style="font-weight:600">Visibility</text>
+      <text x="622" y="158" class="m">Offer()</text>
+      <text x="622" y="176" class="s">what the seat may see:</text>
+      <text x="622" y="191" class="s">distrust → regulator</text>
+      <text x="622" y="206" class="s">shapes → extensions</text>
+
+      <rect x="612" y="240" width="126" height="100" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="622" y="260" class="t" style="font-weight:600">Gatekeeper</text>
+      <text x="622" y="278" class="m">Admit()</text>
+      <text x="622" y="296" class="s">is it visible?</text>
+      <text x="622" y="311" class="s">is the gate earned?</text>
+      <text x="622" y="326" class="s">refuse, never obey</text>
+
+      <rect x="612" y="360" width="126" height="100" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="622" y="380" class="t" style="font-weight:600">EffectCheck</text>
+      <text x="622" y="398" class="m">Judge()</text>
+      <text x="622" y="416" class="s">did the effect land?</text>
+      <text x="622" y="431" class="s">landed · <tspan class="lie">lied</tspan> ·</text>
+      <text x="622" y="446" class="s">honest failure</text>
+
+      <rect x="612" y="480" width="126" height="100" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="622" y="500" class="t" style="font-weight:600">Ledger</text>
+      <text x="622" y="518" class="s">quarantine, decaying</text>
+      <text x="622" y="533" class="s">failures vs budget</text>
+      <text x="622" y="548" class="s">predictions · audit</text>
+      <text x="622" y="563" class="s">trace · notes</text>
+
+      <!-- ===== the world ===== -->
+      <rect x="790" y="60" width="380" height="540" rx="10" fill="var(--world-soft)" stroke="var(--world)" stroke-width="1.5"/>
+      <text x="810" y="88" class="h">World</text>
+      <text x="868" y="88" class="s">the simulator: where a creatura is trained and tested</text>
+
+      <rect x="810" y="110" width="340" height="70" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="822" y="132" class="t" style="font-weight:600">Facts</text>
+      <text x="870" y="132" class="s">the registry: the only truth</text>
+      <text x="822" y="152" class="s">What is actually the case. A creatura reads it;</text>
+      <text x="822" y="167" class="s">only an action can change it.</text>
+
+      <rect x="810" y="200" width="340" height="70" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="822" y="222" class="t" style="font-weight:600">Tools</text>
+      <text x="868" y="222" class="s">requires · grants · kind</text>
+      <text x="822" y="242" class="s">They may <tspan class="lie">lie</tspan> (report success, change nothing),</text>
+      <text x="822" y="257" class="s">fail honestly, or vanish.</text>
+
+      <rect x="810" y="290" width="340" height="70" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="822" y="312" class="t" style="font-weight:600">Barriers</text>
+      <text x="890" y="312" class="s">faults injected on purpose</text>
+      <text x="822" y="332" class="s">revoke a tool · lie once · lie always ·</text>
+      <text x="822" y="347" class="s">a shortcut that looks like the goal · an approval to earn</text>
+
+      <rect x="810" y="380" width="340" height="70" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="822" y="402" class="t" style="font-weight:600">Oracle</text>
+      <text x="876" y="402" class="s">goal as evidence</text>
+      <text x="822" y="422" class="s">The goal is a fact the creatura cannot write itself.</text>
+      <text x="822" y="437" class="s">Outcome: real · claimed · handed off · open.</text>
+
+      <rect x="810" y="470" width="340" height="70" rx="4" fill="var(--bg)" stroke="var(--line)" stroke-dasharray="4 3"/>
+      <text x="822" y="492" class="t" style="font-weight:600">Controls</text>
+      <text x="888" y="492" class="s">baselines beside the creatura</text>
+      <text x="822" y="512" class="s">careless · random walker · adversary · oracle planner:</text>
+      <text x="822" y="527" class="s">same tools, no control layer, so a result means something.</text>
+
+      <!-- ===== bottom: monstrum and augur ===== -->
+      <rect x="30" y="625" width="530" height="75" rx="10" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="50" y="650" class="h">Monstrum</text>
+      <text x="140" y="650" class="s">the trace: what the creatura shows</text>
+      <text x="50" y="672" class="s">a row per step at three levels (cell · tissue · organism), notes, the route,</text>
+      <text x="50" y="688" class="s">claims and calls. Golden traces pin them; a changed row is a decision.</text>
+
+      <rect x="600" y="625" width="570" height="75" rx="10" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="620" y="650" class="h">Augur</text>
+      <text x="680" y="650" class="s">the critic: reads the signs, has no hands</text>
+      <text x="620" y="672" class="s">Watches the route. A claim cites a fact or stays silent. The right to interrupt is earned</text>
+      <text x="620" y="688" class="s">by precision and lost on noise. The owner, not the agent, holds the off switch.</text>
+
+      <!-- ===== arrows ===== -->
+      <!-- offers visible tools: Visibility -> Seat -->
+      <line x1="612" y1="205" x2="542" y2="205" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <text x="577" y="199" class="a" text-anchor="middle">offers</text>
+      <!-- proposes a tool: Seat -> Gatekeeper -->
+      <line x1="540" y1="262" x2="610" y2="262" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <text x="575" y="276" class="a" text-anchor="middle">proposes</text>
+      <!-- acts: Gatekeeper -> Tools -->
+      <path d="M738,300 H775 V235 H808" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <text x="780" y="262" class="a">acts</text>
+      <!-- facts: Facts -> EffectCheck -->
+      <path d="M810,150 H760 V410 H740" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <text x="766" y="334" class="a">facts</text>
+      <!-- verdict: EffectCheck -> loop -->
+      <path d="M612,420 H575 V445 H542" fill="none" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#ar-acc)"/>
+      <text x="576" y="412" class="a acc" text-anchor="middle">verdict</text>
+      <!-- snapshot: Ledger -> Record -->
+      <line x1="612" y1="540" x2="542" y2="540" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <text x="577" y="534" class="a" text-anchor="middle">at sleep</text>
+      <!-- gives off: creatura -> monstrum -->
+      <line x1="295" y1="600" x2="295" y2="623" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#ar-acc)"/>
+      <text x="303" y="616" class="a acc">gives off</text>
+      <!-- reads: monstrum -> augur -->
+      <line x1="560" y1="662" x2="598" y2="662" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <text x="579" y="655" class="a" text-anchor="middle">reads</text>
+    </svg>
+    </div>
+    <figcaption><b>The membrane is the point.</b> The seat never touches the world directly. The control layer decides what the model may see, refuses what it may not do, and judges every action by the facts rather than by the tool's report; only then does the verdict reach the regulator's memory. Controls stand in the same world without that layer. The creatura gives off a trace, and a critic with no hands reads it.</figcaption>
+  </figure>
+
+  <!-- ====================== PLATE II: ONE TICK ====================== -->
+  <figure>
+    <div class="eyebrow">Plate II</div>
+    <h2>One tick of the loop</h2>
+    <div class="plate">
+    <svg viewBox="0 0 1200 290" role="img" aria-label="Nine steps left to right: stop check, offer, freedom, decide, admit, act, judge, record, goal check; a refused admission skips act and judge and goes straight to record; a hand-off leaves the loop at the stop check unless an extension vetoes it; a met goal leaves at the end; otherwise the next tick starts again.">
+      <defs>
+        <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <!-- boxes: x = 34 + i*128, w=108, y=90, h=64 -->
+      <g>
+        <rect x="34" y="90" width="108" height="64" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+        <text x="88" y="114" class="t" text-anchor="middle" style="font-weight:600">Stop?</text>
+        <text x="88" y="132" class="s" text-anchor="middle">regulator</text>
+        <text x="88" y="146" class="s" text-anchor="middle">contract · alarm</text>
+
+        <rect x="162" y="90" width="108" height="64" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+        <text x="216" y="114" class="t" text-anchor="middle" style="font-weight:600">Offer</text>
+        <text x="216" y="132" class="s" text-anchor="middle">distrust → shape</text>
+        <text x="216" y="146" class="s" text-anchor="middle">→ extensions</text>
+
+        <rect x="290" y="90" width="108" height="64" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+        <text x="344" y="114" class="t" text-anchor="middle" style="font-weight:600">Freedom</text>
+        <text x="344" y="132" class="s" text-anchor="middle">error → freedom</text>
+        <text x="344" y="146" class="s" text-anchor="middle">→ retry budget</text>
+
+        <rect x="418" y="90" width="108" height="64" rx="4" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="472" y="114" class="t" text-anchor="middle" style="font-weight:600">Decide</text>
+        <text x="472" y="132" class="s" text-anchor="middle">ask the seat</text>
+        <text x="472" y="146" class="s" text-anchor="middle">or fixed · or skip</text>
+
+        <rect x="546" y="90" width="108" height="64" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+        <text x="600" y="114" class="t" text-anchor="middle" style="font-weight:600">Admit</text>
+        <text x="600" y="132" class="s" text-anchor="middle">visible?</text>
+        <text x="600" y="146" class="s" text-anchor="middle">gate earned?</text>
+
+        <rect x="674" y="90" width="108" height="64" rx="4" fill="var(--world-soft)" stroke="var(--world)" stroke-width="1.5"/>
+        <text x="728" y="114" class="t" text-anchor="middle" style="font-weight:600">Act</text>
+        <text x="728" y="132" class="s" text-anchor="middle">in the world</text>
+        <text x="728" y="146" class="s" text-anchor="middle">the tool reports</text>
+
+        <rect x="802" y="90" width="108" height="64" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+        <text x="856" y="114" class="t" text-anchor="middle" style="font-weight:600">Judge</text>
+        <text x="856" y="132" class="s" text-anchor="middle">did the effect land?</text>
+        <text x="856" y="146" class="s" text-anchor="middle">landed · <tspan class="lie">lied</tspan> · honest</text>
+
+        <rect x="930" y="90" width="108" height="64" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+        <text x="984" y="114" class="t" text-anchor="middle" style="font-weight:600">Record</text>
+        <text x="984" y="132" class="s" text-anchor="middle">memory · ledger</text>
+        <text x="984" y="146" class="s" text-anchor="middle">trace row</text>
+
+        <rect x="1058" y="90" width="108" height="64" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+        <text x="1112" y="114" class="t" text-anchor="middle" style="font-weight:600">Goal?</text>
+        <text x="1112" y="132" class="s" text-anchor="middle">read from the facts,</text>
+        <text x="1112" y="146" class="s" text-anchor="middle">never the report</text>
+      </g>
+      <!-- forward arrows between boxes -->
+      <g stroke="currentColor" stroke-width="1.2" fill="none">
+        <line x1="142" y1="122" x2="160" y2="122" marker-end="url(#ar2)"/>
+        <line x1="270" y1="122" x2="288" y2="122" marker-end="url(#ar2)"/>
+        <line x1="398" y1="122" x2="416" y2="122" marker-end="url(#ar2)"/>
+        <line x1="526" y1="122" x2="544" y2="122" marker-end="url(#ar2)"/>
+        <line x1="654" y1="122" x2="672" y2="122" marker-end="url(#ar2)"/>
+        <line x1="782" y1="122" x2="800" y2="122" marker-end="url(#ar2)"/>
+        <line x1="910" y1="122" x2="928" y2="122" marker-end="url(#ar2)"/>
+        <line x1="1038" y1="122" x2="1056" y2="122" marker-end="url(#ar2)"/>
+      </g>
+      <!-- refused: Admit -> Record over the top -->
+      <path d="M600,90 V52 H984 V88" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#ar2)"/>
+      <text x="792" y="45" class="a" text-anchor="middle">refused (not visible, or gate not earned): recorded, nothing acted</text>
+      <!-- hand off: Stop -> out, vetoable -->
+      <path d="M88,90 V40 H20" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar2)"/>
+      <text x="98" y="36" class="a">hand off · an extension may veto</text>
+      <!-- contract met: Goal -> out -->
+      <path d="M1166,122 H1192" fill="none" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#ar2)"/>
+      <text x="1112" y="80" class="a acc" text-anchor="middle">met: "contract met", stop →</text>
+      <!-- next tick: Goal -> Stop along the bottom -->
+      <path d="M1112,154 V230 H88 V156" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar2)"/>
+      <text x="600" y="248" class="a" text-anchor="middle">not met: next tick, failures carried, quarantine decaying by one</text>
+      <!-- verdict detail under judge -->
+      <text x="856" y="176" class="s" text-anchor="middle">lied → quarantine, failure counted</text>
+      <text x="856" y="191" class="s" text-anchor="middle">honest → budget spent, tool stays</text>
+      <!-- seat detail under decide -->
+      <text x="472" y="176" class="s" text-anchor="middle">a name outside the visible set</text>
+      <text x="472" y="191" class="s" text-anchor="middle">is refused, not obeyed</text>
+    </svg>
+    </div>
+    <figcaption><b>Every regulator runs this same tick.</b> The slots it fills are the stop check, the shaping of the offer, the error and what it buys, the decision kind, the gate, the memory update, and what the seat gets to read. Levin, Bach, Peterson and Sokolov differ only inside those slots. Bach and Levin already run on it; the hybrid, the map-keeper and the orienting agent are being moved onto it now.</figcaption>
+  </figure>
+
+  <!-- ====================== GLOSSARY ====================== -->
+  <section class="grid2">
+    <div>
+      <div class="eyebrow">The kinds of things</div>
+      <h2>What each word means</h2>
+      <table>
+        <thead><tr><th>kind</th><th>what it is</th><th>in code</th></tr></thead>
+        <tbody>
+          <tr><td>creatura</td><td>an assembled agent: the loop with a regulator in it, plus its identity, seat and extensions</td><td><code>ReferenceLoop</code></td></tr>
+          <tr><td>regulator</td><td>a design. Fills the loop's slots: error signal, what error buys, memory, gate and stop</td><td><code>IRegulator</code>, <code>ColonyRegulator</code>, <code>SelfModelRegulator</code>, <code>MapKeeperRegulator</code>, <code>HybridRegulator</code>, <code>OrientingRegulator</code></td></tr>
+          <tr><td>join</td><td>two regulators in one creatura under one fold law per slot</td><td><code>Regulators.Join</code>, <code>JoinRules</code></td></tr>
+          <tr><td>control layer</td><td>the membrane between seat and world: what may be seen, what may be done, what really happened</td><td><code>ControlLayer</code>: Visibility, Gatekeeper, EffectCheck, Ledger</td></tr>
+          <tr><td>seat</td><td>whatever fills the decision slot: a model, or the offline planner</td><td><code>IPolicy</code>, <code>SeatView</code></td></tr>
+          <tr><td>identity</td><td>who the agent is, the vessel it runs in, where it sits on the network</td><td><code>Identity</code>, <code>Vessel</code></td></tr>
+          <tr><td>extension</td><td>a loadable behaviour hooked on the loop's verbs after the regulator</td><td><code>IAgentExtension</code></td></tr>
+          <tr><td>world</td><td>a fact registry plus tools that may lie, fail honestly or vanish; the registry is the only truth</td><td><code>IWorldView</code>, <code>IWorld</code></td></tr>
+          <tr><td>barrier</td><td>a fault injected on purpose to test the creatura against</td><td><code>FaultRule</code>, <code>Barrier</code></td></tr>
+          <tr><td>control</td><td>a baseline run beside the creatura in the same world: careless, random, adversary, oracle planner</td><td>plain <code>IAgent</code></td></tr>
+          <tr><td>oracle</td><td>the goal as evidence the agent cannot author; classifies a run as real, claimed, handed off or open</td><td><code>AgentTask.Goal</code>, <code>IOracle</code></td></tr>
+          <tr><td>critic</td><td>an owned observer with no hands: record and replay, judgement, governance</td><td><code>HotzAgent</code>, <code>CriticExtension</code></td></tr>
+          <tr><td>record</td><td>what a creatura earns across cases; a trainer earns it, an exam freezes it</td><td><code>AgentRecord</code>, <code>IRecordStore</code></td></tr>
+          <tr><td>trace</td><td>the observable run: rows, notes, routes, calls; golden traces pin them</td><td><code>TraceEvent</code>, <code>AgentRun</code></td></tr>
+          <tr><td>battery</td><td>a pre-registered experiment: hypotheses first, arms with controls, repeats, scored held or failed</td><td><code>Battery</code>, <code>Hypothesis</code></td></tr>
+          <tr><td>host</td><td>a runtime that owns the model call and hands the layer its hooks</td><td>Agent Framework middleware; Semantic Kernel reserved</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="eyebrow">The Latin</div>
+      <h2>Five words, and why they are exact</h2>
+      <dl class="latin">
+        <dt>Creatura <small>creatūra, -ae · from creare, to bring forth</small></dt>
+        <dd>That which has been made. First the whole created order, then each made thing: so the singular names the framework and one agent alike. The learned form of Spanish <i>criatura</i>.</dd>
+        <dt>Monstrum <small>monstrum, -i · from monere, to warn; root of monstrare, to show</small></dt>
+        <dd>A sign, a portent: the thing that appears in order to point at something. The trace is what a creatura shows; a monster is only a creature that has become a message.</dd>
+        <dt>Augur <small>augur, -uris · the reader of signs</small></dt>
+        <dd>The one who reads what the creatura shows and answers yes or no, with standing but without hands. The Hotz critic: it cites or stays silent, earns the right to interrupt, and never acts.</dd>
+        <dt>Bestiarium <small>bestiārium, -i · medieval, a book of beasts</small></dt>
+        <dd>The catalogue of creature designs and switches by name, each with its nature described. Never called a registry: that word belongs to the world's facts.</dd>
+        <dt>Vessel <small>English, after vas electionis · a person as a chosen vessel</small></dt>
+        <dd>The hardware and the model a creatura inhabits. Kept in English because Spanish <i>vas</i> means "you go"; the Latin stays as etymology.</dd>
+      </dl>
+      <p class="note" style="margin-top:22px">Source of truth: <a href="https://github.com/egarim/biological-agents/blob/main/design-framework.md">design-framework.md</a>. Code: <a href="https://github.com/egarim/creatura">egarim/creatura</a>. State on 2026-10-28: the Core, the loop and the Bach and Levin regulators are in the framework; the hybrid, the map-keeper and the orienting regulator are being moved onto the loop. Scenario pictures come later, when there are test scenarios to picture.</p>
+    </div>
+  </section>
+</main>
