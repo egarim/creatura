@@ -1,0 +1,201 @@
+{
+  "models": [
+    {
+      "name": "qwen2.5:7b",
+      "provider": "ollama",
+      "baseUrl": "http://localhost:11434",
+      "baseUrlEnv": "OLLAMA_HOST_URL",
+      "model": "qwen2.5:7b",
+      "nativeTools": true,
+      "reasoning": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0,
+      "sheet": {
+        "contextWindow": 32768,
+        "contextAsRun": 4096,
+        "maxOutput": 8192,
+        "knowledgeCutoff": "2024",
+        "caveat": "4-bit quantised"
+      }
+    },
+    {
+      "name": "phi4-mini",
+      "provider": "ollama",
+      "baseUrl": "http://localhost:11434",
+      "baseUrlEnv": "OLLAMA_HOST_URL",
+      "model": "phi4-mini",
+      "nativeTools": false,
+      "reasoning": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0,
+      "sheet": {
+        "contextWindow": 128000,
+        "contextAsRun": 4096,
+        "maxOutput": 4096,
+        "knowledgeCutoff": "2024",
+        "caveat": "4-bit quantised; no native tool calling in this build"
+      }
+    },
+    {
+      "name": "llama3.2:1b",
+      "provider": "ollama",
+      "baseUrl": "http://localhost:11434",
+      "baseUrlEnv": "OLLAMA_HOST_URL",
+      "model": "llama3.2:1b",
+      "nativeTools": true,
+      "reasoning": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0,
+      "sheet": {
+        "contextWindow": 128000,
+        "contextAsRun": 4096,
+        "maxOutput": 4096,
+        "knowledgeCutoff": "2023-12",
+        "caveat": "4-bit quantised"
+      }
+    },
+    {
+      "name": "deepseek-chat",
+      "provider": "openai",
+      "baseUrl": "https://api.deepseek.com",
+      "model": "deepseek-chat",
+      "keyEnv": "DEEPSEEK_API_KEY|deepseek",
+      "nativeTools": true,
+      "reasoning": false,
+      "inputPerMillion": 0.28,
+      "outputPerMillion": 0.42,
+      "sheet": {
+        "contextWindow": 128000,
+        "maxOutput": 8192
+      }
+    },
+    {
+      "name": "deepseek-reasoner",
+      "provider": "openai",
+      "baseUrl": "https://api.deepseek.com",
+      "model": "deepseek-reasoner",
+      "keyEnv": "DEEPSEEK_API_KEY|deepseek",
+      "nativeTools": false,
+      "reasoning": true,
+      "inputPerMillion": 0.28,
+      "outputPerMillion": 0.42,
+      "sheet": {
+        "contextWindow": 128000,
+        "maxOutput": 64000,
+        "caveat": "thinking tokens are billed as output"
+      }
+    },
+    {
+      "name": "gpt-4.1-mini",
+      "provider": "openai",
+      "baseUrlEnv": "AZURE_AOAI_BASE",
+      "model": "gpt-4.1-mini",
+      "keyEnv": "AZURE_AOAI_KEY",
+      "nativeTools": true,
+      "reasoning": false,
+      "inputPerMillion": 0.40,
+      "outputPerMillion": 1.60,
+      "sheet": {
+        "contextWindow": 1047576,
+        "maxOutput": 32768,
+        "knowledgeCutoff": "2024-06"
+      }
+    },
+    {
+      "name": "gpt-4.1-nano",
+      "provider": "openai",
+      "baseUrlEnv": "AZURE_AOAI_BASE",
+      "model": "gpt-4.1-nano",
+      "keyEnv": "AZURE_AOAI_KEY",
+      "nativeTools": true,
+      "reasoning": false,
+      "inputPerMillion": 0.10,
+      "outputPerMillion": 0.40,
+      "sheet": {
+        "contextWindow": 1047576,
+        "maxOutput": 32768,
+        "knowledgeCutoff": "2024-06"
+      }
+    },
+    {
+      "name": "gpt-5.4-mini",
+      "provider": "openai",
+      "baseUrlEnv": "AZURE_AOAI_BASE",
+      "model": "gpt-5.4-mini",
+      "keyEnv": "AZURE_AOAI_KEY",
+      "nativeTools": true,
+      "reasoning": true,
+      "sheet": {
+        "caveat": "reasoning model; temperature fixed; cap covers thinking and answer"
+      }
+    },
+    {
+      "name": "gpt-5.4-nano",
+      "provider": "openai",
+      "baseUrlEnv": "AZURE_AOAI_BASE",
+      "model": "gpt-5.4-nano",
+      "keyEnv": "AZURE_AOAI_KEY",
+      "nativeTools": true,
+      "reasoning": true,
+      "sheet": {
+        "caveat": "reasoning model; temperature fixed; cap covers thinking and answer"
+      }
+    },
+    {
+      "name": "phi-4-mini@azure",
+      "provider": "azure-foundry",
+      "baseUrlEnv": "AZURE_FOUNDRY_BASE",
+      "model": "phi-4-mini",
+      "keyEnv": "AZURE_FOUNDRY_KEY",
+      "nativeTools": false,
+      "reasoning": false,
+      "sheet": {
+        "contextWindow": 128000,
+        "maxOutput": 4096,
+        "knowledgeCutoff": "2024"
+      }
+    },
+    {
+      "name": "phi-4@azure",
+      "provider": "azure-foundry",
+      "baseUrlEnv": "AZURE_FOUNDRY_BASE",
+      "model": "phi-4",
+      "keyEnv": "AZURE_FOUNDRY_KEY",
+      "nativeTools": false,
+      "reasoning": false,
+      "sheet": {
+        "contextWindow": 16000,
+        "maxOutput": 16000,
+        "knowledgeCutoff": "2024"
+      }
+    },
+    {
+      "name": "phi-4-reasoning@azure",
+      "provider": "azure-foundry",
+      "baseUrlEnv": "AZURE_FOUNDRY_BASE",
+      "model": "phi-4-reasoning",
+      "keyEnv": "AZURE_FOUNDRY_KEY",
+      "nativeTools": false,
+      "reasoning": true,
+      "sheet": {
+        "contextWindow": 32000,
+        "maxOutput": 32000,
+        "knowledgeCutoff": "2024",
+        "caveat": "reasoning model"
+      }
+    },
+    {
+      "name": "deepseek-v31@azure",
+      "provider": "azure-foundry",
+      "baseUrlEnv": "AZURE_FOUNDRY_BASE",
+      "model": "deepseek-v31",
+      "keyEnv": "AZURE_FOUNDRY_KEY",
+      "nativeTools": true,
+      "reasoning": false,
+      "sheet": {
+        "contextWindow": 128000,
+        "maxOutput": 8192
+      }
+    }
+  ]
+}

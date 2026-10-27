@@ -71,6 +71,13 @@ public sealed record ExamOptions
     public Func<Arm, bool>? Only { get; init; }
 
     public Action<ExamRun>? OnRun { get; init; }
+
+    /// <summary>
+    /// Whether every arm gets the frozen record through the record extension (the exam's rule, true by default). False runs
+    /// each arm with exactly the extensions it names and nothing carried: a battery whose arms are the documented designs as
+    /// their goldens run them, re-baselined under another layer rule.
+    /// </summary>
+    public bool CarryRecord { get; init; } = true;
 }
 
 /// <summary>
@@ -112,7 +119,7 @@ public static class Exam
                     var seedAtStart = seed;
                     var result = await Series.RunAsync(manifest, barriers, arm.Agent,
                         (runOptions, runsSoFar) => factory(bench.SeatFor(arm.Seat), task, runOptions, seedAtStart + runsSoFar),
-                        (memory, journal) => BenchRuns.OptionsFor(arm.Extensions, memory, journal, frozen, key, recordAlways: true),
+                        (memory, journal) => BenchRuns.OptionsFor(arm.Extensions, memory, journal, frozen, key, recordAlways: options.CarryRecord),
                         arm.Opaque, arm.MaxTicks, exist, null, cancellationToken).ConfigureAwait(false);
                     seed += result.Runs;
                     var row = BenchRuns.RowFor(result, batteryId, arm.TestName, arm.Seat.Name, arm.World, arm.Agent, arm.ExtensionsLabel, arm.Name, repeat, started);
@@ -123,7 +130,7 @@ public static class Exam
 
                 var memory = new EffectMemory();
                 var journal = new DreamJournal();
-                var agentOptions = BenchRuns.OptionsFor(arm.Extensions, memory, journal, frozen, key, recordAlways: true);
+                var agentOptions = BenchRuns.OptionsFor(arm.Extensions, memory, journal, frozen, key, recordAlways: options.CarryRecord);
                 var cases = arm.Protocol == Protocol.CaseSequence ? Math.Max(1, arm.Cases) : 1;
                 for (var @case = 1; @case <= cases; @case++)
                 {
