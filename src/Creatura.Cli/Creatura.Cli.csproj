@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The `creatura` command (`creatura cell ...`). No package references (CellsPurityTest). The assembly is
+       Creatura.Cli, not "creatura": on a case-insensitive file system it would collide with Creatura.dll.
+       Run it with dotnet run on this project (arguments after a double dash), or pack it as a .NET tool whose
+       command is `creatura`. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Creatura.Cli</RootNamespace>
+    <AssemblyName>Creatura.Cli</AssemblyName>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>creatura</ToolCommandName>
+    <PackageId>Creatura.Cli</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Creatura\Creatura.csproj" />
+    <ProjectReference Include="..\Creatura.Cells\Creatura.Cells.csproj" />
+  </ItemGroup>
+
+</Project>
