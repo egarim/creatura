@@ -140,7 +140,7 @@ public sealed class CheckMap
 {
     private readonly Dictionary<string, Func<Claim, bool>> _checks = new(StringComparer.Ordinal);
 
-    public CheckMap(IWorld world, IReadOnlyList<string> goalEvidence)
+    public CheckMap(IWorldView world, IReadOnlyList<string> goalEvidence)
     {
         foreach (var tool in world.AllTools.Where(t => t.Grants.Count > 0))
         {

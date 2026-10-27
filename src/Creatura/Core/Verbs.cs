@@ -29,6 +29,13 @@ public sealed record ActionReport(string Reported, ActionOutcome? Outcome)
 /// <summary>The EffectCheck's verb: the verdict on one action, read from the registry, with what the seat is told.</summary>
 public sealed record EffectJudgement(ActionVerdict Verdict, bool Landed, IReadOnlyList<string> Missing, bool Terminate, string Feedback);
 
+/// <summary>
+/// One judged action as <see cref="ControlLayer.ActionObserved"/> reports it: the tool, what the world answered
+/// (a claim of success when the host saw no outcome), the verdict after the re-judge chain, whether the promised
+/// effect is in the registry, and the layer's tick (the loop's tick, or the host's model call) when it was judged.
+/// </summary>
+public sealed record ActionObservation(int Tick, Tool Tool, ActionOutcome Outcome, ActionVerdict Verdict, bool Landed);
+
 /// <summary>Why a loop or a round stopped before the goal, or because of it.</summary>
 public enum StopCause
 {

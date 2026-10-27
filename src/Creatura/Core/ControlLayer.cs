@@ -288,20 +288,36 @@ public sealed class ControlLayer
         return Admission.Admit(tool!, gate);
     }
 
-    /// <summary>The tool wrapper hands in what the world reported, so the effect check can tell an honest failure from a lie.</summary>
-    public void ActionObserved(ActionOutcome outcome) => LastOutcome = outcome;
+    /// <summary>The tool wrapper reports what the world answered, so the effect check can tell an honest failure from a lie.</summary>
+    public void ReportOutcome(ActionOutcome outcome) => LastOutcome = outcome;
+
+    /// <summary>
+    /// Raised once per judged action, at the end of <see cref="Judge"/>: after the verdict, the re-judge chain and
+    /// the observers, and after the record (predictions, ledger, distrust, audit) and the frame's row are written.
+    /// The critic's seam: a <see cref="Hotz.HotzAgent"/> watches the layer through it instead of the world. What
+    /// a subscriber does cannot reach the verdict or the feedback; an exception it throws does.
+    /// </summary>
+    public event Action<ActionObservation>? ActionObserved;
 
     /// <summary>
     /// EffectCheck: judge by the registry, never by the report. Landed is read first; then the report decides
     /// between a lie and an honest failure under <see cref="JudgeRule.ThreeWay"/>; then the re-judge chain (the
     /// extensions) and the observers run. A report the host did not see counts as a claim of success. The record
-    /// is updated for everything but a habituated honest failure; the feedback is what the seat reads next.
+    /// is updated for everything but a habituated honest failure; the feedback is what the seat reads next; and
+    /// <see cref="ActionObserved"/> is raised last.
     /// </summary>
     public EffectJudgement Judge(Tool tool, ActionReport report, Func<ActionVerdict, ActionVerdict>? rejudge = null, Action<ActionVerdict>? observed = null)
     {
-        var landed = _world.EffectsLanded(tool);
         // A report the host did not see is a claim of success.
         var outcome = report.Outcome ?? new ActionOutcome(tool.Id, true, [], null);
+        var judgement = JudgeAndRecord(tool, report, outcome, rejudge, observed);
+        ActionObserved?.Invoke(new ActionObservation(Tick, tool, outcome, judgement.Verdict, judgement.Landed));
+        return judgement;
+    }
+
+    private EffectJudgement JudgeAndRecord(Tool tool, ActionReport report, ActionOutcome outcome, Func<ActionVerdict, ActionVerdict>? rejudge, Action<ActionVerdict>? observed)
+    {
+        var landed = _world.EffectsLanded(tool);
         var verdict = _options.JudgeRule switch
         {
             // The world's own three-way verdict, report first (the map-keeper's order).

@@ -48,6 +48,7 @@ public sealed class HotzAgent
     private readonly List<CitizenResponse> _responses = [];
     private readonly HashSet<string> _hiddenRules = new(StringComparer.Ordinal) { RuleUnchecked, RuleSupported, RuleHonest, RuleWithheld, RuleStopped };
     private readonly List<string> _notes = [];
+    private readonly List<Claim> _claims = [];
     private CheckMap? _checks;
     private RouteRecorder? _recorder;
     private string _worldName = "world";
@@ -92,11 +93,33 @@ public sealed class HotzAgent
     public HotzAgent Configure() => new(_owner, _task, _goalEvidence, Budget.Fresh(), Schedule.Judge);
 
     /// <summary>Step one of the schedule, before the office acts: enumerate the checks, list the gaps.</summary>
-    public void Prepare(IWorld world)
+    public void Prepare(IWorldView world)
     {
         _checks = new CheckMap(world, _goalEvidence);
         _worldName = world.GetType().Name;
         _notes.Add($"checks: {_checks.Count} ({_checks.Missing.Count} actions unchecked{(_checks.Missing.Count > 0 ? ": " + string.Join(", ", _checks.Missing) : "")})");
+    }
+
+    /// <summary>
+    /// The claims of the current case file, in order: what the recorder wrapped when the citizen watches the world,
+    /// or what the layer (or an extension) fed through <see cref="ObserveAction"/>.
+    /// </summary>
+    public IReadOnlyList<Claim> Claims => _recorder?.Claims ?? _claims;
+
+    /// <summary>
+    /// A new case file over a world the citizen reads but does not wrap: the judgements and responses start over,
+    /// the budget does not (precision is a record across cases, which is the point of earning it). Claims then
+    /// arrive through <see cref="ObserveAction"/>: from <see cref="Watch(ControlLayer)"/>, or from a
+    /// <see cref="CriticExtension"/> loaded into the loop.
+    /// </summary>
+    public void Open(IWorldView world)
+    {
+        _judgements.Clear();
+        _filtered.Clear();
+        _responses.Clear();
+        _claims.Clear();
+        _recorder = null;
+        Prepare(world);
     }
 
     /// <summary>
@@ -105,14 +128,41 @@ public sealed class HotzAgent
     /// </summary>
     public RouteRecorder Watch(IWorld world)
     {
-        // A new case file: the judgements and responses start over, the budget does not. Precision is a record
-        // across cases, which is the point of earning it.
-        _judgements.Clear();
-        _filtered.Clear();
-        _responses.Clear();
-        Prepare(world);
+        Open(world);
         _recorder = new RouteRecorder(world) { OnClaim = c => Observe(c) };
         return _recorder;
+    }
+
+    /// <summary>
+    /// Watch the control layer instead of the world: every action the layer judges becomes a claim, built from
+    /// <see cref="ControlLayer.ActionObserved"/> exactly as the recorder builds one from <see cref="IWorld.Act"/>
+    /// (the tool's promise, what it reported, the registry right after). The layer's own verdict is not taken:
+    /// the citizen judges the claim against the registry itself; <see cref="Verdicts"/> relates the two. For a
+    /// host that owns its layer; a <see cref="ReferenceLoop"/> is watched through <see cref="CriticExtension"/>.
+    /// </summary>
+    public void Watch(ControlLayer layer)
+    {
+        Open(layer.World);
+        layer.ActionObserved += o => ObserveAction(o.Tool, o.Outcome, layer.World);
+    }
+
+    /// <summary>
+    /// One judged action, fed by a layer or an extension, as one claim. The claim's tick is its ordinal in the case
+    /// file (the count of actions observed so far), the same tick the recorder gives, so a route reads the same
+    /// whichever side the citizen watched from and replays, diffs and dismissals line up; the loop's own tick is
+    /// on the layer's event for anyone lining a claim up with trace rows.
+    /// </summary>
+    public Judgement ObserveAction(Tool tool, ActionOutcome outcome, IWorldView registry)
+    {
+        var claim = new Claim(
+            _claims.Count + 1,
+            tool.Id,
+            outcome.Succeeded,
+            outcome.Observation,
+            tool.Grants,
+            registry.Facts.Order(StringComparer.Ordinal).ToList());
+        _claims.Add(claim);
+        return Observe(claim);
     }
 
     /// <summary>Steps two and three of the schedule for one claim: compare with the registry, decide quiet / flag / stop.</summary>
@@ -220,9 +270,9 @@ public sealed class HotzAgent
     /// The office's agent has finished (or claims to have). Judge the closing claim, settle the budget for flags
     /// the citizen let stand, and write the route.
     /// </summary>
-    public Route Close(AgentRun run, IWorld world, IReadOnlyDictionary<string, bool>? barriers = null)
+    public Route Close(AgentRun run, IWorldView world, IReadOnlyDictionary<string, bool>? barriers = null)
     {
-        var tick = (_recorder?.Claims.Count ?? _judgements.Count) + 1;
+        var tick = Math.Max(Claims.Count, _judgements.Count) + 1;
         // The closing claim is judged whether or not the office's agent claimed anything: a hand-off is an
         // honest failure and goes to the log; "done" is checked against the contract like any other claim.
         var closure = Claim.Closure(tick, run.GoalReached || _task.Goal(world.Facts), _goalEvidence, world.Facts);
@@ -232,7 +282,7 @@ public sealed class HotzAgent
             _worldName,
             run.Agent,
             barriers ?? new Dictionary<string, bool>(),
-            _recorder is null ? [closure] : [.. _recorder.Claims, closure],
+            [.. Claims, closure],
             _judgements.ToList(),
             _responses.ToList());
     }
@@ -255,8 +305,7 @@ public sealed class HotzAgent
         var perCheck = flags
             .GroupBy(f => f.Tool, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => (g.Count(), g.Count(f => _responses.Any(r => r.Tick == f.Tick && r.Dismissed))), StringComparer.Ordinal);
-        var claims = _recorder?.Claims ?? [];
-        var lies = claims.Count(c => c.ReportedSuccess && c.Promised.Count > 0 && !c.Promised.All(c.Registry.Contains));
+        var lies = Claims.Count(c => c.ReportedSuccess && c.Promised.Count > 0 && !c.Promised.All(c.Registry.Contains));
         var caught = _judgements.Count(j => !j.IsClosure && j.Verdict == Verdict.Contradicted);
         return new DisengagementReport(
             flags.Count,
