@@ -6,6 +6,10 @@
     <Project Path="src/Creatura.Seats/Creatura.Seats.csproj" />
     <Project Path="src/Creatura.Hosts.AgentFramework/Creatura.Hosts.AgentFramework.csproj" />
   </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/QuickStart/QuickStart.csproj" />
+    <Project Path="samples/AgentFrameworkHost/AgentFrameworkHost.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Creatura.Tests/Creatura.Tests.csproj" />
     <Project Path="tests/Creatura.Hosts.AgentFramework.Tests/Creatura.Hosts.AgentFramework.Tests.csproj" />

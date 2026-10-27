@@ -33,8 +33,19 @@ src/Creatura.Seats/           the model seats: IModelTransport (Ollama, OpenAI-c
                               injected HttpClient, ModelClient, ModelPolicy, ModelJudge, ModelCatalog from models.json,
                               the seat's biology, SeatResolver, the call log and the scoreboard; no packages; may do
                               file IO (namespace Creatura.Seats)
+src/Creatura.Hosts.AgentFramework/
+                              the Microsoft Agent Framework host: ControlLayerMiddleware, ToolFilteringChatClient,
+                              WorldTools, ControlledAgent, PlannerChatClient (the offline model) and ChatClientPolicy
+                              (any IChatClient in the loop's seat); the ONLY project here with a package reference
+                              (Microsoft.Agents.AI.OpenAI) (namespace Creatura.Hosts.AgentFramework)
+samples/QuickStart/           the quick start below, offline
+samples/AgentFrameworkHost/   the control layer on Agent Framework over the toy suite's four barriers, offline by
+                              default; --compare runs it beside the designs, --seat <catalog name> puts a model in it
 samples/models.json           the compiled model catalog written out, to copy beside an executable and edit
-tests/Creatura.Tests/         xunit; the tests that need nothing but the Core and its toy domain, plus the golden traces
+tests/Creatura.Tests/         xunit; the tests that need nothing but the Core and its toy domain, plus the golden traces,
+                              FakeHost and CorePurityTest; no Agent Framework package
+tests/Creatura.Hosts.AgentFramework.Tests/
+                              the host's tests and its four goldens (golden/restore-*-controlled.jsonl)
 ```
 
 ```sh
@@ -233,6 +244,28 @@ var run  = await AgentCatalog.Make("bach", seat, WorldCatalog.Permit.Task).RunAs
 var row  = Scoreboard.RowFor(DateTimeOffset.UtcNow, seat, "seat", "demo-worlds", "permit", "bach", 1,
                RegistryOracle.For(WorldCatalog.Permit).Classify(run, world), run.Ticks, Measures.LiesCaught(run), false, "barriers=all");
 ```
+
+## Hosts
+
+A host is a runtime that owns the model call and the function-calling loop; the control layer rides it instead of
+the reference loop. A host must supply three things. **The layer's verbs, at its own hooks:** `BeginRound` / `Stop` /
+`Assemble` where a round opens, `BeginTick` and `Offer` before each model request (the offered tools are the only
+schemas the model gets), `Admit` before a tool runs (refuse or terminate when it says so), `Judge` on the tool's
+answer (its feedback is all the model sees; terminate when it says so), `Close` on the model's reply, `Sleep` at the
+end. **A tool wrapper that calls `ReportOutcome`** with what the world answered, so `Judge` can tell an honest failure
+from a lie; a host that cannot see the outcome passes none, and the layer reads the report as a claim of success.
+**A tick definition**: the reference loop's tick is one decision; `Creatura.Hosts.AgentFramework`'s is one model call,
+because that is the unit the framework exposes. `FakeHost` in the tests is the whole contract in one small class with
+no framework at all, and it reproduces the Agent Framework host's goldens byte for byte.
+
+`Hosts.SemanticKernel` is reserved, not built; its shape is decided. `Admit` and `Judge` go in an
+`IFunctionInvocationFilter` around `next` (admit before, judge after, `context.Terminate` when either says so, the
+feedback as the function's result); `Offer` goes in a prompt-render filter (`IPromptRenderFilter`), which removes the
+distrusted functions' schemas before the request leaves; termination of the automatic function-calling loop goes
+through `IAutoFunctionInvocationFilter`, where the layer's terminate ends the loop rather than the single call. Tick =
+one model request there too. OpenClaw, Hermes and the Copilot SDK stay documentation: their hooks are mapped onto the
+same verbs in the research repository's
+[docs/applying-elsewhere.md](https://github.com/egarim/biological-agents/blob/main/docs/applying-elsewhere.md), section "Hosting".
 
 ## Anatomy
 
