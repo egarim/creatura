@@ -39,6 +39,8 @@ public sealed class CellHome
 
     public string LedgerPath => Path.Combine(Root, "ledger.json");
 
+    public JsonLedgerStore Ledger => new(LedgerPath);
+
     /// <summary>True once <see cref="EnsureOwner"/> has run here: there is a salt to hash vessel ids with.</summary>
     public bool IsInitialized => File.Exists(SaltPath);
 
