@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The cells: identity bound to the vessel, the signed work ledger and the cell network (docs/design-cells.md).
+       No package references (CellsPurityTest): ECDSA P-256, SHA-256 and JSON all come with the BCL. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Creatura.Cells</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Creatura\Creatura.csproj" />
+  </ItemGroup>
+
+</Project>
