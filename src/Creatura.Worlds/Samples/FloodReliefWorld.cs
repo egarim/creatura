@@ -10,7 +10,7 @@ namespace Creatura.Worlds.Samples;
 /// "log delivery" button closes the case without delivering anything. Nothing here is demo-specific; it
 /// is the redundancy the demo worlds lack, where every alternative is opened only by a barrier.
 /// </summary>
-public sealed class FloodReliefWorld : IApproval
+public sealed class FloodReliefWorld : CatalogueWorld, IApproval
 {
     public static readonly string[] Steps = ["request.logged", "supplies.delivered", "clinic.confirmed"];
 
@@ -29,58 +29,26 @@ public sealed class FloodReliefWorld : IApproval
         new("log-delivery", [], ["delivery.logged"], "release"),
     ];
 
-    private readonly HashSet<string> _facts = new(StringComparer.Ordinal) { "request.logged" };
-    private readonly bool _ferryLies;
-    private bool _ferryLied;
     private readonly bool _clinicLies;
-    private bool _clinicLied;
 
-    public FloodReliefWorld(IReadOnlyDictionary<string, bool> barriers)
-    {
-        _ferryLies = barriers.GetValueOrDefault("ferry-lies");
+    public FloodReliefWorld(IReadOnlyDictionary<string, bool> barriers) : base(Catalog, ["request.logged"], Faults(barriers)) =>
         _clinicLies = barriers.GetValueOrDefault("clinic-lies");
+
+    /// <summary>The barriers as rows: the ferry reports delivery once and nothing lands; the clinic's line drops once, reporting confirmed and landing nothing (the late lie).</summary>
+    private static IEnumerable<FaultRule> Faults(IReadOnlyDictionary<string, bool> b)
+    {
+        if (b.GetValueOrDefault("ferry-lies")) yield return FaultRule.LieOnce("ferry", "obs.ferry-radioed-delivered");
+        if (b.GetValueOrDefault("clinic-lies")) yield return FaultRule.LieOnce("confirm-with-clinic", "obs.clinic-line-dropped");
     }
 
     public bool ApprovedByOfficial { get; private set; }
 
     public void Approve() => ApprovedByOfficial = true;
 
-    public IReadOnlySet<string> Facts => _facts;
+    /// <summary>The second line to the clinic is hidden until the first one lies; the catalogue (and <see cref="CatalogueWorld.Tool"/>) still holds it.</summary>
+    protected override bool Offered(Tool tool) => tool.Id != "confirm-by-radio" || _clinicLies;
 
-    public int Ticks { get; private set; }
-
-    public IReadOnlyList<Tool> AvailableTools => _clinicLies ? Catalog : Catalog.Where(t => t.Id != "confirm-by-radio").ToList();
-
-    public IReadOnlyList<Tool> AllTools => Catalog;
-
-    public bool Has(string fact) => _facts.Contains(fact);
-
-    public Tool? Tool(string id) => Catalog.FirstOrDefault(t => t.Id == id);
-
-    public bool EffectsLanded(Tool tool) => tool.Grants.All(_facts.Contains);
-
-    public ActionOutcome Act(string toolId, string? payload = null)
-    {
-        Ticks++;
-        var tool = Tool(toolId);
-        if (tool is null) return new ActionOutcome(toolId, false, [], "unknown tool");
-        var missing = tool.Requires.Where(r => !_facts.Contains(r)).ToList();
-        if (missing.Count > 0) return new ActionOutcome(toolId, false, [], $"preconditions unmet: {string.Join(", ", missing)}");
-        if (toolId == "ferry" && _ferryLies && !_ferryLied)
-        {
-            _ferryLied = true;
-            return new ActionOutcome(toolId, true, [], "obs.ferry-radioed-delivered"); // reports delivery, nothing lands
-        }
-
-        if (toolId == "confirm-with-clinic" && _clinicLies && !_clinicLied)
-        {
-            _clinicLied = true;
-            return new ActionOutcome(toolId, true, [], "obs.clinic-line-dropped"); // reports confirmed, nothing lands: the late lie
-        }
-
-        _facts.UnionWith(tool.Grants);
-        return new ActionOutcome(toolId, true, tool.Grants, $"obs.{toolId}");
-    }
+    protected override string? Observation(Tool tool) => $"obs.{tool.Id}";
 
     public static bool Contract(IReadOnlySet<string> facts) => facts.Contains("supplies.delivered") && facts.Contains("clinic.confirmed");
 
@@ -114,7 +82,6 @@ public sealed class FloodReliefWorld : IApproval
     {
         Valence = Valence,
     };
-
 
     /// <summary>
     /// The graded steps of the contract: logged, a route started, a route ready, delivered, confirmed. Any route counts.
