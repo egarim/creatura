@@ -13,6 +13,7 @@
     <ProjectReference Include="..\Creatura\Creatura.csproj" />
     <ProjectReference Include="..\Creatura.Cells\Creatura.Cells.csproj" />
     <ProjectReference Include="..\Creatura.Bench\Creatura.Bench.csproj" />
+    <ProjectReference Include="..\Creatura.Seats\Creatura.Seats.csproj" />
   </ItemGroup>
 
 </Project>

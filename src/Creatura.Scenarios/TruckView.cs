@@ -131,7 +131,9 @@ public sealed class TruckView : ITickedWorld
         {
             case "drive" when parts.Length == 3:
             {
-                _truck.Target = payload is { } p && p.StartsWith("target=", StringComparison.Ordinal) ? p["target=".Length..] : null;
+                _truck.Target = payload is { } p && p.StartsWith("target=", StringComparison.Ordinal) ? p["target=".Length..]
+                    // A model does not say where it is heading; with one in the seat, the village it holds stands for it.
+                    : _setup.SeatModel is not null ? MyClaim()?.Village : null;
                 var outcome = _world.Drive(_truck, toolId, parts[1], parts[2]);
                 if (!outcome.Succeeded && outcome.Observation == "out of fuel" && _setup.HandOffWhenStranded && !_stranded)
                 {

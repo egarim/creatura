@@ -1,4 +1,5 @@
 using Creatura.Cells;
+using Creatura.Seats;
 
 namespace Creatura.Scenarios;
 
@@ -72,9 +73,14 @@ public sealed record ConvoyRun(ConvoySetup Setup, ReplayHeader Header, IReadOnly
 /// closures, the mesh delivers what is due, and each truck in name order takes exactly one tick of its loop. The judge
 /// reads the world only.
 /// </summary>
-public sealed class ConvoyScenario(ConvoySetup setup)
+/// <param name="models">The client the model seats call through; a default client (the network) when null.</param>
+/// <param name="calls">Where the model seats log every call; nowhere when null.</param>
+/// <param name="catalog">Where model names are looked up; the process-wide catalog (<c>models.json</c> beside the program, else the compiled table) when null.</param>
+public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null, CallLog? calls = null, ModelCatalog? catalog = null)
 {
     public ConvoySetup Setup { get; } = setup;
+
+    private readonly List<ModelPolicy> _seats = [];
 
     private ConvoyWorld? _world;
 
@@ -174,7 +180,7 @@ public sealed class ConvoyScenario(ConvoySetup setup)
                 IdleWhileUnserved: world.Need.Values.Any(n => n > 0) ? Math.Max(idle, world.Trucks.Count(t => !t.Broken && t.Finished)) : 0,
                 MessagesSent: mesh?.Sent ?? 0,
                 MessagesLost: mesh?.Lost ?? 0);
-            var summary = new ReplaySummary(measures, Outcome(world, measures));
+            var summary = new ReplaySummary(measures, Outcome(world, measures)) { Seat = SeatUsage() };
             observer?.End(summary);
             return new ConvoyRun(Setup, header, ticks, summary, finished.OfType<AgentRun>().ToList(), errors);
         }
@@ -190,9 +196,17 @@ public sealed class ConvoyScenario(ConvoySetup setup)
     internal (ReferenceLoop Loop, AgentDefinition Definition) Build(TruckSpec spec, StoryExtension story)
     {
         var task = ConvoyTask.For(Setup.Map);
-        var policy = new ConvoyPolicy(Setup.Map, spec.Machine);
+        IPolicy policy = new ConvoyPolicy(Setup.Map, spec.Machine);
+        ModelEndpoint? endpoint = null;
+        if (Setup.SeatModel is { } seatModel)
+        {
+            endpoint = SeatFactory.Endpoint(seatModel, catalog);
+            var model = new ModelPolicy(endpoint, models ?? new ModelClient(), calls, contextTag: $"convoy {Setup.Arm} seed {Setup.Seed} {spec.Name}");
+            _seats.Add(model);
+            policy = new ConvoyModelSeat(model, Setup.Map, spec.Machine, spec.Name);
+        }
         var options = Setup.DistrustRoads ? AgentOptions.With(story, new RoadDistrustExtension(_world!, spec.Name)) : AgentOptions.With(story);
-        var vessel = new Vessel { Model = "convoy-planner", Physical = spec.Machine };
+        var vessel = new Vessel { Model = endpoint?.Model ?? "convoy-planner", Physical = spec.Machine };
         var m = spec.Machine;
         var variable = spec.Name.ToLowerInvariant().Replace(" ", "", StringComparison.Ordinal);
         var extensions = new List<string> { "StoryExtension: tells the replay about every action the control layer judged a lie" };
@@ -229,16 +243,19 @@ public sealed class ConvoyScenario(ConvoySetup setup)
                 "ControlLayerOptions.Design"),
         };
 
+        var policyCode = endpoint is null
+            ? "new ConvoyPolicy(map, machine),      // the offline planner: no language model is called"
+            : $"new ConvoyModelSeat(SeatFactory.Model(\"{endpoint.Name}\"), map, machine, \"{spec.Name}\"),  // {endpoint.Model} through {endpoint.ProviderName}, from models.json";
         var extensionCode = Setup.DistrustRoads
             ? $"AgentOptions.With(new StoryExtension(world, \"{spec.Name}\"), new RoadDistrustExtension(world, \"{spec.Name}\"))"
             : $"AgentOptions.With(new StoryExtension(world, \"{spec.Name}\"))";
         var csharp = $$"""
             // {{spec.Name}}: {{made.Title}}, arm {{Setup.Arm}} (src/Creatura.Scenarios/ConvoyScenario.cs, Build)
             var machine = new PhysicalMachine("truck") { Capacity = {{m.Capacity}}, FuelCapacity = {{m.FuelCapacity}}, FuelPerStep = {{m.FuelPerStep}} };
-            var vessel = new Vessel { Model = "convoy-planner", Physical = machine };
+            var vessel = new Vessel { Model = "{{vessel.Model}}", Physical = machine };
             var {{variable}} = new ReferenceLoop(
                 regulator: {{made.Regulator}},
-                policy: new ConvoyPolicy(map, machine),      // the offline planner: no language model is called
+                policy: {{policyCode}},
                 task: ConvoyTask.For(map),                   // deliver to every village; done on "convoy.done"
                 options: {{extensionCode}},
                 layer: {{made.LayerCode}},
@@ -246,8 +263,12 @@ public sealed class ConvoyScenario(ConvoySetup setup)
             var run = await {{variable}}.RunAsync(new TruckView(world, world.Truck("{{spec.Name}}"), setup, cell, ledger, mesh), maxTicks: {{Setup.MaxTicks}});
             """;
         var definition = new AgentDefinition(spec.Design, made.Title, made.Loop.Regulator.GetType().Name, made.About,
-            "convoy-planner: an offline planner that knows roads, fuel and loads, and believes its sensors",
-            "none: no language model is called in this scenario (decision D3)",
+            endpoint is null
+                ? "convoy-planner: an offline planner that knows roads, fuel and loads, and believes its sensors"
+                : $"a language model: {endpoint.Name}, briefed on how the convoy works, choosing one tool per tick from the truck's facts and visible tools",
+            endpoint is null
+                ? "none: no language model is called in this scenario (decision D3)"
+                : Describe(endpoint),
             made.Layer, extensions, csharp);
         return (made.Loop, definition);
     }
@@ -293,6 +314,25 @@ public sealed class ConvoyScenario(ConvoySetup setup)
         };
     }
 
+    private static string Describe(ModelEndpoint e)
+    {
+        var where = e.IsLocal ? $"on Ollama at {e.BaseUrl}, on this machine" : $"through {e.ProviderName} at {e.BaseUrl}";
+        var price = e.IsLocal ? "no cost" : e.InputPerMillion is { } input && e.OutputPerMillion is { } output
+            ? $"about ${input:0.00} in and ${output:0.00} out per million tokens"
+            : "price not in the catalog";
+        return $"{e.Model}, {where} ({price}); protocol: {e.Protocol}";
+    }
+
+    /// <summary>What the model seats cost in this run, read from their telemetry; null without a model in the seat.</summary>
+    private SeatUse? SeatUsage()
+    {
+        if (_seats.Count == 0) return null;
+        var e = _seats[0].Endpoint;
+        long prompt = _seats.Sum(s => s.Telemetry.PromptTokens), completion = _seats.Sum(s => s.Telemetry.CompletionTokens);
+        return new SeatUse(e.Name, e.Model, e.ProviderName, _seats.Sum(s => s.Telemetry.Calls), _seats.Sum(s => s.Telemetry.Failed), _seats.Sum(s => s.Telemetry.Invalid),
+            prompt, completion, e.Cost(prompt, completion), Math.Round(_seats.Sum(s => s.Telemetry.Seconds), 1));
+    }
+
     /// <summary>What each arm is in the battery for.</summary>
     public static string Purpose(ConvoyArm arm) => arm switch
     {
@@ -307,6 +347,7 @@ public sealed class ConvoyScenario(ConvoySetup setup)
         ConvoyArm.J => "Tests N4: all three fixes together, against the trucks with no ledger.",
         ConvoyArm.K => "Tests N5: all three fixes together, with a truck breaking down at tick 8.",
         ConvoyArm.L => "Tests N6: all three fixes together, with one biological design per truck.",
+        ConvoyArm.S => "Tests S1 and S2: a language model in every truck's seat instead of the offline planner, with all three fixes.",
         _ => arm.ToString(),
     };
 

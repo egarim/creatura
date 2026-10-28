@@ -74,8 +74,15 @@ public sealed record ConvoyMeasures(int Delivered, int Demand, int WastedTrips, 
     public bool AllServed => Delivered >= Demand;
 }
 
+/// <summary>What the language models in the seats used in one run: calls, failures, invalid answers, tokens, cost and time.</summary>
+public sealed record SeatUse(string Name, string Model, string Provider, int Calls, int Failed, int Invalid, long PromptTokens, long CompletionTokens, decimal? Cost, double Seconds);
+
 /// <summary>The last line of a replay.</summary>
-public sealed record ReplaySummary(ConvoyMeasures Measures, IReadOnlyList<string> Outcome);
+public sealed record ReplaySummary(ConvoyMeasures Measures, IReadOnlyList<string> Outcome)
+{
+    /// <summary>With a model in the seat, what it used; null with the offline planner.</summary>
+    public SeatUse? Seat { get; init; }
+}
 
 /// <summary>
 /// How a UI follows a run: live, tick by tick, or from a replay file read back. The scenario calls it on its own

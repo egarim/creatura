@@ -10,6 +10,9 @@ public sealed record ConvoyVerdict(string Id, string Statement, HypothesisVerdic
 /// <summary>What the battery found: the measures per arm over all seeds, and a verdict for M1 to M7.</summary>
 public sealed record ConvoyBatteryReport(int Seeds, IReadOnlyDictionary<ConvoyArm, IReadOnlyList<ConvoyMeasures>> Runs, IReadOnlyList<ConvoyVerdict> Verdicts, IReadOnlyList<string> Errors)
 {
+    /// <summary>What the model seats used, one entry per run of arm S.</summary>
+    public IReadOnlyList<SeatUse> Seats { get; init; } = [];
+
     public string Render()
     {
         var text = new StringBuilder();
@@ -22,6 +25,12 @@ public sealed record ConvoyBatteryReport(int Seeds, IReadOnlyDictionary<ConvoyAr
                 $"{arm,-4} {runs.Sum(r => r.Delivered),5}/{runs.Sum(r => r.Demand),-5} {runs.Sum(r => r.WastedTrips),6} {runs.Sum(r => r.LiesBelieved),5} {runs.Sum(r => r.LyingRoadRepeats),8} {runs.Sum(r => r.Stranded),9} {served,9:0.0} {runs.Count(r => r.LedgersIdentical),5}/{runs.Count}");
         }
         foreach (var v in Verdicts) text.AppendLine(CultureInfo.InvariantCulture, $"{v.Id} {v.Verdict}: {v.Statement} ({v.Evidence})");
+        if (Seats.Count > 0)
+        {
+            var cost = Seats.All(x => x.Cost is not null) ? $"${Seats.Sum(x => x.Cost!.Value):0.0000}" : "unknown";
+            text.AppendLine(CultureInfo.InvariantCulture,
+                $"model seat {Seats[0].Name} ({Seats[0].Model}): {Seats.Sum(x => x.Calls)} calls, {Seats.Sum(x => x.Failed)} failed, {Seats.Sum(x => x.Invalid)} invalid, {Seats.Sum(x => x.PromptTokens):N0} prompt and {Seats.Sum(x => x.CompletionTokens):N0} completion tokens, cost {cost}, {Seats.Sum(x => x.Seconds):0} s");
+        }
         foreach (var e in Errors) text.AppendLine("error: " + e);
         return text.ToString();
     }
@@ -33,16 +42,28 @@ public sealed record ConvoyBatteryReport(int Seeds, IReadOnlyDictionary<ConvoyAr
 /// </summary>
 public static class ConvoyBattery
 {
-    public static async Task<ConvoyBatteryReport> RunAsync(int seeds, Action<string>? progress = null, CancellationToken cancellationToken = default)
+    /// <summary>The arms the battery runs by default: every arm with the offline planner. Arm S (a model in the seat) costs money and is not repeatable, so it runs only when asked for.</summary>
+    public static IReadOnlyList<ConvoyArm> DefaultArms => Enum.GetValues<ConvoyArm>().Where(a => a != ConvoyArm.S).ToList();
+
+    public static Task<ConvoyBatteryReport> RunAsync(int seeds, Action<string>? progress = null, CancellationToken cancellationToken = default) =>
+        RunAsync(seeds, DefaultArms, null, progress, cancellationToken);
+
+    /// <param name="arms">The arms to run; M6 is checked on those among them that are repeatable.</param>
+    /// <param name="scenario">How a run is made from its setup (arm S's model, catalog and call log); the plain scenario when null.</param>
+    public static async Task<ConvoyBatteryReport> RunAsync(int seeds, IReadOnlyList<ConvoyArm> arms, Func<ConvoySetup, ConvoyScenario>? scenario,
+        Action<string>? progress = null, CancellationToken cancellationToken = default)
     {
         var runs = new Dictionary<ConvoyArm, IReadOnlyList<ConvoyMeasures>>();
         var errors = new List<string>();
-        foreach (var arm in Enum.GetValues<ConvoyArm>())
+        var seats = new List<SeatUse>();
+        foreach (var arm in arms)
         {
             var measures = new List<ConvoyMeasures>();
             for (var seed = 0; seed < seeds; seed++)
             {
-                var run = await ConvoyScenario.Create(arm, seed).RunAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+                var setup = ConvoySetup.For(arm, seed);
+                var run = await (scenario?.Invoke(setup) ?? new ConvoyScenario(setup)).RunAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+                if (run.Summary.Seat is { } used) seats.Add(used);
                 measures.Add(run.Measures);
                 errors.AddRange(run.Errors.Select(e => $"{arm} seed {seed}: {e}"));
             }
@@ -51,8 +72,8 @@ public static class ConvoyBattery
         }
 
         var same = new List<bool>();
-        foreach (var arm in Enum.GetValues<ConvoyArm>()) same.Add(await ReplaysMatchAsync(arm, 0, cancellationToken).ConfigureAwait(false));
-        return new ConvoyBatteryReport(seeds, runs, Score(runs, same.All(s => s)), errors);
+        foreach (var arm in arms.Where(a => a != ConvoyArm.S)) same.Add(await ReplaysMatchAsync(arm, 0, cancellationToken).ConfigureAwait(false));
+        return new ConvoyBatteryReport(seeds, runs, Score(runs, same.All(s => s)), errors) { Seats = seats };
     }
 
     /// <summary>
@@ -78,11 +99,20 @@ public static class ConvoyBattery
 
     public static IReadOnlyList<ConvoyVerdict> Score(IReadOnlyDictionary<ConvoyArm, IReadOnlyList<ConvoyMeasures>> runs, bool replaysMatch)
     {
-        int Sum(ConvoyArm arm, Func<ConvoyMeasures, int> f) => runs[arm].Sum(f);
+        int Sum(ConvoyArm arm, Func<ConvoyMeasures, int> f) => runs.TryGetValue(arm, out var r) ? r.Sum(f) : 0;
         HypothesisVerdict Held(bool held) => held ? HypothesisVerdict.Held : HypothesisVerdict.Failed;
         var withLayer = new[] { ConvoyArm.A, ConvoyArm.B, ConvoyArm.D, ConvoyArm.E };
+        var verdicts = new List<ConvoyVerdict>();
+
+        // The first battery (M1 to M7), scored when its arms ran; M6 needs nothing but the replays.
+        if (!new[] { ConvoyArm.A, ConvoyArm.B, ConvoyArm.C, ConvoyArm.D, ConvoyArm.E }.All(runs.ContainsKey))
+        {
+            verdicts.Add(new("M6", "the same seed gives the same run, byte for byte", Held(replaysMatch), replaysMatch ? "six runs of seed 0 matched in every repeatable arm run" : "a replay differed"));
+        }
+        else
+        {
         var eUnserved = runs[ConvoyArm.E].Count(m => !m.AllServed && m.IdleWhileUnserved > 0);
-        var verdicts = new List<ConvoyVerdict>
+        verdicts.AddRange(new List<ConvoyVerdict>
         {
             new("M1", "with a shared ledger, deliveries made twice are fewer than without one (A against C)",
                 Held(Sum(ConvoyArm.A, m => m.WastedTrips) < Sum(ConvoyArm.C, m => m.WastedTrips)), $"wasted trips A {Sum(ConvoyArm.A, m => m.WastedTrips)}, C {Sum(ConvoyArm.C, m => m.WastedTrips)}"),
@@ -99,7 +129,19 @@ public static class ConvoyBattery
             new("M7", "the designs (B) deliver at least as much as the plain loop (A), with fewer lies believed",
                 Held(Sum(ConvoyArm.B, m => m.Delivered) >= Sum(ConvoyArm.A, m => m.Delivered) && Sum(ConvoyArm.B, m => m.LiesBelieved) < Sum(ConvoyArm.A, m => m.LiesBelieved)),
                 $"delivered B {Sum(ConvoyArm.B, m => m.Delivered)}, A {Sum(ConvoyArm.A, m => m.Delivered)}; lies B {Sum(ConvoyArm.B, m => m.LiesBelieved)}, A {Sum(ConvoyArm.A, m => m.LiesBelieved)}"),
-        };
+        });
+        }
+
+        // A model in the seat (pre-registered as S1 and S2), scored when arms S and J both ran, on the seeds they share.
+        if (runs.ContainsKey(ConvoyArm.S) && runs.ContainsKey(ConvoyArm.J))
+        {
+            var n = Math.Min(runs[ConvoyArm.S].Count, runs[ConvoyArm.J].Count);
+            int Over(ConvoyArm arm, Func<ConvoyMeasures, int> f) => runs[arm].Take(n).Sum(f);
+            verdicts.Add(new("S1", "a model in the seat delivers at least as much as the offline planner on the same seeds (S against J)",
+                Held(Over(ConvoyArm.S, m => m.Delivered) >= Over(ConvoyArm.J, m => m.Delivered)), $"delivered S {Over(ConvoyArm.S, m => m.Delivered)}, J {Over(ConvoyArm.J, m => m.Delivered)} over {n} seeds"));
+            verdicts.Add(new("S2", "a model in the seat acts on no more lies than the offline planner (S against J)",
+                Held(Over(ConvoyArm.S, m => m.LiesBelieved) <= Over(ConvoyArm.J, m => m.LiesBelieved)), $"lies S {Over(ConvoyArm.S, m => m.LiesBelieved)}, J {Over(ConvoyArm.J, m => m.LiesBelieved)} over {n} seeds"));
+        }
 
         // The fixes (pre-registered as N1 to N6), scored only when their arms ran.
         if (new[] { ConvoyArm.G, ConvoyArm.H, ConvoyArm.I, ConvoyArm.J, ConvoyArm.K, ConvoyArm.L }.All(runs.ContainsKey))

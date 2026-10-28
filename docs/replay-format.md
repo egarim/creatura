@@ -49,7 +49,9 @@ kinds it does not know, so later versions can add them.
    "cSharp":"var truck1 = new ReferenceLoop(\n    regulator: new ColonyRegulator(…), …"}
   ```
 
-  `model` says whether a language model makes decisions; in the convoy none does. `cSharp` is the code that builds
+  `model` says whether a language model makes decisions: none does with the offline planner; in arm S it names the
+  model, where it runs and its price ([convoy-models.md](convoy-models.md)). The end line then carries `seat`: the
+  calls, failures, invalid answers, tokens, cost and time the model used. `cSharp` is the code that builds
   the agent, for a UI to show as written.
 
 ## One line per tick

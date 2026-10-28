@@ -17,7 +17,13 @@
   hand-off when stranded. In the second battery N1 to N5 held; with all three, every unit is delivered in every run,
   breakdowns included. N6, the designs against the plain loop, failed again. The replay header now says what the run is for
   (`goal`, `success`, `armPurpose`) and how each truck's agent is built (`trucks[].agent`, with the C# that builds
-  it). The viewer shows these in an "About this run" panel and a definition popup per truck.
+  it). The viewer shows these in an "About this run" panel and a definition popup per truck. Arm **S** puts a language model from
+  Creatura's catalog in every truck's seat (`ConvoyModelSeat`: a briefing on how the convoy works around any
+  `ModelPolicy`; refused or empty answers make the truck wait). The command takes `--model`, `--models-file`,
+  `--calls` and `--ticks`, and the battery `--arms`; S1 and S2 are scored when arms S and J ran. Arm S is not in the
+  default battery. [docs/convoy-models.md](docs/convoy-models.md) says how to set up a model for the demo. First local runs: `qwen2.5:7b` delivered 5 units in 8 ticks against the planner's 15. A design for
+  trained models (a policy network in the seat, a language model adapter, a learned world model, all fed by the
+  recorder) is proposed in [docs/design-trained-models.md](docs/design-trained-models.md).
   `samples/Convoy` runs one story or the battery. The **replay** is the interface for UIs: JSON lines described in
   [docs/replay-format.md](docs/replay-format.md), with `IScenarioObserver` for following a run live.
   `tools/convoy-viewer/index.html` is a three.js viewer with four sample runs built in.

@@ -279,6 +279,48 @@ What the second battery says:
   The fixes make the convoy survive it, not avoid it. A truck that cross-checks its gauge against the fuel it has
   spent would be the next fix to test.
 
+## A language model in the seat (pre-registered 2026-10-28, before the code)
+
+Arm **S** is arm J (all three fixes) with a language model in every truck's seat instead of the offline planner.
+Everything else is the same: the regulator, the control layer, the ledger, the faults, the judge. The model gets the
+truck's facts and visible tools, as the planner does, plus a short briefing on how the convoy works (what the facts
+mean, how a delivery goes: claim, load, drive, unload, refuel). It answers with one tool per tick. A model that
+answers with no tool waits.
+
+The model is chosen by name from Creatura's model catalog (`models.json`), so any catalogued model can take the
+seat: local Ollama models for free, DeepSeek, Azure OpenAI, Azure Foundry, or an OpenAI-compatible gateway such as
+LiteLLM. `docs/convoy-models.md` says how to set one up. Arm S is not part of the default battery, because it costs
+money and time, and it is not repeatable: two runs of a seed can differ, so M6 does not apply to it.
+
+| id | claim | falsifier |
+|---|---|---|
+| S1 | a model in the seat delivers at least as much as the offline planner on the same seeds (S against J) | less delivered in S |
+| S2 | a model in the seat acts on no more lies than the offline planner (S against J) | more lies acted on in S |
+
+Both are judged on the seeds a run covers, which will be few, so a verdict on them is a first reading, not a result.
+
+### First runs with a model (2026-10-28)
+
+A smoke run, not a battery: seed 1, cut to 8 ticks, on the laptop's local Ollama, beside the offline planner on the same
+seed and ticks.
+
+| seat | delivered in 8 ticks | answers refused | model time |
+|---|---|---|---|
+| the offline planner (arm J) | 15 units | none | none |
+| `qwen2.5:7b`, calling functions | 5 units | 12 of 24 | 371 s |
+| `qwen2.5:7b`, answering in JSON | 0 units | 0 of 24 | 699 s |
+
+- **A small local model does not drive well yet.** Calling functions, half its answers named no listed action: empty
+  replies, the action written as text instead of called, or an action that does not exist. Answering in JSON, every
+  answer was valid, and none of them got a truck anywhere useful.
+- **The architecture held.** Every refused answer was refused before it ran, and its truck waited. No truck did
+  anything the world did not allow.
+- **It is slow.** About 15 to 30 seconds a call, so a full run on the owner's laptop would take over an hour.
+- No hosted model has run yet, and S1 and S2 have no verdict: that needs arm S on a few seeds with a stronger model,
+  at about $0.09 a run with `deepseek-chat` (docs/convoy-models.md).
+
+The gap between a valid answer and a good one is what training would close: see docs/design-trained-models.md.
+
 ## What this note does not cover
 
 - Physics, continuous space, or real-time simulation. The world is a road graph that steps one tick at a time.

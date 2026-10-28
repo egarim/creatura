@@ -35,6 +35,9 @@ public enum ConvoyArm
 
     /// <summary>As B (one design per truck), with all three fixes.</summary>
     L,
+
+    /// <summary>As J (all three fixes), with a language model in every truck's seat. Not in the default battery: it costs money and is not repeatable.</summary>
+    S,
 }
 
 /// <summary>A truck: its name, its machine, and the design that drives it ("plain", "levin", "bach", "peterson").</summary>
@@ -79,6 +82,9 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
     /// <summary>A truck whose drive fails for lack of fuel hands back its claim and claims nothing more.</summary>
     public bool HandOffWhenStranded { get; init; }
 
+    /// <summary>The catalogued model in every truck's seat (docs/convoy-models.md); null for the offline planner.</summary>
+    public string? SeatModel { get; init; }
+
     public string ArmText => Arm switch
     {
         ConvoyArm.A => "plain loop, shared ledger, perfect link",
@@ -92,10 +98,14 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
         ConvoyArm.J => "plain loop, shared ledger, all three fixes",
         ConvoyArm.K => "plain loop, shared ledger, a breakdown at tick 8, all three fixes",
         ConvoyArm.L => "one design per truck, shared ledger, all three fixes",
+        ConvoyArm.S => $"a language model ({SeatModel}) in every truck's seat, shared ledger, all three fixes",
         _ => Arm.ToString(),
     };
 
     private static readonly string[] Sensors = ["position", "fuel", "roads"];
+
+    /// <summary>Arm S's model when none is named: the local Ollama model in Creatura's catalog, which costs nothing.</summary>
+    public const string DefaultSeatModel = "qwen2.5:7b";
 
     /// <summary>The three trucks: different capacity and range, all starting empty at the depot.</summary>
     public static IReadOnlyList<TruckSpec> Trucks3(ConvoyArm arm) =>
@@ -144,6 +154,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
             ConvoyArm.J => AllFixes(setup),
             ConvoyArm.K => AllFixes(setup with { BreakdownTruck = "Truck 2", BreakdownTick = 8 }),
             ConvoyArm.L => AllFixes(setup),
+            ConvoyArm.S => AllFixes(setup) with { SeatModel = DefaultSeatModel },
             _ => setup,
         };
     }
