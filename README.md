@@ -39,7 +39,7 @@ src/Creatura.Hosts.AgentFramework/
                               (any IChatClient in the loop's seat); the ONLY project here with a package reference
                               (Microsoft.Agents.AI.OpenAI) (namespace Creatura.Hosts.AgentFramework)
 src/Creatura.Cells/           the cells: CreaturaId, CellKey / OwnerKey (ECDSA P-256), VesselProbe and Hardware, Position,
-                              CellIdentity, SignedEntry and the six entry kinds, WorkLedger, JsonLedgerStore, ICellNetwork
+                              CellIdentity, SignedEntry and the eight entry kinds, WorkLedger, JsonLedgerStore, ICellNetwork
                               and InProcessCellNetwork; no packages (namespace Creatura.Cells)
 src/Creatura.Cli/             the `creatura cell` command over Creatura.Cells; no packages
 samples/QuickStart/           the quick start below, offline

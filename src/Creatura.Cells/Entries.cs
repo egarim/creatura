@@ -28,6 +28,9 @@ public enum EntryKind
 
     /// <summary>A file shared with other cells: its hashes, its sealed label and its key wrapped for each recipient; the bytes are at the hub.</summary>
     Artifact,
+
+    /// <summary>Something this cell saw in the world that the others may act on: a subject and the evidence. Refers to no claim.</summary>
+    Warning,
 }
 
 /// <summary>A payload of one entry kind. The kind is the type's, so a payload cannot be filed under another.</summary>
@@ -83,6 +86,15 @@ public sealed record ReleasePayload(string Claim, string Evidence) : IEntryPaylo
 public sealed record HeartbeatPayload(double? Load) : IEntryPayload
 {
     public static EntryKind Kind => EntryKind.Heartbeat;
+}
+
+/// <summary>
+/// A warning to the other cells: what it is about (<see cref="Subject"/>, such as <c>road:r12</c>) and what this cell saw
+/// (<see cref="Evidence"/>). The cells that read it decide what to do with it; it changes no claim.
+/// </summary>
+public sealed record WarningPayload(string Subject, string Evidence) : IEntryPayload
+{
+    public static EntryKind Kind => EntryKind.Warning;
 }
 
 /// <summary>A file's key, wrapped for one recipient cell: the ephemeral public key of the agreement and the sealed key (nonce, ciphertext and tag, base64).</summary>

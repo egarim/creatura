@@ -128,7 +128,8 @@ its own history as it does now; the ledger records who, on which vessel, claimed
 A package-free `Creatura.Cells` project, offline, testable without a network:
 
 1. `CreaturaId`, `CellKey`, `VesselProbe` (macOS first, Linux and Windows after), `Position`, `CellIdentity`.
-2. `SignedEntry`, the six entry kinds, `WorkLedger` with verify and merge, a `JsonLedgerStore`.
+2. `SignedEntry`, the six entry kinds (later eight: `Artifact` for shared files, and `Warning` for something a cell
+   saw in the world that the others may act on, added for shared distrust in docs/design-machine-vessels.md), `WorkLedger` with verify and merge, a `JsonLedgerStore`.
 3. `ICellNetwork` and `InProcessCellNetwork`.
 4. A `creatura cell` command: `whoami`, `claim`, `progress`, `release`, `ledger`.
 

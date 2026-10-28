@@ -185,6 +185,9 @@ public sealed class WorkLedger
                     if (artifact.Size <= 0) return "an artifact with no bytes";
                     if (artifact.Keys is not { Count: > 0 } || artifact.Keys.Any(k => string.IsNullOrEmpty(k.Cell))) return "an artifact no cell can open";
                     break;
+                case EntryKind.Warning:
+                    if (string.IsNullOrWhiteSpace(entry.Body<WarningPayload>().Subject)) return "a warning about nothing";
+                    break;
                 default: return "an unknown kind";
             }
         }

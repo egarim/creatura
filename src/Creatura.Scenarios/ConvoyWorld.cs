@@ -25,6 +25,12 @@ public sealed class TruckState(TruckSpec spec, string start)
 
     public int LyingRoadAttempts { get; internal set; }
 
+    /// <summary>Of <see cref="LyingRoadAttempts"/>, those made after another truck had taken the lying road at an earlier tick (and been caught).</summary>
+    public int LiesAlreadyCaught { get; internal set; }
+
+    /// <summary>The tick it first took the lying road, or null.</summary>
+    public int? CaughtAt { get; internal set; }
+
     public bool RanDry { get; internal set; }
 
     /// <summary>Whether it acted this tick (for the idle count).</summary>
@@ -135,6 +141,8 @@ public sealed class ConvoyWorld
             if (roadId == LyingRoad)
             {
                 truck.LyingRoadAttempts++;
+                if (Trucks.Any(t => t != truck && t.CaughtAt < Tick)) truck.LiesAlreadyCaught++;
+                truck.CaughtAt ??= Tick;
                 Record(new ReplayEvent("lie", $"{truck.Name} takes the road to {Name(to)}: its sensor said open, but the road is flooded. The truck's radio still reports it arrived.")
                     { Truck = truck.Name, Road = roadId, From = truck.At, To = to });
                 return new ActionOutcome(toolId, true, [$"at:{to}"], $"reported arrived at {to}");

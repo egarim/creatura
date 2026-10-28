@@ -257,6 +257,29 @@ public sealed class TruckView : ITickedWorld
 
     private void Observe(string village) => _believed[village] = (_world.Need[village], _tick);
 
+    /// <summary>A warning to the other trucks on the ledger (shared distrust); nothing without a radio.</summary>
+    public void Warn(string subject, string evidence)
+    {
+        if (Radio && !_truck.Broken) Say(new WarningPayload(subject, evidence));
+    }
+
+    /// <summary>The roads the other trucks have warned about on this truck's ledger, with the truck that warned first.</summary>
+    public IReadOnlyList<(string Road, string From)> WarnedRoads()
+    {
+        if (!Radio) return [];
+        // A cell's truck, from the vessel its hello names (the scenario names each truck's vessel v-<truck>).
+        var trucks = _setup.Trucks.ToDictionary(t => "v-" + t.Name.ToLowerInvariant().Replace(' ', '-'), t => t.Name, StringComparer.Ordinal);
+        var names = _ledger!.Entries.Where(e => e.Kind == EntryKind.Hello)
+            .ToDictionary(e => e.Cell, e => trucks.GetValueOrDefault(e.Body<HelloPayload>().Cell.Hardware.VesselId, e.Cell), StringComparer.Ordinal);
+        return _ledger.Entries
+            .Where(e => e.Kind == EntryKind.Warning && e.Cell != _cell!.Id)
+            .Select(e => (Subject: e.Body<WarningPayload>().Subject, From: names.GetValueOrDefault(e.Cell, e.Cell)))
+            .Where(w => w.Subject.StartsWith("road:", StringComparison.Ordinal))
+            .Select(w => (w.Subject["road:".Length..], w.From))
+            .GroupBy(w => w.Item1, StringComparer.Ordinal).Select(g => g.First())
+            .ToList();
+    }
+
     private SignedEntry Say<T>(T payload) where T : IEntryPayload
     {
         var entry = _ledger!.Append(_cell!, payload, T0.AddSeconds(_tick));

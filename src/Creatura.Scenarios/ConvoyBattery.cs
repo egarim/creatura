@@ -177,6 +177,24 @@ public static class ConvoyBattery
             verdicts.Add(new("T4R", "the network trained by trial replays byte for byte for the same seed (R)", Held(same), same ? "six runs of seed 0 matched" : "a replay differed"));
         }
 
+        // Shared distrust (pre-registered as W1 to W3), scored when arms W and J both ran.
+        if (runs.ContainsKey(ConvoyArm.W) && runs.ContainsKey(ConvoyArm.J))
+        {
+            var n = Math.Min(runs[ConvoyArm.W].Count, runs[ConvoyArm.J].Count);
+            int Over(ConvoyArm arm, Func<ConvoyMeasures, int> f) => runs[arm].Take(n).Sum(f);
+            static int RoadLies(ConvoyMeasures m) => m.LiesBelieved - m.GaugeStranded;
+            verdicts.Add(new("W1", "with warnings shared, no truck acts on a road lie another truck caught at an earlier tick (W)",
+                Held(Over(ConvoyArm.W, m => m.LiesAlreadyCaught) == 0),
+                $"lies already caught W {Over(ConvoyArm.W, m => m.LiesAlreadyCaught)}, J {Over(ConvoyArm.J, m => m.LiesAlreadyCaught)} over {n} seeds"));
+            verdicts.Add(new("W2", "with warnings shared, the trucks deliver at least as much as arm J and act on fewer road lies (W against J)",
+                Held(Over(ConvoyArm.W, m => m.Delivered) >= Over(ConvoyArm.J, m => m.Delivered) && Over(ConvoyArm.W, RoadLies) < Over(ConvoyArm.J, RoadLies)),
+                $"delivered W {Over(ConvoyArm.W, m => m.Delivered)}, J {Over(ConvoyArm.J, m => m.Delivered)}; road lies W {Over(ConvoyArm.W, RoadLies)}, J {Over(ConvoyArm.J, RoadLies)}; "
+                + $"wasted W {Over(ConvoyArm.W, m => m.WastedTrips)}, J {Over(ConvoyArm.J, m => m.WastedTrips)}; "
+                + $"served by tick {runs[ConvoyArm.W].Take(n).Average(m => m.TicksToServe):0.0} against {runs[ConvoyArm.J].Take(n).Average(m => m.TicksToServe):0.0}"));
+            var same = replays is not null && replays.TryGetValue(ConvoyArm.W, out var s) ? s : replaysMatch;
+            verdicts.Add(new("W3", "with warnings shared, a seed replays byte for byte (W)", Held(same), same ? "six runs of seed 0 matched" : "a replay differed"));
+        }
+
         // The fixes (pre-registered as N1 to N6), scored only when their arms ran.
         if (new[] { ConvoyArm.G, ConvoyArm.H, ConvoyArm.I, ConvoyArm.J, ConvoyArm.K, ConvoyArm.L }.All(runs.ContainsKey))
         {

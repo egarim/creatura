@@ -37,8 +37,10 @@ internal sealed class StoryExtension(ConvoyWorld world, string truck) : IAgentEx
 /// reported arrival and nothing landed), the truck stops trusting that road, in both directions, for the rest of the
 /// run. It hides the road's drives from the planner and tells the planner to route around it. A drive that failed
 /// honestly, such as for lack of fuel, says nothing about the road and changes nothing.
+/// <para>Shared (arm W, with <paramref name="shared"/>): the truck also writes a warning about the road on the ledger,
+/// and treats the warnings it reads from the other trucks as distrust of its own.</para>
 /// </summary>
-internal sealed class RoadDistrustExtension(ConvoyWorld world, string truck) : IAgentExtension
+internal sealed class RoadDistrustExtension(ConvoyWorld world, string truck, TruckView? shared = null) : IAgentExtension
 {
     private readonly HashSet<string> _roads = new(StringComparer.Ordinal);
 
@@ -53,12 +55,32 @@ internal sealed class RoadDistrustExtension(ConvoyWorld world, string truck) : I
         if (!_roads.Add(road)) return;
         var r = world.Map.Road(road);
         world.Record(new ReplayEvent("distrust", $"{truck} stops trusting the road between {world.Name(r.A)} and {world.Name(r.B)}, both ways, for good.") { Truck = truck, Road = road });
+        shared?.Warn($"road:{road}", $"drove {tool.Id}: reported arrival, and nothing landed");
     }
 
-    public IReadOnlyList<Tool> VisibleTools(TickContext context, IReadOnlyList<Tool> visible) =>
-        visible.Where(t => !(t.Id.StartsWith("drive:", StringComparison.Ordinal) && _roads.Contains(t.Id.Split(':')[1]))).ToList();
+    /// <summary>Before the seat sees the tick: the roads the other trucks warned about become this truck's distrust too.</summary>
+    private void TakeInWarnings()
+    {
+        if (shared is null) return;
+        foreach (var (road, from) in shared.WarnedRoads())
+        {
+            if (!_roads.Add(road)) continue;
+            var r = world.Map.Road(road);
+            world.Record(new ReplayEvent("warned", $"{truck} reads {from}'s warning and stops trusting the road between {world.Name(r.A)} and {world.Name(r.B)} too.") { Truck = truck, Road = road });
+        }
+    }
 
-    public IEnumerable<string> PolicyNotes(TickContext context) => _roads.Select(r => $"avoid:{r}");
+    public IReadOnlyList<Tool> VisibleTools(TickContext context, IReadOnlyList<Tool> visible)
+    {
+        TakeInWarnings();
+        return visible.Where(t => !(t.Id.StartsWith("drive:", StringComparison.Ordinal) && _roads.Contains(t.Id.Split(':')[1]))).ToList();
+    }
+
+    public IEnumerable<string> PolicyNotes(TickContext context)
+    {
+        TakeInWarnings();
+        return _roads.Select(r => $"avoid:{r}").ToList();
+    }
 }
 
 /// <summary>What one run left: the replay, the judge's measures, and anything that went wrong in a truck's loop.</summary>
@@ -117,7 +139,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
             var view = new TruckView(world, world.Truck(spec.Name), Setup, cell, ledger, mesh);
             views.Add(view);
             var story = new StoryExtension(world, spec.Name);
-            var built = Build(spec, story);
+            var built = Build(spec, story, view);
             definitions[spec.Name] = built.Definition;
             agents.Add((built.Loop, story));
         }
@@ -181,7 +203,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
                 LedgersIdentical: identical,
                 IdleWhileUnserved: world.Need.Values.Any(n => n > 0) ? Math.Max(idle, world.Trucks.Count(t => !t.Broken && t.Finished)) : 0,
                 MessagesSent: mesh?.Sent ?? 0,
-                MessagesLost: mesh?.Lost ?? 0) { GaugeStranded = gaugeStranded };
+                MessagesLost: mesh?.Lost ?? 0) { GaugeStranded = gaugeStranded, LiesAlreadyCaught = world.Trucks.Sum(t => t.LiesAlreadyCaught) };
             var summary = new ReplaySummary(measures, Outcome(world, measures)) { Seat = SeatUsage() };
             recorder?.EndRun(measures);
             observer?.End(summary);
@@ -193,10 +215,9 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         }
     }
 
-    private ReferenceLoop Loop(TruckSpec spec, StoryExtension story) => Build(spec, story).Loop;
-
     /// <summary>The agent for one truck and its definition for people, from one switch so the two always agree.</summary>
-    internal (ReferenceLoop Loop, AgentDefinition Definition) Build(TruckSpec spec, StoryExtension story)
+    /// <param name="view">The truck's view, through which shared distrust writes and reads its warnings.</param>
+    internal (ReferenceLoop Loop, AgentDefinition Definition) Build(TruckSpec spec, StoryExtension story, TruckView? view = null)
     {
         var task = ConvoyTask.For(Setup.Map);
         IPolicy policy = new ConvoyPolicy(Setup.Map, spec.Machine);
@@ -218,14 +239,16 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         }
         if (recorder is not null) policy = recorder.Seat(policy, spec, Setup.Map);
         var observers = new List<IAgentExtension> { story };
-        if (Setup.DistrustRoads) observers.Add(new RoadDistrustExtension(_world!, spec.Name));
+        if (Setup.DistrustRoads) observers.Add(new RoadDistrustExtension(_world!, spec.Name, Setup.ShareDistrust ? view : null));
         if (recorder is not null) observers.AddRange(recorder.Extensions(spec));
         var options = new AgentOptions(observers);
         var vessel = new Vessel { Model = endpoint?.Model ?? (network is null ? "convoy-planner" : "convoy-network"), Physical = spec.Machine };
         var m = spec.Machine;
         var variable = spec.Name.ToLowerInvariant().Replace(" ", "", StringComparison.Ordinal);
         var extensions = new List<string> { "StoryExtension: tells the replay about every action the control layer judged a lie" };
-        if (Setup.DistrustRoads) extensions.Add("RoadDistrustExtension: a road caught lying is avoided both ways for the rest of the run");
+        if (Setup.DistrustRoads) extensions.Add(Setup.ShareDistrust
+            ? "RoadDistrustExtension, shared: a road caught lying is avoided both ways for the rest of the run, and a warning on the ledger tells the other trucks to avoid it too"
+            : "RoadDistrustExtension: a road caught lying is avoided both ways for the rest of the run");
 
         const string designLayer = "ControlLayerOptions.Design: an action whose effect did not land counts as a lie, whatever the tool reported (two-way judge); a tool judged a lie is set aside for 3 ticks, then trusted again; honest failures are habituated";
         (ReferenceLoop Loop, string Title, string About, string Regulator, string Layer, string LayerCode) made = spec.Design switch
@@ -264,7 +287,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
                 ? $"ConvoyNetwork.Seat(ConvoyNetwork.Load(\"{Setup.SeatNetwork}\"), map, machine),  // a trained policy network, {network.Source}"
                 : "new ConvoyPolicy(map, machine),      // the offline planner: no language model is called";
         var extensionCode = Setup.DistrustRoads
-            ? $"AgentOptions.With(new StoryExtension(world, \"{spec.Name}\"), new RoadDistrustExtension(world, \"{spec.Name}\"))"
+            ? $"AgentOptions.With(new StoryExtension(world, \"{spec.Name}\"), new RoadDistrustExtension(world, \"{spec.Name}\"{(Setup.ShareDistrust ? ", shared: view" : "")}))"
             : $"AgentOptions.With(new StoryExtension(world, \"{spec.Name}\"))";
         var csharp = $$"""
             // {{spec.Name}}: {{made.Title}}, arm {{Setup.Arm}} (src/Creatura.Scenarios/ConvoyScenario.cs, Build)
@@ -315,6 +338,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         if (!Setup.Ledger) faults.Add("No ledger: each truck knows only what it sees.");
         if (Setup.StallAfter is { } stall) faults.Add($"Fix: a claim with no delivery for {stall} ticks may be taken over.");
         if (Setup.DistrustRoads) faults.Add("Fix: a road caught lying is distrusted both ways for the rest of the run.");
+        if (Setup.ShareDistrust) faults.Add("Shared distrust: a truck that catches a road lying warns the others on the ledger, and they avoid it too.");
         if (Setup.HandOffWhenStranded) faults.Add("Fix: a truck that runs out of fuel hands back its claim.");
 
         return new ReplayHeader("convoy", Setup.Seed, Setup.Arm.ToString(), Setup.ArmText, Setup.MaxTicks,
@@ -376,6 +400,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         ConvoyArm.S => "Tests S1 and S2: a language model in every truck's seat instead of the offline planner, with all three fixes.",
         ConvoyArm.N => "Tests T2 and T4: a small network trained to copy arm J's planner, in every truck's seat, with all three fixes.",
         ConvoyArm.R => "Tests T3 and T3b: arm N's network trained further by trial in the simulator, against arm J's planner.",
+        ConvoyArm.W => "Tests W1 and W2: all three fixes, and a truck that catches a road lying warns the others through the ledger.",
         _ => arm.ToString(),
     };
 

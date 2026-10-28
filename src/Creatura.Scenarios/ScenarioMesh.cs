@@ -55,6 +55,7 @@ public sealed class ScenarioMesh(int seed, double loss, double delayChance)
         EntryKind.Claim => $"claim on {entry.Body<ClaimPayload>().Goal.Replace("deliver:", "", StringComparison.Ordinal)}",
         EntryKind.Release => "delivery report",
         EntryKind.HandOff => "hand-off",
+        EntryKind.Warning => $"warning about {entry.Body<WarningPayload>().Subject.Replace("road:", "road ", StringComparison.Ordinal)}",
         _ => entry.Kind.ToString().ToLowerInvariant(),
     };
 }

@@ -44,6 +44,9 @@ public enum ConvoyArm
 
     /// <summary>As N, with the network trained further by trial in the simulator (docs/design-trained-models.md, step 3).</summary>
     R,
+
+    /// <summary>As J (all three fixes), with distrust shared: a truck that catches a road lying warns the others on the ledger.</summary>
+    W,
 }
 
 /// <summary>A truck: its name, its machine, and the design that drives it ("plain", "levin", "bach", "peterson").</summary>
@@ -85,6 +88,9 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
     /// <summary>A road a truck caught lying is distrusted in both directions for the rest of the run.</summary>
     public bool DistrustRoads { get; init; }
 
+    /// <summary>A truck that catches a road lying warns the others on the ledger, and they distrust it too (needs <see cref="DistrustRoads"/> and a ledger).</summary>
+    public bool ShareDistrust { get; init; }
+
     /// <summary>A truck whose drive fails for lack of fuel hands back its claim and claims nothing more.</summary>
     public bool HandOffWhenStranded { get; init; }
 
@@ -116,6 +122,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
         ConvoyArm.S => $"a language model ({SeatModel}) in every truck's seat, shared ledger, all three fixes",
         ConvoyArm.N => $"a policy network ({SeatNetwork}) in every truck's seat, shared ledger, all three fixes",
         ConvoyArm.R => $"a policy network trained by trial ({SeatNetwork}) in every truck's seat, shared ledger, all three fixes",
+        ConvoyArm.W => "plain loop, shared ledger, all three fixes, distrust shared through the ledger",
         _ => Arm.ToString(),
     };
 
@@ -174,6 +181,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
             ConvoyArm.S => AllFixes(setup) with { SeatModel = DefaultSeatModel },
             ConvoyArm.N => AllFixes(setup) with { SeatNetwork = ConvoyNetwork.Embedded },
             ConvoyArm.R => AllFixes(setup) with { SeatNetwork = ConvoyNetwork.EmbeddedTrial },
+            ConvoyArm.W => AllFixes(setup) with { ShareDistrust = true },
             _ => setup,
         };
     }

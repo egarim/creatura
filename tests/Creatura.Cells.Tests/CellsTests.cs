@@ -40,6 +40,25 @@ public class CellsTests
         Assert.Equal(one.Digest(), other.Digest());
     }
 
+    /// <summary>A warning is signed, verified and merged like any entry, refers to no claim, and must be about something.</summary>
+    [Fact]
+    public void AWarningMergesLikeAnyEntryAndMustHaveASubject()
+    {
+        using var dir = new TempHome();
+        var (_, owner, cell) = Setup(dir);
+        var warning = new WorkLedger(owner.PublicKey).Append(cell, new WarningPayload("road:r12", "reported arrival, and nothing landed"), T0);
+        Assert.Equal(EntryKind.Warning, warning.Kind);
+        Assert.Null(warning.ClaimRef);
+
+        var other = new WorkLedger(owner.PublicKey);
+        Assert.Equal(1, other.Merge([SignedEntry.Parse(warning.ToJson())]).Added);
+        Assert.Equal("road:r12", other.Entries.Single().Body<WarningPayload>().Subject);
+
+        var empty = SignedEntry.Sign(cell, 2, new WarningPayload(" ", "nothing"), T0.AddMinutes(1));
+        var rejected = Assert.Single(new WorkLedger(owner.PublicKey).Merge([empty]).Rejected);
+        Assert.Contains("warning about nothing", rejected.ToString());
+    }
+
     [Fact]
     public void KeysSaltAndLedgerAreOwnerOnly()
     {

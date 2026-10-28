@@ -78,6 +78,8 @@ kinds it does not know, so later versions can add them.
 | `lie` | a truck took the lying road: the radio reported arrival, the truck did not move |
 | `caught` | the truck's control layer judged that action a lie and set the tool aside |
 | `refused` | a failed action the control layer counted as a lie (judging by the registry alone) |
+| `distrust` | a truck stops trusting `road`, both ways, after it caught it lying (arms with distrust by road) |
+| `warned` | a truck read another truck's warning about `road` on the ledger and stops trusting it too (arm W) |
 | `load`, `refuel`, `unload` | at the depot, or at `village` |
 | `wasted` | a truck reached the village it was driving to, and it was already served |
 | `claim`, `takeover`, `release` | ledger work: a claim, a claim on a quiet truck's village, a delivery report or a hand-off |
@@ -96,7 +98,9 @@ kinds it does not know, so later versions can add them.
 ```
 
 `measures` is the judge's reading of the world (decision D6 of docs/design-machine-vessels.md); `outcome` says it in
-sentences.
+sentences. Two counts break `liesBelieved` down: `gaugeStranded` (1 when the truck with the lying fuel gauge ran dry,
+the rest are road lies) and `liesAlreadyCaught` (road lies acted on after another truck had acted on the same lying
+road at an earlier tick).
 
 ## Making a replay
 

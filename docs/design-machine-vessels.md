@@ -330,6 +330,73 @@ the training and the results are in [design-trained-models.md](design-trained-mo
 Arm R is arm N's network trained further by trial in the simulator. It stranded fewer trucks than J (2 against 6) and
 acted on fewer lies (46 against 54), but delivered less (1445 of 1500), so T3 failed and T3b held.
 
+## Shared distrust (pre-registered 2026-10-28, before the code)
+
+Distrust by road (arm H's fix) is private: a truck that catches a road lying avoids it from then on, but the other
+trucks keep trusting it until they are caught too. In arm J's 500 training runs (seeds 100 to 599), 106 of the 490 road
+lies came after another truck had already caught the same road. No seat can avoid those today: a truck's view does not
+include another truck's distrust. This is a design change, not a training one.
+
+- **A warning on the ledger.** A new entry kind in `Creatura.Cells`, `Warning`: one cell telling the others something
+  it saw in the world, with a subject and the evidence (`WarningPayload(Subject, Evidence)`). It is signed, verified and
+  merged like every other entry, and refers to no claim. A truck that catches a road lying writes
+  `Warning("road:<id>", …)` beside its own distrust.
+- **Reading one.** A truck that reads another truck's warning about a road treats it as its own distrust: the road's
+  drives are hidden from its seat, and its notes say `avoid:<road>`. A warning reaches the others over the mesh the tick
+  after it is written, as every entry does.
+- **Arm W.** As J (all three fixes), with warnings shared. The planner is unchanged.
+- **A new measure, `LiesAlreadyCaught`**: road lies acted on by a truck after another truck had acted on the same lying
+  road at an earlier tick (every such act is judged a lie in these arms, so it was caught).
+
+Judged on seeds 0 to 49:
+
+| id | claim | falsifier |
+|---|---|---|
+| W1 | with warnings shared, no truck acts on a road lie another truck caught at an earlier tick | `LiesAlreadyCaught` above 0 in arm W |
+| W2 | with warnings shared, the trucks deliver at least as much as arm J and act on fewer road lies | less delivered, or as many road lies or more |
+| W3 | arm W replays byte for byte for the same seed | any difference |
+
+The size expected, from the training data: about one road lie in five came after another truck had caught it, so arm
+W's road lies should be about a fifth below J's. Reported without a claim: J's `LiesAlreadyCaught`, wasted trips, and
+when the villages were served.
+
+What this does not test: a warning that is wrong or forged. In this world only the control layer's two-way judge writes
+one, after a lie that really happened. A hub must run this version before any cell syncs a warning to it, since an older
+hub does not know the kind.
+
+## Shared distrust: results (2026-10-28)
+
+**W1, W2 and W3 held.** On seeds 0 to 49:
+
+| | arm W (shared) | arm J (private) |
+|---|---|---|
+| delivered | 1500/1500 | 1500/1500 |
+| road lies acted on | 39 | 48 |
+| of them, on a road another truck had already caught | 0 | 9 |
+| lies acted on, all | 45 | 54 |
+| stranded trucks | 6 | 6 |
+| villages served by tick | 25.4 | 25.5 |
+
+Every road lie that a warning could have prevented was prevented: the 9 J acted on became 0. Road lies fell by 19%, close
+to the fifth predicted from the training data. Nothing else changed: the same deliveries, no wasted trips, the same
+strandings, and the villages served a tenth of a tick sooner. Six runs of seed 0 replayed byte for byte, and so did
+seed 101 in the tests.
+
+The 39 road lies left are first discoveries: the first truck to try the lying road after it floods. Nothing in any
+truck's view tells that road apart from an honest open one, so no truck, seat or warning can avoid those.
+
+What the change is, in the code:
+- `EntryKind.Warning` and `WarningPayload(Subject, Evidence)` in `Creatura.Cells`, verified on merge (a warning must
+  have a subject), shown by `creatura cell log`. A hub must run this version before a cell syncs a warning to it.
+- `RoadDistrustExtension` with a shared view writes `Warning("road:<id>", …)` when it catches a road lying, and takes in
+  the other trucks' warnings before the seat sees the tick. The replay tells it as a `warned` event.
+- `ConvoySetup.ShareDistrust`, arm W in the default battery, and the `LiesAlreadyCaught` measure.
+- Five deliberate breaks each fail a test: warnings never read, warnings never written, a warning about nothing
+  accepted, W1 letting one through, and the measure never counting.
+
+The trained networks read the same `avoid:` notes, so arm N's network would take warnings in without retraining. That
+is not run here.
+
 ## What this note does not cover
 
 - Physics, continuous space, or real-time simulation. The world is a road graph that steps one tick at a time.

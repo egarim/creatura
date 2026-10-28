@@ -75,6 +75,9 @@ public sealed record ConvoyMeasures(int Delivered, int Demand, int WastedTrips, 
 
     /// <summary>Of <see cref="LiesBelieved"/>, the one a lying fuel gauge caused: 1 when that truck ran dry, else 0. The rest are road lies.</summary>
     public int GaugeStranded { get; init; }
+
+    /// <summary>Road lies acted on after another truck had acted on the same lying road at an earlier tick: what shared distrust is for.</summary>
+    public int LiesAlreadyCaught { get; init; }
 }
 
 /// <summary>What the language models in the seats used in one run: calls, failures, invalid answers, tokens, cost and time.</summary>

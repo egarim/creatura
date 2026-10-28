@@ -286,6 +286,7 @@ public static class CellCommand
             EntryKind.HandOff => e.Body<HandOffPayload>() is var h ? $"on {h.Claim}: {h.Reason}" : "",
             EntryKind.Release => e.Body<ReleasePayload>() is var r ? $"on {r.Claim}: {r.Evidence}" : "",
             EntryKind.Heartbeat => e.Body<HeartbeatPayload>().Load is { } load ? $"load {load.ToString("0.##", CultureInfo.InvariantCulture)}" : "alive",
+            EntryKind.Warning => e.Body<WarningPayload>() is var warning ? $"{warning.Subject}: {warning.Evidence}" : "",
             _ => "",
         };
         return $"{e.Timestamp.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss'Z'", CultureInfo.InvariantCulture)}  {e.Id,-24}  {e.Kind,-9}  {summary}";

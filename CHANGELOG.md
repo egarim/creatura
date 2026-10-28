@@ -36,6 +36,10 @@
   (`models/convoy-policy-j-trial.json`): T3 failed (1445/1500 delivered against J's 1500, though 46 lies against 54), T3b
   held (2 strandings against 6). `ConvoyMeasures.GaugeStranded` separates the gauge's lies from the roads'. Fixed a
   hook test whose pinned clock made it fail every day after 09:00 UTC.
+- Shared distrust (docs/design-machine-vessels.md): a new ledger entry kind, `Warning` (`WarningPayload(Subject,
+  Evidence)`), lets a truck that catches a road lying warn the others, who distrust the road too. Arm W (J with
+  `ShareDistrust`) joined the default battery, with the `LiesAlreadyCaught` measure. W1, W2 and W3 held: no lie on a
+  road already caught (J: 9), road lies 39 against 48, deliveries unchanged at 1500/1500.
   `samples/Convoy` runs one story or the battery. The **replay** is the interface for UIs: JSON lines described in
   [docs/replay-format.md](docs/replay-format.md), with `IScenarioObserver` for following a run live.
   `tools/convoy-viewer/index.html` is a three.js viewer with four sample runs built in.

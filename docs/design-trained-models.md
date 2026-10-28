@@ -340,7 +340,8 @@ What a next attempt would change, each to be registered before it runs:
   has a reason to change.
 - **Share distrust through the ledger**, a change to the design rather than to training. 106 of the 490 road lies in
   the training data came after another truck had already caught that road. No seat can avoid them today, because a
-  truck's view does not include another truck's distrust.
+  truck's view does not include another truck's distrust. Built since, as arm W (docs/design-machine-vessels.md, "Shared
+  distrust"): on seeds 0 to 49 it took those lies from 9 to 0.
 
 ```bash
 dotnet build samples/Convoy -c Release
