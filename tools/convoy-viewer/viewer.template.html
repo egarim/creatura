@@ -1,0 +1,705 @@
+<title>Convoy Replay</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+/* Layout: a field desk at night. The 3D valley on the left, the dispatcher's log on the right, the tape transport across the foot. */
+:root {
+  --bg: #071b2b;          /* the icon's navy: the ground of the page */
+  --panel: #0b2537;
+  --line: #1c3a4f;
+  --fg: #ece5d3;          /* parchment */
+  --muted: #8fa2ad;
+  --gold: #b49345;        /* the icon's gold */
+  --gold-hi: #d9bb6c;
+  --danger: #e0664f;
+  --good: #7db58c;
+  --water: #0d3048;
+  --land: #2b4a3c;
+  --road: #8a7a52;
+  --t1: #d9bb6c;
+  --t2: #6db3cb;
+  --t3: #d08d6c;
+  --icon-ink: #ece5d3;
+  --display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #e9eeec; --panel: #f6f8f6; --line: #c7d2d0; --fg: #071b2b; --muted: #4f6470;
+    --gold: #8a6a22; --gold-hi: #6f5418; --danger: #b83c27; --good: #2f7a47;
+    --water: #b9ccd4; --land: #a9bf9c; --road: #7d6a3e;
+    --t1: #9c7a22; --t2: #2a7d98; --t3: #b0583a; --icon-ink: #071b2b;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #e9eeec; --panel: #f6f8f6; --line: #c7d2d0; --fg: #071b2b; --muted: #4f6470;
+  --gold: #8a6a22; --gold-hi: #6f5418; --danger: #b83c27; --good: #2f7a47;
+  --water: #b9ccd4; --land: #a9bf9c; --road: #7d6a3e;
+  --t1: #9c7a22; --t2: #2a7d98; --t3: #b0583a; --icon-ink: #071b2b;
+  color-scheme: light;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.5;
+  display: flex; flex-direction: column;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px; gap: 12px; box-sizing: border-box;
+}
+*, *::before, *::after { box-sizing: border-box; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 2px; }
+
+.bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand svg { width: 40px; height: 38px; flex: none; }
+.brand .ink { fill: var(--icon-ink); }
+.brand .halo { fill: var(--gold); }
+.brand small { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.brand h1 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1; letter-spacing: .01em; }
+.pick { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pick label.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+select, .btn {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer;
+}
+.btn:hover, select:hover { border-color: var(--gold); }
+.btn.primary { background: var(--gold); color: var(--bg); border-color: var(--gold); font-weight: 600; }
+#file { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+.stage { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px; }
+.scene { position: relative; min-height: 320px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--water); }
+#view { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+#view:active { cursor: grabbing; }
+#labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.tag { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, var(--bg) 78%, transparent); color: var(--fg); }
+.tag.place { font-family: var(--display); font-size: 15px; background: none; text-shadow: 0 1px 3px var(--bg); }
+.tag.truck { font-family: var(--mono); font-weight: 500; }
+.tag.warn { background: var(--danger); color: var(--bg); font-family: var(--mono); }
+.clock { position: absolute; top: 10px; left: 12px; font-family: var(--display); font-size: 44px; line-height: 1; color: var(--fg); text-shadow: 0 2px 8px var(--bg); pointer-events: none; }
+.clock span { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: block; margin-top: 4px; }
+.legend { position: absolute; bottom: 10px; left: 12px; display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; font-family: var(--mono); color: var(--muted); pointer-events: none; max-width: calc(100% - 100px); }
+.legend i { display: inline-block; width: 18px; height: 4px; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
+.reset { position: absolute; top: 10px; right: 10px; }
+
+.side { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+.run h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 20px; line-height: 1.2; text-wrap: balance; }
+.run ul { margin: 6px 0 0; padding-left: 16px; color: var(--muted); font-size: 12px; }
+.trucks { display: grid; gap: 8px; }
+.truck { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; }
+.truck .swatch { width: 10px; height: 28px; border-radius: 3px; grid-row: span 2; }
+.truck b { font-weight: 600; }
+.truck .meta { color: var(--muted); font-size: 12px; }
+.pill { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--line); }
+.pill.broken, .pill.stranded { background: var(--danger); color: var(--bg); border-color: var(--danger); }
+.pill.finished { color: var(--good); border-color: var(--good); }
+.gauges { grid-column: 2 / 4; display: grid; grid-template-columns: 36px minmax(0, 1fr) 72px; gap: 2px 6px; align-items: center; font-family: var(--mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.meter { position: relative; height: 6px; background: var(--line); border-radius: 3px; overflow: visible; }
+.meter .fill { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--fg); }
+.meter .belief { position: absolute; top: -3px; width: 2px; height: 12px; background: var(--danger); }
+.villages { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; font-variant-numeric: tabular-nums; }
+.villages .name { font-family: var(--display); font-size: 16px; }
+.villages .num { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.villages .meter .fill { background: var(--gold); }
+.villages .served { color: var(--good); }
+
+.log { flex: 1; min-height: 160px; overflow-y: auto; padding: 0; position: relative; }
+.log ol { list-style: none; margin: 0; padding: 4px 0; }
+.log .t { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 2px 8px; padding: 6px 12px; border-top: 1px solid var(--line); cursor: pointer; }
+.log .t:first-child { border-top: 0; }
+.log .t.now { background: color-mix(in srgb, var(--gold) 14%, transparent); }
+.log .t.later { opacity: .35; }
+.log .when { font-family: var(--mono); font-size: 12px; color: var(--gold-hi); padding-top: 1px; }
+.log p { margin: 0; font-size: 13px; }
+.log p + p { margin-top: 3px; }
+.log p.quiet { color: var(--muted); font-size: 12px; }
+.log p.alarm { color: var(--danger); }
+.log p.good { color: var(--good); }
+.log .end { padding: 10px 12px; border-top: 1px solid var(--line); }
+.log .end p { margin: 0 0 4px; }
+
+.transport { display: grid; grid-template-columns: auto auto auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; }
+.transport .btn { min-width: 40px; text-align: center; }
+.track { position: relative; padding-top: 12px; min-width: 0; }
+.marks { position: absolute; inset: 0 0 auto 0; height: 10px; }
+.marks i { position: absolute; top: 0; width: 3px; height: 10px; border-radius: 1px; transform: translateX(-50%); }
+#tick { width: 100%; accent-color: var(--gold); }
+.readout { font-family: var(--mono); font-variant-numeric: tabular-nums; min-width: 64px; text-align: right; }
+.hint { color: var(--muted); font-size: 12px; }
+.drop { position: fixed; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 85%, transparent); font-family: var(--display); font-size: 32px; z-index: 20; }
+.error { color: var(--danger); font-size: 13px; }
+
+@media (max-width: 900px) {
+  html, body { height: auto; }
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .scene { height: 62vw; max-height: 60vh; min-height: 280px; }
+  .log { max-height: 50vh; }
+  .transport { grid-template-columns: auto auto auto minmax(0, 1fr) auto; }
+  .transport .speed { grid-column: 1 / -1; justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<header class="bar">
+  <div class="brand">
+    __ICON__
+    <div><small>Creatura · machine vessels</small><h1>Convoy Replay</h1></div>
+  </div>
+  <div class="pick">
+    <label class="sr" for="sample">Run</label>
+    <select id="sample"></select>
+    <label class="btn" for="file">Open a replay…</label>
+    <input id="file" type="file" accept=".jsonl,.json,.txt">
+  </div>
+</header>
+
+<main class="stage">
+  <section class="scene" aria-label="The flooded valley, in 3D">
+    <canvas id="view"></canvas>
+    <div id="labels"></div>
+    <div class="clock" aria-live="off"><b id="clockTick">t0</b><span id="clockSub">before the first tick</span></div>
+    <button class="btn reset" id="resetView" type="button">Reset view</button>
+    <div class="legend">
+      <span><i style="background: var(--road)"></i>open road</span>
+      <span><i style="background: var(--danger)"></i>flooded</span>
+      <span><i style="background: repeating-linear-gradient(90deg, var(--road) 0 4px, var(--danger) 4px 8px)"></i>flooded, sensor says open</span>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div class="card run">
+      <p class="eyebrow" id="runEyebrow">Run</p>
+      <h2 id="runTitle">Loading…</h2>
+      <ul id="faults"></ul>
+    </div>
+    <div class="card"><p class="eyebrow">Trucks</p><div class="trucks" id="trucks"></div></div>
+    <div class="card"><p class="eyebrow">Villages · units still needed</p><div class="villages" id="villages"></div></div>
+    <div class="card log" id="log" aria-label="The story, tick by tick"><ol id="story"></ol><div id="end"></div></div>
+  </aside>
+</main>
+
+<footer class="transport">
+  <button class="btn" id="back" type="button" aria-label="One tick back">‹</button>
+  <button class="btn primary" id="play" type="button">Play</button>
+  <button class="btn" id="fwd" type="button" aria-label="One tick forward">›</button>
+  <div class="track"><div class="marks" id="marks"></div><input id="tick" type="range" min="0" max="1" value="0" aria-label="Tick"></div>
+  <span class="readout" id="readout">0 / 0</span>
+  <label class="speed hint">Speed
+    <select id="speed"><option value="0.7">slow</option><option value="1.4" selected>normal</option><option value="3">fast</option></select>
+  </label>
+</footer>
+<p class="error" id="error" hidden></p>
+
+<script type="application/json" id="samples">__SAMPLES__</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const samples = JSON.parse($("samples").textContent);
+
+  // ---------- replay parsing ----------
+  function parseReplay(text) {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length);
+    const objects = lines.map((l, i) => { try { return JSON.parse(l); } catch { throw new Error(`line ${i + 1} is not JSON`); } });
+    const header = objects.find((o) => o.type === "header");
+    if (!header || !String(header.format || "").startsWith("creatura.replay/")) throw new Error("this file is not a Creatura replay (no header line with format creatura.replay/1)");
+    const ticks = objects.filter((o) => o.type === "tick");
+    const end = objects.find((o) => o.type === "end") || null;
+    if (!ticks.length) throw new Error("the replay has no ticks");
+    return { header, ticks, end };
+  }
+
+  // ---------- colors from the theme tokens ----------
+  const palette = {};
+  function token(name) {
+    if (!(name in palette)) palette[name] = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return palette[name];
+  }
+  const freshPalette = () => { for (const key of Object.keys(palette)) delete palette[key]; };
+  const truckToken = ["--t1", "--t2", "--t3", "--gold-hi", "--good"];
+
+  // ---------- three.js scene ----------
+  const canvas = $("view");
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x223344, 0.85);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.75);
+  sun.position.set(-12, 22, 10);
+  scene.add(hemi, sun);
+
+  const SCALE = 3.4;
+  let world = null;            // { group, nodes: Map, roads: Map, trucks: Map, water, center }
+  let run = null;              // the parsed replay
+  let orbit = { az: -0.55, el: 0.92, dist: 30 };
+
+  function placeCamera() {
+    const c = world ? world.center : new THREE.Vector3();
+    camera.position.set(
+      c.x + orbit.dist * Math.cos(orbit.el) * Math.sin(orbit.az),
+      c.y + orbit.dist * Math.sin(orbit.el),
+      c.z + orbit.dist * Math.cos(orbit.el) * Math.cos(orbit.az));
+    camera.lookAt(c);
+  }
+
+  const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.75, metalness: 0.05, ...extra });
+
+  function buildWorld(header) {
+    if (world) scene.remove(world.group);
+    const group = new THREE.Group();
+    const xs = header.nodes.map((n) => n.x), ys = header.nodes.map((n) => n.y);
+    const center = new THREE.Vector3(((Math.min(...xs) + Math.max(...xs)) / 2) * SCALE, 0, -((Math.min(...ys) + Math.max(...ys)) / 2) * SCALE);
+    const pos = (n) => new THREE.Vector3(n.x * SCALE, 0, -n.y * SCALE);
+
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(140, 140, 1, 1), mat(token("--water"), { roughness: 0.25, metalness: 0.2 }));
+    water.rotation.x = -Math.PI / 2;
+    water.position.y = -0.18;
+    group.add(water);
+
+    const nodes = new Map();
+    for (const n of header.nodes) {
+      const p = pos(n);
+      const isle = new THREE.Mesh(new THREE.CylinderGeometry(n.kind === "junction" ? 0.9 : 1.5, n.kind === "junction" ? 1.1 : 1.8, 0.3, 28), mat(token("--land")));
+      isle.position.set(p.x, -0.05, p.z);
+      group.add(isle);
+      let marker, need = null;
+      if (n.kind === "depot") {
+        marker = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 1.0), mat(token("--gold")));
+        marker.position.set(p.x, 0.55, p.z);
+      } else if (n.kind === "village") {
+        marker = new THREE.Group();
+        const walls = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.55, 0.7), mat(token("--fg")));
+        walls.position.y = 0.37;
+        const roof = new THREE.Mesh(new THREE.ConeGeometry(0.66, 0.5, 4), mat(token("--danger"), { roughness: 0.9 }));
+        roof.position.y = 0.88; roof.rotation.y = Math.PI / 4;
+        marker.add(walls, roof);
+        marker.position.set(p.x - 0.3, 0, p.z);
+        need = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 1, 14), mat(token("--gold-hi"), { emissive: new THREE.Color(token("--gold")), emissiveIntensity: 0.25 }));
+        need.position.set(p.x + 0.65, 0.5, p.z + 0.2);
+        group.add(need);
+      } else {
+        marker = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16), mat(token("--muted")));
+        marker.position.set(p.x, 0.2, p.z);
+      }
+      group.add(marker);
+      nodes.set(n.id, { node: n, p, need, tag: tagFor(n.name, "place") });
+    }
+
+    const roads = new Map();
+    for (const r of header.roads) {
+      const a = nodes.get(r.a).p, b = nodes.get(r.b).p;
+      const length = a.distanceTo(b);
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, length), mat(token("--road")));
+      mesh.position.set((a.x + b.x) / 2, 0.05, (a.z + b.z) / 2);
+      mesh.lookAt(new THREE.Vector3(b.x, 0.05, b.z));
+      group.add(mesh);
+      // The lying road's stripes: shown only while it is flooded and still reports itself open.
+      const stripes = new THREE.Group();
+      const count = Math.max(3, Math.round(length / 0.9));
+      for (let i = 0; i < count; i++) {
+        const s = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.13, length / count / 2), mat(token("--danger"), { emissive: new THREE.Color(token("--danger")), emissiveIntensity: 0.4 }));
+        s.position.z = -length / 2 + (i + 0.5) * (length / count);
+        stripes.add(s);
+      }
+      stripes.position.copy(mesh.position); stripes.quaternion.copy(mesh.quaternion); stripes.visible = false;
+      group.add(stripes);
+      roads.set(r.id, { road: r, mesh, stripes, a, b, tag: tagFor("sensor: open", "warn") });
+    }
+
+    const trucks = new Map();
+    header.trucks.forEach((t, i) => {
+      const color = token(truckToken[i % truckToken.length]);
+      const body = new THREE.Group();
+      const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.22, 0.48), mat(color));
+      chassis.position.y = 0.28;
+      const cab = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.34, 0.46), mat(color, { roughness: 0.4 }));
+      cab.position.set(0.36, 0.55, 0);
+      const cargo = new THREE.Mesh(new THREE.BoxGeometry(0.58, 1, 0.42), mat(token("--fg")));
+      cargo.position.set(-0.14, 0.4, 0);
+      const flash = new THREE.Mesh(new THREE.RingGeometry(0.7, 0.9, 32), new THREE.MeshBasicMaterial({ color: new THREE.Color(token("--danger")), transparent: true, opacity: 0, side: THREE.DoubleSide }));
+      flash.rotation.x = -Math.PI / 2; flash.position.y = 0.2;
+      body.add(chassis, cab, cargo, flash);
+      group.add(body);
+      trucks.set(t.name, { spec: t, index: i, body, cargo, flash, color, tag: tagFor(t.name, "truck") });
+    });
+
+    const pulses = [];
+    scene.add(group);
+    world = { group, nodes, roads, trucks, water, center, pulses };
+    placeCamera();
+  }
+
+  // ---------- HTML labels over the canvas ----------
+  const labels = $("labels");
+  function tagFor(text, kind) {
+    const el = document.createElement("div");
+    el.className = `tag ${kind}`;
+    el.textContent = text;
+    labels.appendChild(el);
+    return el;
+  }
+  const v3 = new THREE.Vector3();
+  function placeTag(el, point, lift, show = true) {
+    if (!show) { el.hidden = true; return; }
+    v3.set(point.x, point.y + lift, point.z).project(camera);
+    if (v3.z > 1) { el.hidden = true; return; }
+    el.hidden = false;
+    el.style.left = `${(v3.x * 0.5 + 0.5) * canvas.clientWidth}px`;
+    el.style.top = `${(-v3.y * 0.5 + 0.5) * canvas.clientHeight}px`;
+  }
+
+  // ---------- playback state ----------
+  let index = 0;         // which tick frame is the destination (0 = before tick 1)
+  let progress = 1;      // 0..1 of the move into that frame
+  let playing = false;
+  let last = performance.now();
+
+  const frameAt = (i) => (i <= 0 ? null : run.ticks[i - 1]);
+  const startAt = (name) => run.header.trucks.find((t) => t.name === name)?.start ?? run.header.nodes[0].id;
+  function truckAt(i, name) {
+    const f = frameAt(i);
+    return f ? f.trucks.find((t) => t.name === name) : { name, at: startAt(name), fuel: run.header.trucks.find((t) => t.name === name).fuelCapacity, fuelBelieved: null, load: 0, state: "acting" };
+  }
+
+  const ease = (x) => (reduce ? 1 : x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
+
+  function slot(name, node, i) {
+    // Trucks at one place stand side by side rather than on top of each other.
+    const here = run.header.trucks.filter((t) => truckAt(i, t.name).at === node).map((t) => t.name);
+    const k = Math.max(0, here.indexOf(name));
+    return new THREE.Vector3((k - (here.length - 1) / 2) * 0.9, 0, 0.9);
+  }
+
+  function updateScene(now) {
+    if (!world || !run) return;
+    const frame = frameAt(index);
+    const events = frame ? frame.events : [];
+    const p = ease(progress);
+
+    // Roads: flooded roads sink and redden; the lying one stays the color of an open road, striped.
+    const closed = new Set(frame ? frame.closed : []);
+    const lying = lyingRoad();
+    for (const [id, r] of world.roads) {
+      const flooded = closed.has(id);
+      const lies = flooded && id === lying;
+      r.mesh.material.color.set(flooded && !lies ? token("--danger") : token("--road"));
+      r.mesh.position.y = flooded && !lies ? -0.08 : 0.05;
+      r.stripes.visible = lies;
+      if (lies) r.stripes.children.forEach((s, i) => (s.material.emissiveIntensity = reduce ? 0.4 : 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(now / 300 + i))));
+      placeTag(r.tag, r.a.clone().lerp(r.b, 0.5), 0.5, lies);
+    }
+
+    // Villages: the bar is what is still needed.
+    for (const [id, n] of world.nodes) {
+      placeTag(n.tag, n.p, n.node.kind === "village" ? 1.6 : 1.3);
+      if (!n.need) continue;
+      const left = frame ? frame.needs[id] ?? n.node.demand : n.node.demand;
+      const h = Math.max(0.02, (left / Math.max(1, n.node.demand)) * 1.8);
+      n.need.scale.y = h; n.need.position.y = h / 2;
+      n.need.material.color.set(left === 0 ? token("--good") : token("--gold-hi"));
+    }
+
+    // Trucks: from where they were to where they are, a lie as a lurch out and back.
+    for (const [name, t] of world.trucks) {
+      const before = truckAt(index - 1, name), after = truckAt(index, name);
+      const from = world.nodes.get(before.at).p.clone().add(slot(name, before.at, index - 1));
+      const to = world.nodes.get(after.at).p.clone().add(slot(name, after.at, index));
+      let at = from.clone().lerp(to, p);
+      const lie = events.find((e) => e.kind === "lie" && e.truck === name);
+      if (lie && progress < 1) {
+        const target = world.nodes.get(lie.to).p;
+        const out = Math.sin(Math.PI * Math.min(1, progress));
+        at = from.clone().lerp(target, 0.45 * out);
+      }
+      t.body.position.copy(at);
+      const heading = (lie ? world.nodes.get(lie.to).p : to).clone().sub(from);
+      if (heading.lengthSq() > 0.01) t.body.rotation.y = Math.atan2(-heading.z, heading.x);
+      const cap = t.spec.capacity || 1;
+      const load = progress < 0.5 ? before.load : after.load;
+      t.cargo.scale.y = Math.max(0.02, (load / cap) * 0.5); t.cargo.position.y = 0.39 + t.cargo.scale.y / 2;
+      const alarm = events.some((e) => e.truck === name && ["lie", "caught", "breakdown", "out-of-fuel"].includes(e.kind));
+      t.flash.material.opacity = alarm && !reduce ? 0.75 * (1 - progress) : alarm ? 0.5 : 0;
+      t.body.children[0].material.color.set(after.state === "broken" ? token("--muted") : t.color);
+      placeTag(t.tag, at, 1.25 + t.index * 0.55);
+    }
+
+    // The mesh: claims and reports as pulses between trucks; a lost one fades half way.
+    if (!reduce) {
+      for (const pulse of world.pulses) {
+        const a = world.trucks.get(pulse.from)?.body.position, b = world.trucks.get(pulse.to)?.body.position;
+        if (!a || !b) continue;
+        const k = Math.min(1, progress * 1.15);
+        pulse.mesh.position.copy(a).lerp(b, pulse.lost ? Math.min(0.5, k) : k);
+        pulse.mesh.position.y = 1.1 + Math.sin(Math.PI * k) * 1.2;
+        pulse.mesh.material.opacity = pulse.lost ? Math.max(0, 1 - k * 2) : 1 - Math.max(0, k - 0.85) * 6;
+      }
+    }
+
+    world.water.material.color.set(token("--water"));
+  }
+
+  function setPulses() {
+    for (const pulse of world.pulses) world.group.remove(pulse.mesh);
+    world.pulses.length = 0;
+    const frame = frameAt(index);
+    if (!frame) return;
+    for (const e of frame.events) {
+      if (!["message", "lost", "delayed"].includes(e.kind) || !e.to) continue;
+      const lost = e.kind === "lost";
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color(lost ? token("--danger") : token("--gold-hi")), transparent: true }));
+      world.group.add(mesh);
+      world.pulses.push({ from: e.truck, to: e.to, lost, mesh });
+    }
+  }
+
+  function lyingRoad() {
+    const fault = run.header.faults.find((f) => /sensor keeps reporting it open/.test(f));
+    if (!fault) return null;
+    const ev = run.ticks.flatMap((t) => t.events).find((e) => e.kind === "closure" && /keep reporting it open/.test(e.text));
+    return ev ? ev.road : null;
+  }
+
+  // ---------- the side panel ----------
+  const kindClass = { lie: "alarm", caught: "alarm", refused: "alarm", breakdown: "alarm", "out-of-fuel": "alarm", lost: "quiet", message: "quiet", delayed: "quiet", wasted: "alarm", done: "good", release: "good", closure: "alarm" };
+  const radio = new Set(["message", "delayed"]);
+
+  function renderStory() {
+    const story = $("story");
+    story.textContent = "";
+    run.ticks.forEach((t, i) => {
+      const shown = t.events.filter((e) => !radio.has(e.kind));
+      if (!shown.length) return;
+      const li = document.createElement("li");
+      li.className = "t";
+      li.dataset.index = i + 1;
+      const when = document.createElement("span");
+      when.className = "when";
+      when.textContent = `t${t.tick}`;
+      const body = document.createElement("div");
+      for (const e of shown) {
+        const p = document.createElement("p");
+        p.textContent = e.text;
+        if (kindClass[e.kind]) p.className = kindClass[e.kind];
+        body.appendChild(p);
+      }
+      const talk = t.events.filter((e) => radio.has(e.kind)).length;
+      if (talk) { const p = document.createElement("p"); p.className = "quiet"; p.textContent = `${talk} message${talk === 1 ? "" : "s"} on the mesh`; body.appendChild(p); }
+      li.append(when, body);
+      li.addEventListener("click", () => seek(i + 1));
+      story.appendChild(li);
+    });
+  }
+
+  function renderPanel() {
+    const frame = frameAt(index);
+    const tick = frame ? frame.tick : 0;
+    $("clockTick").textContent = `t${tick}`;
+    $("clockSub").textContent = tick === 0 ? "before the first tick" : `of ${run.header.maxTicks}`;
+    $("readout").textContent = `${tick} / ${run.ticks[run.ticks.length - 1].tick}`;
+    $("tick").value = index;
+
+    const trucks = $("trucks");
+    trucks.textContent = "";
+    run.header.trucks.forEach((spec, i) => {
+      const t = truckAt(index, spec.name);
+      const row = document.createElement("div");
+      row.className = "truck";
+      const gaugeLies = t.fuelBelieved != null && t.fuelBelieved !== t.fuel;
+      row.innerHTML = `
+        <span class="swatch" style="background: var(${truckToken[i % truckToken.length]})"></span>
+        <span><b></b> <span class="meta"></span></span>
+        <span class="pill ${t.state}">${t.state}</span>
+        <div class="gauges">
+          <span>fuel</span><span class="meter"><span class="fill" style="width:${(100 * t.fuel) / spec.fuelCapacity}%"></span>${gaugeLies ? `<span class="belief" style="left:${Math.min(100, (100 * t.fuelBelieved) / spec.fuelCapacity)}%" title="what the gauge reads"></span>` : ""}</span><span>${t.fuel}${gaugeLies ? ` (${t.fuelBelieved})` : ""}/${spec.fuelCapacity}</span>
+          <span>load</span><span class="meter"><span class="fill" style="width:${(100 * t.load) / spec.capacity}%"></span></span><span>${t.load}/${spec.capacity}</span>
+        </div>`;
+      row.querySelector("b").textContent = spec.name;
+      const place = run.header.nodes.find((n) => n.id === t.at)?.name ?? t.at;
+      row.querySelector(".meta").textContent = `${spec.design} · at ${place}${t.claim ? ` · holds ${run.header.nodes.find((n) => n.id === t.claim)?.name ?? t.claim}` : ""}`;
+      trucks.appendChild(row);
+    });
+
+    const villages = $("villages");
+    villages.textContent = "";
+    for (const v of run.header.nodes.filter((n) => n.kind === "village")) {
+      const left = frame ? frame.needs[v.id] ?? v.demand : v.demand;
+      const name = document.createElement("span"); name.className = "name"; name.textContent = v.name;
+      const meter = document.createElement("span"); meter.className = "meter"; meter.innerHTML = `<span class="fill" style="width:${(100 * left) / v.demand}%"></span>`;
+      const num = document.createElement("span"); num.className = `num${left === 0 ? " served" : ""}`; num.textContent = left === 0 ? "served" : `${left} of ${v.demand}`;
+      villages.append(name, meter, num);
+    }
+
+    let current = null;
+    for (const li of $("story").children) {
+      const i = Number(li.dataset.index);
+      li.classList.toggle("now", i === index);
+      li.classList.toggle("later", i > index);
+      if (i <= index) current = li;
+    }
+    if (current && playing) {
+      // Follow the story inside its own panel; never move the page.
+      const log = $("log");
+      const top = current.offsetTop - log.offsetTop;
+      if (top < log.scrollTop || top + current.offsetHeight > log.scrollTop + log.clientHeight) {
+        log.scrollTo({ top: Math.max(0, top - log.clientHeight + current.offsetHeight + 8), behavior: reduce ? "auto" : "smooth" });
+      }
+    }
+
+    const end = $("end");
+    end.textContent = "";
+    if (index === run.ticks.length && run.end) {
+      const box = document.createElement("div"); box.className = "end";
+      const head = document.createElement("p"); head.className = "eyebrow"; head.textContent = "What the judge read from the world";
+      box.appendChild(head);
+      for (const line of run.end.outcome) { const p = document.createElement("p"); p.textContent = line; box.appendChild(p); }
+      end.appendChild(box);
+    }
+  }
+
+  function renderMarks() {
+    const marks = $("marks");
+    marks.textContent = "";
+    const total = run.ticks.length;
+    const colors = { lie: "--danger", breakdown: "--danger", closure: "--t2", takeover: "--gold-hi", done: "--good" };
+    run.ticks.forEach((t, i) => {
+      const kind = ["done", "breakdown", "lie", "takeover", "closure"].find((k) => t.events.some((e) => e.kind === k));
+      if (!kind) return;
+      const mark = document.createElement("i");
+      mark.style.left = `${((i + 1) / total) * 100}%`;
+      mark.style.background = `var(${colors[kind]})`;
+      mark.title = `t${t.tick}: ${kind}`;
+      marks.appendChild(mark);
+    });
+  }
+
+  function load(replay, label) {
+    run = replay;
+    const h = run.header;
+    $("runEyebrow").textContent = /arm \w, seed \d+/.test(label) ? label : `${label} · arm ${h.arm} · seed ${h.seed}`;
+    $("runTitle").textContent = h.armText.charAt(0).toUpperCase() + h.armText.slice(1);
+    const faults = $("faults");
+    faults.textContent = "";
+    for (const f of h.faults) { const li = document.createElement("li"); li.textContent = f; faults.appendChild(li); }
+    labels.textContent = "";
+    buildWorld(h);
+    $("tick").max = run.ticks.length;
+    renderStory();
+    renderMarks();
+    $("error").hidden = true;
+    seek(0);
+    setPlaying(false);
+  }
+
+  function seek(i) {
+    index = Math.max(0, Math.min(run.ticks.length, i));
+    progress = 1;
+    setPulses();
+    renderPanel();
+  }
+
+  function setPlaying(on) {
+    playing = on && index < run.ticks.length;
+    $("play").textContent = playing ? "Pause" : index >= run.ticks.length ? "Replay" : "Play";
+  }
+
+  // ---------- controls ----------
+  $("play").addEventListener("click", () => {
+    if (index >= run.ticks.length) seek(0);
+    setPlaying(!playing);
+    last = performance.now();
+  });
+  $("back").addEventListener("click", () => { setPlaying(false); seek(index - 1); });
+  $("fwd").addEventListener("click", () => { setPlaying(false); seek(index + 1); });
+  $("tick").addEventListener("input", (e) => { setPlaying(false); seek(Number(e.target.value)); });
+  $("resetView").addEventListener("click", () => { orbit = { az: -0.55, el: 0.92, dist: 30 }; placeCamera(); });
+
+  const select = $("sample");
+  samples.forEach((s, i) => { const o = document.createElement("option"); o.value = i; o.textContent = s.label; select.appendChild(o); });
+  select.addEventListener("change", () => load(parseReplay(samples[Number(select.value)].replay), samples[Number(select.value)].label));
+
+  function openFile(file) {
+    file.text().then((text) => {
+      const replay = parseReplay(text);
+      const o = document.createElement("option"); o.value = "file"; o.textContent = file.name; select.appendChild(o); select.value = "file";
+      load(replay, file.name);
+    }).catch((err) => { const e = $("error"); e.textContent = `That file could not be opened: ${err.message}.`; e.hidden = false; });
+  }
+  $("file").addEventListener("change", (e) => { if (e.target.files[0]) openFile(e.target.files[0]); e.target.value = ""; });
+
+  let dropHint = null;
+  addEventListener("dragover", (e) => { e.preventDefault(); if (!dropHint) { dropHint = document.createElement("div"); dropHint.className = "drop"; dropHint.textContent = "Drop a replay to watch it"; document.body.appendChild(dropHint); } });
+  addEventListener("dragleave", (e) => { if (e.relatedTarget === null && dropHint) { dropHint.remove(); dropHint = null; } });
+  addEventListener("drop", (e) => { e.preventDefault(); dropHint?.remove(); dropHint = null; const f = e.dataTransfer.files[0]; if (f) openFile(f); });
+
+  addEventListener("keydown", (e) => {
+    if (e.target.closest("select, input")) return;
+    if (e.key === " ") { e.preventDefault(); $("play").click(); }
+    if (e.key === "ArrowRight") $("fwd").click();
+    if (e.key === "ArrowLeft") $("back").click();
+  });
+
+  // Drag to turn the valley, wheel or pinch to come closer.
+  const pointers = new Map();
+  let pinch = 0;
+  canvas.addEventListener("pointerdown", (e) => { canvas.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY }); });
+  canvas.addEventListener("pointerup", (e) => { pointers.delete(e.pointerId); pinch = 0; });
+  canvas.addEventListener("pointercancel", (e) => { pointers.delete(e.pointerId); pinch = 0; });
+  canvas.addEventListener("pointermove", (e) => {
+    const prev = pointers.get(e.pointerId);
+    if (!prev) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch) orbit.dist = Math.min(70, Math.max(12, orbit.dist * (pinch / d)));
+      pinch = d;
+    } else {
+      orbit.az -= (e.clientX - prev.x) * 0.006;
+      orbit.el = Math.min(1.45, Math.max(0.2, orbit.el + (e.clientY - prev.y) * 0.005));
+    }
+    placeCamera();
+  });
+  canvas.addEventListener("wheel", (e) => { e.preventDefault(); orbit.dist = Math.min(70, Math.max(12, orbit.dist * (1 + e.deltaY * 0.001))); placeCamera(); }, { passive: false });
+
+  function resize() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(canvas);
+
+  // The 3D colors come from the theme: rebuild when it changes.
+  const rebuild = () => { freshPalette(); if (run) { const i = index; labels.textContent = ""; buildWorld(run.header); seek(i); } };
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", rebuild);
+  new MutationObserver(rebuild).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  function loop(now) {
+    const speed = Number($("speed").value);
+    if (playing && run) {
+      progress += ((now - last) / 1000) * speed;
+      if (progress >= 1) {
+        if (index < run.ticks.length) { index++; progress = 0; setPulses(); renderPanel(); }
+        if (index >= run.ticks.length) { progress = 1; setPlaying(false); renderPanel(); }
+      }
+    }
+    last = now;
+    renderer.setClearColor(new THREE.Color(token("--water")));
+    updateScene(now);
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  }
+
+  resize();
+  load(parseReplay(samples[0].replay), samples[0].label);
+  requestAnimationFrame(loop);
+})();
+</script>

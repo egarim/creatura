@@ -78,6 +78,9 @@ public sealed record Vessel
     /// <summary>The machine the process runs on (a host name, a device).</summary>
     public string? Machine { get; init; }
 
+    /// <summary>The physical machine the creatura drives, when it drives one (a truck in a scenario); null for a computer-only vessel.</summary>
+    public PhysicalMachine? Physical { get; init; }
+
     /// <summary>The operating system of that machine.</summary>
     public string? Os { get; init; }
 
@@ -101,8 +104,32 @@ public sealed record Vessel
         var model = Model ?? "unknown model";
         var head = figures.Count == 0 ? model : $"{model} ({string.Join(", ", figures)})";
         var place = new[] { Machine, Os, Network }.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
-        return place.Count == 0 ? head : $"{head} on {string.Join(", ", place)}";
+        var on = place.Count == 0 ? head : $"{head} on {string.Join(", ", place)}";
+        return Physical is null ? on : $"{on}, driving {Physical.Render()}";
     }
 
     public override string ToString() => Render();
+}
+
+/// <summary>
+/// A physical machine a creatura drives (docs/design-machine-vessels.md): what it is, what it carries, how far it goes,
+/// and what it can sense. The specification only: where the machine is and how much fuel it has belong to the world,
+/// which is the truth, and the creatura knows them only as its sensors report them.
+/// </summary>
+public sealed record PhysicalMachine(string Kind)
+{
+    /// <summary>How many units of cargo it carries.</summary>
+    public int Capacity { get; init; }
+
+    /// <summary>How much fuel a full tank holds, in steps of travel.</summary>
+    public int FuelCapacity { get; init; }
+
+    /// <summary>Fuel spent per road travelled.</summary>
+    public int FuelPerStep { get; init; } = 1;
+
+    /// <summary>What it senses: "position", "fuel", "roads" and so on.</summary>
+    public IReadOnlyList<string> Sensors { get; init; } = [];
+
+    public string Render() => $"a {Kind} (carries {Capacity}, fuel for {FuelCapacity / Math.Max(1, FuelPerStep)} roads"
+        + (Sensors.Count > 0 ? $", senses {string.Join(", ", Sensors)}" : "") + ")";
 }

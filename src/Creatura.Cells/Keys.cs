@@ -102,6 +102,9 @@ public sealed class OwnerKey : IDisposable
 
     public string Fingerprint => _key.Fingerprint;
 
+    /// <summary>A new owner key held only in memory, for a scenario that endorses its own cells and writes nothing to disk.</summary>
+    public static OwnerKey Generate() => new(CellKey.Generate());
+
     public static OwnerKey Load(string path) => new(CellKey.Load(path));
 
     public static OwnerKey LoadOrCreate(string path, out bool created) => new(CellKey.LoadOrCreate(path, out created));

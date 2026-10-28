@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Scenarios where several creaturas drive machines in one shared world and coordinate through their cells'
+       ledgers over an in-memory mesh (docs/design-machine-vessels.md). No package references. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Creatura.Scenarios</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Creatura\Creatura.csproj" />
+    <ProjectReference Include="..\Creatura.Cells\Creatura.Cells.csproj" />
+    <ProjectReference Include="..\Creatura.Bench\Creatura.Bench.csproj" />
+  </ItemGroup>
+
+</Project>

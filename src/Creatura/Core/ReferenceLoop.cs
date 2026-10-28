@@ -82,6 +82,7 @@ public sealed class ReferenceLoop : IAgent
         for (var tick = 1; tick <= maxTicks; tick++)
         {
             lastTick = tick;
+            (world as ITickedWorld)?.BeginTick(tick);
             layer.BeginTick();
             ctx.Tick = tick;
             var tctx = new TickContext

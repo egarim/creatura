@@ -56,6 +56,16 @@ public interface IWorld : IWorldView
     ActionOutcome Act(string toolId, string? payload = null);
 }
 
+/// <summary>
+/// A world that wants to know when each tick of the loop begins: a shared world with several machines in it uses it to
+/// give each machine's loop its turn (docs/design-machine-vessels.md). The loop calls it first thing in every tick,
+/// before anything else happens; a world that does not implement it is untouched.
+/// </summary>
+public interface ITickedWorld : IWorld
+{
+    void BeginTick(int tick);
+}
+
 /// <summary>A world that can give an independent copy of itself, for a habitat to isolate (<see cref="IHabitat.Isolate"/>).</summary>
 public interface ICloneableWorld : IWorld
 {

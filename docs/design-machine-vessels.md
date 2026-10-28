@@ -1,6 +1,6 @@
 # Design: machine vessels acting together
 
-Status: proposed, 2026-10-28. Nothing here is built.
+Status: built 2026-10-28; first battery run below.
 
 ## The idea, in the owner's words
 
@@ -61,7 +61,7 @@ Each machine is a cell, with a key, a ledger and a place on the in-memory mesh. 
 the mesh into the loop. At the start of each tick it merges what arrived. It shows the machine, as facts in its view,
 which deliveries others have claimed, how far each has got, and which claims went quiet. The ledger only says who
 claimed what. What a machine does about it is its regulator's choice, plus one shared rule (decision D5): a claim
-with no progress or heartbeat for K ticks may be taken over.
+with no progress or heartbeat for K ticks may be taken over, by a new claim that names it.
 
 The in-memory mesh learns to drop and delay messages from the seed, so the link can be as bad as a real convoy's
 radio.
@@ -90,7 +90,7 @@ did not receive count as **claimed**, never as **delivered**.
 | B | the designs, one per truck: Levin's colony, Bach's self-model, Peterson's map keeper | shared | perfect |
 | C | the plain loop | none: each truck alone | — |
 | D | the plain loop | shared | 30% of messages lost, some late |
-| E | the plain loop | shared | perfect, and one truck breaks down at tick 20 |
+| E | the plain loop | shared | perfect, and one truck breaks down at tick 8 |
 
 Each arm runs over the same 50 seeds.
 
@@ -102,9 +102,32 @@ Each arm runs over the same 50 seeds.
 | D2 | the size | 3 trucks, 4 villages, ~12 roads; bigger | **3, 4 and ~12** first; bigger only after the hypotheses have verdicts |
 | D3 | who decides for each truck | offline planners only; real models in some seats | **offline planners** for every gated run. Model seats are a separate, optional arm, because they cost money per tick |
 | D4 | where the machine's description lives | a `Machine` half on the vessel; a separate record on the world | **on the vessel**, beside the model half, so a regulator can read its own machine as it reads its own model |
-| D5 | taking over a quiet claim | never; after K ticks without progress or heartbeat | **after K = 5 ticks**, as a rule of the coordination extension, written to the ledger as a handoff |
+| D5 | taking over a quiet claim | never; after K ticks without progress or heartbeat | **after K = 5 ticks**, as a rule of the trucks' planner, written to the ledger as a new claim naming the quiet one |
 | D6 | what counts as success | delivered against demand, deliveries made twice, trucks stranded, lies believed, ticks | **all five**, with delivered judged only by the world |
 | D7 | where it runs | the in-memory mesh only; also across the laptop and the second machine through the hub | **in memory** first; the hub version later, as its own step |
+
+Decided by the owner, 2026-10-28: every recommendation (D1 the convoy, D2 3 trucks, 4 villages and about 12 roads,
+D3 offline planners, D4 the machine on the vessel, D5 takeover after 5 quiet ticks, D6 all five measures, D7 in memory
+first). The owner also asked for a way to watch a run as a story, in three.js or anything else that helps: see
+"Watching a run".
+
+Corrections made while building, before the code:
+- **A takeover is a new claim.** Only the cell that made a claim can sign its handoff, so a truck taking over a quiet
+  claim writes a claim of its own that names the quiet one.
+- **The mesh is the scenario's own.** Seeded, in-memory delivery with loss and delay between the trucks' ledgers,
+  rather than changes to `InProcessCellHub`, which other tests rely on.
+- **"Byte for byte" is the run's story.** Cell keys and ECDSA signatures are random, so the signed ledger differs
+  between two runs of one seed. What M6 compares is the replay: positions, fuel, loads, actions, verdicts, deliveries,
+  messages. Ties between trucks go by truck name, never by cell id.
+- **The trucks' planner understands position.** The Core's breadth-first planner assumes facts only accumulate, which
+  a moving truck breaks: it is no longer at the depot once it leaves. The trucks get an offline planner of their own
+  that knows roads, fuel and loads. The control layer and the designs wrap it unchanged.
+- **A bigger flood.** The first smoke run had every village served by tick 12, before the breakdown at tick 20 and
+  before most closures mattered, so nothing was tested. Demand went from 18 to 30 units (two trips for every truck),
+  closures to ticks 2 to 10, and the breakdown to tick 8, while the broken truck still holds a claim.
+- **The hypotheses are experiments, not unit tests.** The tests check the mechanics (the world as truth, the lying
+  road caught, determinism, ledgers converging). M1 to M7 get verdicts from a battery run, reported as found, whether
+  they hold or fail.
 
 ## Pre-registered hypotheses, stated before the code
 
@@ -126,7 +149,64 @@ M7 is the one the framework is for, and the one most likely to fail. It is state
 2. `Scenario`, the scheduler, with the seed and the golden traces (M6).
 3. Message drop and delay in the in-memory mesh, and the coordination extension with the takeover rule.
 4. The oracle and arms A to E as a battery, with M1 to M7 scored per arm.
-5. A plain-text replay of a run: each tick, where each truck is, what it believed, what was true.
+5. The replay: each tick, where each truck is, what it believed, what was true, what was said on the mesh.
+6. A viewer that plays a replay back as a story.
+
+## Watching a run
+
+The scenario writes a **replay**: one JSON line for the map and the trucks, then one line per tick with every truck's
+true and believed state, the events of the tick (actions and their verdicts, claims, deliveries, closures, lies
+caught, messages lost) and a sentence for each event. Anything that reads JSON lines can show a run. The format is
+the interface for UIs, documented in `docs/replay-format.md`, and an observer interface lets a UI follow a run live.
+
+The first viewer is a three.js page: the map in 3D, trucks moving along the roads, closed roads in red, the lying road
+shown as what it claims, the mesh's messages as pulses between trucks, a timeline to scrub, and the story told tick by
+tick beside it.
+
+## Results of the first battery (2026-10-28)
+
+Five arms, 50 seeds each, 250 runs in about 25 seconds, judged from the world alone.
+
+| arm | delivered | wasted trips | lies acted on | second tries on a lying road | stranded | served by tick (average) |
+|---|---|---|---|---|---|---|
+| A plain loop, ledger | 1,406 / 1,500 | 0 | 262 | 210 | 6 | 24.4 |
+| B one design per truck | 1,423 / 1,500 | 0 | 279 | 225 | 6 | 25.9 |
+| C no ledger | 1,430 / 1,500 | 290 | 407 | 321 | 6 | 18.1 |
+| D ledger, 30% loss | 1,441 / 1,500 | 111 | 405 | 320 | 5 | 26.7 |
+| E ledger, a breakdown | 1,429 / 1,500 | 0 | 207 | 150 | 6 | 25.0 |
+
+| | verdict | what it rests on |
+|---|---|---|
+| M1 | **held** | wasted trips 0 with a ledger, 290 without |
+| M2 | **failed** | delivered 1,406 with a ledger, 1,430 without |
+| M3 | **failed** | 905 second tries on a lying road over the arms with a ledger |
+| M4 | **held** | ledgers identical after the final sync in 50 of 50 runs; wasted trips 111 with loss, 290 without a ledger |
+| M5 | **failed** | 15 of 50 runs ended with a village unserved and a working truck idle |
+| M6 | **held** | six runs of seed 0 matched in every arm |
+| M7 | **failed** | the designs delivered more (1,423 against 1,406) but acted on more lies (279 against 262) |
+
+Why the failures happened, read from the stories of the runs:
+- **A stuck truck keeps its claim (M2, M5).** A truck that holds a village's claim and cannot reach it keeps trying
+  and keeps talking, so its claim never goes quiet, and the other trucks wait for it until the run ends. The takeover
+  rule covers a truck that falls silent, not one that is alive and stuck. Without a ledger, nobody waits for anybody:
+  more trips are wasted, but more gets delivered, and sooner.
+- **The control layer distrusts a tool, not the road (M3).** It sets a lying tool aside for a cooldown and then
+  trusts it again, and each direction of a road is a different tool. A road that lies for the whole run is tried
+  again and again.
+- **A lying fuel gauge strands a truck (M2, M5).** The truck believes it has fuel and runs dry. Under the designs'
+  setting the control layer judges by the registry alone (`JudgeRule.TwoWay`), so its failed drives count as lies,
+  and it keeps its claim.
+- **The designs did not do better than the plain loop (M7).** They delivered a little more and acted on a little
+  more lies: none of them turns "this tool lied" into "this road is flooded".
+
+One bug was found and fixed before these figures: two delivery reports of the same tick were taken in the ledger's
+order, which ties on random cell ids, so arm D was not repeatable. The determinism test now compares six runs of a
+seed, because two runs agreed by chance.
+
+What would change the failures, for a later version, each to be tested as a new arm rather than folded into these:
+- a takeover rule on "no delivery progress for K ticks", not only on silence;
+- distrust keyed by what a tool touches (the road), not by the tool's id;
+- a truck that hands off its claim when it finds itself stranded.
 
 ## What this note does not cover
 

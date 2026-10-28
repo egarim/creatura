@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **Machine vessels acting together** ([docs/design-machine-vessels.md](docs/design-machine-vessels.md)). The Core
+  gains `PhysicalMachine` on `Vessel.Physical`, and `ITickedWorld`, a hook the loop calls at the start of every tick
+  (no existing world implements it; the golden traces are unchanged). `src/Creatura.Scenarios` holds the convoy:
+  - `ConvoyWorld` is the truth, and each truck acts on a `TruckView` whose sensors can lie;
+  - the trucks' own offline planner (`ConvoyPolicy`);
+  - turn-taking that steps three `ReferenceLoop`s one tick at a time;
+  - a seeded in-memory mesh with loss and delay between the trucks' ledgers;
+  - claims, takeovers and delivery reports;
+  - a judge that reads the world only, and a battery over arms A to E.
+
+  The first battery: M1, M4 and M6 held; M2, M3, M5 and M7 failed, each with its cause in the design note.
+  `samples/Convoy` runs one story or the battery. The **replay** is the interface for UIs: JSON lines described in
+  [docs/replay-format.md](docs/replay-format.md), with `IScenarioObserver` for following a run live.
+  `tools/convoy-viewer/index.html` is a three.js viewer with four sample runs built in.
+- The project icon, `docs/assets/creatura-icon.svg`.
+
 - **Shared files** ([docs/design-shared-files.md](docs/design-shared-files.md)). Each cell gets an encryption key
   (`CellCipher`, ECDH P-256), announced in its hello. `SharedFiles` seals a file with a fresh AES-256-GCM key, and
   the name and type separately in a label, then wraps the key for each recipient. That is every endorsed, unrevoked
