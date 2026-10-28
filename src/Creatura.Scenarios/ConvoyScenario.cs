@@ -90,6 +90,7 @@ public sealed class ConvoyScenario(ConvoySetup setup)
         var cells = new List<LocalCell>();
         var views = new List<TruckView>();
         var agents = new List<(ReferenceLoop Loop, StoryExtension Story)>();
+        var definitions = new Dictionary<string, AgentDefinition>(StringComparer.Ordinal);
         foreach (var spec in Setup.Trucks)
         {
             LocalCell? cell = null;
@@ -108,14 +109,16 @@ public sealed class ConvoyScenario(ConvoySetup setup)
             var view = new TruckView(world, world.Truck(spec.Name), Setup, cell, ledger, mesh);
             views.Add(view);
             var story = new StoryExtension(world, spec.Name);
-            agents.Add((Loop(spec, story), story));
+            var built = Build(spec, story);
+            definitions[spec.Name] = built.Definition;
+            agents.Add((built.Loop, story));
         }
 
         try
         {
             foreach (var view in views) view.Introduce();
 
-            var header = Header(cells);
+            var header = Header(cells, definitions);
             observer?.Start(header);
             var ticks = new List<ReplayTick>();
             var runs = agents.Select((a, i) => Task.Run(() => a.Loop.RunAsync(views[i], Setup.MaxTicks, cancellationToken), cancellationToken)).ToList();
@@ -181,21 +184,72 @@ public sealed class ConvoyScenario(ConvoySetup setup)
         }
     }
 
-    private ReferenceLoop Loop(TruckSpec spec, StoryExtension story)
+    private ReferenceLoop Loop(TruckSpec spec, StoryExtension story) => Build(spec, story).Loop;
+
+    /// <summary>The agent for one truck and its definition for people, from one switch so the two always agree.</summary>
+    internal (ReferenceLoop Loop, AgentDefinition Definition) Build(TruckSpec spec, StoryExtension story)
     {
         var task = ConvoyTask.For(Setup.Map);
         var policy = new ConvoyPolicy(Setup.Map, spec.Machine);
         var options = Setup.DistrustRoads ? AgentOptions.With(story, new RoadDistrustExtension(_world!, spec.Name)) : AgentOptions.With(story);
         var vessel = new Vessel { Model = "convoy-planner", Physical = spec.Machine };
-        return spec.Design switch
+        var m = spec.Machine;
+        var variable = spec.Name.ToLowerInvariant().Replace(" ", "", StringComparison.Ordinal);
+        var extensions = new List<string> { "StoryExtension: tells the replay about every action the control layer judged a lie" };
+        if (Setup.DistrustRoads) extensions.Add("RoadDistrustExtension: a road caught lying is avoided both ways for the rest of the run");
+
+        const string designLayer = "ControlLayerOptions.Design: an action whose effect did not land counts as a lie, whatever the tool reported (two-way judge); a tool judged a lie is set aside for 3 ticks, then trusted again; honest failures are habituated";
+        (ReferenceLoop Loop, string Title, string About, string Regulator, string Layer, string LayerCode) made = spec.Design switch
         {
-            "levin" => new ReferenceLoop(new ColonyRegulator(Identity.Levin with { Vessel = vessel }, leak: 0.5), policy, task, options,
-                ControlLayerOptions.Design with { ClearQuarantineOnNoRoute = true }, spec.Name),
-            "bach" => new ReferenceLoop(new SelfModelRegulator(Identity.Bach with { Vessel = vessel }, stage: 3), policy, task, options, name: spec.Name),
-            "peterson" => new ReferenceLoop(new MapKeeperRegulator(Identity.MapKeeper with { Vessel = vessel }), policy, task, options,
-                ControlLayerOptions.Design with { JudgeRule = JudgeRule.ReportFirst }, spec.Name),
-            _ => new ReferenceLoop(new PlainRegulator(new Identity("truck driver", "joche") { Vessel = vessel }), policy, task, options, name: spec.Name),
+            "levin" => (new ReferenceLoop(new ColonyRegulator(Identity.Levin with { Vessel = vessel }, leak: 0.5), policy, task, options,
+                    ControlLayerOptions.Design with { ClearQuarantineOnNoRoute = true }, spec.Name),
+                "Levin's colony",
+                "Nested homeostatic controllers with no self-model: stress from unfinished work leaks between cell, tissue and organism, and the more error, the more freedom to try things. When no route is left, the tools it had set aside come back.",
+                "new ColonyRegulator(Identity.Levin with { Vessel = vessel }, leak: 0.5)",
+                designLayer + "; plus: quarantine is cleared when no route is left",
+                "ControlLayerOptions.Design with { ClearQuarantineOnNoRoute = true }"),
+            "bach" => (new ReferenceLoop(new SelfModelRegulator(Identity.Bach with { Vessel = vessel }, stage: 3), policy, task, options, name: spec.Name),
+                "Bach's self-model",
+                "Keeps a model of its own skills that it reads before acting; its error is incoherence between what it believes and what happens, and a contradiction quarantines the belief. Its right to act is staged (stage 3 here).",
+                "new SelfModelRegulator(Identity.Bach with { Vessel = vessel }, stage: 3)",
+                designLayer,
+                "ControlLayerOptions.Design"),
+            "peterson" => (new ReferenceLoop(new MapKeeperRegulator(Identity.MapKeeper with { Vessel = vessel }), policy, task, options,
+                    ControlLayerOptions.Design with { JudgeRule = JudgeRule.ReportFirst }, spec.Name),
+                "Peterson's map keeper",
+                "Acts from a stack of stories about what is and how to act; reads every surprise as an anomaly, goes toward it once before revising its map, and lets a broken story hand its problem up a level.",
+                "new MapKeeperRegulator(Identity.MapKeeper with { Vessel = vessel })",
+                "ControlLayerOptions.Design, judging report first: a reported failure is an honest failure, and only a reported success with nothing landed is a lie; a tool judged a lie is set aside for 3 ticks, then trusted again; honest failures are habituated",
+                "ControlLayerOptions.Design with { JudgeRule = JudgeRule.ReportFirst }"),
+            _ => (new ReferenceLoop(new PlainRegulator(new Identity("truck driver", "joche") { Vessel = vessel }), policy, task, options, name: spec.Name),
+                "The plain loop",
+                "Fills none of the regulator's slots, so the truck runs on the control layer alone: only visible tools are offered, every action is checked against the world, and a tool that lies is set aside.",
+                "new PlainRegulator(new Identity(\"truck driver\", \"joche\") { Vessel = vessel })",
+                designLayer,
+                "ControlLayerOptions.Design"),
         };
+
+        var extensionCode = Setup.DistrustRoads
+            ? $"AgentOptions.With(new StoryExtension(world, \"{spec.Name}\"), new RoadDistrustExtension(world, \"{spec.Name}\"))"
+            : $"AgentOptions.With(new StoryExtension(world, \"{spec.Name}\"))";
+        var csharp = $$"""
+            // {{spec.Name}}: {{made.Title}}, arm {{Setup.Arm}} (src/Creatura.Scenarios/ConvoyScenario.cs, Build)
+            var machine = new PhysicalMachine("truck") { Capacity = {{m.Capacity}}, FuelCapacity = {{m.FuelCapacity}}, FuelPerStep = {{m.FuelPerStep}} };
+            var vessel = new Vessel { Model = "convoy-planner", Physical = machine };
+            var {{variable}} = new ReferenceLoop(
+                regulator: {{made.Regulator}},
+                policy: new ConvoyPolicy(map, machine),      // the offline planner: no language model is called
+                task: ConvoyTask.For(map),                   // deliver to every village; done on "convoy.done"
+                options: {{extensionCode}},
+                layer: {{made.LayerCode}},
+                name: "{{spec.Name}}");
+            var run = await {{variable}}.RunAsync(new TruckView(world, world.Truck("{{spec.Name}}"), setup, cell, ledger, mesh), maxTicks: {{Setup.MaxTicks}});
+            """;
+        var definition = new AgentDefinition(spec.Design, made.Title, made.Loop.Regulator.GetType().Name, made.About,
+            "convoy-planner: an offline planner that knows roads, fuel and loads, and believes its sensors",
+            "none: no language model is called in this scenario (decision D3)",
+            made.Layer, extensions, csharp);
+        return (made.Loop, definition);
     }
 
     private static string StopReason(AgentRun run)
@@ -205,7 +259,7 @@ public sealed class ConvoyScenario(ConvoySetup setup)
         return last is null ? "its loop ended" : $"{last.Action} ({last.Detail})".Trim();
     }
 
-    private ReplayHeader Header(IReadOnlyList<LocalCell> cells)
+    private ReplayHeader Header(IReadOnlyList<LocalCell> cells, IReadOnlyDictionary<string, AgentDefinition> definitions)
     {
         var map = Setup.Map;
         var faults = new List<string>();
@@ -226,9 +280,35 @@ public sealed class ConvoyScenario(ConvoySetup setup)
         return new ReplayHeader("convoy", Setup.Seed, Setup.Arm.ToString(), Setup.ArmText, Setup.MaxTicks,
             map.Nodes.Select(n => new ReplayNode(n.Id, n.Name, n.X, n.Y, n.Kind.ToString().ToLowerInvariant(), n.Demand)).ToList(),
             map.Roads.Select(r => new ReplayRoad(r.Id, r.A, r.B)).ToList(),
-            Setup.Trucks.Select(t => new ReplayTruck(t.Name, cells.FirstOrDefault(c => c.Name == t.Name)?.Id ?? "", t.Design, t.Machine.Capacity, t.Machine.FuelCapacity, map.Depot)).ToList(),
-            faults);
+            Setup.Trucks.Select(t => new ReplayTruck(t.Name, cells.FirstOrDefault(c => c.Name == t.Name)?.Id ?? "", t.Design, t.Machine.Capacity, t.Machine.FuelCapacity, map.Depot)
+                { Agent = definitions.GetValueOrDefault(t.Name) }).ToList(),
+            faults)
+        {
+            Goal = $"Deliver {map.Villages.Sum(v => v.Demand)} units of supplies from the depot to four villages cut off by a flood "
+                + $"({string.Join(", ", map.Villages.Select(v => $"{v.Name} {v.Demand}"))}), with three trucks, in {Setup.MaxTicks} ticks. "
+                + "Each truck is a Creatura agent that decides one move per tick: where to drive, when to load, refuel and unload"
+                + (Setup.Ledger ? ", and which village to claim on the shared ledger so no two trucks do the same job." : ". Without a ledger, no truck knows what the others are doing."),
+            Success = "The run succeeds when every village has what it needs. The judge reads only the world: supplies a truck reports but that never arrived do not count. It also counts wasted trips (a truck arriving at a village already served), lies acted on (the flooded road that reports itself open, the fuel gauge that reads high) and trucks stranded without fuel.",
+            ArmPurpose = Purpose(Setup.Arm),
+        };
     }
+
+    /// <summary>What each arm is in the battery for.</summary>
+    public static string Purpose(ConvoyArm arm) => arm switch
+    {
+        ConvoyArm.A => "The baseline: the framework's plain loop in every truck, coordinating through a shared ledger.",
+        ConvoyArm.B => "Tests M7: does giving each truck one of the biological designs do better than the plain loop?",
+        ConvoyArm.C => "The control for the ledger (M1, M2): the same trucks with no ledger, each working alone.",
+        ConvoyArm.D => "Tests M4: does the ledger still hold when the radio loses 30% of its messages?",
+        ConvoyArm.E => "Tests M5: when a truck breaks down holding a claim, does another take its village?",
+        ConvoyArm.G => "Tests N1, a fix: a claim with no delivery for 12 ticks may be taken over.",
+        ConvoyArm.H => "Tests N2, a fix: a road caught lying is avoided both ways for the rest of the run.",
+        ConvoyArm.I => "Tests N3, a fix: a truck that runs out of fuel hands back its claim.",
+        ConvoyArm.J => "Tests N4: all three fixes together, against the trucks with no ledger.",
+        ConvoyArm.K => "Tests N5: all three fixes together, with a truck breaking down at tick 8.",
+        ConvoyArm.L => "Tests N6: all three fixes together, with one biological design per truck.",
+        _ => arm.ToString(),
+    };
 
     private static ReplayTick Frame(ConvoyWorld world) => new(
         world.Tick,

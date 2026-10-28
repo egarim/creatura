@@ -134,6 +134,39 @@ select, .btn {
 .drop { position: fixed; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 85%, transparent); font-family: var(--display); font-size: 32px; z-index: 20; }
 .error { color: var(--danger); font-size: 13px; }
 
+.about { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.about > summary { cursor: pointer; padding: 10px 14px; list-style: none; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.about > summary::-webkit-details-marker { display: none; }
+.about > summary::before { content: "▸"; color: var(--gold); transition: transform .15s; }
+.about[open] > summary::before { transform: rotate(90deg); }
+.about > summary b { font-family: var(--display); font-weight: 400; font-size: 19px; }
+.about > summary span { color: var(--muted); font-size: 13px; }
+.about-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 20px; padding: 0 14px 14px; }
+.about-grid h3 { margin: 0 0 4px; font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-hi); }
+.about-grid p { margin: 0; max-width: 62ch; font-size: 13.5px; }
+.seatchip { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--gold); color: var(--gold-hi); white-space: nowrap; }
+.agentbtn { background: none; border: 0; padding: 0; color: var(--gold-hi); text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; font-size: 12px; }
+.agentbtn:hover { color: var(--fg); }
+.same { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+dialog.def { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--fg); padding: 0; }
+dialog.def::backdrop { background: color-mix(in srgb, var(--bg) 70%, transparent); }
+.def-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; padding: 14px 16px 6px; }
+.def-head h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 26px; line-height: 1.1; }
+.def-head p { margin: 2px 0 0; color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.def-body { padding: 4px 16px 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.def-body > p { margin: 0; max-width: 64ch; }
+.def-table { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 6px 12px; font-size: 13px; }
+.def-table dt { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding-top: 2px; }
+.def-table dd { margin: 0; min-width: 0; }
+.def-table code { font-family: var(--mono); font-size: 12px; color: var(--gold-hi); }
+.code { position: relative; min-width: 0; }
+.code pre { margin: 0; padding: 12px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.55; }
+.code .copy { position: absolute; top: 8px; right: 8px; font-size: 12px; padding: 3px 9px; }
+.code .kw { color: var(--t2); }
+.code .str { color: var(--t3); }
+.code .com { color: var(--muted); font-style: italic; }
+.code .ty { color: var(--gold-hi); }
+
 @media (max-width: 900px) {
   html, body { height: auto; }
   .stage { grid-template-columns: minmax(0, 1fr); }
@@ -153,10 +186,21 @@ select, .btn {
   <div class="pick">
     <label class="sr" for="sample">Run</label>
     <select id="sample"></select>
+    <span class="seatchip" title="What decides each truck's moves">offline planner · no language model</span>
     <label class="btn" for="file">Open a replay…</label>
     <input id="file" type="file" accept=".jsonl,.json,.txt">
   </div>
 </header>
+
+<details class="about" id="about" open>
+  <summary><b>About this run</b><span id="aboutLine">What the trucks are trying to do, and what decides for them</span></summary>
+  <div class="about-grid">
+    <div><h3>The goal</h3><p id="goal"></p></div>
+    <div><h3>What counts as success</h3><p id="success"></p></div>
+    <div><h3>What this run tests</h3><p id="purpose"></p></div>
+    <div><h3>Who decides</h3><p id="decides">Each truck is a Creatura agent: a <code>ReferenceLoop</code> with a regulator (its design) and the control layer, which checks every action against the world and sets aside tools that lie. No language model is used here. An offline planner picks each move, knowing the roads, its fuel and its load, and believing its sensors. Open a truck's agent below to see exactly how it is built.</p></div>
+  </div>
+</details>
 
 <main class="stage">
   <section class="scene" aria-label="The flooded valley, in 3D">
@@ -177,7 +221,7 @@ select, .btn {
       <h2 id="runTitle">Loading…</h2>
       <ul id="faults"></ul>
     </div>
-    <div class="card"><p class="eyebrow">Trucks</p><div class="trucks" id="trucks"></div></div>
+    <div class="card"><p class="eyebrow">Trucks · the agents driving them</p><div class="trucks" id="trucks"></div><p class="same" id="same"></p></div>
     <div class="card"><p class="eyebrow">Villages · units still needed</p><div class="villages" id="villages"></div></div>
     <div class="card log" id="log" aria-label="The story, tick by tick"><ol id="story"></ol><div id="end"></div></div>
   </aside>
@@ -194,6 +238,26 @@ select, .btn {
   </label>
 </footer>
 <p class="error" id="error" hidden></p>
+
+<dialog class="def" id="def" aria-labelledby="defTitle">
+  <div class="def-head">
+    <div><h2 id="defTitle"></h2><p id="defSub"></p></div>
+    <button class="btn" id="defClose" type="button">Close</button>
+  </div>
+  <div class="def-body">
+    <p id="defAbout"></p>
+    <dl class="def-table">
+      <dt>Regulator</dt><dd><code id="defRegulator"></code></dd>
+      <dt>Decides</dt><dd id="defSeat"></dd>
+      <dt>Model</dt><dd id="defModel"></dd>
+      <dt>Control layer</dt><dd id="defLayer"></dd>
+      <dt>Extensions</dt><dd id="defExtensions"></dd>
+      <dt>Machine</dt><dd id="defMachine"></dd>
+    </dl>
+    <p class="eyebrow">The C# that builds this agent</p>
+    <div class="code"><button class="btn copy" id="defCopy" type="button">Copy</button><pre id="defCode"></pre></div>
+  </div>
+</dialog>
 
 <script type="application/json" id="samples">__SAMPLES__</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -522,7 +586,19 @@ select, .btn {
         </div>`;
       row.querySelector("b").textContent = spec.name;
       const place = run.header.nodes.find((n) => n.id === t.at)?.name ?? t.at;
-      row.querySelector(".meta").textContent = `${spec.design} · at ${place}${t.claim ? ` · holds ${run.header.nodes.find((n) => n.id === t.claim)?.name ?? t.claim}` : ""}`;
+      const meta = row.querySelector(".meta");
+      if (spec.agent) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "agentbtn";
+        button.textContent = spec.agent.title;
+        button.title = `How ${spec.name}'s agent is built`;
+        button.addEventListener("click", () => showDefinition(spec));
+        meta.append(button, document.createTextNode(` · at ${place}`));
+      } else {
+        meta.textContent = `${spec.design} · at ${place}`;
+      }
+      if (t.claim) meta.append(document.createTextNode(` · holds ${run.header.nodes.find((n) => n.id === t.claim)?.name ?? t.claim}`));
       trucks.appendChild(row);
     });
 
@@ -584,6 +660,14 @@ select, .btn {
     const h = run.header;
     $("runEyebrow").textContent = /arm \w, seed \d+/.test(label) ? label : `${label} · arm ${h.arm} · seed ${h.seed}`;
     $("runTitle").textContent = h.armText.charAt(0).toUpperCase() + h.armText.slice(1);
+    $("goal").textContent = h.goal ?? "Deliver supplies from the depot to every village cut off by the flood.";
+    $("success").textContent = h.success ?? "Every village has what it needs; the judge counts only what reached a village.";
+    $("purpose").textContent = h.armPurpose ?? h.armText;
+    $("aboutLine").textContent = h.armPurpose ?? "What the trucks are trying to do, and what decides for them";
+    const agents = h.trucks.map((t) => t.agent?.title).filter(Boolean);
+    $("same").textContent = !agents.length ? ""
+      : new Set(agents).size === 1 ? `All three trucks run the same agent: ${agents[0].toLowerCase()}. Click a name to see how it is built.`
+      : `Each truck runs a different design: ${agents.join(", ")}. Click a name to see how each is built.`;
     const faults = $("faults");
     faults.textContent = "";
     for (const f of h.faults) { const li = document.createElement("li"); li.textContent = f; faults.appendChild(li); }
@@ -608,6 +692,46 @@ select, .btn {
     playing = on && index < run.ticks.length;
     $("play").textContent = playing ? "Pause" : index >= run.ticks.length ? "Replay" : "Play";
   }
+
+  // ---------- an agent's definition ----------
+  const dialog = $("def");
+  function highlight(code) {
+    const escape = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return code.split("\n").map((line) => {
+      const at = line.indexOf("//");
+      const body = at >= 0 ? line.slice(0, at) : line, comment = at >= 0 ? line.slice(at) : "";
+      const html = escape(body)
+        .replace(/"([^"]*)"/g, '<span class="str">"$1"</span>')
+        .replace(/\b(new|var|await|with)\b/g, '<span class="kw">$1</span>')
+        .replace(/\b([A-Z][A-Za-z]+)(?=[(.{ ])/g, '<span class="ty">$1</span>');
+      return html + (comment ? `<span class="com">${escape(comment)}</span>` : "");
+    }).join("\n");
+  }
+  function showDefinition(spec) {
+    const a = spec.agent;
+    $("defTitle").textContent = `${spec.name}: ${a.title}`;
+    $("defSub").textContent = `arm ${run.header.arm} · seed ${run.header.seed} · design "${a.design}"`;
+    $("defAbout").textContent = a.about;
+    $("defRegulator").textContent = a.regulator;
+    $("defSeat").textContent = a.seat;
+    $("defModel").textContent = a.model;
+    $("defLayer").textContent = a.layer;
+    $("defExtensions").textContent = a.extensions.join("; ");
+    $("defMachine").textContent = `a truck that carries ${spec.capacity} units, with fuel for ${spec.fuelCapacity} roads; it senses its position, its fuel and the roads`;
+    $("defCode").innerHTML = highlight(a.cSharp);
+    $("defCopy").textContent = "Copy";
+    $("defCopy").onclick = () => {
+      navigator.clipboard?.writeText(a.cSharp).then(() => ($("defCopy").textContent = "Copied"))
+        .catch(() => { const r = document.createRange(); r.selectNodeContents($("defCode")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $("defCopy").textContent = "Selected"; });
+    };
+    if (typeof dialog.showModal === "function") dialog.showModal(); else dialog.setAttribute("open", "");
+  }
+  $("defClose").addEventListener("click", () => (dialog.close ? dialog.close() : dialog.removeAttribute("open")));
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+
+  // The about panel remembers being closed, in this browser only.
+  try { if (localStorage.getItem("convoy-about") === "closed") $("about").open = false; } catch {}
+  $("about").addEventListener("toggle", () => { try { localStorage.setItem("convoy-about", $("about").open ? "open" : "closed"); } catch {} });
 
   // ---------- controls ----------
   $("play").addEventListener("click", () => {
@@ -639,7 +763,7 @@ select, .btn {
   addEventListener("drop", (e) => { e.preventDefault(); dropHint?.remove(); dropHint = null; const f = e.dataTransfer.files[0]; if (f) openFile(f); });
 
   addEventListener("keydown", (e) => {
-    if (e.target.closest("select, input")) return;
+    if (e.target.closest("select, input, dialog") || $("def").open) return;
     if (e.key === " ") { e.preventDefault(); $("play").click(); }
     if (e.key === "ArrowRight") $("fwd").click();
     if (e.key === "ArrowLeft") $("back").click();

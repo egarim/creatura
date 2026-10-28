@@ -314,4 +314,34 @@ public sealed class ConvoyTests
         }
         Assert.True(stalled > 0, "no seed of 0 to 7 stalled a claim");
     }
+
+    /// <summary>
+    /// The replay says what the run is for and how every truck's agent is built, and the C# it shows names the
+    /// regulator that actually ran, the layer settings and the extensions of that arm.
+    /// </summary>
+    [Theory]
+    [InlineData(ConvoyArm.A)]
+    [InlineData(ConvoyArm.B)]
+    [InlineData(ConvoyArm.C)]
+    [InlineData(ConvoyArm.L)]
+    public async Task TheReplayDescribesTheGoalAndEveryAgent(ConvoyArm arm)
+    {
+        var run = await Run(arm, 1);
+        Assert.Contains("30 units", run.Header.Goal);
+        Assert.False(string.IsNullOrWhiteSpace(run.Header.Success));
+        Assert.Equal(ConvoyScenario.Purpose(arm), run.Header.ArmPurpose);
+        var expected = new Dictionary<string, string> { ["plain"] = "PlainRegulator", ["levin"] = "ColonyRegulator", ["bach"] = "SelfModelRegulator", ["peterson"] = "MapKeeperRegulator" };
+        foreach (var truck in run.Header.Trucks)
+        {
+            var agent = Assert.IsType<AgentDefinition>(truck.Agent);
+            Assert.Equal(expected[truck.Design], agent.Regulator);
+            Assert.Contains($"new {agent.Regulator}(", agent.CSharp);
+            Assert.Contains($"name: \"{truck.Name}\"", agent.CSharp);
+            Assert.Contains("no language model", agent.Model);
+            Assert.Equal(run.Setup.DistrustRoads, agent.CSharp.Contains("RoadDistrustExtension", StringComparison.Ordinal));
+            Assert.Equal(truck.Design == "levin", agent.CSharp.Contains("ClearQuarantineOnNoRoute = true", StringComparison.Ordinal));
+            Assert.Equal(truck.Design == "peterson", agent.CSharp.Contains("JudgeRule.ReportFirst", StringComparison.Ordinal));
+        }
+        Assert.Equal(arm is ConvoyArm.B or ConvoyArm.L ? 3 : 1, run.Header.Trucks.Select(t => t.Agent!.Regulator).Distinct().Count());
+    }
 }

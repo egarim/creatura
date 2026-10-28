@@ -35,6 +35,22 @@ kinds it does not know, so later versions can add them.
 - `trucks`: each truck's cell id (empty without a ledger), its design (`plain`, `levin`, `bach`, `peterson`) and its
   machine.
 - `faults`: what the world will do, in sentences, for the viewer's opening.
+- `goal`, `success` and `armPurpose`: what the trucks are trying to do, what counts as success and how the judge
+  measures it, and what this arm is in the battery for. Sentences for a UI to show as they are.
+- `trucks[].agent`: how each truck's agent is built, written from the same code that builds it:
+
+  ```json
+  {"design":"levin","title":"Levin's colony","regulator":"ColonyRegulator",
+   "about":"Nested homeostatic controllers with no self-model: …",
+   "seat":"convoy-planner: an offline planner that knows roads, fuel and loads, and believes its sensors",
+   "model":"none: no language model is called in this scenario (decision D3)",
+   "layer":"ControlLayerOptions.Design: … plus: quarantine is cleared when no route is left",
+   "extensions":["StoryExtension: …","RoadDistrustExtension: …"],
+   "cSharp":"var truck1 = new ReferenceLoop(\n    regulator: new ColonyRegulator(…), …"}
+  ```
+
+  `model` says whether a language model makes decisions; in the convoy none does. `cSharp` is the code that builds
+  the agent, for a UI to show as written.
 
 ## One line per tick
 

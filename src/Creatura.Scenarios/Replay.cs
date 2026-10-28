@@ -8,14 +8,34 @@ public sealed record ReplayNode(string Id, string Name, double X, double Y, stri
 
 public sealed record ReplayRoad(string Id, string A, string B);
 
-/// <summary>A truck as the run starts: its cell, its design and its machine.</summary>
-public sealed record ReplayTruck(string Name, string Cell, string Design, int Capacity, int FuelCapacity, string Start);
+/// <summary>A truck as the run starts: its cell, its design and its machine, and the agent that drives it.</summary>
+public sealed record ReplayTruck(string Name, string Cell, string Design, int Capacity, int FuelCapacity, string Start)
+{
+    public AgentDefinition? Agent { get; init; }
+}
+
+/// <summary>
+/// How one truck's agent is built, for a person to read: the design and what it does, the regulator, what decides
+/// (the seat, and whether a language model is called), the control layer's settings, the extensions, and the C# that
+/// builds it. Written from the same switch that builds the agent, so the two cannot drift apart.
+/// </summary>
+public sealed record AgentDefinition(string Design, string Title, string Regulator, string About, string Seat, string Model,
+    string Layer, IReadOnlyList<string> Extensions, string CSharp);
 
 /// <summary>The first line of a replay: what the run is, the map and the trucks (docs/replay-format.md).</summary>
 public sealed record ReplayHeader(string Scenario, int Seed, string Arm, string ArmText, int MaxTicks,
     IReadOnlyList<ReplayNode> Nodes, IReadOnlyList<ReplayRoad> Roads, IReadOnlyList<ReplayTruck> Trucks, IReadOnlyList<string> Faults)
 {
     public string Format { get; init; } = "creatura.replay/1";
+
+    /// <summary>What the trucks are trying to do, in a sentence or two.</summary>
+    public string? Goal { get; init; }
+
+    /// <summary>What counts as success, and how the judge measures it.</summary>
+    public string? Success { get; init; }
+
+    /// <summary>What this arm is in the battery for: the baseline, or the hypothesis it tests.</summary>
+    public string? ArmPurpose { get; init; }
 }
 
 /// <summary>
