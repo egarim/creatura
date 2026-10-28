@@ -1,6 +1,6 @@
 # Design: trained models for a world
 
-Status: decided 2026-10-28; step 1 (the recorder) built.
+Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held.
 
 ## The question, in the owner's words
 
@@ -182,6 +182,78 @@ dotnet run --project samples/Convoy -c Release -- --dataset datasets/convoy-j --
 ```
 
 Next is step 2: train the policy network by example from `policy.jsonl`, and put it in the seat.
+
+## Step 2, registered before training (2026-10-28)
+
+Written before the network was trained or its seat was built.
+
+- **The data.** Arm J, seeds 100 to 599, only runs that served every village (T-D5). Split by seed, not by decision:
+  seeds 100 to 549 train, seeds 550 to 599 are held out to pick the stopping point and report accuracy. The battery's
+  seeds 0 to 49 are not touched until the arm runs.
+- **The network.** Its input is the 61 features plus one bit per action in the vocabulary that says whether the
+  action is visible this tick (97 inputs). The visible bits are there because the planner's choice depends on them: a
+  road the control layer has set aside is not driven. Two hidden layers of 64 with ReLU, 36 outputs, a softmax over the
+  visible actions only. Trained by example, cross-entropy against the planner's choice, Adam, a fixed random seed, in
+  numpy (`tools/train/train_policy.py`, run with `uv`). No PyTorch: at this size plain numpy is enough, and the
+  arithmetic the C# seat repeats is exactly the arithmetic trained.
+- **The weights.** Plain JSON, `models/convoy-policy-j.json`: the format, the feature schema hash, the action vocabulary,
+  the layers, the seeds trained on, and the held-out accuracy. Kept in the repository (T-D6) and embedded in
+  `Creatura.Scenarios` so arm N needs no path.
+- **The seat.** `NetworkSeat : IPolicy` in `Creatura.Seats`, package-free: it encodes the situation, runs the layers,
+  and plays the visible action with the highest score (the lowest index on a tie). `ConvoyNetworkSeat` gives it the
+  convoy's encoder and refuses weights whose schema hash or vocabulary differs from the map's.
+- **Arm N.** As J (all three fixes), with the network in every truck's seat. It is cheap and repeatable, so it joins the
+  default battery.
+
+Judged on seeds 0 to 49:
+- **T2**: arm N delivers at least 95% of what arm J delivers.
+- **T4**: arm N replays byte for byte for the same seed (the battery's M6 check covers it, on six runs of one seed).
+
+Reported without a claim: the held-out accuracy, arm N's wasted trips, lies acted on and stranded trucks against J's.
+A network that copies the planner well may still drift once one wrong choice puts it in a situation the planner never
+reached; if T2 fails, that is the likely reason, and training by trial (step 3) is what addresses it.
+
+## Step 2, built (2026-10-28)
+
+**T2 held, and T4 held.** On the battery's seeds 0 to 49, which it never saw, arm N delivered 1500 of 1500, as arm J
+did (100%). Wasted trips: 0 against 0. Lies acted on: 54 against 54. Stranded trucks: 7 against 6. Six runs of seed 0
+replayed byte for byte, and so did seed 7 in the tests. The rest of the battery is unchanged.
+
+How close the copy is: arms N and J made the same decision at every tick of every truck in 48 of the 50 seeds. In the
+other two, the network chose once where the planner would not have: in seed 4 Truck 1 reported done at tick 27 where
+the planner waited, and in seed 27 Truck 2 took road r02 instead of r01 at tick 13. Neither cost a delivery; the extra
+stranded truck comes from one of them.
+
+The numbers on the way:
+- The dataset: arm J, seeds 100 to 599, all 500 runs served every village, 38,772 decisions. Seeds 550 to 599 (3,897
+  decisions) were held out.
+- Training: 24 seconds on the laptop, numpy only, kept at epoch 42. The network chose the planner's action on 99.98% of
+  the training decisions and 99.97% of the held-out ones, with its weights rounded to six digits as they are written.
+- The weights: `models/convoy-policy-j.json`, 123 KB, 97 → 64 → 64 → 36, embedded in `Creatura.Scenarios`.
+- The C# seat agrees with the planner on 99% or more of the decisions of held-out seeds 560 to 563 (a test). If its
+  arithmetic differed from the trainer's, that agreement would collapse.
+
+Five deliberate breaks, each failing a test:
+- the mask ignored, so a hidden action can be played;
+- no ReLU;
+- the visible bits not given to the network;
+- the feature schema not checked;
+- a tie going to the highest index instead of the lowest.
+
+What it shows, and what it does not:
+- The planner is a pure function of what the seat is given each tick (it keeps no state between ticks), so a small
+  network can copy it almost exactly. Whatever the trucks remember lives in the world, the ledger, the control layer's
+  quarantine and the distrust notes, all of which the network reads as inputs.
+- A copy is as good as its teacher and no better. Arm N acts on as many lies as J (54), because J's planner believes its
+  sensors and the network learned that too. Doing better than the teacher is step 3's question (T3), by trial in the
+  simulator.
+- The network knows the flooded valley only. Its schema hash ties it to this map, and the seat refuses any other.
+
+```bash
+dotnet run --project samples/Convoy -c Release -- --dataset datasets/convoy-j --arms J --seeds 100-599
+uv run tools/train/train_policy.py datasets/convoy-j models/convoy-policy-j.json --held-out-from 550
+dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --arms J,N
+```
 
 ## What this note does not cover
 

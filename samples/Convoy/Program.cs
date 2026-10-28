@@ -2,22 +2,25 @@ using Creatura.Scenarios;
 
 using Creatura.Seats;
 
-// dotnet run --project samples/Convoy -- [--arm A..L|S] [--seed n] [--replay run.jsonl] [--quiet]
-//     [--model <catalog name>] [--models-file models.json] [--calls calls.jsonl] [--ticks n]
+// dotnet run --project samples/Convoy -- [--arm A..L|S|N] [--seed n] [--replay run.jsonl] [--quiet]
+//     [--model <catalog name>] [--models-file models.json] [--calls calls.jsonl] [--ticks n] [--network <weights.json>]
 // dotnet run --project samples/Convoy -- --battery [--seeds 50] [--arms J,S] [--model <name>] ...
 // dotnet run --project samples/Convoy -- --dataset <dir> [--arms J] [--seeds 100-599] [--all-runs] [--only-landed]
 // --record <file.jsonl> keeps every decision of a run (or a battery) for training (docs/design-trained-models.md).
-// A model (arm S, or --model with any arm) is described in docs/convoy-models.md.
+// A model (arm S, or --model with any arm) is described in docs/convoy-models.md. Arm N's network is the embedded
+// convoy-policy-j unless --network names a weights file from tools/train/train_policy.py.
 string? Option(string name) => Array.IndexOf(args, name) is var i and >= 0 && i + 1 < args.Length ? args[i + 1] : null;
 
 var catalog = Option("--models-file") is { } modelsFile ? ModelCatalog.Load(modelsFile) : null;
 using var calls = Option("--calls") is { } callsFile ? new CallLog(callsFile) : null;
 var model = Option("--model");
 var ticks = Option("--ticks") is { } t ? int.Parse(t) : (int?)null;
+var network = Option("--network");
 
 ConvoySetup Adjust(ConvoySetup setup) => setup with
 {
     SeatModel = model ?? setup.SeatModel,
+    SeatNetwork = network ?? setup.SeatNetwork,
     MaxTicks = ticks ?? setup.MaxTicks,
 };
 
@@ -77,7 +80,7 @@ if (args.Contains("--battery"))
     return 0;
 }
 
-var arm = Enum.Parse<ConvoyArm>(Option("--arm") ?? (model is null ? "A" : "S"), ignoreCase: true);
+var arm = Enum.Parse<ConvoyArm>(Option("--arm") ?? (model is not null ? "S" : network is not null ? "N" : "A"), ignoreCase: true);
 var seed = int.Parse(Option("--seed") ?? "1");
 using var file = Option("--replay") is { } path ? new StreamWriter(path) : null;
 var observer = new StoryPrinter(Console.Out, args.Contains("--quiet"), file is null ? null : new JsonlReplayWriter(file));

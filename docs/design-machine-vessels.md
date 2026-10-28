@@ -321,6 +321,12 @@ seed and ticks.
 
 The gap between a valid answer and a good one is what training would close: see docs/design-trained-models.md.
 
+## A trained network in the seat (2026-10-28)
+
+Arm N is arm J with a small policy network, trained by example on J's planner, in every truck's seat. It is in the
+default battery. Over seeds 0 to 49 it delivered 1500 of 1500 and replayed byte for byte (T2 and T4 held). The design,
+the training and the results are in [design-trained-models.md](design-trained-models.md).
+
 ## What this note does not cover
 
 - Physics, continuous space, or real-time simulation. The world is a road graph that steps one tick at a time.

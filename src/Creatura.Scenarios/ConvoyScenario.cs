@@ -201,6 +201,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         var task = ConvoyTask.For(Setup.Map);
         IPolicy policy = new ConvoyPolicy(Setup.Map, spec.Machine);
         ModelEndpoint? endpoint = null;
+        PolicyNetwork? network = null;
         if (Setup.SeatModel is { } seatModel)
         {
             endpoint = SeatFactory.Endpoint(seatModel, catalog);
@@ -208,12 +209,17 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
             _seats.Add(model);
             policy = new ConvoyModelSeat(model, Setup.Map, spec.Machine, spec.Name);
         }
+        else if (Setup.SeatNetwork is { } seatNetwork)
+        {
+            network = ConvoyNetwork.Load(seatNetwork);
+            policy = ConvoyNetwork.Seat(network, Setup.Map, spec.Machine);
+        }
         if (recorder is not null) policy = recorder.Seat(policy, spec, Setup.Map);
         var observers = new List<IAgentExtension> { story };
         if (Setup.DistrustRoads) observers.Add(new RoadDistrustExtension(_world!, spec.Name));
         if (recorder is not null) observers.AddRange(recorder.Extensions(spec));
         var options = new AgentOptions(observers);
-        var vessel = new Vessel { Model = endpoint?.Model ?? "convoy-planner", Physical = spec.Machine };
+        var vessel = new Vessel { Model = endpoint?.Model ?? (network is null ? "convoy-planner" : "convoy-network"), Physical = spec.Machine };
         var m = spec.Machine;
         var variable = spec.Name.ToLowerInvariant().Replace(" ", "", StringComparison.Ordinal);
         var extensions = new List<string> { "StoryExtension: tells the replay about every action the control layer judged a lie" };
@@ -250,9 +256,11 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
                 "ControlLayerOptions.Design"),
         };
 
-        var policyCode = endpoint is null
-            ? "new ConvoyPolicy(map, machine),      // the offline planner: no language model is called"
-            : $"new ConvoyModelSeat(SeatFactory.Model(\"{endpoint.Name}\"), map, machine, \"{spec.Name}\"),  // {endpoint.Model} through {endpoint.ProviderName}, from models.json";
+        var policyCode = endpoint is not null
+            ? $"new ConvoyModelSeat(SeatFactory.Model(\"{endpoint.Name}\"), map, machine, \"{spec.Name}\"),  // {endpoint.Model} through {endpoint.ProviderName}, from models.json"
+            : network is not null
+                ? $"ConvoyNetwork.Seat(ConvoyNetwork.Load(\"{Setup.SeatNetwork}\"), map, machine),  // a trained policy network, {network.Source}"
+                : "new ConvoyPolicy(map, machine),      // the offline planner: no language model is called";
         var extensionCode = Setup.DistrustRoads
             ? $"AgentOptions.With(new StoryExtension(world, \"{spec.Name}\"), new RoadDistrustExtension(world, \"{spec.Name}\"))"
             : $"AgentOptions.With(new StoryExtension(world, \"{spec.Name}\"))";
@@ -270,12 +278,14 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
             var run = await {{variable}}.RunAsync(new TruckView(world, world.Truck("{{spec.Name}}"), setup, cell, ledger, mesh), maxTicks: {{Setup.MaxTicks}});
             """;
         var definition = new AgentDefinition(spec.Design, made.Title, made.Loop.Regulator.GetType().Name, made.About,
-            endpoint is null
-                ? "convoy-planner: an offline planner that knows roads, fuel and loads, and believes its sensors"
-                : $"a language model: {endpoint.Name}, briefed on how the convoy works, choosing one tool per tick from the truck's facts and visible tools",
-            endpoint is null
-                ? "none: no language model is called in this scenario (decision D3)"
-                : Describe(endpoint),
+            endpoint is not null
+                ? $"a language model: {endpoint.Name}, briefed on how the convoy works, choosing one tool per tick from the truck's facts and visible tools"
+                : network is not null
+                    ? $"a policy network: {network.Source}, {Describe(network)}, playing the visible action it scores highest"
+                    : "convoy-planner: an offline planner that knows roads, fuel and loads, and believes its sensors",
+            endpoint is not null
+                ? Describe(endpoint)
+                : "none: no language model is called in this scenario (decision D3)",
             made.Layer, extensions, csharp);
         return (made.Loop, definition);
     }
@@ -321,6 +331,13 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         };
     }
 
+    private static string Describe(PolicyNetwork n)
+    {
+        var shape = string.Join(" → ", new[] { n.InputCount }.Concat(n.Layers.Select(l => l.Outputs)));
+        var accuracy = n.Training is { } t && t.TryGetProperty("heldOutAccuracy", out var a) ? $", {a.GetDouble():P2} of held-out decisions copied" : "";
+        return $"{shape} ({n.Features.Count} features and {n.Actions.Count} visible bits in, one score per action out{accuracy})";
+    }
+
     private static string Describe(ModelEndpoint e)
     {
         var where = e.IsLocal ? $"on Ollama at {e.BaseUrl}, on this machine" : $"through {e.ProviderName} at {e.BaseUrl}";
@@ -355,6 +372,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         ConvoyArm.K => "Tests N5: all three fixes together, with a truck breaking down at tick 8.",
         ConvoyArm.L => "Tests N6: all three fixes together, with one biological design per truck.",
         ConvoyArm.S => "Tests S1 and S2: a language model in every truck's seat instead of the offline planner, with all three fixes.",
+        ConvoyArm.N => "Tests T2 and T4: a small network trained to copy arm J's planner, in every truck's seat, with all three fixes.",
         _ => arm.ToString(),
     };
 

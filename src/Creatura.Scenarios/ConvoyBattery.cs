@@ -71,9 +71,9 @@ public static class ConvoyBattery
             progress?.Invoke($"arm {arm}: {seeds} runs");
         }
 
-        var same = new List<bool>();
-        foreach (var arm in arms.Where(a => a != ConvoyArm.S)) same.Add(await ReplaysMatchAsync(arm, 0, cancellationToken).ConfigureAwait(false));
-        return new ConvoyBatteryReport(seeds, runs, Score(runs, same.All(s => s)), errors) { Seats = seats };
+        var same = new Dictionary<ConvoyArm, bool>();
+        foreach (var arm in arms.Where(a => a != ConvoyArm.S)) same[arm] = await ReplaysMatchAsync(arm, 0, cancellationToken).ConfigureAwait(false);
+        return new ConvoyBatteryReport(seeds, runs, Score(runs, same.Values.All(s => s), same), errors) { Seats = seats };
     }
 
     /// <summary>
@@ -97,7 +97,9 @@ public static class ConvoyBattery
     /// <summary>A replay with the cell ids removed: they come from random keys, and the story does not depend on them.</summary>
     public static string Scrub(string replay) => System.Text.RegularExpressions.Regex.Replace(replay, "cell-[0-9a-f]{16}", "cell");
 
-    public static IReadOnlyList<ConvoyVerdict> Score(IReadOnlyDictionary<ConvoyArm, IReadOnlyList<ConvoyMeasures>> runs, bool replaysMatch)
+    /// <param name="replays">Whether each arm's replays matched, for the hypotheses about one arm (T4); <paramref name="replaysMatch"/> for all when null.</param>
+    public static IReadOnlyList<ConvoyVerdict> Score(IReadOnlyDictionary<ConvoyArm, IReadOnlyList<ConvoyMeasures>> runs, bool replaysMatch,
+        IReadOnlyDictionary<ConvoyArm, bool>? replays = null)
     {
         int Sum(ConvoyArm arm, Func<ConvoyMeasures, int> f) => runs.TryGetValue(arm, out var r) ? r.Sum(f) : 0;
         HypothesisVerdict Held(bool held) => held ? HypothesisVerdict.Held : HypothesisVerdict.Failed;
@@ -141,6 +143,20 @@ public static class ConvoyBattery
                 Held(Over(ConvoyArm.S, m => m.Delivered) >= Over(ConvoyArm.J, m => m.Delivered)), $"delivered S {Over(ConvoyArm.S, m => m.Delivered)}, J {Over(ConvoyArm.J, m => m.Delivered)} over {n} seeds"));
             verdicts.Add(new("S2", "a model in the seat acts on no more lies than the offline planner (S against J)",
                 Held(Over(ConvoyArm.S, m => m.LiesBelieved) <= Over(ConvoyArm.J, m => m.LiesBelieved)), $"lies S {Over(ConvoyArm.S, m => m.LiesBelieved)}, J {Over(ConvoyArm.J, m => m.LiesBelieved)} over {n} seeds"));
+        }
+
+        // A trained network in the seat (pre-registered as T2 and T4), scored when arms N and J both ran.
+        if (runs.ContainsKey(ConvoyArm.N) && runs.ContainsKey(ConvoyArm.J))
+        {
+            var n = Math.Min(runs[ConvoyArm.N].Count, runs[ConvoyArm.J].Count);
+            int Over(ConvoyArm arm, Func<ConvoyMeasures, int> f) => runs[arm].Take(n).Sum(f);
+            var (network, planner) = (Over(ConvoyArm.N, m => m.Delivered), Over(ConvoyArm.J, m => m.Delivered));
+            verdicts.Add(new("T2", "the network trained by example delivers at least 95% of what arm J's planner delivers (N against J)",
+                Held(network >= 0.95 * planner),
+                $"delivered N {network}, J {planner} ({(planner == 0 ? 0 : network / (double)planner):P1}) over {n} seeds; wasted N {Over(ConvoyArm.N, m => m.WastedTrips)}, J {Over(ConvoyArm.J, m => m.WastedTrips)}; "
+                + $"lies N {Over(ConvoyArm.N, m => m.LiesBelieved)}, J {Over(ConvoyArm.J, m => m.LiesBelieved)}; stranded N {Over(ConvoyArm.N, m => m.Stranded)}, J {Over(ConvoyArm.J, m => m.Stranded)}"));
+            var same = replays is not null && replays.TryGetValue(ConvoyArm.N, out var s) ? s : replaysMatch;
+            verdicts.Add(new("T4", "the network replays byte for byte for the same seed (N)", Held(same), same ? "six runs of seed 0 matched" : "a replay differed"));
         }
 
         // The fixes (pre-registered as N1 to N6), scored only when their arms ran.

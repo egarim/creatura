@@ -16,4 +16,9 @@
     <ProjectReference Include="..\Creatura.Seats\Creatura.Seats.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Arm N's policy network, trained by tools/train/train_policy.py (docs/design-trained-models.md, step 2). -->
+    <EmbeddedResource Include="..\..\models\convoy-policy-j.json" LogicalName="Creatura.Scenarios.convoy-policy-j.json" />
+  </ItemGroup>
+
 </Project>

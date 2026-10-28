@@ -38,6 +38,9 @@ public enum ConvoyArm
 
     /// <summary>As J (all three fixes), with a language model in every truck's seat. Not in the default battery: it costs money and is not repeatable.</summary>
     S,
+
+    /// <summary>As J (all three fixes), with a policy network trained on arm J's planner in every truck's seat (docs/design-trained-models.md, step 2).</summary>
+    N,
 }
 
 /// <summary>A truck: its name, its machine, and the design that drives it ("plain", "levin", "bach", "peterson").</summary>
@@ -85,6 +88,9 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
     /// <summary>The catalogued model in every truck's seat (docs/convoy-models.md); null for the offline planner.</summary>
     public string? SeatModel { get; init; }
 
+    /// <summary>The trained network in every truck's seat: <see cref="ConvoyNetwork.Embedded"/> or a weights file; null for the offline planner.</summary>
+    public string? SeatNetwork { get; init; }
+
     public string ArmText => Arm switch
     {
         ConvoyArm.A => "plain loop, shared ledger, perfect link",
@@ -99,6 +105,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
         ConvoyArm.K => "plain loop, shared ledger, a breakdown at tick 8, all three fixes",
         ConvoyArm.L => "one design per truck, shared ledger, all three fixes",
         ConvoyArm.S => $"a language model ({SeatModel}) in every truck's seat, shared ledger, all three fixes",
+        ConvoyArm.N => $"a policy network ({SeatNetwork}) in every truck's seat, shared ledger, all three fixes",
         _ => Arm.ToString(),
     };
 
@@ -155,6 +162,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
             ConvoyArm.K => AllFixes(setup with { BreakdownTruck = "Truck 2", BreakdownTick = 8 }),
             ConvoyArm.L => AllFixes(setup),
             ConvoyArm.S => AllFixes(setup) with { SeatModel = DefaultSeatModel },
+            ConvoyArm.N => AllFixes(setup) with { SeatNetwork = ConvoyNetwork.Embedded },
             _ => setup,
         };
     }

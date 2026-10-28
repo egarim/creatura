@@ -27,7 +27,10 @@
   every decision at the seat with its verdict and the facts afterwards, beside the generic `ExampleRecorder`. Also
   `ConvoyFeatures` (61 features), `ConvoyActions` (36 actions), `ModelPolicy.RenderPrompt` made public, and
   `ConvoyDatasets.Export`, which writes policy, chat and transition sets with a card and never exports the battery's
-  seeds. New command options: `--record` and `--dataset`. T1 held: recording changes no run.
+  seeds. New command options: `--record` and `--dataset`. T1 held: recording changes no run. Step 2 is built too: `tools/train/train_policy.py` trains a policy network by
+  example in numpy (`uv run`), `NetworkSeat` and `PolicyNetwork` in `Creatura.Seats` run it package-free,
+  `ConvoyNetwork` refuses networks for another schema, and arm N puts `models/convoy-policy-j.json` (embedded) in every
+  seat; `--network <file>` names another. Arm N joined the default battery: T2 held (1500/1500, as J) and T4 held.
   `samples/Convoy` runs one story or the battery. The **replay** is the interface for UIs: JSON lines described in
   [docs/replay-format.md](docs/replay-format.md), with `IScenarioObserver` for following a run live.
   `tools/convoy-viewer/index.html` is a three.js viewer with four sample runs built in.
