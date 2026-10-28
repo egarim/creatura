@@ -9,6 +9,8 @@
   holds. New commands: `request`, `endorse` and `accept` join a vessel without moving the owner key, and
   `sync --hub <url>` does the network work outside the home's lock. `ledger` now trusts the cell's endorsing owner.
   Pre-registered tests C13 to C18. A live run between the owner's laptop and the second machine ended with identical ledgers.
+  The hub also runs with no creatura home: `--trust <file>` gives it owner public keys and `--data <dir>` its
+  database, and `creatura cell owner-key --out <file>` writes that file. It never needs a private key (C19).
 
 - **Cells slice 3: the ledger in SQLite, synced through SyncFramework.** `ILedgerStore`, which `JsonLedgerStore`
   implements. `SqliteLedgerStore` (`src/Creatura.Cells.Sqlite`, package `Microsoft.Data.Sqlite` 10.0.14): one row per

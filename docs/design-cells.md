@@ -267,6 +267,24 @@ The live run, on 2026-10-28:
 
 The hub was stopped afterwards. Running it as a service, and syncing from the hooks, are not part of this slice.
 
+### The hub without a home
+
+A hub on a server must not hold the owner's private key. `--trust <file>` gives it the owner public keys to trust,
+one per line, and `--data <dir>` says where its database lives. `creatura cell owner-key --out <file>`, on the
+owner's vessel, writes that file. `--home` still works on the owner's own vessel.
+
+| id | claim | falsifier |
+|---|---|---|
+| C19 | a hub given only a file of owner public keys trusts exactly those owners and needs no private key; a file with anything else in it is refused | a hub that reads a private key, trusts an owner not in the file, or starts on a malformed file |
+
+A hub's numbering belongs to its database. A client keeps its cursors per hub address, so a fresh database at an
+address clients have used before leaves their cursors ahead of it. Give a new hub a new address, or clear the
+clients' `<home>/sync/` files for that address.
+
+C19 passes. Live, on 2026-10-28, the hub ran on the owner's laptop from a file of the owner's public key with `--data`, and no
+home. The second machine wrote a heartbeat and synced, and the owner's laptop synced. The second machine synced again, and both ledgers ended
+with 55 entries and the digest `9f1b4623b9f333d5`.
+
 ## Decided (owner, 2026-10-28)
 
 1. **Root of trust: both.** An owner key signs each vessel once (the ledger's trust); the mesh admits the machine (the

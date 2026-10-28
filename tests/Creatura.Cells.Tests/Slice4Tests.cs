@@ -289,4 +289,56 @@ public sealed class Slice4Tests
         Assert.Equal(allowed, reached);
         if (!allowed) Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
     }
+
+    /// <summary>
+    /// C19: a hub given only a file of owner public keys trusts exactly those owners and needs no private key; a file
+    /// with anything else in it is refused.
+    /// </summary>
+    [Fact]
+    public async Task C19_AHubTrustsAPublicKeyFileAndNeedsNoPrivateKey()
+    {
+        using var ownerDir = new TempHome();
+        using var strangerDir = new TempHome();
+        using var server = new TempHome();
+        var (home, _) = NewHome(ownerDir);
+        var (strangerHome, _) = NewHome(strangerDir);
+        using var a = NewCell(home, "raw-vessel-a", "alpha");
+        using var stranger = NewCell(strangerHome, "raw-vessel-s", "mallory");
+
+        // The owner's vessel writes the file; the server has nothing but that file.
+        var trust = Path.Combine(server.Path, "owners.txt");
+        var output = new StringWriter();
+        Assert.Equal(0, CellCommand.Run(["cell", "owner-key", "--home", ownerDir.Path, "--out", trust], output, output, new FakeVessel("raw-vessel-a")));
+        Assert.DoesNotContain("PRIVATE", File.ReadAllText(trust), StringComparison.Ordinal);
+        var emptyHome = Path.Combine(server.Path, "no-home");
+        var launch = HubCommandLine.Parse(["--listen", "127.0.0.1:0", "--trust", trust, "--home", emptyHome]);
+        Assert.Equal([a.Identity.Endorsement!.OwnerPublicKey], launch.Options.TrustedOwners);
+        Assert.Equal(Path.Combine(emptyHome, "hub", "hub.db"), launch.Options.DatabasePath);
+        Assert.False(Directory.Exists(Path.Combine(emptyHome, "owner")), "the hub made or read an owner key");
+
+        var data = HubCommandLine.Parse(["--listen", "127.0.0.1:0", "--trust", trust, "--data", Path.Combine(server.Path, "hub")]);
+        Assert.Equal(Path.Combine(server.Path, "hub", "hub.db"), data.Options.DatabasePath);
+        Directory.CreateDirectory(Path.Combine(server.Path, "hub"));
+        await using (var hub = await RunningHub.StartAsync(data.Options.DatabasePath, [.. data.Options.TrustedOwners]))
+        {
+            var client = LedgerHub.Http(hub.Url);
+            var mine = new WorkLedger(a.Identity.Endorsement!.OwnerPublicKey).Append(a, new HelloPayload(a.Identity), T0);
+            var theirs = new WorkLedger(stranger.Identity.Endorsement!.OwnerPublicKey).Append(stranger, new HelloPayload(stranger.Identity), T0);
+            Assert.True((await client.PushAsync([LedgerDelta.From(mine), LedgerDelta.From(theirs)], CancellationToken.None)).Success);
+            Assert.Equal(new HubCounts(1, 0, 1), hub.Store.Counts);
+        }
+
+        // Refused: no --data and no --home with --trust, a private key, something that is not a key, an empty file.
+        Assert.Throws<ArgumentException>(() => HubCommandLine.Parse(["--listen", "127.0.0.1:0", "--trust", trust]));
+        var privateKey = Path.Combine(server.Path, "private.txt");
+        File.WriteAllText(privateKey, File.ReadAllText(home.OwnerKeyPath));
+        var refused = Assert.Throws<ArgumentException>(() => HubCommandLine.ReadTrustFile(privateKey));
+        Assert.DoesNotContain(File.ReadAllLines(home.OwnerKeyPath)[1], refused.Message, StringComparison.Ordinal);
+        var junk = Path.Combine(server.Path, "junk.txt");
+        File.WriteAllText(junk, a.Identity.Endorsement!.OwnerPublicKey + "\nhello\n");
+        Assert.Throws<ArgumentException>(() => HubCommandLine.ReadTrustFile(junk));
+        var empty = Path.Combine(server.Path, "empty.txt");
+        File.WriteAllText(empty, "# nobody\n\n");
+        Assert.Throws<ArgumentException>(() => HubCommandLine.ReadTrustFile(empty));
+    }
 }

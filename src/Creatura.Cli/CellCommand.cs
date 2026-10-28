@@ -34,6 +34,7 @@ public static class CellCommand
                                        on the owner's vessel: endorse a request, write the endorsement
           accept --endorsement <file>  back on the new vessel: keep the endorsement if it covers this cell, say hello
           sync --hub <url>             push to and pull from a ledger hub (Creatura.Cells.Hub), e.g. http://100.100.1.5:5181
+          owner-key [--out <file>]     on the owner's vessel: the owner's PUBLIC key, for a hub's --trust file
 
         progress, release and handoff take --session <id> to name the claim of a host-tool session.
 
@@ -97,6 +98,7 @@ public static class CellCommand
                 "endorse" => Endorse(context),
                 "accept" => Accept(context),
                 "sync" => Sync(context),
+                "owner-key" => OwnerKeyCommand(context),
                 var other => Fail(error, $"unknown command: cell {other}\n\n{Usage}"),
             };
         }
@@ -432,6 +434,30 @@ public static class CellCommand
         foreach (var rejection in report.Pulled.Rejected.Take(5)) c.Out.WriteLine($"  refused    {rejection.EntryId}: {rejection.Reason}");
         c.Out.WriteLine($"ledger       {held + report.Pulled.Added} entries, digest {snapshot.Digest()[..16]}");
         return report.Pushed ? 0 : 1;
+    }
+
+    /// <summary>The owner's public key, one line, for a hub's <c>--trust</c> file. The private key is never written or printed.</summary>
+    private static int OwnerKeyCommand(Context c)
+    {
+        using var owner = c.Home.LoadOwner();
+        if (owner is null)
+        {
+            c.Err.WriteLine($"no owner key under {c.Home.Root}: run this on the owner's vessel");
+            return 1;
+        }
+
+        var line = $"# creatura owner {owner.Fingerprint}\n{owner.PublicKey}\n";
+        if (c.Options.GetValueOrDefault("--out") is { Length: > 0 } path)
+        {
+            File.WriteAllText(path, line);
+            c.Out.WriteLine($"owner        {owner.Fingerprint}");
+            c.Out.WriteLine($"public key   {Path.GetFullPath(path)} (public only; give it to a hub with --trust)");
+        }
+        else
+        {
+            c.Out.Write(line);
+        }
+        return 0;
     }
 
     private static string Required(Context c, string option) =>
