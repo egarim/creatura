@@ -428,4 +428,251 @@ public sealed class Slice4Tests
 
         Assert.Equal(new HubCounts(4, 0, 0), hub.Store.Counts);
     }
+
+    /// <summary>Remembers the last request it passed on, headers and body, so a test can send it again as it was.</summary>
+    private sealed class Recorder() : DelegatingHandler(new HttpClientHandler())
+    {
+        public HttpMethod? Method { get; private set; }
+        public Uri? Uri { get; private set; }
+        public byte[] Body { get; private set; } = [];
+        public List<KeyValuePair<string, string>> Headers { get; } = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Method = request.Method;
+            Uri = request.RequestUri;
+            Body = request.Content is null ? [] : await request.Content.ReadAsByteArrayAsync(cancellationToken);
+            Headers.Clear();
+            foreach (var name in new[] { HubRequest.EndorsementHeader, HubRequest.TimeHeader, HubRequest.SignatureHeader })
+                Headers.Add(new(name, request.Headers.GetValues(name).Single()));
+            return await base.SendAsync(request, cancellationToken);
+        }
+
+        public async Task<HttpStatusCode> ReplayAsync(Uri? to = null)
+        {
+            using var client = new HttpClient();
+            using var request = new HttpRequestMessage(Method!, to is null ? Uri : new Uri(to, Uri!.PathAndQuery));
+            if (Body.Length > 0) request.Content = new ByteArrayContent(Body);
+            foreach (var (name, value) in Headers) request.Headers.TryAddWithoutValidation(name, value);
+            return (await client.SendAsync(request)).StatusCode;
+        }
+    }
+
+    /// <summary>C21: a signed request sent twice is answered once, also across a hub restart.</summary>
+    [Fact]
+    public async Task C21_ASignedRequestIsAnsweredOnce()
+    {
+        using var dir = new TempHome();
+        var (home, owner) = NewHome(dir);
+        using var a = NewCell(home, "raw-vessel-a", "alpha");
+        var database = Path.Combine(dir.Path, "hub.db");
+        var recorder = new Recorder();
+
+        await using (var first = await RunningHub.StartAsync(database, owner.PublicKey))
+        {
+            var client = LedgerHub.Http(first.Url, a, inner: recorder);
+            Assert.True((await client.FetchAsync("-1", a.Id, CancellationToken.None)).Success);
+            Assert.Equal(HttpStatusCode.Unauthorized, await recorder.ReplayAsync());
+
+            // A push replayed: the same body and headers, refused the second time.
+            Assert.True((await client.PushAsync([LedgerDelta.From(new WorkLedger(owner.PublicKey).Append(a, new HelloPayload(a.Identity), T0))], CancellationToken.None)).Success);
+            Assert.Equal(HttpStatusCode.Unauthorized, await recorder.ReplayAsync());
+        }
+
+        await using var second = await RunningHub.StartAsync(database, owner.PublicKey);
+        Assert.Equal(HttpStatusCode.Unauthorized, await recorder.ReplayAsync(second.Url));
+        Assert.True((await LedgerHub.Http(second.Url, a).FetchAsync("-1", a.Id, CancellationToken.None)).Success);
+        Assert.Equal(new HubCounts(0, 0, 0), second.Store.Counts);
+    }
+
+    /// <summary>
+    /// C22: after a revocation the hub refuses the cell's requests and its entries past N, ledgers drop and refuse them
+    /// whatever the order of arrival, the revocation reaches other homes through sync, and one signed by an owner a
+    /// home does not trust changes nothing.
+    /// </summary>
+    [Fact]
+    public async Task C22_ARevokedCellIsRefusedEverywhere()
+    {
+        using var dir = new TempHome();
+        using var strangerDir = new TempHome();
+        var (home, owner) = NewHome(dir);
+        var (_, strangerOwner) = NewHome(strangerDir);
+        using var a = NewCell(home, "raw-vessel-a", "alpha");
+        using var b = NewCell(home, "raw-vessel-b", "beta");
+        var ledgerA = new WorkLedger(owner.PublicKey);
+        var ledgerB = new WorkLedger(owner.PublicKey);
+        Work(ledgerA, a, "the survivor's", 0);
+        Work(ledgerB, b, "before the vessel was lost", 1);
+        Work(ledgerB, b, "after: the thief's", 5);
+        Assert.Equal(7, ledgerB.Count);
+
+        await using var hub = await RunningHub.StartAsync(Path.Combine(dir.Path, "hub.db"), owner.PublicKey);
+        await Node(hub, ledgerB, b).SyncAsync(CancellationToken.None);
+        await Node(hub, ledgerA, a).SyncAsync(CancellationToken.None);
+        Assert.Equal(11, ledgerA.Count);
+        var everything = ledgerA.Entries.ToList();
+
+        // The owner revokes b after its fourth entry and hands the revocation to the hub as a.
+        var revocation = owner.Revoke(b.Identity.PublicKey, 4, "the vessel was lost", T0.AddHours(1));
+        var held = await LedgerHub.ExchangeRevocationsAsync(hub.Url, a, [revocation], CancellationToken.None);
+        Assert.Equal(revocation, Assert.Single(held));
+        Assert.DoesNotContain((await hub.Store.GetDeltasAsync("-1")).Select(LedgerDelta.Entry), e => e.Cell == b.Id && e.Sequence > 4);
+
+        // The hub answers b no more, and refuses b's entries past 4 from anyone.
+        await Assert.ThrowsAsync<HttpRequestException>(() => LedgerHub.ExchangeRevocationsAsync(hub.Url, b, [], CancellationToken.None));
+        Assert.False((await LedgerHub.Http(hub.Url, b).PushAsync([LedgerDelta.From(everything.Last(e => e.Cell == b.Id))], CancellationToken.None)).Success);
+        var rejectedBefore = hub.Store.Counts.Rejected;
+        Assert.True((await LedgerHub.Http(hub.Url, a).PushAsync([LedgerDelta.From(everything.Last(e => e.Cell == b.Id))], CancellationToken.None)).Success);
+        Assert.Equal(rejectedBefore + 1, hub.Store.Counts.Rejected);
+
+        // a's next sync takes the revocation and drops what it held past 4.
+        var report = await LedgerHub.SyncAsync(ledgerA, a, hub.Url, Path.Combine(dir.Path, "a.json"), _ => { }, CancellationToken.None);
+        Assert.Equal(1, report.RevocationsTaken);
+        Assert.Equal(8, ledgerA.Count);
+        Assert.DoesNotContain(ledgerA.Entries, e => e.Cell == b.Id && e.Sequence > 4);
+
+        // Whatever the order: revocation first or entries first, the same ledger.
+        var revokedFirst = new WorkLedger(owner.PublicKey);
+        Assert.True(revokedFirst.Revoke(revocation));
+        var refused = revokedFirst.Merge(everything);
+        Assert.Equal(3, refused.Rejected.Count);
+        var entriesFirst = new WorkLedger(owner.PublicKey);
+        entriesFirst.Merge(everything);
+        Assert.True(entriesFirst.Revoke(revocation));
+        Assert.False(entriesFirst.Revoke(revocation));
+        Assert.Equal(revokedFirst.Digest(), entriesFirst.Digest());
+        Assert.Equal(ledgerA.Digest(), entriesFirst.Digest());
+
+        // Of two revocations of one cell, every ledger keeps the stronger one.
+        var later = owner.Revoke(b.Identity.PublicKey, 2, "it went earlier than we thought", T0.AddHours(2));
+        Assert.True(entriesFirst.Revoke(later));
+        Assert.False(entriesFirst.Revoke(revocation));
+        Assert.Equal(later, Assert.Single(Revocation.Merge([revocation, later])));
+
+        // Another owner's revocation of a's cell changes nothing, at a ledger or at the hub.
+        var forged = strangerOwner.Revoke(a.Identity.PublicKey, 0, "not yours to revoke", T0.AddHours(1));
+        Assert.False(ledgerA.Revoke(forged));
+        Assert.Single(await LedgerHub.ExchangeRevocationsAsync(hub.Url, a, [forged], CancellationToken.None));
+        Assert.False(hub.Store.IsRevoked(a.Id));
+        Assert.True((await LedgerHub.Http(hub.Url, a).FetchAsync("-1", a.Id, CancellationToken.None)).Success);
+    }
+
+    /// <summary>The revoke command: entries past the point dropped from this home's ledger and the revocation kept owner-only.</summary>
+    [Fact]
+    public void TheRevokeCommandDropsTheCellsLaterEntriesHere()
+    {
+        using var dir = new TempHome();
+        var vessel = new FakeVessel("raw-owner");
+        string Run(params string[] args)
+        {
+            var output = new StringWriter();
+            var code = CellCommand.Run([.. args, "--home", dir.Path, "--no-mesh"], output, output, vessel);
+            Assert.True(code == 0, $"{string.Join(' ', args)} exited {code}: {output}");
+            return output.ToString();
+        }
+
+        Run("cell", "init");
+        Run("cell", "init", "--creatura", "beta");
+        Run("cell", "claim", "--goal", "beta's claim", "--creatura", "beta");
+        var beta = Run("cell", "whoami", "--creatura", "beta").Split('\n').Single(l => l.StartsWith("cell ", StringComparison.Ordinal)).Split(' ', StringSplitOptions.RemoveEmptyEntries)[1];
+
+        var revoked = Run("cell", "revoke", "--cell", beta, "--up-to", "1", "--reason", "test");
+        Assert.Contains("1 entry past it dropped", revoked);
+        Assert.True(OwnerOnly.IsOwnerOnly(new CellHome(dir.Path).RevocationsPath));
+        var ledger = Run("cell", "ledger");
+        Assert.DoesNotContain("beta's claim", ledger);
+        Assert.Contains("2 entries from 2 cells", ledger);
+
+        // A cell that never wrote here is revoked by the endorsement the owner gave it.
+        using var lost = new TempHome();
+        var lostVessel = new FakeVessel("raw-lost");
+        var request = Path.Combine(lost.Path, "lost.request.json");
+        var endorsement = Path.Combine(lost.Path, "lost.endorsement.json");
+        Assert.Equal(0, CellCommand.Run(["cell", "request", "--home", lost.Path, "--no-mesh", "--out", request], new StringWriter(), new StringWriter(), lostVessel));
+        Run("cell", "endorse", "--request", request, "--out", endorsement);
+        Assert.Contains("after sequence 0", Run("cell", "revoke", "--endorsement", endorsement, "--reason", "lost before it ever synced"));
+        Assert.Equal(2, new CellHome(dir.Path).LoadRevocations().Count);
+    }
+
+    /// <summary>The two launchd agents: generated plists that parse, absolute paths, the right schedule, and install and uninstall that touch only these two labels.</summary>
+    [Fact]
+    public void TheLaunchdAgentsAreGeneratedInstalledAndRemoved()
+    {
+        using var dir = new TempHome();
+        using var agents = new TempHome();
+        var vessel = new FakeVessel("raw-owner");
+        (int Code, string Text) Run(params string[] args)
+        {
+            var output = new StringWriter();
+            var code = CellCommand.Run([.. args, "--home", dir.Path, "--no-mesh", "--creatura", "claude-code", "--agents", agents.Path, "--no-load"], output, output, vessel);
+            return (code, output.ToString());
+        }
+
+        var options = new[] { "--hub", "http://100.100.1.5:5181", "--listen", "100.100.1.5:5181" };
+        var config = Run(["cell", "launchd-config", .. options]);
+        Assert.Equal(0, config.Code);
+        foreach (var label in new[] { LaunchdSetup.SyncLabel, LaunchdSetup.HubLabel }) Assert.Contains(label + ".plist", config.Text);
+
+        var sync = System.Xml.Linq.XDocument.Parse(LaunchdSetup.SyncPlist("/h/bin/creatura", "/h", "claude-code", "http://100.100.1.5:5181", 60, "/h/sync/sync.log"));
+        var syncArguments = sync.Descendants("array").Single().Elements("string").Select(e => e.Value).ToList();
+        Assert.Equal(["/h/bin/creatura", "cell", "sync", "--home", "/h", "--creatura", "claude-code", "--hub", "http://100.100.1.5:5181", "--quiet"], syncArguments);
+        Assert.Contains("<key>StartInterval</key>", sync.ToString());
+        var hub = System.Xml.Linq.XDocument.Parse(LaunchdSetup.HubPlist("/usr/local/share/dotnet/dotnet", "/h/hub/app/Creatura.Cells.Hub.dll", "100.100.1.5:5181", "/h/hub/owners.txt", "/h/hub", "/h/hub/hub.log"));
+        Assert.Equal(["/usr/local/share/dotnet/dotnet", "/h/hub/app/Creatura.Cells.Hub.dll", "--listen", "100.100.1.5:5181", "--trust", "/h/hub/owners.txt", "--data", "/h/hub"],
+            hub.Descendants("array").Single().Elements("string").Select(e => e.Value).ToList());
+        Assert.Contains("<key>KeepAlive</key>", hub.ToString());
+        Assert.All(config.Text.Split('\n').Where(l => l.Contains("<string>/", StringComparison.Ordinal)), l => Assert.DoesNotContain("~", l, StringComparison.Ordinal));
+
+        // Nothing is installed while a piece is missing, and the message names each one.
+        var missing = Run(["cell", "install-launchd", .. options]);
+        Assert.Equal(2, missing.Code);
+        Assert.Contains("publish-bin", missing.Text);
+        Assert.Contains("publish-hub", missing.Text);
+        Assert.Contains("owner-key", missing.Text);
+        Assert.Empty(Directory.GetFiles(agents.Path));
+
+        foreach (var piece in new[] { Path.Combine(dir.Path, "bin", "creatura"), Path.Combine(dir.Path, "hub", "app", "Creatura.Cells.Hub.dll"), Path.Combine(dir.Path, "hub", "owners.txt") })
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(piece)!);
+            File.WriteAllText(piece, "");
+        }
+        var other = Path.Combine(agents.Path, "com.someone.else.plist");
+        File.WriteAllText(other, "not ours");
+
+        Assert.Equal(0, Run(["cell", "install-launchd", "--dry-run", .. options]).Code);
+        Assert.Single(Directory.GetFiles(agents.Path));
+        var installed = Run(["cell", "install-launchd", .. options]);
+        Assert.Equal(0, installed.Code);
+        Assert.Equal(3, Directory.GetFiles(agents.Path).Length);
+        Assert.Contains("unchanged", Run(["cell", "install-launchd", .. options]).Text);
+        var changed = Run(["cell", "install-launchd", "--hub", "http://100.100.1.5:5181", "--listen", "100.100.1.5:5181", "--interval", "120"]);
+        Assert.Contains("backed up", changed.Text);
+
+        Assert.Equal(0, Run("cell", "uninstall-launchd").Code);
+        Assert.True(File.Exists(other));
+        Assert.Empty(Directory.GetFiles(agents.Path).Where(f => f.EndsWith(".plist", StringComparison.Ordinal) && Path.GetFileName(f).StartsWith("com.creatura.", StringComparison.Ordinal)));
+    }
+
+    /// <summary>sync --quiet: a run with nothing to move prints nothing, so a sync every minute does not fill its log.</summary>
+    [Fact]
+    public async Task AQuietSyncPrintsOnlyWhenSomethingMoved()
+    {
+        using var dir = new TempHome();
+        var vessel = new FakeVessel("raw-owner");
+        string Run(params string[] args)
+        {
+            var output = new StringWriter();
+            var code = CellCommand.Run([.. args, "--home", dir.Path, "--no-mesh"], output, output, vessel);
+            Assert.True(code == 0, $"{string.Join(' ', args)} exited {code}: {output}");
+            return output.ToString();
+        }
+
+        Run("cell", "init");
+        using var owner = new CellHome(dir.Path).LoadOwner()!;
+        await using var hub = await RunningHub.StartAsync(Path.Combine(dir.Path, "hub.db"), owner.PublicKey);
+        Assert.Contains("sent         1 entry", Run("cell", "sync", "--hub", hub.Url.ToString(), "--quiet"));
+        Assert.Equal("", Run("cell", "sync", "--hub", hub.Url.ToString(), "--quiet"));
+        Run("cell", "heartbeat");
+        Assert.Contains("sent         1 entry", Run("cell", "sync", "--hub", hub.Url.ToString(), "--quiet"));
+    }
 }

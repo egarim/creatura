@@ -40,7 +40,7 @@ public static class HubRequest
 
     /// <summary>Why the request is refused, or null when an endorsed cell of a trusted owner signed exactly it within the window.</summary>
     public static string? Verify(IReadOnlyCollection<string> trustedOwners, string? endorsementHeader, string? timeHeader, string? signatureHeader,
-        string method, string pathAndQuery, ReadOnlySpan<byte> body, DateTimeOffset now, out string? cell)
+        string method, string pathAndQuery, ReadOnlySpan<byte> body, DateTimeOffset now, out string? cell, Func<string, bool>? isRevoked = null)
     {
         cell = null;
         if (string.IsNullOrEmpty(endorsementHeader) || string.IsNullOrEmpty(timeHeader) || string.IsNullOrEmpty(signatureHeader)) return "the request is not signed";
@@ -65,7 +65,9 @@ public static class HubRequest
 
         if (!CellKey.Verify(endorsement.CellPublicKey, SignedBytes(method, pathAndQuery, at, body), signatureHeader))
             return "the signature does not cover this request with the endorsed key";
-        cell = CellKey.CellIdOf(endorsement.CellPublicKey);
+        var signer = CellKey.CellIdOf(endorsement.CellPublicKey);
+        if (isRevoked?.Invoke(signer) == true) return "the cell is revoked";
+        cell = signer;
         return null;
     }
 }

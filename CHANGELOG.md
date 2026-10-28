@@ -14,6 +14,12 @@
   Every request to the hub is signed by an endorsed cell: the endorsement, the time and a signature over the method,
   the path, the time and the body (`HubRequest`, `HubSigningHandler`). The hub answers nothing else, so other machines
   on the mesh can no longer read the ledger (C20).
+  The hub keeps every accepted request signature, so a replayed request is refused, also across a restart (C21).
+  Owner-signed `Revocation`s: `creatura cell revoke` stops a cell after sequence N. Ledgers drop and refuse its later
+  entries in any order of arrival, the hub refuses its requests and deletes its later deltas, and revocations travel
+  with sync at `/revocations` (C22).
+  Automatic sync on a Mac: `sync --quiet`, `publish-hub`, and `launchd-config` / `install-launchd` /
+  `uninstall-launchd` for the `com.creatura.hub` and `com.creatura.sync` agents.
 
 - **Cells slice 3: the ledger in SQLite, synced through SyncFramework.** `ILedgerStore`, which `JsonLedgerStore`
   implements. `SqliteLedgerStore` (`src/Creatura.Cells.Sqlite`, package `Microsoft.Data.Sqlite` 10.0.14): one row per

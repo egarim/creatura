@@ -51,11 +51,84 @@ public sealed class HubDeltaStore : DeltaStoreBase
                 operation BLOB NOT NULL
             );
             CREATE TABLE IF NOT EXISTS cursors (identity TEXT PRIMARY KEY, processed TEXT, pushed TEXT);
+            CREATE TABLE IF NOT EXISTS revocations (cell TEXT PRIMARY KEY, json TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS seen_requests (signature TEXT PRIMARY KEY, at INTEGER NOT NULL);
             """;
         command.ExecuteNonQuery();
+
+        command.CommandText = "SELECT json FROM revocations";
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            if (System.Text.Json.JsonSerializer.Deserialize<Revocation>(reader.GetString(0), CellJson.Options) is { } revocation) _verifier.Revoke(revocation);
+        }
     }
 
     public string Path { get; }
+
+    /// <summary>The revocations the hub applies, one per cell.</summary>
+    public IReadOnlyList<Revocation> Revocations => Revocation.Merge(_verifier.Revocations);
+
+    /// <summary>True when an owner the hub trusts revoked the cell: the hub answers none of its requests.</summary>
+    public bool IsRevoked(string cell) => _verifier.IsRevoked(cell);
+
+    /// <summary>
+    /// Takes a revocation signed by an owner the hub trusts: keeps it, and deletes the cell's deltas past its sequence,
+    /// so they are served to nobody. Returns false when it changed nothing or is not to be trusted.
+    /// </summary>
+    public async Task<bool> AddRevocationAsync(Revocation revocation)
+    {
+        await _write.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (!_verifier.Revoke(revocation)) return false;
+            using var connection = Open();
+            using var transaction = connection.BeginTransaction();
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = "INSERT INTO revocations (cell, json) VALUES ($cell, $json) ON CONFLICT (cell) DO UPDATE SET json = excluded.json";
+            command.Parameters.AddWithValue("$cell", revocation.Cell);
+            command.Parameters.AddWithValue("$json", System.Text.Json.JsonSerializer.Serialize(revocation, CellJson.Options));
+            command.ExecuteNonQuery();
+            command.Parameters.Clear();
+            command.CommandText = "DELETE FROM deltas WHERE cell = $cell AND sequence > $upTo";
+            command.Parameters.AddWithValue("$cell", revocation.Cell);
+            command.Parameters.AddWithValue("$upTo", revocation.UpToSequence);
+            command.ExecuteNonQuery();
+            transaction.Commit();
+            return true;
+        }
+        finally
+        {
+            _write.Release();
+        }
+    }
+
+    /// <summary>
+    /// Records a request signature the hub accepted; false when it was seen before (a replay, C21). Signatures older
+    /// than twice the request window are forgotten, since their time alone refuses them.
+    /// </summary>
+    public bool RememberRequest(string signature, DateTimeOffset now)
+    {
+        _write.Wait();
+        try
+        {
+            using var connection = Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "DELETE FROM seen_requests WHERE at < $old; INSERT OR IGNORE INTO seen_requests (signature, at) VALUES ($signature, $now);";
+            command.Parameters.AddWithValue("$old", (now - 2 * HubRequest.Window).ToUnixTimeMilliseconds());
+            command.Parameters.AddWithValue("$signature", signature);
+            command.Parameters.AddWithValue("$now", now.ToUnixTimeMilliseconds());
+            command.ExecuteNonQuery();
+            command.CommandText = "SELECT changes()";
+            command.Parameters.Clear();
+            return (long)command.ExecuteScalar()! == 1;
+        }
+        finally
+        {
+            _write.Release();
+        }
+    }
 
     public HubCounts Counts => new(Interlocked.Read(ref _stored), Interlocked.Read(ref _duplicates), Interlocked.Read(ref _rejected));
 

@@ -165,6 +165,40 @@ public static class HooksSetup
     }
 
     /// <summary>The project file of the CLI: the one given, else found by walking up from the current directory.</summary>
+    /// <summary>Publishes the ledger hub into <c>&lt;home&gt;/hub/app</c>; returns the path of its dll.</summary>
+    public static string PublishHub(string project, string homeRoot, TextWriter output)
+    {
+        var app = Path.Combine(homeRoot, "hub", "app");
+        OwnerOnly.CreateDirectory(homeRoot);
+        OwnerOnly.CreateDirectory(Path.Combine(homeRoot, "hub"));
+        var start = new ProcessStartInfo(Dotnet(), ["publish", project, "-c", "Release", "-o", app, "--nologo", "-v", "quiet"])
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        using var process = Process.Start(start) ?? throw new InvalidOperationException("dotnet publish did not start");
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+        process.WaitForExit();
+        if (process.ExitCode != 0) throw new InvalidOperationException($"dotnet publish failed ({process.ExitCode}): {stderr.Result}{stdout.Result}".Trim());
+        var dll = Path.Combine(app, "Creatura.Cells.Hub.dll");
+        output.WriteLine($"published {dll}");
+        return dll;
+    }
+
+    /// <summary>The hub's project: <paramref name="given"/>, or src/Creatura.Cells.Hub found above the current folder.</summary>
+    public static string FindHubProject(string? given)
+    {
+        if (given is not null) return Path.GetFullPath(given);
+        for (var dir = new DirectoryInfo(Directory.GetCurrentDirectory()); dir is not null; dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, "src", "Creatura.Cells.Hub", "Creatura.Cells.Hub.csproj");
+            if (File.Exists(candidate)) return candidate;
+        }
+        throw new InvalidOperationException("cannot find src/Creatura.Cells.Hub/Creatura.Cells.Hub.csproj from here: pass --project <path>");
+    }
+
     public static string FindProject(string? given)
     {
         if (given is not null) return Path.GetFullPath(given);
@@ -181,7 +215,7 @@ public static class HooksSetup
             ? value
             : "'" + value.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
 
-    private static string Dotnet()
+    internal static string Dotnet()
     {
         var self = Environment.ProcessPath;
         if (self is not null && Path.GetFileNameWithoutExtension(self).Equals("dotnet", StringComparison.OrdinalIgnoreCase)) return self;

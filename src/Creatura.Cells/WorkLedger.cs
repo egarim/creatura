@@ -58,6 +58,7 @@ public sealed class WorkLedger
 {
     private readonly HashSet<string> _owners;
     private readonly Dictionary<(string Cell, long Sequence), SignedEntry> _entries = [];
+    private readonly Dictionary<string, Revocation> _revoked = new(StringComparer.Ordinal);
     private IReadOnlyList<SignedEntry>? _ordered;
 
     public WorkLedger(params IEnumerable<string> trustedOwnerKeys) => _owners = new HashSet<string>(trustedOwnerKeys, StringComparer.Ordinal);
@@ -65,6 +66,28 @@ public sealed class WorkLedger
     public IReadOnlyCollection<string> TrustedOwners => _owners;
 
     public int Count => _entries.Count;
+
+    /// <summary>The revocations this ledger applies, one per cell.</summary>
+    public IReadOnlyCollection<Revocation> Revocations => _revoked.Values;
+
+    /// <summary>
+    /// Applies a revocation signed by an owner this ledger trusts: the cell's entries past its sequence are dropped now
+    /// and refused from now on. Of two revocations of one cell the stronger is kept (<see cref="Revocation.Stronger"/>),
+    /// so ledgers end the same whatever order revocations and entries arrive in. Returns false when it changed nothing
+    /// or is not to be trusted.
+    /// </summary>
+    public bool Revoke(Revocation revocation)
+    {
+        if (!_owners.Contains(revocation.OwnerPublicKey) || !revocation.Verify()) return false;
+        if (_revoked.TryGetValue(revocation.Cell, out var held) && ReferenceEquals(Revocation.Stronger(held, revocation), held)) return false;
+        _revoked[revocation.Cell] = revocation;
+        foreach (var key in _entries.Keys.Where(k => k.Cell == revocation.Cell && k.Sequence > revocation.UpToSequence).ToList()) _entries.Remove(key);
+        _ordered = null;
+        return true;
+    }
+
+    /// <summary>True when an owner this ledger trusts has revoked the cell.</summary>
+    public bool IsRevoked(string cell) => _revoked.ContainsKey(cell);
 
     /// <summary>The entry this ledger holds for (cell, sequence), or null.</summary>
     public SignedEntry? Get(string cell, long sequence) => _entries.GetValueOrDefault((cell, sequence));
@@ -133,6 +156,8 @@ public sealed class WorkLedger
         if (entry.Sequence < 1) return "a sequence below 1";
         if (entry.Endorsement is not { } endorsement) return "no endorsement";
         if (!_owners.Contains(endorsement.OwnerPublicKey)) return "endorsed by an owner this ledger does not trust";
+        if (_revoked.TryGetValue(entry.Cell, out var revocation) && entry.Sequence > revocation.UpToSequence)
+            return $"its cell was revoked after sequence {revocation.UpToSequence}";
         if (checkSignatures && !endorsement.Verify()) return "the endorsement's signature does not verify";
         if (CellKey.CellIdOf(endorsement.CellPublicKey) != entry.Cell) return "the entry's cell is not the endorsed key";
         if (checkSignatures && !CellKey.Verify(endorsement.CellPublicKey, entry.SignedBytes(), entry.Signature)) return "the signature does not verify";

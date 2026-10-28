@@ -113,6 +113,13 @@ public sealed class OwnerKey : IDisposable
         return unsigned with { Signature = _key.Sign(unsigned.SignedBytes()) };
     }
 
+    /// <summary>Signs that the cell is not the owner's past <paramref name="upToSequence"/>.</summary>
+    public Revocation Revoke(string cellPublicKey, long upToSequence, string reason, DateTimeOffset at)
+    {
+        var unsigned = new Revocation(CellKey.CellIdOf(cellPublicKey), cellPublicKey, upToSequence, reason, at.ToUniversalTime(), PublicKey, "");
+        return unsigned with { Signature = _key.Sign(unsigned.SignedBytes()) };
+    }
+
     public void Dispose() => _key.Dispose();
 }
 

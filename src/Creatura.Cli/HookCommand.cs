@@ -246,6 +246,7 @@ public static class HookCommand
         using var owner = home.LoadOwner();
         var trusted = new[] { owner?.PublicKey, cell.Identity.Endorsement?.OwnerPublicKey }.OfType<string>().Distinct();
         var ledger = new WorkLedger(trusted);
+        home.ApplyRevocations(ledger);
         var store = home.Ledger;
         LedgerStores.LoadInto(home, store, ledger);
         CellCommand.SayHelloIfNeeded(ledger, cell);

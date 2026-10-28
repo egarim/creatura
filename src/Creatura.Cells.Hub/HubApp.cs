@@ -42,7 +42,7 @@ public static class HubAuth
 {
     public const string CellItem = "creatura.cell";
 
-    public static async Task Middleware(HttpContext context, RequestDelegate next, IReadOnlyCollection<string> trustedOwners, TimeProvider clock, Action<string>? log = null)
+    public static async Task Middleware(HttpContext context, RequestDelegate next, IReadOnlyCollection<string> trustedOwners, TimeProvider clock, Action<string>? log = null, HubDeltaStore? store = null)
     {
         context.Request.EnableBuffering();
         byte[] body;
@@ -58,8 +58,11 @@ public static class HubAuth
             ? raw
             : context.Request.Path + context.Request.QueryString;
         var headers = context.Request.Headers;
+        var now = clock.GetUtcNow();
         var reason = HubRequest.Verify(trustedOwners, headers[HubRequest.EndorsementHeader], headers[HubRequest.TimeHeader], headers[HubRequest.SignatureHeader],
-            context.Request.Method, target, body, clock.GetUtcNow(), out var cell);
+            context.Request.Method, target, body, now, out var cell, store is null ? null : store.IsRevoked);
+        if (reason is null && store is not null && !store.RememberRequest(headers[HubRequest.SignatureHeader].ToString(), now))
+            reason = "the request was already used";
         if (reason is not null)
         {
             log?.Invoke($"401 {context.Connection.RemoteIpAddress} {context.Request.Method} {context.Request.Path}: {reason}");
@@ -93,8 +96,25 @@ public static class HubApp
 
         var app = builder.Build();
         app.Use(HubAccess.Middleware);
-        app.Use((context, next) => HubAuth.Middleware(context, next, options.TrustedOwners, TimeProvider.System, log));
+        app.Use((context, next) => HubAuth.Middleware(context, next, options.TrustedOwners, TimeProvider.System, log, store));
         app.MapControllers();
+
+        // Revocations: any signed request may read them or hand them in; the store keeps only those an owner it trusts signed.
+        app.MapGet("/revocations", () => Results.Text(System.Text.Json.JsonSerializer.Serialize(store.Revocations, CellJson.Options), "application/json"));
+        app.MapPost("/revocations", async (HttpRequest request) =>
+        {
+            var given = await System.Text.Json.JsonSerializer.DeserializeAsync<List<Revocation>>(request.Body, CellJson.Options) ?? [];
+            var taken = 0;
+            foreach (var revocation in given)
+            {
+                if (await store.AddRevocationAsync(revocation))
+                {
+                    taken++;
+                    log?.Invoke($"revoked {revocation.Cell} after sequence {revocation.UpToSequence}: {revocation.Reason}");
+                }
+            }
+            return Results.Text(System.Text.Json.JsonSerializer.Serialize(new { taken }), "application/json");
+        });
         return app;
     }
 }

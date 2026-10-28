@@ -96,7 +96,11 @@ public sealed class LedgerDeltaProcessor(WorkLedger ledger) : DeltaProcessorBase
 }
 
 /// <summary>What one <see cref="LedgerSyncNode.SyncAsync"/> did: entries sent, whether the push succeeded, and what the pull merged.</summary>
-public sealed record LedgerSyncReport(int Sent, bool Pushed, string? Message, MergeResult Pulled);
+public sealed record LedgerSyncReport(int Sent, bool Pushed, string? Message, MergeResult Pulled)
+{
+    /// <summary>Revocations from the hub this ledger did not apply before.</summary>
+    public int RevocationsTaken { get; init; }
+}
 
 /// <summary>
 /// Where a home's sync with one hub stands: the cursor of what it has pushed (per cell, the highest sequence with no
@@ -239,10 +243,38 @@ public static class LedgerHub
     /// <param name="persist">Saves the ledger after the sync and before the cursors are saved, so a crash in between pulls again rather than losing what was pulled.</param>
     public static async Task<LedgerSyncReport> SyncAsync(WorkLedger ledger, LocalCell cell, Uri hub, string statePath, Action<WorkLedger> persist, CancellationToken cancellationToken)
     {
+        // Revocations first, so entries a revocation refuses are neither pushed nor taken.
+        var theirs = await ExchangeRevocationsAsync(hub, cell, [.. ledger.Revocations], cancellationToken).ConfigureAwait(false);
+        var taken = theirs.Count(ledger.Revoke);
+
         var node = new LedgerSyncNode(ledger, cell.Id, Http(hub, cell), LedgerSyncState.Load(statePath));
         var report = await node.SyncAsync(cancellationToken).ConfigureAwait(false);
         persist(ledger);
         node.State.Save(statePath);
-        return report;
+        return report with { RevocationsTaken = taken };
+    }
+
+    /// <summary>
+    /// Hands the hub this home's revocations and returns the hub's. The caller applies them through
+    /// <see cref="WorkLedger.Revoke"/>, which keeps only those an owner it trusts signed.
+    /// </summary>
+    public static async Task<IReadOnlyList<Revocation>> ExchangeRevocationsAsync(Uri hub, LocalCell cell, IReadOnlyCollection<Revocation> mine, CancellationToken cancellationToken,
+        TimeProvider? clock = null, HttpMessageHandler? inner = null)
+    {
+        var root = hub.ToString().TrimEnd('/');
+        if (root.EndsWith("/sync", StringComparison.OrdinalIgnoreCase)) root = root[..^"/sync".Length];
+        using var http = new HttpClient(new HubSigningHandler(cell, clock) { InnerHandler = inner ?? new HttpClientHandler() })
+        {
+            BaseAddress = new Uri(root + "/"),
+            Timeout = TimeSpan.FromSeconds(30),
+        };
+        if (mine.Count > 0)
+        {
+            using var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(mine, CellJson.Options), System.Text.Encoding.UTF8, "application/json");
+            using var posted = await http.PostAsync("revocations", content, cancellationToken).ConfigureAwait(false);
+            posted.EnsureSuccessStatusCode();
+        }
+        var text = await http.GetStringAsync("revocations", cancellationToken).ConfigureAwait(false);
+        return System.Text.Json.JsonSerializer.Deserialize<List<Revocation>>(text, CellJson.Options) ?? [];
     }
 }

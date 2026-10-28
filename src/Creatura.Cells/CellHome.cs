@@ -53,6 +53,26 @@ public sealed class CellHome
 
     public string LedgerPath => Path.Combine(Root, "ledger.json");
 
+    /// <summary>The revocations this home applies: owner-only JSON, one per cell (<see cref="Revocation.Merge"/>).</summary>
+    public string RevocationsPath => Path.Combine(Root, "revocations.json");
+
+    public IReadOnlyList<Revocation> LoadRevocations() => File.Exists(RevocationsPath)
+        ? JsonSerializer.Deserialize<List<Revocation>>(File.ReadAllText(RevocationsPath), CellJson.Options) ?? []
+        : [];
+
+    /// <summary>The home's revocations merged with <paramref name="more"/> and written back; returns the merged list.</summary>
+    public IReadOnlyList<Revocation> SaveRevocations(IEnumerable<Revocation> more)
+    {
+        var merged = Revocation.Merge(LoadRevocations().Concat(more));
+        if (merged.Count == 0) return merged;
+        OwnerOnly.CreateDirectory(Root);
+        OwnerOnly.Replace(RevocationsPath, JsonSerializer.SerializeToUtf8Bytes(merged, new JsonSerializerOptions(CellJson.Options) { WriteIndented = true }));
+        return merged;
+    }
+
+    /// <summary>Applies the home's revocations to a ledger before anything is loaded into it; returns how many it took.</summary>
+    public int ApplyRevocations(WorkLedger ledger) => LoadRevocations().Count(ledger.Revoke);
+
     /// <summary>The ledger file of the JSON store, whichever store the home uses: a SQLite store imports it once.</summary>
     public JsonLedgerStore JsonLedger => new(LedgerPath);
 

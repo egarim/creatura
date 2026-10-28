@@ -33,8 +33,17 @@ public static class CellCommand
           endorse --request <file> [--out <file>]
                                        on the owner's vessel: endorse a request, write the endorsement
           accept --endorsement <file>  back on the new vessel: keep the endorsement if it covers this cell, say hello
-          sync --hub <url>             push to and pull from a ledger hub (Creatura.Cells.Hub), e.g. http://100.100.1.5:5181
+          sync --hub <url> [--quiet]   push to and pull from a ledger hub (Creatura.Cells.Hub), e.g. http://100.100.1.5:5181;
+                                       --quiet prints only when something moved or failed
+          publish-hub                  publish the hub into <home>/hub/app (--project <csproj>)
+          launchd-config --hub <url> [--listen <address:port>] [--trust <file>] [--interval <seconds>]
+                                       print the launchd agents: sync every interval (default 60), and the hub with --listen
+          install-launchd ...          the same options: write them to ~/Library/LaunchAgents and load them (--dry-run)
+          uninstall-launchd            unload and remove both agents
           owner-key [--out <file>]     on the owner's vessel: the owner's PUBLIC key, for a hub's --trust file
+          revoke --cell <id> | --endorsement <file>  --reason <text> [--up-to <n>] [--hub <url>]
+                                       on the owner's vessel: revoke a cell (a lost vessel); entries past n are refused;
+                                       --endorsement names a cell that never wrote here by the endorsement you gave it
 
         progress, release and handoff take --session <id> to name the claim of a host-tool session.
 
@@ -46,7 +55,7 @@ public static class CellCommand
                                        which imports ledger.json on its first run and is the ledger from then on)
         """;
 
-    private static readonly HashSet<string> Flags = new(StringComparer.Ordinal) { "--open", "--blocked", "--no-mesh", "--help", "--dry-run" };
+    private static readonly HashSet<string> Flags = new(StringComparer.Ordinal) { "--open", "--blocked", "--no-mesh", "--help", "--dry-run", "--quiet", "--no-load" };
 
     private static readonly TimeSpan InteractiveLockWait = TimeSpan.FromSeconds(10);
 
@@ -99,6 +108,11 @@ public static class CellCommand
                 "accept" => Accept(context),
                 "sync" => Sync(context),
                 "owner-key" => OwnerKeyCommand(context),
+                "revoke" => RevokeCommand(context),
+                "publish-hub" => PublishHubCommand(context),
+                "launchd-config" => LaunchdConfig(context),
+                "install-launchd" => InstallLaunchd(context),
+                "uninstall-launchd" => UninstallLaunchd(context),
                 var other => Fail(error, $"unknown command: cell {other}\n\n{Usage}"),
             };
         }
@@ -299,6 +313,7 @@ public static class CellCommand
         using var owner = c.Home.LoadOwner();
         var trusted = new[] { owner?.PublicKey, cell.Identity.Endorsement?.OwnerPublicKey }.OfType<string>().Distinct();
         var ledger = new WorkLedger(trusted);
+        c.Home.ApplyRevocations(ledger);
         var store = c.Home.Ledger;
         Report(c, LedgerStores.LoadInto(c.Home, store, ledger));
         return (ledger, store);
@@ -424,13 +439,19 @@ public static class CellCommand
         {
             using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
             var (fresh, store) = OpenLedger(c, cell);
+            foreach (var revocation in ledger.Revocations) fresh.Revoke(revocation);
             fresh.MergeVerified(ledger.Entries);
             store.Save(fresh);
+            c.Home.SaveRevocations(fresh.Revocations);
         }, CancellationToken.None).GetAwaiter().GetResult();
 
+        var moved = report.Sent > 0 || report.Pulled.Added > 0 || report.Pulled.Rejected.Count > 0 || report.RevocationsTaken > 0 || !report.Pushed;
+        if (c.Options.ContainsKey("--quiet") && !moved) return 0;
+        if (c.Options.ContainsKey("--quiet")) c.Out.WriteLine($"{CellJson.Stamp(DateTimeOffset.UtcNow)} {cell.Id}");
         c.Out.WriteLine($"hub          {hub}");
         c.Out.WriteLine($"sent         {report.Sent} entr{(report.Sent == 1 ? "y" : "ies")}{(report.Pushed ? "" : $": the push failed: {report.Message}")}");
         c.Out.WriteLine($"received     {report.Pulled.Added} new, {report.Pulled.Duplicates} already held, {report.Pulled.Rejected.Count} refused");
+        if (report.RevocationsTaken > 0) c.Out.WriteLine($"revocations  {report.RevocationsTaken} new from the hub");
         foreach (var rejection in report.Pulled.Rejected.Take(5)) c.Out.WriteLine($"  refused    {rejection.EntryId}: {rejection.Reason}");
         c.Out.WriteLine($"ledger       {held + report.Pulled.Added} entries, digest {snapshot.Digest()[..16]}");
         return report.Pushed ? 0 : 1;
@@ -457,6 +478,124 @@ public static class CellCommand
         {
             c.Out.Write(line);
         }
+        return 0;
+    }
+
+    /// <summary>
+    /// Revokes a cell with the owner key: trusted up to <c>--up-to</c> (default: the highest sequence this ledger holds
+    /// for it with no gap), refused after. Applied to this home's ledger at once, kept in its revocations file, and
+    /// handed to the hub now with <c>--hub</c> or at the next sync.
+    /// </summary>
+    private static int RevokeCommand(Context c)
+    {
+        var reason = Required(c, "--reason");
+        var fromFile = c.Options.GetValueOrDefault("--endorsement") is { Length: > 0 } endorsementPath
+            ? JsonSerializer.Deserialize<VesselEndorsement>(File.ReadAllText(endorsementPath), CellJson.Options) ?? throw new FormatException($"{endorsementPath} is not an endorsement")
+            : null;
+        var target = c.Options.GetValueOrDefault("--cell") ?? (fromFile is null ? Required(c, "--cell") : CellKey.CellIdOf(fromFile.CellPublicKey));
+        using var owner = c.Home.LoadOwner();
+        if (owner is null)
+        {
+            c.Err.WriteLine($"no owner key under {c.Home.Root}: revoke on the owner's vessel");
+            return 1;
+        }
+
+        using var cell = c.Home.OpenCell(c.Source, Position(c), c.Creatura);
+        Revocation revocation;
+        using (LedgerLock.Acquire(c.Home.Root, InteractiveLockWait))
+        {
+            var (ledger, store) = OpenLedger(c, cell);
+            var key = (fromFile is not null && CellKey.CellIdOf(fromFile.CellPublicKey) == target ? fromFile.CellPublicKey : null)
+                ?? ledger.Entries.FirstOrDefault(e => e.Cell == target)?.Endorsement.CellPublicKey
+                ?? throw new InvalidOperationException($"no entry from {target} in this ledger, so its key is not known here: sync first, or pass --endorsement <the file you endorsed it with>");
+            var upTo = c.Options.GetValueOrDefault("--up-to") is { } given ? long.Parse(given, CultureInfo.InvariantCulture) : ledger.Cursor.Of(target);
+            revocation = owner.Revoke(key, upTo, reason, DateTimeOffset.UtcNow);
+            var before = ledger.Count;
+            ledger.Revoke(revocation);
+            store.Save(ledger);
+            c.Home.SaveRevocations([revocation]);
+            c.Out.WriteLine($"revoked      {target} after sequence {upTo}: {reason}");
+            c.Out.WriteLine($"ledger       {before - ledger.Count} entr{(before - ledger.Count == 1 ? "y" : "ies")} past it dropped here; kept in {c.Home.RevocationsPath}");
+        }
+
+        if (c.Options.GetValueOrDefault("--hub") is { Length: > 0 } hub)
+        {
+            var theirs = LedgerHub.ExchangeRevocationsAsync(new Uri(hub), cell, [revocation], CancellationToken.None).GetAwaiter().GetResult();
+            c.Out.WriteLine($"hub          {hub} now holds {theirs.Count} revocation{(theirs.Count == 1 ? "" : "s")}");
+        }
+        else
+        {
+            c.Out.WriteLine("hub          handed over at the next sync");
+        }
+        return 0;
+    }
+
+    private static int PublishHubCommand(Context c)
+    {
+        HooksSetup.PublishHub(HooksSetup.FindHubProject(c.Options.GetValueOrDefault("--project")), c.Home.Root, c.Out);
+        return 0;
+    }
+
+    /// <summary>The launchd agents these options describe, by label: the sync agent always, the hub agent with --listen.</summary>
+    private static Dictionary<string, string> LaunchdPlists(Context c)
+    {
+        var hub = Required(c, "--hub");
+        _ = new Uri(hub);
+        var interval = c.Options.GetValueOrDefault("--interval") is { } i ? int.Parse(i, CultureInfo.InvariantCulture) : 60;
+        if (interval < 10) throw new ArgumentException("--interval is at least 10 seconds");
+        var plists = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [LaunchdSetup.SyncLabel] = LaunchdSetup.SyncPlist(HookCommandPath(c), c.Home.Root, c.Creatura, hub, interval, Path.Combine(c.Home.Root, "sync", "sync.log")),
+        };
+        if (c.Options.GetValueOrDefault("--listen") is { Length: > 0 } listen)
+        {
+            var hubDirectory = Path.Combine(c.Home.Root, "hub");
+            plists[LaunchdSetup.HubLabel] = LaunchdSetup.HubPlist(HooksSetup.Dotnet(), Path.Combine(hubDirectory, "app", "Creatura.Cells.Hub.dll"), listen,
+                Path.GetFullPath(c.Options.GetValueOrDefault("--trust") ?? Path.Combine(hubDirectory, "owners.txt")), hubDirectory, Path.Combine(hubDirectory, "hub.log"));
+        }
+        return plists;
+    }
+
+    private static string AgentsDirectory(Context c) => c.Options.GetValueOrDefault("--agents") ?? LaunchdSetup.AgentsDirectory;
+
+    private static int LaunchdConfig(Context c)
+    {
+        foreach (var (label, text) in LaunchdPlists(c))
+        {
+            c.Out.WriteLine($"<!-- {Path.Combine(AgentsDirectory(c), label + ".plist")} -->");
+            c.Out.Write(text);
+        }
+        return 0;
+    }
+
+    private static int InstallLaunchd(Context c)
+    {
+        var plists = LaunchdPlists(c);
+        var missing = new List<string>();
+        if (!File.Exists(HookCommandPath(c))) missing.Add($"{HookCommandPath(c)} (run `creatura cell publish-bin`)");
+        if (plists.ContainsKey(LaunchdSetup.HubLabel))
+        {
+            var hubDirectory = Path.Combine(c.Home.Root, "hub");
+            if (!File.Exists(Path.Combine(hubDirectory, "app", "Creatura.Cells.Hub.dll"))) missing.Add($"{Path.Combine(hubDirectory, "app")} (run `creatura cell publish-hub`)");
+            var trust = Path.GetFullPath(c.Options.GetValueOrDefault("--trust") ?? Path.Combine(hubDirectory, "owners.txt"));
+            if (!File.Exists(trust)) missing.Add($"{trust} (run `creatura cell owner-key --out {trust}`)");
+        }
+        if (missing.Count > 0) throw new InvalidOperationException("not installed, missing: " + string.Join("; ", missing));
+
+        if (c.Options.ContainsKey("--dry-run"))
+        {
+            LaunchdConfig(c);
+            c.Out.WriteLine($"dry run: nothing written to {AgentsDirectory(c)}");
+            return 0;
+        }
+        OwnerOnly.CreateDirectory(Path.Combine(c.Home.Root, "sync"));
+        foreach (var line in LaunchdSetup.Install(plists, AgentsDirectory(c), load: !c.Options.ContainsKey("--no-load"), DateTimeOffset.Now)) c.Out.WriteLine(line);
+        return 0;
+    }
+
+    private static int UninstallLaunchd(Context c)
+    {
+        foreach (var line in LaunchdSetup.Uninstall([LaunchdSetup.SyncLabel, LaunchdSetup.HubLabel], AgentsDirectory(c), unload: !c.Options.ContainsKey("--no-load"))) c.Out.WriteLine(line);
         return 0;
     }
 
