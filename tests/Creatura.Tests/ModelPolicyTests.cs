@@ -52,6 +52,33 @@ public class ModelPolicyTests
         Assert.Equal("tools", policy.Protocol);
     }
 
+    /// <summary>
+    /// Hosted providers accept only letters, digits, '_' and '-' in a function name; DeepSeek refused every call of the
+    /// convoy's first paid run for <c>claim:alba</c>. The seat offers such a tool under a safe name and maps the call back.
+    /// </summary>
+    [Fact]
+    public async Task AToolIdWithColonsIsOfferedUnderASafeNameAndMappedBack()
+    {
+        var handler = new SeatStubHandler((HttpStatusCode.OK, SeatStubHandler.OpenAiToolCallReply("drive_r01_j1", """{"why":"towards the village"}""")));
+        var policy = new ModelPolicy(SeatFixtures.Tools(), SeatFixtures.Client(handler));
+        var context = SeatFixtures.Context() with
+        {
+            Tools = [new Tool("drive:r01:j1", ["at:depot"], ["at:j1"], "act"), new Tool("claim:alba", [], ["mine:alba"], "act")],
+        };
+
+        var suggestion = await policy.NextAsync(context);
+
+        Assert.Equal("drive:r01:j1", suggestion.Tool);
+        Assert.Equal(0, policy.Telemetry.Invalid);
+        var body = handler.LastBody!;
+        Assert.Contains("\"name\":\"drive_r01_j1\"", body);
+        Assert.Contains("\"name\":\"claim_alba\"", body);
+        Assert.DoesNotContain("\"name\":\"drive:r01:j1\"", body);
+        Assert.Contains("action drive:r01:j1", body);
+        Assert.Equal("claim_alba", ModelPolicy.FunctionName("claim:alba"));
+        Assert.Equal("inspect-logs", ModelPolicy.FunctionName("inspect-logs"));
+    }
+
     [Fact]
     public async Task AnAnswerNamingAHiddenToolIsRefusedNotObeyed()
     {

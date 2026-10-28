@@ -80,7 +80,7 @@ public sealed class ModelPolicy : IPolicy
     public async Task<PolicySuggestion> NextAsync(PolicyContext context, CancellationToken cancellationToken = default)
     {
         var system = RenderPrompt(context, _endpoint.NativeTools).System;
-        var tools = _endpoint.NativeTools ? BuildTools(context.Tools) : null;
+        var (tools, ids) = _endpoint.NativeTools ? BuildTools(context.Tools) : (null, null);
         var toolChars = tools is null ? 0 : tools.Sum(t => t.Name.Length + t.Description.Length + t.Parameters.ToJsonString().Length);
         var trim = 0;
         var user = BuildUserPrompt(context, _endpoint.NativeTools, trim);
@@ -115,7 +115,7 @@ public sealed class ModelPolicy : IPolicy
         {
             var call = reply.ToolCalls[0];
             var args = ParseArgs(call.ArgumentsJson);
-            tool = call.Name == NoAction ? null : call.Name;
+            tool = call.Name == NoAction ? null : ids!.GetValueOrDefault(call.Name, call.Name);
             why = args.TryGetValue("why", out var w) ? w : (string.IsNullOrWhiteSpace(reply.Content) ? "model choice" : reply.Content.Trim());
             content = args.GetValueOrDefault("content");
             if (reply.ToolCalls.Count > 1) note = $"{reply.ToolCalls.Count} tool calls returned; first taken";
@@ -161,13 +161,30 @@ public sealed class ModelPolicy : IPolicy
         return new PolicySuggestion(tool, string.IsNullOrWhiteSpace(why) ? "model choice" : why, content);
     }
 
-    private static List<ToolSpec> BuildTools(IReadOnlyList<Tool> tools)
+    /// <summary>
+    /// A tool id as a function name the providers accept: OpenAI, DeepSeek and Azure allow only letters, digits, '_' and
+    /// '-', up to 64 characters, so every other character becomes '_' (<c>drive:r01:j1</c> is offered as
+    /// <c>drive_r01_j1</c>). Ollama takes any name, which is why ids with colons worked there first.
+    /// </summary>
+    public static string FunctionName(string id)
+    {
+        var name = new string(id.Select(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' ? c : '_').ToArray());
+        return name.Length <= 64 ? name : name[..64];
+    }
+
+    /// <summary>The functions for the visible tools, and which tool id each function name stands for.</summary>
+    private static (List<ToolSpec> Specs, Dictionary<string, string> Ids) BuildTools(IReadOnlyList<Tool> tools)
     {
         var specs = new List<ToolSpec>();
+        var ids = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var t in tools.OrderBy(t => t.Id, StringComparer.Ordinal))
         {
+            // Two ids that differ only in a replaced character get a numbered name, so no call is ambiguous.
+            var name = FunctionName(t.Id);
+            for (var n = 2; ids.ContainsKey(name) || name == NoAction; n++) name = $"{FunctionName(t.Id)[..Math.Min(FunctionName(t.Id).Length, 60)]}_{n}";
+            ids[name] = t.Id;
             var requires = t.Requires.Count == 0 ? "nothing" : string.Join(", ", t.Requires);
-            var description = $"requires [{requires}]; grants [{string.Join(", ", t.Grants)}]; kind {t.Kind}." + (t.NeedsPayload ? $" NEEDS PAYLOAD: {t.PayloadHint}" : "");
+            var description = (name == t.Id ? "" : $"action {t.Id}; ") + $"requires [{requires}]; grants [{string.Join(", ", t.Grants)}]; kind {t.Kind}." + (t.NeedsPayload ? $" NEEDS PAYLOAD: {t.PayloadHint}" : "");
             var props = new JsonObject { ["why"] = new JsonObject { ["type"] = "string", ["description"] = "one short sentence" } };
             var required = new JsonArray();
             if (t.NeedsPayload)
@@ -176,12 +193,12 @@ public sealed class ModelPolicy : IPolicy
                 required.Add("content");
             }
 
-            specs.Add(new ToolSpec(t.Id, description, new JsonObject { ["type"] = "object", ["properties"] = props, ["required"] = required }));
+            specs.Add(new ToolSpec(name, description, new JsonObject { ["type"] = "object", ["properties"] = props, ["required"] = required }));
         }
 
         specs.Add(new ToolSpec(NoAction, "No listed action can make progress right now.",
             new JsonObject { ["type"] = "object", ["properties"] = new JsonObject { ["why"] = new JsonObject { ["type"] = "string" } }, ["required"] = new JsonArray() }));
-        return specs;
+        return (specs, ids);
     }
 
     private static string BuildUserPrompt(PolicyContext context, bool nativeTools, int trim = 0)

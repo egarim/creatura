@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Fix: tool ids with colons in hosted model seats.** `ModelPolicy` offered each tool as a function named by its id,
+  and hosted providers (OpenAI, DeepSeek, Azure) accept only letters, digits, `_` and `-` in a function name, so
+  DeepSeek refused every call of the convoy's first paid run (`claim:alba`). Tools are now offered under
+  `ModelPolicy.FunctionName(id)` (`claim_alba`), with the id in the description, and the call is mapped back. Ollama
+  accepted any name, which is why the local runs worked.
+
 - **Machine vessels acting together** ([docs/design-machine-vessels.md](docs/design-machine-vessels.md)). The Core
   gains `PhysicalMachine` on `Vessel.Physical`, and `ITickedWorld`, a hook the loop calls at the start of every tick
   (no existing world implements it; the golden traces are unchanged). `src/Creatura.Scenarios` holds the convoy:
