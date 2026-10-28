@@ -119,6 +119,7 @@ def main():
     parser.add_argument("--actions", type=pathlib.Path, default=pathlib.Path("datasets/convoy-j/card.json"),
                         help="a dataset card, for the feature names and the action vocabulary")
     parser.add_argument("--held-out-from", type=int, default=550)
+    parser.add_argument("--held-out-digit", type=int, help="hold out the seeds ending in this digit instead of --held-out-from")
     parser.add_argument("--hidden", type=int, nargs="+", default=[128, 128])
     parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--patience", type=int, default=15)
@@ -136,7 +137,7 @@ def main():
     if any(r["evaluation"] for r in rows):
         raise SystemExit(f"{args.train} is an evaluation set: the battery's seeds are never trained on")
     seeds = np.asarray([r["seed"] for r in rows])
-    held = seeds >= args.held_out_from
+    held = seeds % 10 == args.held_out_digit if args.held_out_digit is not None else seeds >= args.held_out_from
     print(f"{len(rows)} transitions, {x.shape[1]} inputs, {y.shape[1]} outputs; {int((~held).sum())} to train, {int(held.sum())} held out")
     layers, epoch, best = train(x[~held], y[~held], x[held], y[held], args.hidden, args.epochs, args.patience, args.rate, args.batch, args.seed)
     layers = rounded(layers)
@@ -153,7 +154,8 @@ def main():
         "layers": [{"activation": "relu" if i < len(layers) - 1 else "sigmoid", "weights": w.tolist(), "bias": b.tolist()}
                    for i, (w, b) in enumerate(layers)],
         "training": {"by": "example", "arms": card["arms"], "seeds": [trained[0], trained[-1]],
-                     "heldOutSeeds": [args.held_out_from, int(seeds.max())], "transitions": int((~held).sum()),
+                     "heldOutSeeds": f"ending in {args.held_out_digit}" if args.held_out_digit is not None else [args.held_out_from, int(seeds.max())],
+                     "transitions": int((~held).sum()),
                      "hidden": args.hidden, "epoch": epoch, "randomSeed": args.seed, "heldOutSurprise": round(best, 4)},
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

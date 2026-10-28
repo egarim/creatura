@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **The world model, retrained on varied driving** (`models/convoy-world-varied.json`): planners in ten other setups
+  and a sampled network, all free and from training seeds. T6c and T6d held: on DeepSeek's driving it now flags 80%
+  of the road lies (50% before), and on the planner's it still flags every lie. `train_world.py --held-out-digit`.
+
 - **A world model for the convoy** (docs/design-trained-models.md, step 5): `ConvoyDatasets.ExportWorld` and the
   `--world <runs> <out> [--evaluation]` option write each action as features before and after;
   `tools/train/train_world.py` trains a forward model in numpy and measures its surprise. T6 held on the planner's

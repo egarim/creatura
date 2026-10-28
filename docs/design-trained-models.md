@@ -512,6 +512,70 @@ uv run tools/train/train_world.py datasets/world/train.jsonl models/convoy-world
     --judge datasets/world/eval-j.jsonl datasets/world/eval-deepseek.jsonl
 ```
 
+## Step 5, varied driving, registered before training (2026-10-28)
+
+Written before the new data was recorded or the model retrained.
+
+- **The data, all free and all from training seeds.** What the first model learned from (arm J's planner, seeds 100
+  to 599), plus:
+  - the planner in ten other setups, arms A, B, C, D, E, G, H, I, K and L, on seeds 100 to 199 each: no ledger, a
+    lossy radio, a breakdown, the designs, the fixes one at a time;
+  - the policy network of arm N with its choices sampled at a temperature of 2, in arms N and W, on seeds 1,000 to
+    1,099 each: a driver that makes odd choices, claims what is held, reports done too early, as DeepSeek did.
+- **Held out:** every transition from a seed ending in 9, to choose the stopping point.
+- **Unchanged:** the model's shape and training, the surprise, and the two test sets (arm J on seeds 0 to 49, DeepSeek
+  on seeds 0 to 4).
+
+Judged on those test sets:
+
+| id | claim | falsifier |
+|---|---|---|
+| T6c | trained on varied driving, the world model passes T6b: on DeepSeek's driving the median surprise at a lie exceeds the 95th percentile at landed actions | the median at or below it |
+| T6d | it still passes T6 on the planner's driving | the median at or below it |
+
+Reported without a claim: the share of DeepSeek's landed actions predicted exactly (9% before), its drive lies apart
+from its own failed actions, and the share of lies above the line on both sets.
+
+## Step 5, varied driving, built (2026-10-28)
+
+**T6c held, and T6d held.** Trained on varied driving, the world model passes on DeepSeek's driving, which it still
+never saw, and keeps passing on the planner's.
+
+| test set | model | landed, 95th percentile | lies, median | lies above the line | road lies above the line | landed predicted exactly |
+|---|---|---|---|---|---|---|
+| DeepSeek, seeds 0 to 4 | planner only | 14.54 | 11.24 | 38% | 50% | 9% |
+| DeepSeek, seeds 0 to 4 | **varied** | **6.12** | **7.29** | **63%** | **80%** | 13% |
+| arm J, seeds 0 to 49 | planner only | 4.25 | 9.48 | 100% | 100% | 63% |
+| arm J, seeds 0 to 49 | **varied** | 4.29 | 9.51 | **100%** | 100% | 52% |
+
+What changed is the line. A model that has seen many ways of driving no longer finds an unfamiliar driver's ordinary
+actions surprising: the 95th percentile of DeepSeek's landed actions fell from 14.5 to 6.1, while its road lies stayed
+well above it. Four in five of the lying road's drives now stand out, against one in two.
+
+What did not: DeepSeek's failed claims (23 of its 89 lies) stay below the line (22% above it, median 4.5). The varied
+data taught the model that a driver sometimes claims a village already held, which is a driver's mistake and not the
+world lying, so it is less surprised by it. That is arguably right, and it is why the claims are reported apart.
+
+The price: on the planner's own driving the model predicts fewer landed actions exactly (52% against 63%). Spread over
+more kinds of driving, it is less sharp on any one, and still flags every lie there.
+
+The data, all free and all from training seeds: 158,874 transitions. Arm J's 38,772, the planner in ten other setups
+(arms A to L but J, seeds 100 to 199: 101,351), and arm N's network sampled at a temperature of 2 in arms N and W
+(seeds 1,000 to 1,099: 18,751). Trained in 26 seconds, kept at epoch 41; the weights are
+`models/convoy-world-varied.json` (353 KB), not embedded.
+
+```bash
+dotnet run --project samples/Convoy -c Release -- --rollouts datasets/world/planners-runs.jsonl --arms A,B,C,D,E,G,H,I,K,L --seeds 100-199
+dotnet run --project samples/Convoy -c Release -- --rollouts datasets/world/sampled-runs.jsonl --arms N,W --seeds 1000-1099 \
+    --network models/convoy-policy-j.json --temperature 2 --sample-seed 7
+# --world each recording, concatenate with train.jsonl into train-varied.jsonl, then:
+uv run tools/train/train_world.py datasets/world/train-varied.jsonl models/convoy-world-varied.json --held-out-digit 9 \
+    --judge datasets/world/eval-j.jsonl datasets/world/eval-deepseek.jsonl --results datasets/world/results-varied.json
+```
+
+Next for the world model: read its surprise in a regulator's prediction slot, so a truck that finds an outcome
+surprising can act on it the way the designs act on an anomaly.
+
 ## What this note does not cover
 
 - Training on data from real machines or real users. Every dataset here comes from simulated worlds.
