@@ -202,6 +202,71 @@ takes 2.5 times longer. A write on a small ledger takes about 250 ms more than a
 stores show it, so it lies elsewhere in the write path, not yet measured. That is the next cost to look at, and it
 is not part of this slice.
 
+## Slice 4: the mesh, between the owner's laptop and the second machine
+
+Two vessels keep one ledger over the mesh (decision 4: the owner's laptop and the second machine, never the servers). Checked
+2026-10-28: the second machine answers the owner's laptop over the mesh directly through the home network, in about 20 ms. It has the
+.NET 10 SDK on ARM64, and the laptop's firewall is off. So the second machine only makes outgoing connections, and neither
+machine needs a firewall change.
+
+- **A hub, not peer to peer.** One cell runs `Creatura.Cells.Hub`, an ASP.NET Core host of SyncFramework's
+  `SyncControllerBase` at `/sync`. Every cell, the hub's own included, syncs with it. Peer to peer can come later; a
+  hub needs only one listening machine.
+- **The hub trusts nothing it is sent.** Other fleet machines are on the mesh too (decision 1 says the mesh admits a
+  machine, not an entry). The hub's delta store verifies every pushed entry against the owner keys it trusts, and
+  stores it only if it verifies, once per entry and hash. It numbers deltas from its own SQLite file, so the numbering
+  survives a restart; the stock memory store restarts at 1. It answers loopback and the mesh range (100.64.0.0/10)
+  only, and binds to the address it is given.
+- **Joining without moving the owner key.** The owner key stays on the owner's vessel.
+  1. A new vessel runs `creatura cell request`. That creates a vessel salt but no owner key, opens the cell, and
+     writes a request holding only public values.
+  2. The owner's vessel runs `creatura cell endorse --request <file>`, which writes the endorsement.
+  3. The new vessel runs `creatura cell accept --endorsement <file>`, which checks the endorsement covers its key,
+     keeps it and writes the hello.
+  The creatura on the new vessel has its own creatura id, even under the same name; one creatura across two vessels
+  is later work.
+- **Sync keeps its cursors.** `creatura cell sync --hub <url>` pushes what the hub has not had from this home, pulls
+  what it has not seen, and keeps both cursors in `<home>/sync/` between runs. It relays every entry its ledger holds,
+  not only its own, so a ledger spreads even when its writer is offline.
+
+Pre-registered tests, written before the code:
+
+| id | claim | falsifier |
+|---|---|---|
+| C13 | two homes converge through the hub over real HTTP | any difference after both have synced twice |
+| C14 | the hub stores an entry that does not verify, or whose owner it does not trust, never; a valid one pushed twice, once | a bad entry stored, or a duplicate |
+| C15 | a client whose cursor predates a hub restart still receives what is pushed after it | an entry pushed after the restart never reaching that client |
+| C16 | a second sync from the same home pushes and pulls only what is new | anything sent or received twice |
+| C17 | a vessel joins by request, endorse and accept, and its entries reach the owner's ledger through the hub; an endorsement for another key or vessel is refused, and entries endorsed by another owner reach neither the hub nor the owner's ledger | a refused join, a wrong endorsement kept, or another owner's entry taken |
+| C18 | the hub answers loopback and the mesh range only | an answer to another address |
+
+And one live run, not a test: the hub on the owner's laptop at its mesh address, the second machine joins, claims and syncs, the owner's laptop
+syncs, and both ledgers end with the same digest.
+
+### Results (2026-10-28)
+
+C13 to C18 pass. Each was also run against a deliberate break of what it guards:
+- the hub storing without verifying (C14 and C17 fail);
+- the hub ignoring a client's cursor (C16 fails);
+- the hub taking the delta id from the sender (C14 fails);
+- a sync pushing back what it just pulled (C13 and C16 fail);
+- numbering that starts again at each start, as the stock memory store's does (C15 fails).
+
+Writing C17 found that `creatura cell ledger` trusted only the home's own owner key, so a joined vessel, which has
+none, refused every entry. It now trusts the owner who endorsed the cell, as every other command did.
+
+The live run, on 2026-10-28:
+1. The command was copied to the second machine (Windows 11 on ARM64, 2.9 MB with only its own SQLite library).
+2. The second machine wrote a request, the laptop's owner key endorsed it, and the second machine accepted it. Its cell is
+   `cell-8bfe17b74d04cbcb`, and it reads its own mesh position, 100.100.1.3.
+3. The hub ran on the owner's laptop bound to 100.100.1.5:5181 only. Loopback on the owner's laptop got no answer, and the second machine got
+   one over the mesh.
+4. The second machine claimed work and sent 2 entries. The owner's laptop sent its 50 and received those 2. The second machine's second
+   sync received the 50 and sent nothing.
+5. Both ledgers ended with 52 entries from 2 cells and the same digest, `e74833b1b8a0782d`.
+
+The hub was stopped afterwards. Running it as a service, and syncing from the hooks, are not part of this slice.
+
 ## Decided (owner, 2026-10-28)
 
 1. **Root of trust: both.** An owner key signs each vessel once (the ledger's trust); the mesh admits the machine (the

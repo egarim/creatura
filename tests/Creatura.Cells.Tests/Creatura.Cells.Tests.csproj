@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\Creatura.Cli\Creatura.Cli.csproj" />
     <ProjectReference Include="..\..\src\Creatura.Cells.Sqlite\Creatura.Cells.Sqlite.csproj" />
     <ProjectReference Include="..\..\src\Creatura.Cells.Sync\Creatura.Cells.Sync.csproj" />
+    <ProjectReference Include="..\..\src\Creatura.Cells.Hub\Creatura.Cells.Hub.csproj" />
   </ItemGroup>
 
 </Project>

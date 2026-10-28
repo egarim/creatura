@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- The `creatura` command (`creatura cell ...`). No package references of its own (CellsPurityTest): its one
-       package, Microsoft.Data.Sqlite, comes through Creatura.Cells.Sqlite for the sqlite store. The assembly is
+  <!-- The `creatura` command (`creatura cell ...`). No package references of its own (CellsPurityTest): its
+       packages come through Creatura.Cells.Sqlite (Microsoft.Data.Sqlite, the sqlite store) and Creatura.Cells.Sync
+       (BIT.Data.Sync, cell sync). The assembly is
        Creatura.Cli, not "creatura": on a case-insensitive file system it would collide with Creatura.dll.
        Run it with dotnet run on this project (arguments after a double dash), or pack it as a .NET tool whose
        command is `creatura`. -->
@@ -21,6 +22,7 @@
     <ProjectReference Include="..\Creatura\Creatura.csproj" />
     <ProjectReference Include="..\Creatura.Cells\Creatura.Cells.csproj" />
     <ProjectReference Include="..\Creatura.Cells.Sqlite\Creatura.Cells.Sqlite.csproj" />
+    <ProjectReference Include="..\Creatura.Cells.Sync\Creatura.Cells.Sync.csproj" />
   </ItemGroup>
 
 </Project>

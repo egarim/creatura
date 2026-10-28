@@ -239,7 +239,7 @@ public sealed class Slice3Tests
 
         // A third sync round moves nothing.
         var quiet = await nodeA.SyncAsync(CancellationToken.None);
-        Assert.Equal(0, quiet.Staged);
+        Assert.Equal(0, quiet.Sent);
         Assert.Equal(0, quiet.Pulled.Added);
     }
 

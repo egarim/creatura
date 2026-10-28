@@ -264,7 +264,7 @@ public class CellsPurityTest
         Assert.NotEmpty(references);
         Assert.All(references, name => Assert.True(
             name.StartsWith("System", StringComparison.Ordinal) || name.StartsWith("Microsoft.Win32", StringComparison.Ordinal)
-            || name is "netstandard" or "Creatura" or "Creatura.Cells" || (project == "Creatura.Cli" && name == "Creatura.Cells.Sqlite"),
+            || name is "netstandard" or "Creatura" or "Creatura.Cells" || (project == "Creatura.Cli" && name is "Creatura.Cells.Sqlite" or "Creatura.Cells.Sync"),
             $"{project} references {name}"));
     }
 }

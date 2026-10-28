@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Cells slice 4: the mesh.** `Creatura.Cells.Hub`: SyncFramework's sync controller at `/sync` over
+  `HubDeltaStore`. That store verifies every pushed entry against the owner keys it trusts and stores each entry once.
+  It numbers deltas from its own SQLite file, and the hub answers loopback and the mesh range only.
+  `LedgerSyncNode` now keeps its cursors in `LedgerSyncState` (`<home>/sync/`) and relays every entry its ledger
+  holds. New commands: `request`, `endorse` and `accept` join a vessel without moving the owner key, and
+  `sync --hub <url>` does the network work outside the home's lock. `ledger` now trusts the cell's endorsing owner.
+  Pre-registered tests C13 to C18. A live run between the owner's laptop and the second machine ended with identical ledgers.
+
 - **Cells slice 3: the ledger in SQLite, synced through SyncFramework.** `ILedgerStore`, which `JsonLedgerStore`
   implements. `SqliteLedgerStore` (`src/Creatura.Cells.Sqlite`, package `Microsoft.Data.Sqlite` 10.0.14): one row per
   entry, WAL mode, owner-only file. It saves only new entries and settles conflicts by the smaller hash, as merge

@@ -17,6 +17,12 @@ public sealed record VesselStay(string VesselId, string KeyFingerprint, DateTime
 /// </code>
 /// Keys sit under their vessel's id, so a home carried to another vessel opens with a new key there (C3).
 /// </summary>
+/// <summary>
+/// What a vessel without the owner key sends to the owner's vessel to be endorsed: public values only (vessel id,
+/// creatura id, the cell's public key and id, the creatura's name, and the hardware in words for the owner to read).
+/// </summary>
+public sealed record EndorsementRequest(string VesselId, string Creatura, string CellPublicKey, string Cell, string Name, string Hardware);
+
 public sealed class CellHome
 {
     public const string VesselsPartKey = "cells.vessels";
@@ -79,6 +85,59 @@ public sealed class CellHome
         OwnerOnly.CreateDirectory(OwnerDirectory);
         if (!File.Exists(SaltPath)) OwnerOnly.WriteNew(SaltPath, RandomNumberGenerator.GetBytes(32));
         return OwnerKey.LoadOrCreate(OwnerKeyPath, out created);
+    }
+
+    /// <summary>The vessel salt alone, created when absent: a vessel the owner endorses from elsewhere has no owner key.</summary>
+    public void EnsureSalt()
+    {
+        OwnerOnly.CreateDirectory(Root);
+        OwnerOnly.CreateDirectory(OwnerDirectory);
+        if (!File.Exists(SaltPath)) OwnerOnly.WriteNew(SaltPath, RandomNumberGenerator.GetBytes(32));
+    }
+
+    /// <summary>
+    /// Step one of joining a vessel the owner key is not on: the salt ensured, the cell opened, and a request holding
+    /// only public values for the owner to endorse (<see cref="EndorseRequest"/>).
+    /// </summary>
+    public EndorsementRequest Request(IVesselSource? source = null, Position? position = null, string creatura = "creatura")
+    {
+        EnsureSalt();
+        using var cell = OpenCell(source, position, creatura);
+        var id = cell.Identity;
+        return new EndorsementRequest(id.Hardware.VesselId, id.Creatura.Value, id.PublicKey, cell.Id, creatura, id.Hardware.Render());
+    }
+
+    /// <summary>Step two, on the owner's vessel: this home's owner key endorses the requested cell key. Throws when the request does not hold together.</summary>
+    public VesselEndorsement EndorseRequest(EndorsementRequest request, DateTimeOffset? now = null)
+    {
+        if (CellKey.CellIdOf(request.CellPublicKey) != request.Cell) throw new InvalidOperationException("the request's cell id is not its key's");
+        if (string.IsNullOrWhiteSpace(request.VesselId) || string.IsNullOrWhiteSpace(request.Creatura)) throw new InvalidOperationException("the request names no vessel or no creatura");
+        using var owner = LoadOwner() ?? throw new InvalidOperationException($"no owner key under {Root}: endorse on the owner's vessel");
+        return owner.Endorse(request.VesselId, new CreaturaId(request.Creatura), request.CellPublicKey, now ?? DateTimeOffset.UtcNow);
+    }
+
+    /// <summary>
+    /// Step three, back on the new vessel: the endorsement kept beside the cell's key when it covers this cell (its
+    /// key, vessel and creatura) and its signature verifies. Throws otherwise, and keeps nothing.
+    /// </summary>
+    public LocalCell Accept(VesselEndorsement endorsement, IVesselSource? source = null, Position? position = null, string creatura = "creatura")
+    {
+        var cell = OpenCell(source, position, creatura);
+        var id = cell.Identity;
+        string? problem = !endorsement.Verify() ? "its signature does not verify"
+            : endorsement.CellPublicKey != id.PublicKey ? "it endorses another cell key"
+            : endorsement.VesselId != id.Hardware.VesselId ? "it names another vessel"
+            : endorsement.Creatura != id.Creatura.Value ? "it names another creatura"
+            : null;
+        if (problem is not null)
+        {
+            cell.Dispose();
+            throw new InvalidOperationException($"the endorsement does not cover {cell.Id}: {problem}");
+        }
+
+        OwnerOnly.Replace(EndorsementPathFor(id.Hardware.VesselId, cell.Name),
+            JsonSerializer.SerializeToUtf8Bytes(endorsement, new JsonSerializerOptions(CellJson.Options) { WriteIndented = true }));
+        return cell.Endorsed(endorsement);
     }
 
     public byte[] LoadSalt() => IsInitialized

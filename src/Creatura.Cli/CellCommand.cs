@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using Creatura.Cells.Sync;
 
 namespace Creatura.Cells;
 
@@ -28,6 +29,11 @@ public static class CellCommand
           install-hooks --settings <f> merge that block into a settings file, backing it up first (--dry-run: report only)
           uninstall-hooks --settings <f>  remove exactly that block again (--dry-run: report only)
           publish-bin                  publish this CLI into <home>/bin with a `creatura` wrapper (--project <csproj>)
+          request [--out <file>]       on a vessel without the owner key: write a request for the owner to endorse
+          endorse --request <file> [--out <file>]
+                                       on the owner's vessel: endorse a request, write the endorsement
+          accept --endorsement <file>  back on the new vessel: keep the endorsement if it covers this cell, say hello
+          sync --hub <url>             push to and pull from a ledger hub (Creatura.Cells.Hub), e.g. http://100.100.1.5:5181
 
         progress, release and handoff take --session <id> to name the claim of a host-tool session.
 
@@ -87,10 +93,15 @@ public static class CellCommand
                 "install-hooks" => InstallHooks(context, install: true),
                 "uninstall-hooks" => InstallHooks(context, install: false),
                 "publish-bin" => PublishBin(context),
+                "request" => Request(context),
+                "endorse" => Endorse(context),
+                "accept" => Accept(context),
+                "sync" => Sync(context),
                 var other => Fail(error, $"unknown command: cell {other}\n\n{Usage}"),
             };
         }
         catch (Exception e) when (e is InvalidOperationException or IOException or FormatException or ArgumentException
+                                      or HttpRequestException or TaskCanceledException or UriFormatException
                                       or UnauthorizedAccessException or JsonException or System.Security.Cryptography.CryptographicException)
         {
             error.WriteLine($"creatura cell {args[1]}: {e.Message}");
@@ -132,7 +143,7 @@ public static class CellCommand
         var id = cell.Identity;
         c.Out.WriteLine($"creatura     {id.Creatura} ({cell.Name})");
         c.Out.WriteLine($"cell         {id.Cell}");
-        c.Out.WriteLine($"vessel       {id.Hardware.VesselId} (the hardware identifier, hashed with the owner's salt)");
+        c.Out.WriteLine($"vessel       {id.Hardware.VesselId} (the hardware identifier, hashed with this home's salt)");
         c.Out.WriteLine($"hardware     {id.Hardware.Render()}");
         c.Out.WriteLine($"position     {id.Position.Render()}{(id.Position.Kind == PositionKind.InProcess ? (c.NoMesh ? " (mesh not read)" : " (no mesh status)") : "")}");
         c.Out.WriteLine($"public key   {id.Fingerprint}");
@@ -207,9 +218,9 @@ public static class CellCommand
             return 1;
         }
 
-        using var owner = c.Home.LoadOwner();
-        var ledger = new WorkLedger(owner is null ? [] : [owner.PublicKey]);
-        Report(c, LedgerStores.LoadInto(c.Home, c.Home.Ledger, ledger));
+        // Trusts the home's owner key and the owner who endorsed this cell: a joined vessel has no owner key of its own.
+        using var cell = c.Home.OpenCell(c.Source, Position(c), c.Creatura);
+        var (ledger, _) = OpenLedger(c, cell);
 
         if (c.Options.GetValueOrDefault("--path") is { } claimId)
         {
@@ -332,6 +343,95 @@ public static class CellCommand
     {
         HooksSetup.PublishBin(HooksSetup.FindProject(c.Options.GetValueOrDefault("--project")), c.Home.Root, c.Out);
         return 0;
+    }
+
+    private static readonly JsonSerializerOptions Indented = new(CellJson.Options) { WriteIndented = true };
+
+    /// <summary>Step one of joining: the request, public values only, written where the owner can be handed it.</summary>
+    private static int Request(Context c)
+    {
+        var request = c.Home.Request(c.Source, Position(c), c.Creatura);
+        var path = Path.GetFullPath(c.Options.GetValueOrDefault("--out") ?? Path.Combine(c.Home.Root, $"{c.Creatura}.request.json"));
+        File.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(request, Indented));
+        c.Out.WriteLine($"cell         {request.Cell}, creatura {request.Creatura} on vessel {request.VesselId}");
+        c.Out.WriteLine($"request      {path} (public values only)");
+        c.Out.WriteLine("next         on the owner's vessel: creatura cell endorse --request <that file>");
+        return 0;
+    }
+
+    /// <summary>Step two, on the owner's vessel.</summary>
+    private static int Endorse(Context c)
+    {
+        var requestPath = Path.GetFullPath(Required(c, "--request"));
+        var request = JsonSerializer.Deserialize<EndorsementRequest>(File.ReadAllText(requestPath), CellJson.Options)
+            ?? throw new FormatException($"{requestPath} is not an endorsement request");
+        var endorsement = c.Home.EndorseRequest(request);
+        var path = Path.GetFullPath(c.Options.GetValueOrDefault("--out")
+            ?? Path.Combine(Path.GetDirectoryName(requestPath)!, $"{request.Name}.endorsement.json"));
+        File.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(endorsement, Indented));
+        c.Out.WriteLine($"endorsed     {request.Cell}, creatura {request.Name} ({request.Creatura})");
+        c.Out.WriteLine($"vessel       {request.VesselId}: {request.Hardware}");
+        c.Out.WriteLine($"owner        {endorsement.OwnerFingerprint}");
+        c.Out.WriteLine($"endorsement  {path}");
+        c.Out.WriteLine("next         on the new vessel: creatura cell accept --endorsement <that file>");
+        return 0;
+    }
+
+    /// <summary>Step three, back on the new vessel: keep the endorsement and say hello.</summary>
+    private static int Accept(Context c)
+    {
+        var path = Path.GetFullPath(Required(c, "--endorsement"));
+        var endorsement = JsonSerializer.Deserialize<VesselEndorsement>(File.ReadAllText(path), CellJson.Options)
+            ?? throw new FormatException($"{path} is not an endorsement");
+        using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
+        using var cell = c.Home.Accept(endorsement, c.Source, Position(c), c.Creatura);
+        c.Out.WriteLine($"cell         {cell.Id}, creatura {cell.Identity.Creatura} on vessel {cell.Identity.Hardware.VesselId}");
+        c.Out.WriteLine($"endorsed     by {endorsement.OwnerFingerprint} at {CellJson.Stamp(endorsement.IssuedAt)}");
+        var (ledger, store) = OpenLedger(c, cell);
+        var hello = SayHelloIfNeeded(ledger, cell);
+        store.Save(ledger);
+        c.Out.WriteLine(hello is null ? "hello        already in the ledger" : $"hello        {hello.Id} written to {store.Path}");
+        return 0;
+    }
+
+    /// <summary>
+    /// One sync with a hub. The ledger is read under the home's lock, the network work runs without it (a hook never
+    /// waits on the network), and what came back is merged into a fresh read under the lock before the cursors are
+    /// saved, so a crash in between asks the hub again instead of losing entries.
+    /// </summary>
+    private static int Sync(Context c)
+    {
+        if (!c.Home.IsInitialized)
+        {
+            c.Err.WriteLine($"no cell under {c.Home.Root}: run `creatura cell init`, or `request` on a vessel without the owner key");
+            return 1;
+        }
+
+        var hub = new Uri(Required(c, "--hub"));
+        using var cell = c.Home.OpenCell(c.Source, Position(c), c.Creatura);
+        if (!cell.Identity.IsEndorsed) throw new InvalidOperationException($"{cell.Id} is not endorsed: run `creatura cell accept` first");
+
+        WorkLedger snapshot;
+        using (LedgerLock.Acquire(c.Home.Root, InteractiveLockWait)) snapshot = OpenLedger(c, cell).Ledger;
+        var held = snapshot.Count;
+
+        var syncDirectory = Path.Combine(c.Home.Root, "sync");
+        OwnerOnly.CreateDirectory(syncDirectory);
+        var statePath = Path.Combine(syncDirectory, $"{hub.Host}_{hub.Port}.json");
+        var report = LedgerHub.SyncAsync(snapshot, cell.Id, hub, statePath, ledger =>
+        {
+            using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
+            var (fresh, store) = OpenLedger(c, cell);
+            fresh.MergeVerified(ledger.Entries);
+            store.Save(fresh);
+        }, CancellationToken.None).GetAwaiter().GetResult();
+
+        c.Out.WriteLine($"hub          {hub}");
+        c.Out.WriteLine($"sent         {report.Sent} entr{(report.Sent == 1 ? "y" : "ies")}{(report.Pushed ? "" : $": the push failed: {report.Message}")}");
+        c.Out.WriteLine($"received     {report.Pulled.Added} new, {report.Pulled.Duplicates} already held, {report.Pulled.Rejected.Count} refused");
+        foreach (var rejection in report.Pulled.Rejected.Take(5)) c.Out.WriteLine($"  refused    {rejection.EntryId}: {rejection.Reason}");
+        c.Out.WriteLine($"ledger       {held + report.Pulled.Added} entries, digest {snapshot.Digest()[..16]}");
+        return report.Pushed ? 0 : 1;
     }
 
     private static string Required(Context c, string option) =>

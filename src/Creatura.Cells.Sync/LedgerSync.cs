@@ -3,7 +3,6 @@ using BIT.Data.Sync;
 using BIT.Data.Sync.Client;
 using BIT.Data.Sync.EventArgs;
 using BIT.Data.Sync.Imp;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Creatura.Cells.Sync;
 
@@ -96,75 +95,131 @@ public sealed class LedgerDeltaProcessor(WorkLedger ledger) : DeltaProcessorBase
     }
 }
 
-/// <summary>What one <see cref="LedgerSyncNode.SyncAsync"/> did: own entries staged, whether the push succeeded, and what the pull merged.</summary>
-public sealed record LedgerSyncReport(int Staged, bool Pushed, string? Message, MergeResult Pulled);
+/// <summary>What one <see cref="LedgerSyncNode.SyncAsync"/> did: entries sent, whether the push succeeded, and what the pull merged.</summary>
+public sealed record LedgerSyncReport(int Sent, bool Pushed, string? Message, MergeResult Pulled);
 
 /// <summary>
-/// A cell's ledger as a SyncFramework client node. <see cref="SyncAsync"/> stages the cell's own new entries as
-/// deltas in its outbox (<see cref="DeltaStore"/>), pushes them to the server node, and pulls what other cells pushed
-/// through <see cref="LedgerDeltaProcessor"/>. The server is a relay: it stores and returns deltas and checks nothing,
-/// so every cell verifies what it pulls. The caller saves the ledger to its store afterwards.
+/// Where a home's sync with one hub stands: the cursor of what it has pushed (per cell, the highest sequence with no
+/// gap below it) and the hub's index of the last delta it pulled. Kept between runs so a sync sends and asks for only
+/// what is new (C16).
 /// </summary>
-public sealed class LedgerSyncNode : IClientSyncDatabase
+public sealed record LedgerSyncState
+{
+    public Dictionary<string, long> Pushed { get; init; } = new(StringComparer.Ordinal);
+
+    public string Pulled { get; init; } = "";
+
+    public LedgerCursor PushedCursor => new(Pushed);
+
+    public static LedgerSyncState Load(string path) =>
+        File.Exists(path) ? System.Text.Json.JsonSerializer.Deserialize<LedgerSyncState>(File.ReadAllText(path), CellJson.Options) ?? new() : new();
+
+    public void Save(string path) =>
+        OwnerOnly.Replace(path, System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(this, new System.Text.Json.JsonSerializerOptions(CellJson.Options) { WriteIndented = true }));
+}
+
+/// <summary>
+/// A ledger as a client of a SyncFramework server node. <see cref="SyncAsync"/> pushes every entry the ledger holds
+/// that this node has not pushed (its own and the ones it relays), then pulls what the server has that this node has
+/// not seen, through <see cref="LedgerDeltaProcessor"/>. The server is a relay and every client verifies what it pulls.
+/// <see cref="State"/> holds the two cursors; the caller saves it, and the ledger, afterwards.
+/// </summary>
+public sealed class LedgerSyncNode
 {
     private readonly LedgerDeltaProcessor _processor;
-    private long _stagedThrough = -1;
 
-    public LedgerSyncNode(WorkLedger ledger, string cell, ISyncFrameworkClient client, IDeltaStore? outbox = null)
+    public LedgerSyncNode(WorkLedger ledger, string identity, ISyncFrameworkClient client, LedgerSyncState? state = null)
     {
         Ledger = ledger;
-        Identity = cell;
-        SyncFrameworkClient = client;
-        DeltaStore = outbox ?? new MemoryDeltaStore();
+        Identity = identity;
+        Client = client;
+        State = state ?? new LedgerSyncState();
         _processor = new LedgerDeltaProcessor(ledger);
     }
 
     public WorkLedger Ledger { get; }
 
-    /// <summary>The cell id: the identity of the deltas this node pushes and the one the server leaves out when it answers a pull.</summary>
+    /// <summary>The identity of this node's deltas: the server leaves deltas with this identity out when it answers this node's pull.</summary>
     public string Identity { get; }
 
-    public IDeltaProcessor DeltaProcessor => _processor;
+    public ISyncFrameworkClient Client { get; }
 
-    public IDeltaStore DeltaStore { get; }
+    public LedgerSyncState State { get; private set; }
 
-    public ISyncFrameworkClient SyncFrameworkClient { get; }
-
-    /// <summary>Puts the cell's own entries that are not in the outbox yet into it, in sequence order; returns how many.</summary>
-    public async Task<int> StageAsync(CancellationToken cancellationToken)
+    /// <summary>Pushes what the server has not had from this node. Returns how many entries were sent and the server's answer.</summary>
+    public async Task<(int Sent, PushOperationResponse Response)> PushAsync(CancellationToken cancellationToken)
     {
-        if (_stagedThrough < 0)
-        {
-            var staged = await DeltaStore.GetDeltasByIdentityAsync("", Identity, cancellationToken).ConfigureAwait(false);
-            _stagedThrough = staged.Select(d => LedgerDelta.Entry(d).Sequence).DefaultIfEmpty(0).Max();
-        }
+        var cursor = Ledger.Cursor;
+        var pending = Ledger.Since(State.PushedCursor);
+        if (pending.Count == 0) return (0, new PushOperationResponse { Success = true, Message = "Nothing to send" });
 
-        var fresh = Ledger.Entries.Where(e => e.Cell == Identity && e.Sequence > _stagedThrough).OrderBy(e => e.Sequence).ToList();
-        if (fresh.Count == 0) return 0;
-        await DeltaStore.SaveDeltasAsync(fresh.Select(e => (IDelta)LedgerDelta.From(e)).ToList(), cancellationToken).ConfigureAwait(false);
-        _stagedThrough = fresh[^1].Sequence;
-        return fresh.Count;
+        var deltas = pending.Select(e =>
+        {
+            var delta = LedgerDelta.From(e);
+            delta.Identity = Identity;
+            return (IDelta)delta;
+        }).ToList();
+        var response = await Client.PushAsync(deltas, cancellationToken).ConfigureAwait(false)
+            ?? new PushOperationResponse { Success = false, Message = "the sync client returned no answer to the push" };
+        if (response.Success) State = State with { Pushed = new Dictionary<string, long>(cursor.HighWater, StringComparer.Ordinal) };
+        return (pending.Count, response);
     }
 
-    /// <summary>Pushes the staged entries the server has not had from this node.</summary>
-    public async Task<PushOperationResponse> PushAsync(CancellationToken cancellationToken) =>
-        await ISyncClientNodeExtensions.PushAsync(this, cancellationToken).ConfigureAwait(false);
-
-    /// <summary>Pulls what other cells pushed since the last pull and merges it; the result says what was refused.</summary>
+    /// <summary>Pulls what other nodes pushed since this node's last pull and merges it; the result says what was refused.</summary>
     public async Task<MergeResult> PullAsync(CancellationToken cancellationToken)
     {
         _processor.TakeResult();
-        var response = await ISyncClientNodeExtensions.PullAsync(this, cancellationToken).ConfigureAwait(false);
-        if (!response.Success) throw new IOException($"pull from the sync server failed: {response.Message}");
+        var start = string.IsNullOrEmpty(State.Pulled) ? "-1" : State.Pulled;
+        var response = await Client.FetchAsync(start, Identity, cancellationToken).ConfigureAwait(false);
+        if (response is null || !response.Success) throw new IOException($"pull from the sync server failed: {response?.Message ?? "no answer"}");
+        if (response.Deltas.Count > 0)
+        {
+            await _processor.ProcessDeltasAsync(response.Deltas, cancellationToken).ConfigureAwait(false);
+            State = State with { Pulled = response.Deltas.Select(d => d.Index).Max(StringComparer.Ordinal)! };
+        }
         return _processor.TakeResult();
     }
 
-    /// <summary>Stage, push, pull.</summary>
+    /// <summary>Push, then pull; afterwards nothing the ledger holds is pushed again.</summary>
     public async Task<LedgerSyncReport> SyncAsync(CancellationToken cancellationToken)
     {
-        var staged = await StageAsync(cancellationToken).ConfigureAwait(false);
-        var pushed = await PushAsync(cancellationToken).ConfigureAwait(false);
+        var (sent, pushed) = await PushAsync(cancellationToken).ConfigureAwait(false);
         var pulled = await PullAsync(cancellationToken).ConfigureAwait(false);
-        return new LedgerSyncReport(staged, pushed.Success, pushed.Message, pulled);
+
+        // After a push that landed and a pull, the hub holds everything this ledger holds: what this node pushed, and
+        // what it just pulled from the hub. Nothing of it needs sending back.
+        if (pushed.Success) State = State with { Pushed = new Dictionary<string, long>(Ledger.Cursor.HighWater, StringComparer.Ordinal) };
+        return new LedgerSyncReport(sent, pushed.Success, pushed.Message, pulled);
+    }
+}
+
+/// <summary>
+/// The ledger hub's address as SyncFramework sees it: the server node every cell pushes to and pulls from, served
+/// at <c>/sync/</c> by <c>Creatura.Cells.Hub</c>.
+/// </summary>
+public static class LedgerHub
+{
+    public const string NodeId = "ledger";
+
+    /// <summary>The HTTP client for a hub; <paramref name="hub"/> is its base address, with or without <c>/sync/</c>.</summary>
+    public static ISyncFrameworkClient Http(Uri hub, TimeSpan? timeout = null)
+    {
+        var text = hub.ToString().TrimEnd('/');
+        if (!text.EndsWith("/sync", StringComparison.OrdinalIgnoreCase)) text += "/sync";
+        return new SyncFrameworkHttpClient(new HttpClient { BaseAddress = new Uri(text + "/"), Timeout = timeout ?? TimeSpan.FromSeconds(30) }, NodeId);
+    }
+
+    /// <summary>
+    /// One sync of a ledger with a hub over HTTP, the state read from and written to <paramref name="statePath"/>:
+    /// what the command calls, so it needs no SyncFramework type of its own.
+    /// </summary>
+    /// <param name="persist">Saves the ledger after the sync and before the cursors are saved, so a crash in between pulls again rather than losing what was pulled.</param>
+    public static async Task<LedgerSyncReport> SyncAsync(WorkLedger ledger, string identity, Uri hub, string statePath, Action<WorkLedger> persist, CancellationToken cancellationToken)
+    {
+        var node = new LedgerSyncNode(ledger, identity, Http(hub), LedgerSyncState.Load(statePath));
+        var report = await node.SyncAsync(cancellationToken).ConfigureAwait(false);
+        persist(ledger);
+        node.State.Save(statePath);
+        return report;
     }
 }
