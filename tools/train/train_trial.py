@@ -10,9 +10,16 @@ choice came to from the recording, and updates the network. Every 10 rounds the 
 without sampling, and the one with the best total reward there is kept; the starting network is scored first.
 
 The reward, per truck and decision, is the judge's own reading: +1 per unit delivered, -5 for an action the control
-layer judged a lie, -20 when the truck becomes stranded, -0.02 per tick it is still working.
+layer judged a lie, -20 when the truck becomes stranded, -0.02 per tick it is still working; with --end-penalty, also
+that much per unit still needed at the end of the run, on each truck's last decision.
+
+With --anchor the update also pulls the network toward the start (KL between their choices at the temperature), and
+with --keep-at-least-start only a network that delivers at least what the start delivers on the selection seeds may be
+kept (docs/design-trained-models.md, step 3's second attempt).
 
     uv run tools/train/train_trial.py models/convoy-policy-j.json models/convoy-policy-j-trial.json
+    uv run tools/train/train_trial.py models/convoy-policy-j.json models/convoy-policy-w-trial.json \
+        --arm W --end-penalty 5 --anchor 0.2 --keep-at-least-start --work datasets/trial-w
 """
 
 import argparse
@@ -63,14 +70,15 @@ def reward(d):
     return r
 
 
-def episodes(path, actions):
+def episodes(path, actions, end_penalty=0.0):
     """Each truck's decisions in each run, in tick order: inputs, visible actions, the action taken and its reward."""
-    runs, measures, current = {}, [], None
+    runs, measures, current, unserved = {}, [], None, {}
     for line in open(path):
         row = json.loads(line)
         if row["type"] == "run":
             current = f"{row['arm']}/{row['seed']}"
             measures.append(row["measures"])
+            unserved[current] = max(0, row["measures"]["demand"] - row["measures"]["delivered"])
             continue
         d = row["decision"]
         if d.get("actionIndex") is None:
@@ -79,12 +87,19 @@ def episodes(path, actions):
         visible[d["mask"]] = 1.0
         runs.setdefault((current, d["truck"]), []).append(
             (d["tick"], np.concatenate([np.asarray(d["features"], dtype=float), visible]), visible > 0, d["actionIndex"], reward(d)))
-    return [sorted(e, key=lambda s: s[0]) for e in runs.values()], measures
+    out = []
+    for (run, _), steps in runs.items():
+        steps = sorted(steps, key=lambda s: s[0])
+        if end_penalty and unserved.get(run):
+            t, x, v, a, r = steps[-1]
+            steps[-1] = (t, x, v, a, r - end_penalty * unserved[run])
+        out.append(steps)
+    return out, measures
 
 
-def rollouts(network_path, seeds, out, temperature=None, sample_seed=0):
+def rollouts(network_path, seeds, out, temperature=None, sample_seed=0, arm="N"):
     args = ["dotnet", str(CONVOY), "--rollouts", str(out), "--seeds", f"{seeds[0]}-{seeds[1]}", "--network", str(network_path),
-            "--sample-seed", str(sample_seed)]
+            "--sample-seed", str(sample_seed), "--arms", arm]
     if temperature is not None:
         args += ["--temperature", str(temperature)]
     done = subprocess.run(args, capture_output=True, text=True, cwd=ROOT)
@@ -133,8 +148,8 @@ class Adam:
         return out
 
 
-def total_reward(path, actions):
-    eps, measures = episodes(path, actions)
+def total_reward(path, actions, end_penalty=0.0):
+    eps, measures = episodes(path, actions, end_penalty)
     return sum(s[4] for e in eps for s in e), measures
 
 
@@ -161,6 +176,10 @@ def main():
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--lam", type=float, default=0.95)
     parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--arm", default="N", help="the setup the network plays: N (as J), or W (as J with distrust shared)")
+    parser.add_argument("--end-penalty", type=float, default=0.0, help="per unit still needed at the end, on each truck's last decision")
+    parser.add_argument("--anchor", type=float, default=0.0, help="weight of the KL between the start's choices and the network's")
+    parser.add_argument("--keep-at-least-start", action="store_true", help="keep only networks that deliver at least what the start delivers")
     args = parser.parse_args()
 
     if not CONVOY.exists():
@@ -168,6 +187,7 @@ def main():
     args.work.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(args.seed)
     data, layers = read_network(args.start)
+    start_layers = layers
     actions = data["actions"]
     n_in = len(data["features"]) + len(actions)
     value = [(rng.normal(0, np.sqrt(2 / n_in), (64, n_in)), np.zeros(64)), (rng.normal(0, np.sqrt(2 / 64), (1, 64)), np.zeros(1))]
@@ -179,12 +199,13 @@ def main():
     def select(round_, layers):
         write_network(current, data, layers, data.get("training", {}))
         out = args.work / "selection.jsonl"
-        rollouts(current, args.selection_seeds, out)
-        score, measures = total_reward(out, actions)
+        rollouts(current, args.selection_seeds, out, arm=args.arm)
+        score, measures = total_reward(out, actions, args.end_penalty)
         return score, summary(measures)
 
     best_score, best_summary = select(0, layers)
     best_round, best_layers = 0, layers
+    floor = best_summary["delivered"] if args.keep_at_least_start else -1
     print(f"round 0 (the start): selection reward {best_score:.1f} {best_summary}", flush=True)
     log.write(json.dumps({"round": 0, "selection": best_score, **best_summary}) + "\n")
 
@@ -192,8 +213,8 @@ def main():
         write_network(current, data, layers, data.get("training", {}))
         first = 1000 + ((round_ - 1) * args.runs) % 8000
         out = args.work / "round.jsonl"
-        line = rollouts(current, (first, first + args.runs - 1), out, args.temperature, sample_seed=round_)
-        eps, _ = episodes(out, actions)
+        line = rollouts(current, (first, first + args.runs - 1), out, args.temperature, sample_seed=round_, arm=args.arm)
+        eps, _ = episodes(out, actions, args.end_penalty)
 
         x = np.concatenate([np.stack([s[1] for s in e]) for e in eps])
         visible = np.concatenate([np.stack([s[2] for s in e]) for e in eps])
@@ -213,6 +234,7 @@ def main():
             at += len(e)
         adv = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         old = np.log(policy(layers, x, visible, args.temperature)[0][np.arange(len(x)), taken] + 1e-12)
+        teacher = policy(start_layers, x, visible, args.temperature)[0] if args.anchor else None
 
         clipped = 0
         for _ in range(args.epochs):
@@ -232,6 +254,9 @@ def main():
                 logs = np.where(visible[idx], np.log(p + 1e-12), 0.0)
                 entropy = -(p * logs).sum(axis=1, keepdims=True)
                 grad += args.entropy * p * (logs + entropy)
+                if teacher is not None:
+                    # KL(start || network) at the temperature: its gradient at the scaled scores is p - q.
+                    grad += args.anchor * (p - teacher[idx])
                 grad = grad / args.temperature / len(idx)
                 layers = policy_adam.apply(layers, backward(layers, inputs, grad))
 
@@ -244,7 +269,7 @@ def main():
         if round_ % args.select_every == 0:
             score, summ = select(round_, layers)
             entry.update({"selection": score, **summ})
-            if score > best_score:
+            if summ["delivered"] >= floor and score > best_score:
                 best_score, best_summary, best_round, best_layers = score, summ, round_, layers
             print(f"round {round_}: {line}; selection reward {score:.1f} {summ} (best: round {best_round}), {time.time() - started:.0f} s", flush=True)
         log.write(json.dumps(entry) + "\n")
@@ -254,7 +279,11 @@ def main():
         "by": "trial",
         "method": "PPO",
         "startedFrom": data.get("training", {}),
-        "reward": "+1 per unit delivered, -5 per action judged a lie, -20 when stranded, -0.02 per tick working",
+        "reward": "+1 per unit delivered, -5 per action judged a lie, -20 when stranded, -0.02 per tick working"
+                  + (f", -{args.end_penalty:g} per unit still needed at the end on each truck's last decision" if args.end_penalty else ""),
+        "arm": args.arm,
+        "anchor": args.anchor,
+        "selectionRule": "best reward among networks delivering at least the start's units" if args.keep_at_least_start else "best reward",
         "rounds": args.rounds,
         "runsPerRound": args.runs,
         "temperature": args.temperature,

@@ -40,6 +40,10 @@
   Evidence)`), lets a truck that catches a road lying warn the others, who distrust the road too. Arm W (J with
   `ShareDistrust`) joined the default battery, with the `LiesAlreadyCaught` measure. W1, W2 and W3 held: no lie on a
   road already caught (J: 9), road lies 39 against 48, deliveries unchanged at 1500/1500.
+- Training by trial, second attempt: `train_trial.py` gained `--arm`, `--end-penalty` (a price per unit left short at
+  the end), `--anchor` (KL to the starting network) and `--keep-at-least-start`. Arm Q carries the result on W's setup
+  (`models/convoy-policy-w-trial.json`): T7, T7b and T7c held, with 1500/1500 delivered, 2 trucks stranded against W's
+  6, and 41 lies against 45.
   `samples/Convoy` runs one story or the battery. The **replay** is the interface for UIs: JSON lines described in
   [docs/replay-format.md](docs/replay-format.md), with `IScenarioObserver` for following a run live.
   `tools/convoy-viewer/index.html` is a three.js viewer with four sample runs built in.

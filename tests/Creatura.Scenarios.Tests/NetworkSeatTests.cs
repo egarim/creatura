@@ -248,4 +248,49 @@ public sealed class NetworkSeatTests
         Assert.Equal(HypothesisVerdict.Failed, verdicts["T3b"].Verdict);
         Assert.Equal(HypothesisVerdict.Failed, ConvoyBattery.Score(runs, false).Single(v => v.Id == "T4R").Verdict);
     }
+
+    // ------------------------------------------------------------------ step 3, second attempt: arm Q
+
+    [Fact]
+    public void ArmQCarriesTheSecondTrialNetworkOnWsSetup()
+    {
+        var setup = ConvoySetup.For(ConvoyArm.Q, 3);
+        Assert.Equal(ConvoyNetwork.EmbeddedTrialShared, setup.SeatNetwork);
+        Assert.True(setup.ShareDistrust && setup.DistrustRoads);
+        Assert.Contains(ConvoyArm.Q, ConvoyBattery.DefaultArms);
+        var network = ConvoyNetwork.Load(ConvoyNetwork.EmbeddedTrialShared);
+        ConvoyNetwork.Fits(network, setup.Map);
+        var training = network.Training!.Value;
+        Assert.Equal("trial", training.GetProperty("by").GetString());
+        Assert.Equal("W", training.GetProperty("arm").GetString());
+        Assert.Equal(0.2, training.GetProperty("anchor").GetDouble());
+        Assert.Contains("at least the start", training.GetProperty("selectionRule").GetString());
+        Assert.True(training.GetProperty("trialSeeds")[0].GetInt32() >= ConvoyDatasets.FirstTrainingSeed);
+    }
+
+    /// <summary>T7c: the second trial network replays byte for byte.</summary>
+    [Fact]
+    public async Task T7c_ArmQReplaysByteForByte() => Assert.True(await ConvoyBattery.ReplaysMatchAsync(ConvoyArm.Q, 0));
+
+    [Fact]
+    public void TheSecondAttemptIsScoredAgainstW()
+    {
+        static ConvoyMeasures M(int delivered, int lies = 0, int stranded = 0, int gauge = 0) =>
+            new(delivered, 30, 0, stranded, lies, 0, 20, true, 0, 10, 0) { GaugeStranded = gauge };
+        var runs = new Dictionary<ConvoyArm, IReadOnlyList<ConvoyMeasures>>
+        {
+            [ConvoyArm.W] = [M(30, lies: 2, stranded: 1, gauge: 1), M(30, lies: 1)],
+            [ConvoyArm.Q] = [M(30, lies: 1), M(30, lies: 1)],
+        };
+        var verdicts = ConvoyBattery.Score(runs, true).ToDictionary(v => v.Id);
+        Assert.Equal(HypothesisVerdict.Held, verdicts["T7"].Verdict);
+        Assert.Equal(HypothesisVerdict.Held, verdicts["T7b"].Verdict);
+        Assert.Equal(HypothesisVerdict.Held, verdicts["T7c"].Verdict);
+
+        runs[ConvoyArm.Q] = [M(30, lies: 2, stranded: 1, gauge: 1), M(29)];
+        verdicts = ConvoyBattery.Score(runs, false).ToDictionary(v => v.Id);
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["T7"].Verdict);
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["T7b"].Verdict);
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["T7c"].Verdict);
+    }
 }

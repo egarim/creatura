@@ -17,6 +17,9 @@ public static class ConvoyNetwork
     /// <summary>Arm N's network trained further by trial (step 3), the default for arm R.</summary>
     public const string EmbeddedTrial = "convoy-policy-j-trial";
 
+    /// <summary>Arm N's network trained by trial on arm W's setup (step 3's second attempt), the default for arm Q.</summary>
+    public const string EmbeddedTrialShared = "convoy-policy-w-trial";
+
     private static readonly ConcurrentDictionary<string, PolicyNetwork> Loaded = new(StringComparer.Ordinal);
 
     /// <summary>

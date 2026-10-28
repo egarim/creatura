@@ -401,6 +401,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         ConvoyArm.N => "Tests T2 and T4: a small network trained to copy arm J's planner, in every truck's seat, with all three fixes.",
         ConvoyArm.R => "Tests T3 and T3b: arm N's network trained further by trial in the simulator, against arm J's planner.",
         ConvoyArm.W => "Tests W1 and W2: all three fixes, and a truck that catches a road lying warns the others through the ledger.",
+        ConvoyArm.Q => "Tests T7 and T7b: the network trained by trial again, on W's setup, with a reward that prices unserved villages and an anchor to its teacher.",
         _ => arm.ToString(),
     };
 

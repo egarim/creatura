@@ -1,6 +1,6 @@
 # Design: trained models for a world
 
-Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held; step 3 (training by trial) built: T3 failed, T3b held.
+Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held; step 3 (training by trial) built: the first attempt failed T3; the second held T7, T7b and T7c.
 
 ## The question, in the owner's words
 
@@ -347,6 +347,88 @@ What a next attempt would change, each to be registered before it runs:
 dotnet build samples/Convoy -c Release
 uv run tools/train/train_trial.py models/convoy-policy-j.json models/convoy-policy-j-trial.json
 dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --arms J,N,R
+```
+
+## Step 3, second attempt, registered before training (2026-10-28)
+
+Written before the new reward, the anchor or the selection rule existed in the trainer, and before any trial run of
+this attempt. It applies the three changes the first attempt's failure pointed to, on the setup with shared distrust.
+
+- **The setup: arm W's** (all three fixes, distrust shared through the ledger), so the trucks that train are the ones
+  the comparison is against. With warnings shared, no lie on an already-caught road is left to remove, so the only lies
+  a seat can still avoid are the strandings caused by the lying fuel gauge (arm W: 6 over seeds 0 to 49).
+- **The start:** arm N's network, trained by example on arm J. It reads the same features; the warnings reach it as the
+  same `avoid:` notes.
+- **The reward**, as before (+1 per unit delivered, -5 per action judged a lie, -20 when stranded, -0.02 per tick), plus
+  **-5 per unit still needed at the end of the run, on each truck's last decision**. A run left 4 units short now costs
+  60, three times what a stranding costs.
+- **The anchor:** each update also pulls the network toward the start, with a penalty of 0.2 times the divergence
+  (KL) between the start's choices and the network's, both at the sampling temperature, on the states of the round.
+- **Which network is kept:** every 10 rounds, as before, on seeds 9,000 to 9,199 without sampling. Only a network that
+  delivers at least as much there as the start does may be kept; among those, the best total reward. If no round
+  qualifies, the start is kept, and that is the finding.
+- Unchanged: PPO, 64 runs a round, 150 rounds, temperature 2, trial seeds 1,000 to 8,999.
+- **Arm Q:** as W, with the network this attempt keeps (`models/convoy-policy-w-trial.json`).
+
+Judged on seeds 0 to 49:
+
+| id | claim | falsifier |
+|---|---|---|
+| T7 | trained by trial on W's setup, the network delivers at least as much as arm W and acts on fewer lies | less delivered, or as many lies or more |
+| T7b | it strands fewer trucks than arm W | as many or more |
+| T7c | arm Q replays byte for byte for the same seed | any difference |
+
+The prediction: if T7 holds, it holds through fewer strandings (T7b), with the road lies at W's level, and the villages
+served somewhat later, since a fuller tank costs refuelling trips.
+
+## Step 3, second attempt, built (2026-10-28)
+
+**T7, T7b and T7c held.** On the battery's seeds 0 to 49, which training never touched:
+
+| | arm Q (second attempt) | arm W (planner, shared distrust) | arm R (first attempt) |
+|---|---|---|---|
+| delivered | 1500/1500 | 1500/1500 | 1445/1500 |
+| lies acted on | 41 | 45 | 46 |
+| of them road lies | 39 | 39 | 44 |
+| of them strandings by the lying gauge | 2 | 6 | 2 |
+| stranded trucks | 2 | 6 | 2 |
+| villages served by tick | 24.8 | 25.4 | 27.2 |
+
+Arm Q delivered everything, as W did, and stranded 2 trucks where W stranded 6: that is the whole of the drop in lies,
+since its road lies are W's 39. Six runs of seed 0 replayed byte for byte.
+
+The prediction held in two parts and not in the third. The gain came through fewer strandings, and the road lies stayed
+at W's level, as predicted. But the villages were served sooner (24.8 against 25.4), not later: the network did not
+pay for its margin with refuelling trips.
+
+**What trial taught it this time: a targeted change, not caution.** Over the same 50 seeds arm Q refuelled 193 times
+against W's 189 and waited 1,006 ticks against 1,069. In 36 of the 50 seeds it made exactly W's choices at every tick of
+every truck. The first attempt doubled the refuels and the waits; this one changed a few decisions in 14 seeds.
+
+How it got there:
+- **The start was worse than the planner on this setup.** On the selection seeds 9,000 to 9,199, arm N's network
+  (copied from J's planner) delivered 5,963 of 6,000 and stranded 41 trucks, where arm W's planner delivered 6,000 and
+  stranded 16. Shared warnings put trucks in situations J's planner never reached, so a copy of it had never learned
+  them. Trial closed that gap first. By round 20 it delivered all 6,000 with 18 strandings, and by round 60 it stranded
+  12, fewer than the planner.
+- **The kept network is round 150**, the last: 5,998 delivered on the selection seeds, 148 lies, 11 stranded. Every
+  round checked after round 10 delivered at least the start's 5,963, so the floor kept none out. The reward that
+  priced a village left short did most of the work.
+- 23 minutes on the laptop. The anchor's gradient was checked against finite differences first (largest difference
+  9e-12), and the trainer ran a two-round smoke test.
+- The weights: `models/convoy-policy-w-trial.json`, embedded with the others.
+
+What the margin is worth: 4 strandings fewer over 50 seeds, on one battery. It is the effect the reward aimed at and
+it agrees with the selection seeds (11 against 16), but a larger battery would say more than this one can.
+
+The breaks: the T7b scoring was checked by letting it accept a tie, and its test failed. The trainer's new parts (the
+end-of-run price, the anchor, the floor) were not broken deliberately, since each break would need a training run to
+show; the anchor's gradient check and the smoke test are what checked them.
+
+```bash
+uv run tools/train/train_trial.py models/convoy-policy-j.json models/convoy-policy-w-trial.json \
+    --arm W --end-penalty 5 --anchor 0.2 --keep-at-least-start --work datasets/trial-w
+dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --arms W,Q
 ```
 
 ## What this note does not cover

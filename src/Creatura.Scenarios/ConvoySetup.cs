@@ -47,6 +47,9 @@ public enum ConvoyArm
 
     /// <summary>As J (all three fixes), with distrust shared: a truck that catches a road lying warns the others on the ledger.</summary>
     W,
+
+    /// <summary>As W (distrust shared), with arm N's network trained further by trial on W's setup (step 3's second attempt).</summary>
+    Q,
 }
 
 /// <summary>A truck: its name, its machine, and the design that drives it ("plain", "levin", "bach", "peterson").</summary>
@@ -123,6 +126,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
         ConvoyArm.N => $"a policy network ({SeatNetwork}) in every truck's seat, shared ledger, all three fixes",
         ConvoyArm.R => $"a policy network trained by trial ({SeatNetwork}) in every truck's seat, shared ledger, all three fixes",
         ConvoyArm.W => "plain loop, shared ledger, all three fixes, distrust shared through the ledger",
+        ConvoyArm.Q => $"a policy network trained by trial on W's setup ({SeatNetwork}) in every truck's seat, all three fixes, distrust shared",
         _ => Arm.ToString(),
     };
 
@@ -182,6 +186,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
             ConvoyArm.N => AllFixes(setup) with { SeatNetwork = ConvoyNetwork.Embedded },
             ConvoyArm.R => AllFixes(setup) with { SeatNetwork = ConvoyNetwork.EmbeddedTrial },
             ConvoyArm.W => AllFixes(setup) with { ShareDistrust = true },
+            ConvoyArm.Q => AllFixes(setup) with { ShareDistrust = true, SeatNetwork = ConvoyNetwork.EmbeddedTrialShared },
             _ => setup,
         };
     }

@@ -330,6 +330,10 @@ the training and the results are in [design-trained-models.md](design-trained-mo
 Arm R is arm N's network trained further by trial in the simulator. It stranded fewer trucks than J (2 against 6) and
 acted on fewer lies (46 against 54), but delivered less (1445 of 1500), so T3 failed and T3b held.
 
+Arm Q is the second attempt, on W's setup (shared distrust): a reward that prices a village left short, an anchor to
+the starting network, and a floor on deliveries for the network kept. It delivered 1500 of 1500, as W did, stranded 2
+trucks against W's 6, and acted on 41 lies against 45: T7, T7b and T7c held.
+
 ## Shared distrust (pre-registered 2026-10-28, before the code)
 
 Distrust by road (arm H's fix) is private: a truck that catches a road lying avoids it from then on, but the other
