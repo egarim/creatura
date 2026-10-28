@@ -18,9 +18,11 @@ var model = Option("--model");
 var ticks = Option("--ticks") is { } t ? int.Parse(t) : (int?)null;
 var network = Option("--network");
 
+// --model fills the seat of the arms that carry a model (arm S). It reaches another arm only when that arm is named
+// with --arm for a single run: in a battery, "--arms J,S --model x" must leave J's planner as the baseline.
 ConvoySetup Adjust(ConvoySetup setup) => setup with
 {
-    SeatModel = model ?? setup.SeatModel,
+    SeatModel = model is not null && (setup.SeatModel is not null || Option("--arm") is not null) ? model : setup.SeatModel,
     SeatNetwork = network ?? setup.SeatNetwork,
     MaxTicks = ticks ?? setup.MaxTicks,
 };

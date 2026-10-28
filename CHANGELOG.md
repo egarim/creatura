@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Fix: `--model` in a battery filled every arm's seat.** `--battery --arms J,S --model deepseek-chat` put the model
+  in arm J's seat too, so the planner baseline ran with the model and the run cost twice what was quoted. `--model`
+  now fills only the arms that carry a model, or the one arm named with `--arm` for a single run.
+
 - **License: PolyForm Noncommercial 1.0.0** (`LICENSE.md`, `PackageLicenseExpression` in `Directory.Build.props`):
   free for noncommercial use, commercial use by separate license from the author, no warranty and no liability.
 - **Ready for going public** (from the pre-public audit): the podcast quotes in the code are paraphrased with their
