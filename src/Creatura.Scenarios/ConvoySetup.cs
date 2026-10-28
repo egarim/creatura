@@ -53,6 +53,12 @@ public enum ConvoyArm
 
     /// <summary>As J (all three fixes), with a learned judge: a world model's surprise, not the hand-coded effect check, decides each verdict (docs/design-trained-models.md, step 5).</summary>
     X,
+
+    /// <summary>The learned judge's second attempt with the planner's world model: only checkable actions, and a learned lie quarantines before it condemns.</summary>
+    Y,
+
+    /// <summary>As Y, with the world model trained on varied driving and its thresholds calibrated on varied driving.</summary>
+    Z,
 }
 
 /// <summary>A truck: its name, its machine, and the design that drives it ("plain", "levin", "bach", "peterson").</summary>
@@ -103,6 +109,12 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
     /// <summary>Above this surprise the learned judge calls an action a lie (fixed from training seeds; see step 5's registration).</summary>
     public double LearnedJudgeThreshold { get; init; } = 4.606;
 
+    /// <summary>The learned judge judges only drives, loads, unloads and refuels; the layer's verdict stands for the rest.</summary>
+    public bool LearnedJudgeCheckableOnly { get; init; }
+
+    /// <summary>A learned lie distrusts its road for good only above this surprise, or at its second on that road; null: every learned lie does.</summary>
+    public double? LearnedJudgeCondemn { get; init; }
+
     /// <summary>A truck whose drive fails for lack of fuel hands back its claim and claims nothing more.</summary>
     public bool HandOffWhenStranded { get; init; }
 
@@ -135,6 +147,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
         ConvoyArm.N => $"a policy network ({SeatNetwork}) in every truck's seat, shared ledger, all three fixes",
         ConvoyArm.R => $"a policy network trained by trial ({SeatNetwork}) in every truck's seat, shared ledger, all three fixes",
         ConvoyArm.W => "plain loop, shared ledger, all three fixes, distrust shared through the ledger",
+        ConvoyArm.Y or ConvoyArm.Z => $"plain loop, shared ledger, all three fixes, a learned judge ({LearnedJudge}) on checkable actions that quarantines before it condemns",
         ConvoyArm.X => $"plain loop, shared ledger, all three fixes, a learned judge ({LearnedJudge}) in place of the effect check",
         ConvoyArm.Q => $"a policy network trained by trial on W's setup ({SeatNetwork}) in every truck's seat, all three fixes, distrust shared",
         _ => Arm.ToString(),
@@ -198,6 +211,8 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
             ConvoyArm.W => AllFixes(setup) with { ShareDistrust = true },
             ConvoyArm.Q => AllFixes(setup) with { ShareDistrust = true, SeatNetwork = ConvoyNetwork.EmbeddedTrialShared },
             ConvoyArm.X => AllFixes(setup) with { LearnedJudge = ConvoyNetwork.EmbeddedWorld },
+            ConvoyArm.Y => AllFixes(setup) with { LearnedJudge = ConvoyNetwork.EmbeddedWorld, LearnedJudgeThreshold = 4.720, LearnedJudgeCondemn = 5.785, LearnedJudgeCheckableOnly = true },
+            ConvoyArm.Z => AllFixes(setup) with { LearnedJudge = ConvoyNetwork.EmbeddedWorldVaried, LearnedJudgeThreshold = 7.628, LearnedJudgeCondemn = 16.813, LearnedJudgeCheckableOnly = true },
             _ => setup,
         };
     }

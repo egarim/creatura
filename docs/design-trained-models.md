@@ -648,6 +648,85 @@ test pins one surprise to the Python value, 234.71997016536898); `LearnedJudgeEx
 fail a test: surprise against what the truck saw before (95 false alarms on one seed: this one passed until a test
 counted false alarms), no sigmoid on the output, the learned verdict ignored, and T8b accepting 1%.
 
+## Step 5, the learned judge's second attempt, registered before the code (2026-10-28)
+
+Written before arms Y and Z existed. Every threshold below was fixed on training seeds; the battery's were not looked at.
+
+The three changes the first attempt pointed to:
+1. **Judge only what the world can contradict:** drives, loads, unloads and refuels. For a wait, a claim or a report
+   the layer's own verdict stands.
+2. **A learned lie quarantines; it condemns only on strong evidence.** Above the first threshold (t1) an action is
+   judged a lie, so the layer sets the tool aside for its three ticks. A road is distrusted for good only when the
+   surprise is above a second, higher threshold (t2), or when the learned judge has called a drive on that road a lie a
+   second time.
+3. **The varied model, calibrated on varied driving.**
+
+Fixing the thresholds showed that change 3 pulls against the others. Calibrated on its own held-out training seeds
+(ending in 9), the varied model's t1 is 7.628 (0.49% of landed actions above it) and its t2 is 16.813 (the 99.95th
+percentile of landed drives); on arm J's held-out driving it catches 72% of road lies above t1 and none above t2. It
+has seen so many lies that it is calm about them. The planner model on its held-out seeds 550 to 599: t1 = 4.720 (the
+99.5th percentile of landed judged actions; 0.47% above it, 98% of road lies above it) and t2 = 5.785 (the most
+surprising landed drive; 96% of road lies above it). So both are run:
+
+- **Arm Y:** arm J with the learned judge, changes 1 and 2, the planner model (`convoy-world-j`), t1 = 4.720, t2 = 5.785.
+- **Arm Z:** arm J with the learned judge, changes 1, 2 and 3, the varied model (`convoy-world-varied`), t1 = 7.628,
+  t2 = 16.813.
+
+Judged on seeds 0 to 49:
+
+| id | claim | falsifier |
+|---|---|---|
+| T9 | arm Y delivers at least as much as arm J and acts on no more lies | less delivered, or more lies |
+| T9b | arm Y's learned judge gives false alarms on fewer than 1% of the actions it judges | 1% or more |
+| T9c | arm Z delivers at least as much as arm J and acts on no more lies | as for T9 |
+| T9d | arm Z's learned judge gives false alarms on fewer than 1% of the actions it judges | as for T9b |
+| T9e | arms Y and Z replay byte for byte | any difference |
+
+The prediction: Y holds T9 and T9b. Z keeps its false alarms low (T9d) but misses lies, so its trucks take the lying
+road more than once and T9c fails.
+
+## Step 5, the learned judge's second attempt, built (2026-10-28)
+
+**T9 failed by three lies; T9b, T9d and T9e held; T9c failed, as predicted.** On seeds 0 to 49:
+
+| | arm J (hand-coded) | arm X (first attempt) | **arm Y** (planner model, fixes 1 and 2) | arm Z (varied model, fixes 1 to 3) |
+|---|---|---|---|---|
+| delivered | 1500/1500 | 1500/1500 | **1500/1500** | 1442/1500 |
+| lies acted on | 54 | 63 | **57** | 622 |
+| a lying road taken again | 0 | 0 | **2** | 555 |
+| trucks stranded | 6 | 8 | **6** | 5 |
+| villages served by tick (unserved counts 61) | 25.5 | 27.7 | **25.7** | 33.7 |
+| false alarms | — | 131 of 4,197 (3.1%) | **19 of 2,396 (0.79%)** | 6 of 2,898 (0.21%) |
+| lies missed | — | 0 | **0** | 556 |
+
+**Arm Y nearly does what the hand-coded check does.** It delivered everything, served the villages in the same time
+(25.7 ticks against 25.5), stranded as many trucks, and missed no lie, with false alarms down from 3.1% to 0.79%. Two
+changes did it: judging only what the world can contradict removed the waits and claims that made up most of the
+first attempt's false alarms, and quarantining before condemning kept a false alarm from costing a good road for the
+rest of the run.
+
+**Why T9 still failed: the price of patience.** Two lies were less surprising than the condemn threshold (t2), so
+they only quarantined the lying road; after the three ticks the planner came back to it, met the lie a second time,
+and only then distrusted it for good. That is two lies more than the hand-coded check, which condemns at once; the third
+extra lie is one more first encounter than J had, not traced further. Patience is what keeps false alarms cheap, and it costs a second encounter whenever the
+model is only moderately surprised.
+
+**Arm Z confirms the prediction.** The varied model, calibrated on varied driving, kept its false alarms lowest
+(0.21%), but at its thresholds it judged 556 lies landed: it has seen so many lies that it is not surprised by them.
+Its trucks took the lying road 555 more times and 58 units went undelivered. A world model that is to judge needs to
+be calibrated on the driving it will judge, and a model that has learned lies are common is a poor judge of them.
+
+What it shows across both attempts: a learned model can stand in for the hand-coded effect check, and nearly match it,
+once it is kept away from what it cannot check and its alarms are made cheap. It does not beat the check, which is
+exact by construction in a world whose facts are true; the place for a learned judge is a world where no such check
+can be written.
+
+The code: `LearnedJudgeExtension` takes the judged kinds and a condemn threshold, and `RoadDistrustExtension` asks it
+whether a learned lie condemns. Four deliberate breaks each fail a test: every kind judged, every learned lie
+condemning, no escalation at the second lie, and T9b accepting 1%. A first version of the quarantine test used a seed
+where the planner never came back to the lying road, so it could not show the second encounter; the test now uses
+training seed 101, where it does.
+
 ## What this note does not cover
 
 - Training on data from real machines or real users. Every dataset here comes from simulated worlds.

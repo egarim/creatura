@@ -213,6 +213,29 @@ public static class ConvoyBattery
             verdicts.Add(new("T8c", "with the learned judge, a seed replays byte for byte (X)", Held(same), same ? "six runs of seed 0 matched" : "a replay differed"));
         }
 
+        // The learned judge's second attempt (pre-registered as T9 to T9e), each arm scored when it and J ran.
+        foreach (var (arm, deliver, alarm) in new[] { (ConvoyArm.Y, "T9", "T9b"), (ConvoyArm.Z, "T9c", "T9d") })
+        {
+            if (!runs.ContainsKey(arm) || !runs.ContainsKey(ConvoyArm.J)) continue;
+            var n = Math.Min(runs[arm].Count, runs[ConvoyArm.J].Count);
+            int Over(ConvoyArm a, Func<ConvoyMeasures, int> f) => runs[a].Take(n).Sum(f);
+            verdicts.Add(new(deliver, $"arm {arm} (second learned judge) delivers at least as much as arm J and acts on no more lies",
+                Held(Over(arm, m => m.Delivered) >= Over(ConvoyArm.J, m => m.Delivered) && Over(arm, m => m.LiesBelieved) <= Over(ConvoyArm.J, m => m.LiesBelieved)),
+                $"delivered {arm} {Over(arm, m => m.Delivered)}, J {Over(ConvoyArm.J, m => m.Delivered)}; lies {arm} {Over(arm, m => m.LiesBelieved)}, J {Over(ConvoyArm.J, m => m.LiesBelieved)}; "
+                + $"repeats {arm} {Over(arm, m => m.LyingRoadRepeats)}; stranded {arm} {Over(arm, m => m.Stranded)}, J {Over(ConvoyArm.J, m => m.Stranded)}; "
+                + $"served by tick {runs[arm].Take(n).Average(m => m.TicksToServe):0.0} against {runs[ConvoyArm.J].Take(n).Average(m => m.TicksToServe):0.0} over {n} seeds"));
+            var judged = Over(arm, m => m.Judged);
+            var alarms = Over(arm, m => m.JudgeFalseAlarms);
+            verdicts.Add(new(alarm, $"arm {arm}'s learned judge gives false alarms on fewer than 1% of the actions it judges",
+                Held(judged > 0 && alarms < 0.01 * judged),
+                $"false alarms {alarms} of {judged} judged ({(judged == 0 ? 0 : alarms / (double)judged):P2}); misses {Over(arm, m => m.JudgeMisses)}"));
+        }
+        if (runs.ContainsKey(ConvoyArm.Y) || runs.ContainsKey(ConvoyArm.Z))
+        {
+            var same = new[] { ConvoyArm.Y, ConvoyArm.Z }.Where(runs.ContainsKey).All(a => replays is not null && replays.TryGetValue(a, out var r) ? r : replaysMatch);
+            verdicts.Add(new("T9e", "arms Y and Z replay byte for byte", Held(same), same ? "six runs of seed 0 matched in each" : "a replay differed"));
+        }
+
         // Shared distrust (pre-registered as W1 to W3), scored when arms W and J both ran.
         if (runs.ContainsKey(ConvoyArm.W) && runs.ContainsKey(ConvoyArm.J))
         {

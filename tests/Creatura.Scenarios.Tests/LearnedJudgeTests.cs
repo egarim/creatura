@@ -88,6 +88,71 @@ public sealed class LearnedJudgeTests
         Assert.Equal(HypothesisVerdict.Failed, verdicts["T8c"].Verdict);
     }
 
+    // ------------------------------------------------------------------ the second attempt: arms Y and Z
+
+    [Fact]
+    public void ArmsYAndZCarryTheSecondAttemptsSettings()
+    {
+        var y = ConvoySetup.For(ConvoyArm.Y, 1);
+        var z = ConvoySetup.For(ConvoyArm.Z, 1);
+        Assert.Equal((ConvoyNetwork.EmbeddedWorld, 4.720, 5.785, true), (y.LearnedJudge, y.LearnedJudgeThreshold, y.LearnedJudgeCondemn, y.LearnedJudgeCheckableOnly));
+        Assert.Equal((ConvoyNetwork.EmbeddedWorldVaried, 7.628, 16.813, true), (z.LearnedJudge, z.LearnedJudgeThreshold, z.LearnedJudgeCondemn, z.LearnedJudgeCheckableOnly));
+        Assert.Contains(ConvoyArm.Y, ConvoyBattery.DefaultArms);
+        Assert.Contains(ConvoyArm.Z, ConvoyBattery.DefaultArms);
+    }
+
+    /// <summary>Only drives, loads, unloads and refuels are judged by the model: a wait or a claim keeps the layer's verdict.</summary>
+    [Fact]
+    public async Task OnlyWhatTheWorldCanContradictIsJudged()
+    {
+        var recorder = new ConvoyRecorder();
+        var jumpy = await new ConvoyScenario(ConvoySetup.For(ConvoyArm.Y, 3) with { LearnedJudgeThreshold = 0, LearnedJudgeCondemn = 1e9 }, recorder: recorder).RunAsync();
+        var decisions = recorder.Runs.Single().Decisions.Where(d => d.Verdict is not null).ToList();
+        string Kind(DecisionRecord d) => d.Chosen!.Split(':')[0];
+        Assert.All(decisions.Where(d => Kind(d) is "wait" or "claim" or "report-done"), d => Assert.Equal("Landed", d.Verdict));
+        Assert.Contains(decisions, d => Kind(d) == "drive" && d.Verdict == "Lied");
+        Assert.Equal(decisions.Count(d => Kind(d) is "drive" or "load" or "unload" or "refuel"), jumpy.Measures.Judged);
+    }
+
+    /// <summary>
+    /// A learned lie below the condemn threshold only quarantines: with that threshold out of reach, the lying road is
+    /// distrusted only at its second learned lie, so a truck takes it twice; with every lie condemning, once.
+    /// </summary>
+    [Fact]
+    public async Task ALearnedLieQuarantinesBeforeItCondemns()
+    {
+        // Seed 101 (a training seed): after the quarantine the planner comes back to the lying road.
+        var once = await new ConvoyScenario(ConvoySetup.For(ConvoyArm.Y, 101)).RunAsync();
+        Assert.Equal(0, once.Measures.LyingRoadRepeats);
+        var patient = await new ConvoyScenario(ConvoySetup.For(ConvoyArm.Y, 101) with { LearnedJudgeCondemn = 1e9 }).RunAsync();
+        Assert.True(patient.Measures.LyingRoadRepeats > 0);
+        Assert.Contains(patient.Ticks.SelectMany(t => t.Events), e => e.Kind == "distrust");
+    }
+
+    [Theory]
+    [InlineData(ConvoyArm.Y)]
+    [InlineData(ConvoyArm.Z)]
+    public async Task T9e_TheSecondAttemptReplaysByteForByte(ConvoyArm arm) => Assert.True(await ConvoyBattery.ReplaysMatchAsync(arm, 0));
+
+    [Fact]
+    public void TheSecondAttemptIsScoredAgainstJ()
+    {
+        static ConvoyMeasures M(int delivered, int lies, int judged = 0, int alarms = 0) =>
+            new(delivered, 30, 0, 0, lies, 0, 20, true, 0, 10, 0) { Judged = judged, JudgeFalseAlarms = alarms };
+        var runs = new Dictionary<ConvoyArm, IReadOnlyList<ConvoyMeasures>>
+        {
+            [ConvoyArm.J] = [M(30, 2)],
+            [ConvoyArm.Y] = [M(30, 2, 200, 1)],
+            [ConvoyArm.Z] = [M(30, 3, 200, 2)],
+        };
+        var verdicts = ConvoyBattery.Score(runs, true).ToDictionary(v => v.Id);
+        Assert.Equal(HypothesisVerdict.Held, verdicts["T9"].Verdict);
+        Assert.Equal(HypothesisVerdict.Held, verdicts["T9b"].Verdict);
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["T9c"].Verdict);
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["T9d"].Verdict);
+        Assert.Equal(HypothesisVerdict.Held, verdicts["T9e"].Verdict);
+    }
+
     private static string Repo
     {
         get

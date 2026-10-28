@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **The learned judge's second attempt** (arms Y and Z): it judges only drives, loads, unloads and refuels, and a
+  learned lie quarantines before it condemns a road (above a second threshold, or at the second lie on it). Arm Y,
+  with the planner's world model, delivered 1500/1500 in the same time as J with 0.79% false alarms and no lie missed,
+  but acted on 57 lies against 54 (T9 failed, T9b held). Arm Z, with the varied model, missed 556 lies, as predicted
+  (T9c failed, T9d held). T9e held.
+
 - **The world model in the loop** (arm X): `WorldModel` in `Creatura.Seats` and `LearnedJudgeExtension`, which lets
   a world model's surprise judge every action in place of the effect check. It caught every lie (no misses) but
   raised false alarms on 3.1% of actions, and its detours led to more lies than arm J (63 against 54): T8 and T8b

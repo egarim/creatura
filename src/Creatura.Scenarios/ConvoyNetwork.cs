@@ -55,6 +55,9 @@ public static class ConvoyNetwork
     /// <summary>The world model arm X's learned judge reads (docs/design-trained-models.md, step 5), embedded in this assembly.</summary>
     public const string EmbeddedWorld = "convoy-world-j";
 
+    /// <summary>The world model trained on varied driving (step 5), the one arm Z's learned judge reads.</summary>
+    public const string EmbeddedWorldVaried = "convoy-world-varied";
+
     private static readonly ConcurrentDictionary<string, WorldModel> LoadedWorlds = new(StringComparer.Ordinal);
 
     /// <summary>An embedded world model by its name, or a weights file by its path, checked against the map's schema and vocabulary.</summary>

@@ -20,7 +20,7 @@
     <!-- The trained networks: arm N's by tools/train/train_policy.py, arm R's by tools/train/train_trial.py
          (docs/design-trained-models.md, steps 2 and 3). -->
     <EmbeddedResource Include="..\..\models\convoy-policy-*.json" LogicalName="Creatura.Scenarios.%(Filename).json" />
-    <EmbeddedResource Include="..\..\models\convoy-world-j.json" LogicalName="Creatura.Scenarios.%(Filename).json" />
+    <EmbeddedResource Include="..\..\models\convoy-world-*.json" LogicalName="Creatura.Scenarios.%(Filename).json" />
   </ItemGroup>
 
 </Project>

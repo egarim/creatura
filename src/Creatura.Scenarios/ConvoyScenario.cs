@@ -49,9 +49,13 @@ internal sealed class RoadDistrustExtension(ConvoyWorld world, string truck, Tru
 
     public IReadOnlyCollection<string> Roads => _roads;
 
+    /// <summary>With a learned judge that only quarantines (arms Y and Z): whether this lie is strong enough to distrust the road for good.</summary>
+    internal Func<Tool, bool>? Condemns { get; set; }
+
     public void AfterAction(TickContext context, Tool tool, ActionOutcome outcome, ActionVerdict verdict)
     {
         if (verdict != ActionVerdict.Lied || !outcome.Succeeded || !tool.Id.StartsWith("drive:", StringComparison.Ordinal)) return;
+        if (Condemns is not null && !Condemns(tool)) return;
         var road = tool.Id.Split(':')[1];
         if (!_roads.Add(road)) return;
         var r = world.Map.Road(road);
@@ -89,12 +93,20 @@ internal sealed class RoadDistrustExtension(ConvoyWorld world, string truck, Tru
 /// sees, after the action what it sees then, and asks the world model how surprising the change was. Above the
 /// threshold the action is a lie, at or below it landed. It replaces the layer's verdict, so the quarantine, the
 /// regulator's memory and road distrust all act on the world model's judgement instead of the hand-coded check's.
+/// <para>The second attempt (arms Y and Z) judges only what the world can contradict (<paramref name="checkableOnly"/>:
+/// drives, loads, unloads, refuels; the layer's verdict stands for the rest), and with <paramref name="condemn"/> a
+/// learned lie only quarantines: the road is distrusted for good when the surprise is above it, or at the second
+/// learned lie on that road.</para>
 /// </summary>
-internal sealed class LearnedJudgeExtension(ConvoyWorld world, TruckSpec spec, WorldModel model, double threshold, RoadDistrustExtension? distrust) : IAgentExtension
+internal sealed class LearnedJudgeExtension(ConvoyWorld world, TruckSpec spec, WorldModel model, double threshold, RoadDistrustExtension? distrust,
+    bool checkableOnly = false, double? condemn = null) : IAgentExtension
 {
+    private static readonly string[] Checkable = ["drive", "load", "unload", "refuel"];
     private readonly List<string> _vocabulary = ConvoyActions.Vocabulary(world.Map);
+    private readonly Dictionary<string, int> _liesByRoad = new(StringComparer.Ordinal);
     private double[]? _before;
     private int _beforeTick = -1;
+    private (string Tool, double Surprise) _last;
 
     public string Name => "learned-judge";
 
@@ -120,7 +132,9 @@ internal sealed class LearnedJudgeExtension(ConvoyWorld world, TruckSpec spec, W
     {
         var action = _vocabulary.IndexOf(tool.Id);
         if (action < 0 || _before is null || _beforeTick != context.Tick) return verdict;
+        if (checkableOnly && !Checkable.Contains(tool.Id.Split(':')[0])) return verdict;
         var surprise = model.Surprise(_before, action, Encode(context));
+        _last = (tool.Id, surprise);
         Judged++;
         var learned = surprise > threshold ? ActionVerdict.Lied : ActionVerdict.Landed;
         if (learned == ActionVerdict.Lied && landed) FalseAlarms++;
@@ -128,11 +142,20 @@ internal sealed class LearnedJudgeExtension(ConvoyWorld world, TruckSpec spec, W
         if (learned == ActionVerdict.Lied)
         {
             var road = tool.Id.StartsWith("drive:", StringComparison.Ordinal) ? tool.Id.Split(':')[1] : null;
+            if (road is not null) _liesByRoad[road] = _liesByRoad.GetValueOrDefault(road) + 1;
             world.Record(new ReplayEvent("surprised", string.Create(CultureInfo.InvariantCulture,
                 $"{spec.Name}'s world model did not expect what followed {tool.Id} (surprise {surprise:0.0} above {threshold:0.0}), so it is judged a lie."))
                 { Truck = spec.Name, Road = road, Verdict = learned.ToString() });
         }
         return learned;
+    }
+
+    /// <summary>Whether the learned lie on <paramref name="tool"/> just judged condemns its road: always without a condemn threshold, else above it or at the road's second learned lie.</summary>
+    public bool Condemns(Tool tool)
+    {
+        if (condemn is not { } bar) return true;
+        var road = tool.Id.Split(':')[1];
+        return (_last.Tool == tool.Id && _last.Surprise > bar) || _liesByRoad.GetValueOrDefault(road) >= 2;
     }
 }
 
@@ -299,7 +322,9 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         if (distrust is not null) observers.Add(distrust);
         if (Setup.LearnedJudge is { } judgeModel)
         {
-            var judge = new LearnedJudgeExtension(_world!, spec, ConvoyNetwork.LoadWorld(judgeModel, Setup.Map), Setup.LearnedJudgeThreshold, distrust);
+            var judge = new LearnedJudgeExtension(_world!, spec, ConvoyNetwork.LoadWorld(judgeModel, Setup.Map), Setup.LearnedJudgeThreshold, distrust,
+                Setup.LearnedJudgeCheckableOnly, Setup.LearnedJudgeCondemn);
+            if (distrust is not null && Setup.LearnedJudgeCondemn is not null) distrust.Condemns = judge.Condemns;
             _judges.Add(judge);
             observers.Add(judge);
         }
@@ -466,6 +491,8 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         ConvoyArm.N => "Tests T2 and T4: a small network trained to copy arm J's planner, in every truck's seat, with all three fixes.",
         ConvoyArm.R => "Tests T3 and T3b: arm N's network trained further by trial in the simulator, against arm J's planner.",
         ConvoyArm.W => "Tests W1 and W2: all three fixes, and a truck that catches a road lying warns the others through the ledger.",
+        ConvoyArm.Y => "Tests T9 and T9b: the learned judge's second attempt with the planner's world model: it judges only what the world can contradict, and a learned lie quarantines before it condemns.",
+        ConvoyArm.Z => "Tests T9c and T9d: as Y, with the world model trained on varied driving and calibrated on it.",
         ConvoyArm.X => "Tests T8 and T8b: a world model's surprise judges every action, in place of the control layer's hand-coded effect check.",
         ConvoyArm.Q => "Tests T7 and T7b: the network trained by trial again, on W's setup, with a reward that prices unserved villages and an anchor to its teacher.",
         _ => arm.ToString(),
