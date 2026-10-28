@@ -155,8 +155,8 @@ signatures of every entry again. One hook also dropped an event when the lock st
   hash, the rule `WorkLedger.Merge` uses. An entry is verified once, when it enters a ledger from outside, and
   loading checks each row's hash and the owner's trust without checking the signatures again. `VerifyOnLoad` checks
   everything. An empty database imports `ledger.json` through a full merge.
-- **A SyncFramework transport** (project `Creatura.Cells.Sync`, a sibling reference to egarim/SyncFramework's
-  `BIT.Data.Sync`). One signed entry is one delta: its operation is the entry's canonical JSON and its identity is the
+- **A SyncFramework transport** (project `Creatura.Cells.Sync`, package `BIT.Data.Sync` 3.0.0 from
+  egarim/SyncFramework). One signed entry is one delta: its operation is the entry's canonical JSON and its identity is the
   cell. `LedgerDeltaProcessor` parses each delta and merges it through `WorkLedger.Merge`. Nothing in a delta is ever
   executed. The server is a relay and trusts nothing: every cell verifies what it pulls.
 - **The command** takes `--store sqlite` (default `json`). The hooks installed on the owner's laptop stay on JSON until the
