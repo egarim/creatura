@@ -154,16 +154,6 @@ public sealed class LedgerSyncNode : IClientSyncDatabase
     public async Task<MergeResult> PullAsync(CancellationToken cancellationToken)
     {
         _processor.TakeResult();
-
-        // MemoryDeltaStore (BIT.Data.Sync 2.34.0) sets an identity's push cursor to the pull's index when a pull comes
-        // first, and the server's index is ahead of the outbox's own, so the cell's staged entries would never be
-        // pushed (C12). Recording "nothing pushed yet" before the first pull keeps the two cursors apart; harmless once
-        // the store no longer does it.
-        if (string.IsNullOrEmpty(await DeltaStore.GetLastPushedDeltaAsync(Identity, cancellationToken).ConfigureAwait(false)))
-        {
-            await DeltaStore.SetLastPushedDeltaAsync("", Identity, cancellationToken).ConfigureAwait(false);
-        }
-
         var response = await ISyncClientNodeExtensions.PullAsync(this, cancellationToken).ConfigureAwait(false);
         if (!response.Success) throw new IOException($"pull from the sync server failed: {response.Message}");
         return _processor.TakeResult();

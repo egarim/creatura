@@ -185,8 +185,8 @@ that resent everything still changed only one row, so C6 now also counts the ent
 two writers for one sequence, so a conflict test was added. Every break now fails a test.
 
 C12 found a flaw in SyncFramework's `MemoryDeltaStore`: a client that pulled before its first push got the server's
-index as its push cursor and never pushed its own deltas. `LedgerSyncNode` guards against it, and the fix is
-egarim/SyncFramework#27.
+index as its push cursor and never pushed its own deltas. The fix is egarim/SyncFramework#27, merged; creatura's
+interim guard is gone, and C12 passes against SyncFramework main without it.
 
 Hook runs (`creatura cell hook`, Release build, median of 10, the owner's laptop):
 
