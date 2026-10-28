@@ -6,12 +6,10 @@ loop, a control layer between the model and its tools, and a contract for worlds
 else plugs in: a design is a regulator that fills the loop's slots, a behaviour is an extension that hooks
 into its verbs, and a world is where both are trained and tested.
 
-This repository is the framework's home. The code is being extracted step by step from the research
-repository [egarim/biological-agents](https://github.com/egarim/biological-agents), following its
-[design-framework.md](https://github.com/egarim/biological-agents/blob/main/design-framework.md), with
-golden traces as the gate for every step. The Core arrived here after migration step 5 (the control layer,
-the reference loop, the first two regulators); steps 6 to 8 added the hybrid, map-keeper and orienting regulators, the
-join laws and the distrust policies; the remaining steps continue over there, on the branch `creatura-core`, against this checkout.
+This repository is the framework's home. Its designs were first worked out in a private research repository, and
+the code moved here step by step, with golden traces as the gate for every step. The designs are the author's
+readings of other people's public work; [docs/sources.md](docs/sources.md) says whose, and where each idea comes
+from.
 
 ## Layout
 
@@ -75,21 +73,10 @@ dotnet test tests/Creatura.Cells.Tests
 dotnet test tests/Creatura.Scenarios.Tests
 ```
 
-## Building beside biological-agents
+## Where it came from
 
-The research repository references this one as a **sibling checkout**: its `BiologicalAgents.csproj` points at
-`../../../../creatura/src/Creatura/Creatura.csproj`, so the two must sit next to each other:
-
-```
-~/Projects/creatura/
-~/Projects/biological-agents/
-```
-
-Clone both into the same parent folder, build this one first if you like (it has no dependencies either way),
-then build the research solution; its golden traces are the gate that the Core here still behaves exactly as
-it did there. The research repository's rebuild benchmark also grades the Core modules (`Planner`,
-`CoherenceAudit`, `PredictionTracker`, `Table`) from this checkout; `REBUILD_CREATURA_ROOT` overrides the
-sibling path.
+The private research repository builds against this one as a sibling checkout, and its golden traces were the gate
+that the Core here behaves exactly as it did there. Nothing in this repository depends on it.
 
 *Creatura*, Late Latin: that which has been made; first the whole created order, then each made thing.
 
@@ -287,8 +274,7 @@ feedback as the function's result); `Offer` goes in a prompt-render filter (`IPr
 distrusted functions' schemas before the request leaves; termination of the automatic function-calling loop goes
 through `IAutoFunctionInvocationFilter`, where the layer's terminate ends the loop rather than the single call. Tick =
 one model request there too. OpenClaw, Hermes and the Copilot SDK stay documentation: their hooks are mapped onto the
-same verbs in the research repository's
-[docs/applying-elsewhere.md](https://github.com/egarim/biological-agents/blob/main/docs/applying-elsewhere.md), section "Hosting".
+same verbs in the research notes, which are not published.
 
 ## Anatomy
 
@@ -387,3 +373,15 @@ uv run tools/train/train_trial.py models/convoy-policy-j.json models/convoy-poli
 ```
 
 Datasets are not committed; the commands make them again. The weights are, in `models/`.
+
+## License
+
+Creatura is free to use for any noncommercial purpose under the
+[PolyForm Noncommercial License 1.0.0](LICENSE.md): personal use, study, research, hobby projects, and use by
+charities, schools, public research and government bodies. Commercial use is not covered; for that, ask the author
+for a separate license (github.com/egarim). The author keeps the copyright, and anyone who shares the code or work
+based on it must pass on the license and its notice, `Copyright (c) 2026 Jose Ojeda`.
+
+The software comes as is, with no warranty, and the author is not liable for any damage that comes from using it,
+as far as the law allows (see "No Liability" in the license). The packages it depends on keep their own licenses
+(MIT, Apache-2.0, and the "No Liability" license of BIT.Data.Sync).

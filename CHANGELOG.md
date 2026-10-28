@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **License: PolyForm Noncommercial 1.0.0** (`LICENSE.md`, `PackageLicenseExpression` in `Directory.Build.props`):
+  free for noncommercial use, commercial use by separate license from the author, no warranty and no liability.
+- **Ready for going public** (from the pre-public audit): the podcast quotes in the code are paraphrased with their
+  episode and time, and `docs/sources.md` lists every source and says the people named do not endorse Creatura;
+  links into the private research repository are gone; the docs name no machines, people or servers of the owner's
+  fleet; example mesh addresses no longer match real ones; call logs and replays written from the repository root
+  are ignored. The history needed no rewriting: it holds no secret and no transcript text.
+
 - **Fix: tool ids with colons in hosted model seats.** `ModelPolicy` offered each tool as a function named by its id,
   and hosted providers (OpenAI, DeepSeek, Azure) accept only letters, digits, `_` and `-` in a function name, so
   DeepSeek refused every call of the convoy's first paid run (`claim:alba`). Tools are now offered under
@@ -119,9 +127,8 @@ tests (C1 to C5, `tests/Creatura.Cells.Tests`) committed before the code. Offlin
 
 ## 0.1.0 (2026-10-28)
 
-The first version: the framework extracted from the research repository
-[egarim/biological-agents](https://github.com/egarim/biological-agents) following its
-`design-framework.md`, with golden traces as the gate for every step. Nothing in this release was
+The first version: the framework extracted from the private research repository where it was first worked out,
+following its design notes, with golden traces as the gate for every step. Nothing in this release was
 built from scratch; every part has a predecessor in that repository, and every trace the research
 designs produced before the extraction is reproduced byte for byte.
 
@@ -173,4 +180,4 @@ designs produced before the extraction is reproduced byte for byte.
 ### Known limits
 - Model seats are wired but were not run against a live model in this release.
 - `Hosts.SemanticKernel` is reserved as a documented shape, not built.
-- Building beside `biological-agents` needs both checkouts side by side; no NuGet package is published.
+- Building beside the research repository needs both checkouts side by side; no NuGet package is published.

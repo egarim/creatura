@@ -6,6 +6,9 @@
     <VersionPrefix>0.1.0</VersionPrefix>
     <Product>Creatura</Product>
     <Authors>Jose Ojeda</Authors>
+    <Copyright>Copyright (c) 2026 Jose Ojeda</Copyright>
+    <!-- Free for noncommercial use; commercial use needs a separate license from the author (LICENSE.md). -->
+    <PackageLicenseExpression>PolyForm-Noncommercial-1.0.0</PackageLicenseExpression>
     <Description>An agent framework: one loop, a control layer between the model and its tools, and worlds that can lie. Regulators, extensions and worlds plug in.</Description>
     <RepositoryUrl>https://github.com/egarim/creatura</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

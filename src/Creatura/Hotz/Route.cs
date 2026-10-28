@@ -87,7 +87,8 @@ public sealed record ReplayDifference(int Tick, string Tool, string Before, stri
 /// <summary>
 /// Replays recorded routes through a configuration of the citizen's agent and diffs the decisions. A change
 /// to the agent, a threshold, a check, a judge, is accepted only after the owner has looked at this diff.
-/// "There's no other place you can run Twitter ... Why can't it run on my laptop?" (02:17:03). This runs anywhere.
+/// Hotz asks why software should run only in its owner's data centre and not on a laptop (Lex Fridman Podcast #387, 02:17:03);
+/// this runs anywhere.
 /// </summary>
 public static class Replay
 {

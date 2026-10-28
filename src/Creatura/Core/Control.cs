@@ -1,8 +1,8 @@
 namespace Creatura;
 
 /// <summary>
-/// A defended target state in its own space — Levin's "we can actually rewrite the goal states because we
-/// found them" (01:01:45). Progress is 0..1, so stress is just the distance left.
+/// A defended target state in its own space — Levin's point that goal states, once found, can be rewritten
+/// (Lex Fridman Podcast #486, 01:01:45). Progress is 0..1, so stress is just the distance left.
 /// </summary>
 public sealed class SetPoint
 {
@@ -25,7 +25,7 @@ public sealed record StressReading(int Tick, string Level, double Stress, string
 
 /// <summary>
 /// Levin's stress channel (02:46:49): one normalized scalar per level, broadcast, deliberately leaky —
-/// "my problems become your problems, not because you're altruistic" (02:48:35).
+/// one cell's problem becomes its neighbours' problem through the wiring, not through altruism (Lex Fridman Podcast #486, 02:48:35).
 /// </summary>
 public sealed class StressBus
 {
@@ -74,7 +74,7 @@ public static class Plasticity
 
 /// <summary>
 /// How far a level may reach: the largest goal and the longest horizon it may commit to
-/// ("the cognitive light cone is the size of the biggest goal state that you can pursue", 00:25:59).
+/// (Levin's cognitive light cone, how large a goal a system can work toward; Lex Fridman Podcast #486, 00:25:59).
 /// </summary>
 public sealed record LightCone(int MaxTicks, int MaxPlanDepth, string Scope)
 {

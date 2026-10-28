@@ -109,8 +109,8 @@ public sealed class RegistryJudge : IClaimJudge
 /// <summary>
 /// The run's shape, fixed before it starts: read the record, compare each claim, decide. The model, when
 /// one is used, fills exactly one slot, the compare answer, from a closed set. It cannot add a step, a retry
-/// or a tool. "The neural network runs the identical compute every time. The only thing that changes is the
-/// data" (00:44:56).
+/// or a tool. As Hotz puts it, a network runs the same computation every time and only the data
+/// changes (Lex Fridman Podcast #387, 00:44:56).
 /// </summary>
 public sealed class Schedule
 {
@@ -134,7 +134,7 @@ public sealed class Schedule
 /// <summary>
 /// One check per action the office may take: the registry predicate that proves the action happened. Built
 /// from the tool catalogue, so a tool that promises nothing has no check and a claim about it is "unchecked".
-/// This is "no one touches any code; the first thing we do is test this code base" (02:14:03), applied to judgement.
+/// This is Hotz's rule that nobody changes a code base before testing it (Lex Fridman Podcast #387, 02:14:03), applied to judgement.
 /// </summary>
 public sealed class CheckMap
 {

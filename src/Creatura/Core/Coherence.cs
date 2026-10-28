@@ -3,8 +3,8 @@ namespace Creatura;
 public sealed record Contradiction(int Tick, string Claim, string Evidence);
 
 /// <summary>
-/// Bach's learning filter: "we basically take only in stuff that makes us more coherent, not less
-/// coherent" (01:21:27). Here it is a gate — a claim that contradicts the record is quarantined, not merged,
+/// Bach's learning filter: a mind takes in only what makes it more coherent, never what makes it less
+/// (Lex Fridman Podcast #392, 01:21:27). Here it is a gate — a claim that contradicts the record is quarantined, not merged,
 /// and the contradiction raises the organism's stress in the hybrid design.
 /// </summary>
 public sealed class CoherenceAudit

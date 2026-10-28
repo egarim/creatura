@@ -1,8 +1,8 @@
 namespace Creatura;
 
 /// <summary>
-/// A Kegan-derived stage (Bach, 00:02:12 / 00:22:11), used here as a safety interlock rather than a score.
-/// Bach insists stages are descriptive — "it's not that these stages give you scores" (00:22:11) — and this
+/// A Kegan-derived stage (Bach, Lex Fridman Podcast #392, 00:02:12 / 00:22:11), used here as a safety interlock rather than a score.
+/// Bach insists stages are descriptive and give no score (00:22:11), and this
 /// code takes him at his word: the level only caps what an agent is allowed to do on its own.
 /// </summary>
 public sealed record Stage(int Level, string Name, double FreedomCap, bool MayDeploy, bool MayEditSelfModel);

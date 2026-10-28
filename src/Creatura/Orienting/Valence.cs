@@ -28,7 +28,7 @@ public enum ValenceKind
 /// <summary>
 /// What a world says its facts mean, as data: which facts are goals, which are steps toward them (and toward which
 /// goal), and which signal trouble. The framework design moves this into the world's manifest; here it is passed in.
-/// A goal fact is also a step for any goal above it (claim 8: a goal at one level is an incentive at the next).
+/// A goal fact is also a step for any goal above it (claim 8: reaching a goal at one level counts as a reward one level up).
 /// </summary>
 public sealed record ValenceTable(
     IReadOnlySet<string> Goals,

@@ -8,7 +8,7 @@ CREATURA_RECORD_GOLDENS=permit-all-hybrid,flood.liar-all-hybrid dotnet test test
 ```
 
 `CREATURA_RECORD_GOLDENS=all` re-records the whole set. (The variable was `BIOLOGICAL_AGENTS_RECORD_GOLDENS`
-while the set lived in the research repository, egarim/biological-agents, until migration step 11.) Any drift
+while the set lived in the research repository, until migration step 11.) Any drift
 the theory reports (a trace row, a note, the goal or the tick count) must be a **named decision in the commit
 message** of the commit that re-records the file: which rows moved, in which scenarios, and which design or
 control-layer rule changed. A golden that moves without that sentence is a regression.

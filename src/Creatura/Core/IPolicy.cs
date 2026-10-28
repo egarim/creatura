@@ -41,8 +41,8 @@ public sealed record PolicyContext
 public sealed record PolicySuggestion(string? Tool, string Rationale, string? Content = null);
 
 /// <summary>
-/// The seam where a model plugs in. Breadth-first search today; a language model in
-/// <c>BiologicalAgents.DeepSeek</c>. Everything around this call — set points, stress, coherence, stage
+/// The seam where a model plugs in: breadth-first search here, a language model in <c>Creatura.Seats</c>
+/// (<c>ModelPolicy</c>), a trained network (<c>NetworkSeat</c>). Everything around this call — set points, stress, coherence, stage
 /// caps, quarantine — is unchanged whichever policy is in place, which is the whole point.
 /// </summary>
 public interface IPolicy

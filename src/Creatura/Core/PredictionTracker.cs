@@ -2,8 +2,8 @@ namespace Creatura;
 
 /// <summary>
 /// Consequence-modelling evidence. An agent only advances when it predicts its own effects, not when it
-/// reports confidence — the interlock from "we would game it, before we have the necessary amount of
-/// wisdom" (00:21:15).
+/// reports confidence — the interlock from Bach's warning that a mind given its own measure would game it before it
+/// had the wisdom not to (Lex Fridman Podcast #392, 00:21:15).
 /// </summary>
 public sealed class PredictionTracker
 {

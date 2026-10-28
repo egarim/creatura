@@ -2,7 +2,7 @@ namespace Creatura;
 
 /// <summary>
 /// A belief about the agent's own competence, with the evidence that supports it.
-/// Every self-belief is falsifiable or it is deleted at consolidation: "identity is a costume" (00:13:41).
+/// Every self-belief is falsifiable or it is deleted at consolidation: in Bach's terms identity is worn, not given (Lex Fridman Podcast #392, 00:13:41).
 /// </summary>
 public sealed record SkillBelief(string Action, int Supported, int Attempted)
 {
@@ -15,7 +15,7 @@ public sealed record SkillBelief(string Action, int Supported, int Attempted)
 
 /// <summary>
 /// Bach's self-model: a representation of the agent inside its own world model, read before acting
-/// ("this personal self is something that is more or less created after the world is finished", 00:04:00).
+/// (in Bach's account the personal self is built after, and inside, the model of the world; Lex Fridman Podcast #392, 00:04:00).
 /// It is load-bearing only because <see cref="Render"/> is consulted and its beliefs gate action choice.
 /// </summary>
 public sealed class SelfModel

@@ -1,6 +1,6 @@
 namespace Creatura;
 
-/// <summary>Where a story stands. Figure 6 keeps the frame and changes the sequence; Figure 7 breaks the frame.</summary>
+/// <summary>Where a story stands (figures from Peterson's Maps of Meaning, 1999). Figure 6 keeps the frame and changes the sequence; Figure 7 breaks the frame.</summary>
 public enum StoryState
 {
     /// <summary>The map holds: act from the procedure.</summary>

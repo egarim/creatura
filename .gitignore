@@ -7,3 +7,10 @@ obj/
 # macOS
 .DS_Store
 datasets/
+
+# Model call logs, recordings and replays written from the repository root (they hold prompts)
+/calls*.jsonl
+/*.calls.jsonl
+/run*.jsonl
+/record*.jsonl
+/replay*.jsonl

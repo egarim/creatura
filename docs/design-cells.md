@@ -115,7 +115,7 @@ The first agents on the network are not Creatura's own; they are the owner's Cla
 through their hooks, calling a small command:
 
 ```bash
-creatura cell claim --goal "migration step 16" --repo egarim/biological-agents --branch creatura-core
+creatura cell claim --goal "migration step 16" --repo egarim/creatura --branch main
 creatura cell progress --row "golden diff empty"
 creatura cell release --evidence "529 tests green; commit 9d8616a"
 ```
@@ -207,7 +207,7 @@ is not part of this slice.
 
 Two vessels keep one ledger over the mesh (decision 4: the owner's laptop and the second machine, never the servers). Checked
 2026-10-28: the second machine answers the owner's laptop over the mesh directly through the home network, in about 20 ms. It has the
-.NET 10 SDK on ARM64, and the laptop's firewall is off. So the second machine only makes outgoing connections, and neither
+.NET 10 SDK on ARM64, and nothing on the way blocks the connection. So the second machine only makes outgoing connections, and neither
 machine needs a firewall change.
 
 - **A hub, not peer to peer.** One cell runs `Creatura.Cells.Hub`, an ASP.NET Core host of SyncFramework's

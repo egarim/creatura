@@ -16,7 +16,7 @@ public sealed class OwnerToken
 /// </summary>
 public sealed record FilteredItem(Judgement Judgement, string Rule);
 
-/// <summary>The agent's only score: how often its person had to take over. "Would a human disengage?" (01:10:38).</summary>
+/// <summary>The agent's only score: how often its person had to take over. Hotz's test: would a person have taken over (Lex Fridman Podcast #387, 01:10:38).</summary>
 public sealed record DisengagementReport(
     int Flags,
     int Upheld,

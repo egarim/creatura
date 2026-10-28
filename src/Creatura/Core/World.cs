@@ -46,8 +46,7 @@ public interface IWorldView
 
 /// <summary>
 /// The surface every agent codes against: the view, plus acting on it. <see cref="World"/> is the toy
-/// service-restore domain; <c>BiologicalAgents.CodeWorld.CodeWorld</c> is a real one that edits files and
-/// runs the compiler.
+/// service-restore domain; a world can as well be a real one that edits files and runs the compiler.
 /// </summary>
 public interface IWorld : IWorldView
 {

@@ -144,7 +144,7 @@ public sealed class HookTests
 
     [Theory]
     [InlineData("git@github.com:egarim/creatura.git", "egarim/creatura")]
-    [InlineData("https://github.com/egarim/biological-agents.git", "egarim/biological-agents")]
+    [InlineData("https://github.com/egarim/example-repo.git", "egarim/example-repo")]
     [InlineData("https://joche:ghp_x@github.com/egarim/creatura", "egarim/creatura")]
     [InlineData("https://gitlab.example.com/team/sub/repo.git", "team/sub/repo")]
     public void ARemoteBecomesOwnerSlashName(string remote, string expected) => Assert.Equal(expected, Scrubber.RepoFromRemote(remote));

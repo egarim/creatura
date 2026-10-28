@@ -459,7 +459,7 @@
     <h2>The mesh: how creaturas share their work</h2>
     <p class="prose">Every creatura keeps a complete copy of the work ledger. Nothing is the single source of truth: entries are signed by the cell that wrote them, copied between vessels, and checked again wherever they arrive. The same ledger runs in two places: across real vessels, through a hub on a private network; and inside one simulated world, where trucks pass entries over an in-memory mesh.</p>
     <div class="plate">
-    <svg viewBox="0 0 1200 600" role="img" aria-label="Left: two vessels on a private mesh network. The laptop holds the owner key, a cell, its ledger, the Claude Code hooks, an automatic sync every minute, and the hub with its database and shared files. The second machine holds a cell endorsed by the owner through request, endorse and accept, its ledger and its hooks; it syncs with the hub. Every sync request is signed. A dashed box shows the hub moving later to the VPN server, trusting only the owner's public key. Right: inside the convoy, three trucks each with a cell and ledger exchange entries over an in-memory mesh that delivers each entry the next tick, can lose or delay it, and ends with a final sync that leaves every ledger identical.">
+    <svg viewBox="0 0 1200 600" role="img" aria-label="Left: two vessels on a private mesh network. The owner's laptop holds the owner key, a cell, its ledger, the Claude Code hooks, an automatic sync every minute, and the hub with its database and shared files. The second machine holds a cell endorsed by the owner through request, endorse and accept, its ledger and its hooks; it syncs with the hub. Every sync request is signed. A dashed box shows the hub moving later to the VPN server, trusting only the owner's public key. Right: inside the convoy, three trucks each with a cell and ledger exchange entries over an in-memory mesh that delivers each entry the next tick, can lose or delay it, and ends with a final sync that leaves every ledger identical.">
       <defs>
         <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
           <path d="M0,0 L10,5 L0,10 z" fill="var(--cells)"/>
@@ -480,7 +480,7 @@
       <!-- the laptop -->
       <rect x="30" y="50" width="400" height="200" rx="10" fill="var(--bg)" stroke="var(--cells)" stroke-width="1.5"/>
       <text x="48" y="76" class="h">The laptop</text>
-      <text x="196" y="76" class="s">the owner's vessel</text>
+      <text x="140" y="76" class="s">the owner's vessel, holding the owner key</text>
       <rect x="48" y="92" width="170" height="56" rx="4" fill="var(--bg-2)" stroke="var(--line)"/>
       <text x="58" y="111" class="t" style="font-weight:600">Owner key</text>
       <text x="58" y="127" class="m" style="font-size:10.5px">OwnerKey</text>
@@ -498,7 +498,7 @@
 
       <!-- the second machine -->
       <rect x="470" y="50" width="250" height="200" rx="10" fill="var(--bg)" stroke="var(--cells)" stroke-width="1.5"/>
-      <text x="488" y="76" class="h">The second machine</text>
+      <text x="488" y="76" class="h">A second machine</text>
       <text x="488" y="94" class="s">a second vessel, joined once:</text>
       <text x="488" y="114" class="m" style="font-size:10.5px">request → endorse → accept</text>
       <text x="488" y="132" class="s">the owner's vessel signs its cell</text>
@@ -526,10 +526,10 @@
 
       <!-- later: the hub on the VPN server -->
       <rect x="30" y="472" width="690" height="92" rx="8" fill="none" stroke="var(--fg-2)" stroke-dasharray="5 4"/>
-      <text x="46" y="496" class="t" style="font-weight:600">Later: the hub on the VPN server</text>
+      <text x="46" y="496" class="t" style="font-weight:600">Later: the hub on a server</text>
       <text x="46" y="515" class="s">The hub does not need the owner's private key. Given only the owner's public key</text>
       <text x="46" y="530" class="m" style="font-size:10.5px">creatura-hub --listen &lt;mesh address&gt; --trust owner.pub --data &lt;dir&gt;</text>
-      <text x="46" y="549" class="s">it can move to the server where the mesh's control plane already lives, and the vessels keep syncing.</text>
+      <text x="46" y="549" class="s">it can move to a server on the same mesh, and the vessels keep syncing.</text>
 
       <!-- divider -->
       <line x1="750" y1="30" x2="750" y2="570" stroke="var(--line)"/>
@@ -641,7 +641,7 @@
         <dd>The hardware and the model a creatura inhabits. Kept in English because Spanish <i>vas</i> means "you go"; the Latin stays as etymology.</dd>
       </dl>
       
-      <p class="note" style="margin-top:22px">Source of truth: <a href="https://github.com/egarim/biological-agents/blob/main/design-framework.md">design-framework.md</a>. Code: <a href="https://github.com/egarim/creatura">egarim/creatura</a>. State on 2026-10-28: all five regulators run on the one loop; seats take catalogued models and trained networks; cells sync through a hub with signed requests, revocation and shared files; the convoy runs several creaturas in one world. The icon is the project's own: a winged lion with a halo and a star.</p>
+      <p class="note" style="margin-top:22px">Sources: <a href="https://github.com/egarim/creatura/blob/main/docs/sources.md">docs/sources.md</a>; the people named did not take part in Creatura and do not endorse it. Code: <a href="https://github.com/egarim/creatura">egarim/creatura</a>. State on 2026-10-28: all five regulators run on the one loop; seats take catalogued models and trained networks; cells sync through a hub with signed requests, revocation and shared files; the convoy runs several creaturas in one world. The icon is the project's own: a winged lion with a halo and a star.</p>
     </div>
   </section>
 </main>

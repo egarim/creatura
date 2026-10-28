@@ -7,7 +7,7 @@ Status: built 2026-10-28 (decisions below). It follows [design-cells.md](design-
 > The mesh should be used for the agents to share files, binary and text data.
 
 Today the cells share one thing: the work ledger, small signed facts about who is working on what. An agent on the
-Surface that produces a report, a trace, a screenshot or a build cannot hand it to an agent on the owner's laptop. People copy
+second machine that produces a report, a trace, a screenshot or a build cannot hand it to an agent on the owner's laptop. People copy
 files by hand, or with `scp`, and nothing records who shared what, for which piece of work, or whether it arrived
 intact.
 
@@ -124,7 +124,7 @@ In the third break, F4 kept passing: a key wrapped for another cell does not ope
 cryptography refuses it even without the check by cell id.
 
 The live run, on 2026-10-28:
-1. The owner's laptop's command, hub and sync job were updated first, since an older command would refuse Artifact entries and
+1. The laptop's command, hub and sync job were updated first, since an older command would refuse Artifact entries and
    the JSON store would then drop them. The second machine's copy was updated too.
 2. Both cells said a new hello carrying their encryption key.
 3. The second machine shared a 60-byte text file. The owner's laptop listed it by name, fetched it from the hub, and its SHA-256 matched

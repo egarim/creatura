@@ -11,7 +11,8 @@ public enum Posture
 }
 
 /// <summary>
-/// The map-keeper regulator (Peterson): it acts from a nested stack of stories (what is, what should be, how to
+/// The map-keeper regulator, after Jordan Peterson's Maps of Meaning (1999; the figure numbers here are the book's):
+/// it acts from a nested stack of stories (what is, what should be, how to
 /// act: Figure 1), reads every unpredicted outcome as an anomaly whose magnitude is the share of the stack it
 /// breaks, counting the meta-story that cannot break (Figures 5 to 7 and 40), goes toward the anomaly before it
 /// revises the map (one deliberate retry: chapter 2's orienting reflex), lets a broken story collapse alone and
