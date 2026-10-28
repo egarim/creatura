@@ -40,10 +40,14 @@ public sealed class ConvoyPolicy(RoadMap map, PhysicalMachine machine) : IPolicy
             tools.Contains("wait") ? new PolicySuggestion("wait", why) : new PolicySuggestion(null, why);
 
         if (facts.Contains("all.served")) return Use("report-done", "every village has what it needs");
+        if (facts.Contains("stranded")) return Wait("out of fuel: handed back, waiting");
+
+        // Roads the truck's own distrust told it to avoid (distrust by road), on top of what its sensors say.
+        var avoid = context.Notes.Where(n => n.StartsWith("avoid:", StringComparison.Ordinal)).Select(n => n["avoid:".Length..]).ToHashSet(StringComparer.Ordinal);
 
         // A road is usable when its sensor says open and, if it leaves from here, the control layer still offers it.
         bool Usable(MapRoad road) =>
-            facts.Contains($"road:{road.Id}:open")
+            facts.Contains($"road:{road.Id}:open") && !avoid.Contains(road.Id)
             && (!road.Touches(at) || tools.Contains($"drive:{road.Id}:{road.Other(at)}"));
         int? Distance(string from, string to) => map.Distance(from, to, Usable);
 

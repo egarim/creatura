@@ -82,8 +82,8 @@ public static class ConvoyBattery
         HypothesisVerdict Held(bool held) => held ? HypothesisVerdict.Held : HypothesisVerdict.Failed;
         var withLayer = new[] { ConvoyArm.A, ConvoyArm.B, ConvoyArm.D, ConvoyArm.E };
         var eUnserved = runs[ConvoyArm.E].Count(m => !m.AllServed && m.IdleWhileUnserved > 0);
-        return
-        [
+        var verdicts = new List<ConvoyVerdict>
+        {
             new("M1", "with a shared ledger, deliveries made twice are fewer than without one (A against C)",
                 Held(Sum(ConvoyArm.A, m => m.WastedTrips) < Sum(ConvoyArm.C, m => m.WastedTrips)), $"wasted trips A {Sum(ConvoyArm.A, m => m.WastedTrips)}, C {Sum(ConvoyArm.C, m => m.WastedTrips)}"),
             new("M2", "with a shared ledger, the villages get at least as much of their demand (A against C)",
@@ -99,6 +99,30 @@ public static class ConvoyBattery
             new("M7", "the designs (B) deliver at least as much as the plain loop (A), with fewer lies believed",
                 Held(Sum(ConvoyArm.B, m => m.Delivered) >= Sum(ConvoyArm.A, m => m.Delivered) && Sum(ConvoyArm.B, m => m.LiesBelieved) < Sum(ConvoyArm.A, m => m.LiesBelieved)),
                 $"delivered B {Sum(ConvoyArm.B, m => m.Delivered)}, A {Sum(ConvoyArm.A, m => m.Delivered)}; lies B {Sum(ConvoyArm.B, m => m.LiesBelieved)}, A {Sum(ConvoyArm.A, m => m.LiesBelieved)}"),
-        ];
+        };
+
+        // The fixes (pre-registered as N1 to N6), scored only when their arms ran.
+        if (new[] { ConvoyArm.G, ConvoyArm.H, ConvoyArm.I, ConvoyArm.J, ConvoyArm.K, ConvoyArm.L }.All(runs.ContainsKey))
+        {
+            var kUnserved = runs[ConvoyArm.K].Count(m => !m.AllServed && m.IdleWhileUnserved > 0);
+            verdicts.AddRange(
+            [
+                new("N1", "the stalled-claim takeover delivers more than the plain loop (G against A)",
+                    Held(Sum(ConvoyArm.G, m => m.Delivered) > Sum(ConvoyArm.A, m => m.Delivered)), $"delivered G {Sum(ConvoyArm.G, m => m.Delivered)}, A {Sum(ConvoyArm.A, m => m.Delivered)}"),
+                new("N2", "distrust by road ends second tries on a lying road (H)",
+                    Held(Sum(ConvoyArm.H, m => m.LyingRoadRepeats) == 0), $"second tries H {Sum(ConvoyArm.H, m => m.LyingRoadRepeats)}, A {Sum(ConvoyArm.A, m => m.LyingRoadRepeats)}"),
+                new("N3", "handing off when stranded delivers more than the plain loop (I against A)",
+                    Held(Sum(ConvoyArm.I, m => m.Delivered) > Sum(ConvoyArm.A, m => m.Delivered)), $"delivered I {Sum(ConvoyArm.I, m => m.Delivered)}, A {Sum(ConvoyArm.A, m => m.Delivered)}"),
+                new("N4", "with all three, a ledger delivers at least as much as no ledger, with fewer wasted trips (J against C)",
+                    Held(Sum(ConvoyArm.J, m => m.Delivered) >= Sum(ConvoyArm.C, m => m.Delivered) && Sum(ConvoyArm.J, m => m.WastedTrips) < Sum(ConvoyArm.C, m => m.WastedTrips)),
+                    $"delivered J {Sum(ConvoyArm.J, m => m.Delivered)}, C {Sum(ConvoyArm.C, m => m.Delivered)}; wasted J {Sum(ConvoyArm.J, m => m.WastedTrips)}, C {Sum(ConvoyArm.C, m => m.WastedTrips)}"),
+                new("N5", "with all three, a breakdown never leaves a village unserved while a working truck stands idle (K)",
+                    Held(kUnserved == 0), $"{kUnserved} of {runs[ConvoyArm.K].Count} runs ended with a village unserved and a working truck idle"),
+                new("N6", "with all three, the designs deliver at least as much as the plain loop and act on fewer lies (L against J)",
+                    Held(Sum(ConvoyArm.L, m => m.Delivered) >= Sum(ConvoyArm.J, m => m.Delivered) && Sum(ConvoyArm.L, m => m.LiesBelieved) < Sum(ConvoyArm.J, m => m.LiesBelieved)),
+                    $"delivered L {Sum(ConvoyArm.L, m => m.Delivered)}, J {Sum(ConvoyArm.J, m => m.Delivered)}; lies L {Sum(ConvoyArm.L, m => m.LiesBelieved)}, J {Sum(ConvoyArm.J, m => m.LiesBelieved)}"),
+            ]);
+        }
+        return verdicts;
     }
 }

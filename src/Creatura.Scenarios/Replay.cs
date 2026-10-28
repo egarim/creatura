@@ -26,7 +26,8 @@ public sealed record TruckFrame(string Name, string At, int Fuel, int FuelBeliev
 
 /// <summary>
 /// Something that happened in a tick, with a sentence for the story. Kinds: drive, blocked, lie, caught, refused, load,
-/// refuel, unload, wasted, claim, takeover, release, message, lost, delayed, closure, breakdown, out-of-fuel, done, stopped.
+/// refuel, unload, wasted, claim, takeover, release, distrust, message, lost, delayed, closure, breakdown, out-of-fuel,
+/// done, stopped.
 /// </summary>
 public sealed record ReplayEvent(string Kind, string Text)
 {

@@ -17,6 +17,24 @@ public enum ConvoyArm
 
     /// <summary>The plain loop, shared ledger, perfect link, and one truck breaks down at tick 8.</summary>
     E,
+
+    /// <summary>As A, with the stalled-claim takeover.</summary>
+    G,
+
+    /// <summary>As A, with distrust by road.</summary>
+    H,
+
+    /// <summary>As A, with trucks handing off when stranded.</summary>
+    I,
+
+    /// <summary>As A, with all three fixes.</summary>
+    J,
+
+    /// <summary>As E (a breakdown), with all three fixes.</summary>
+    K,
+
+    /// <summary>As B (one design per truck), with all three fixes.</summary>
+    L,
 }
 
 /// <summary>A truck: its name, its machine, and the design that drives it ("plain", "levin", "bach", "peterson").</summary>
@@ -52,6 +70,15 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
 
     public int MaxTicks { get; init; } = 60;
 
+    /// <summary>Ticks without a delivery to its village after which a claim counts as stalled and may be taken over; null for the first battery's rule (silence only).</summary>
+    public int? StallAfter { get; init; }
+
+    /// <summary>A road a truck caught lying is distrusted in both directions for the rest of the run.</summary>
+    public bool DistrustRoads { get; init; }
+
+    /// <summary>A truck whose drive fails for lack of fuel hands back its claim and claims nothing more.</summary>
+    public bool HandOffWhenStranded { get; init; }
+
     public string ArmText => Arm switch
     {
         ConvoyArm.A => "plain loop, shared ledger, perfect link",
@@ -59,6 +86,12 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
         ConvoyArm.C => "plain loop, no ledger: each truck alone",
         ConvoyArm.D => "plain loop, shared ledger, 30% of messages lost",
         ConvoyArm.E => "plain loop, shared ledger, one truck breaks down at tick 8",
+        ConvoyArm.G => "plain loop, shared ledger, stalled claims taken over",
+        ConvoyArm.H => "plain loop, shared ledger, a lying road distrusted both ways",
+        ConvoyArm.I => "plain loop, shared ledger, a stranded truck hands back its claim",
+        ConvoyArm.J => "plain loop, shared ledger, all three fixes",
+        ConvoyArm.K => "plain loop, shared ledger, a breakdown at tick 8, all three fixes",
+        ConvoyArm.L => "one design per truck, shared ledger, all three fixes",
         _ => Arm.ToString(),
     };
 
@@ -67,9 +100,9 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
     /// <summary>The three trucks: different capacity and range, all starting empty at the depot.</summary>
     public static IReadOnlyList<TruckSpec> Trucks3(ConvoyArm arm) =>
     [
-        new("Truck 1", new PhysicalMachine("truck") { Capacity = 6, FuelCapacity = 10, Sensors = Sensors }, arm == ConvoyArm.B ? "levin" : "plain"),
-        new("Truck 2", new PhysicalMachine("truck") { Capacity = 4, FuelCapacity = 8, Sensors = Sensors }, arm == ConvoyArm.B ? "bach" : "plain"),
-        new("Truck 3", new PhysicalMachine("truck") { Capacity = 5, FuelCapacity = 12, Sensors = Sensors }, arm == ConvoyArm.B ? "peterson" : "plain"),
+        new("Truck 1", new PhysicalMachine("truck") { Capacity = 6, FuelCapacity = 10, Sensors = Sensors }, arm is ConvoyArm.B or ConvoyArm.L ? "levin" : "plain"),
+        new("Truck 2", new PhysicalMachine("truck") { Capacity = 4, FuelCapacity = 8, Sensors = Sensors }, arm is ConvoyArm.B or ConvoyArm.L ? "bach" : "plain"),
+        new("Truck 3", new PhysicalMachine("truck") { Capacity = 5, FuelCapacity = 12, Sensors = Sensors }, arm is ConvoyArm.B or ConvoyArm.L ? "peterson" : "plain"),
     ];
 
     /// <summary>
@@ -99,11 +132,18 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
             GaugeOffset: 3);
 
         var setup = new ConvoySetup(map, trucks, faults, seed, arm);
+        ConvoySetup AllFixes(ConvoySetup s) => s with { StallAfter = 12, DistrustRoads = true, HandOffWhenStranded = true };
         return arm switch
         {
             ConvoyArm.C => setup with { Ledger = false },
             ConvoyArm.D => setup with { Loss = 0.3, DelayChance = 0.3 },
             ConvoyArm.E => setup with { BreakdownTruck = "Truck 2", BreakdownTick = 8 },
+            ConvoyArm.G => setup with { StallAfter = 12 },
+            ConvoyArm.H => setup with { DistrustRoads = true },
+            ConvoyArm.I => setup with { HandOffWhenStranded = true },
+            ConvoyArm.J => AllFixes(setup),
+            ConvoyArm.K => AllFixes(setup with { BreakdownTruck = "Truck 2", BreakdownTick = 8 }),
+            ConvoyArm.L => AllFixes(setup),
             _ => setup,
         };
     }

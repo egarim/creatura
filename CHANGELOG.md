@@ -12,7 +12,10 @@
   - claims, takeovers and delivery reports;
   - a judge that reads the world only, and a battery over arms A to E.
 
-  The first battery: M1, M4 and M6 held; M2, M3, M5 and M7 failed, each with its cause in the design note.
+  The first battery: M1, M4 and M6 held; M2, M3, M5 and M7 failed, each with its cause in the design note. The fixes
+  for those failures are new arms G to L: a stalled-claim takeover, distrust by road (`RoadDistrustExtension`) and a
+  hand-off when stranded. In the second battery N1 to N5 held; with all three, every unit is delivered in every run,
+  breakdowns included. N6, the designs against the plain loop, failed again.
   `samples/Convoy` runs one story or the battery. The **replay** is the interface for UIs: JSON lines described in
   [docs/replay-format.md](docs/replay-format.md), with `IScenarioObserver` for following a run live.
   `tools/convoy-viewer/index.html` is a three.js viewer with four sample runs built in.

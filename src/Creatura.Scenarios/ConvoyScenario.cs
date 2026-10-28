@@ -31,6 +31,35 @@ internal sealed class StoryExtension(ConvoyWorld world, string truck) : IAgentEx
     }
 }
 
+/// <summary>
+/// Distrust by road (docs/design-machine-vessels.md, "The fixes"): when the control layer judges a drive a lie (it
+/// reported arrival and nothing landed), the truck stops trusting that road, in both directions, for the rest of the
+/// run. It hides the road's drives from the planner and tells the planner to route around it. A drive that failed
+/// honestly, such as for lack of fuel, says nothing about the road and changes nothing.
+/// </summary>
+internal sealed class RoadDistrustExtension(ConvoyWorld world, string truck) : IAgentExtension
+{
+    private readonly HashSet<string> _roads = new(StringComparer.Ordinal);
+
+    public string Name => "road-distrust";
+
+    public IReadOnlyCollection<string> Roads => _roads;
+
+    public void AfterAction(TickContext context, Tool tool, ActionOutcome outcome, ActionVerdict verdict)
+    {
+        if (verdict != ActionVerdict.Lied || !outcome.Succeeded || !tool.Id.StartsWith("drive:", StringComparison.Ordinal)) return;
+        var road = tool.Id.Split(':')[1];
+        if (!_roads.Add(road)) return;
+        var r = world.Map.Road(road);
+        world.Record(new ReplayEvent("distrust", $"{truck} stops trusting the road between {world.Name(r.A)} and {world.Name(r.B)}, both ways, for good.") { Truck = truck, Road = road });
+    }
+
+    public IReadOnlyList<Tool> VisibleTools(TickContext context, IReadOnlyList<Tool> visible) =>
+        visible.Where(t => !(t.Id.StartsWith("drive:", StringComparison.Ordinal) && _roads.Contains(t.Id.Split(':')[1]))).ToList();
+
+    public IEnumerable<string> PolicyNotes(TickContext context) => _roads.Select(r => $"avoid:{r}");
+}
+
 /// <summary>What one run left: the replay, the judge's measures, and anything that went wrong in a truck's loop.</summary>
 public sealed record ConvoyRun(ConvoySetup Setup, ReplayHeader Header, IReadOnlyList<ReplayTick> Ticks, ReplaySummary Summary, IReadOnlyList<AgentRun> Runs, IReadOnlyList<string> Errors)
 {
@@ -47,11 +76,14 @@ public sealed class ConvoyScenario(ConvoySetup setup)
 {
     public ConvoySetup Setup { get; } = setup;
 
+    private ConvoyWorld? _world;
+
     public static ConvoyScenario Create(ConvoyArm arm, int seed) => new(ConvoySetup.For(arm, seed));
 
     public async Task<ConvoyRun> RunAsync(IScenarioObserver? observer = null, CancellationToken cancellationToken = default)
     {
         var world = new ConvoyWorld(Setup);
+        _world = world;
         var mesh = Setup.Ledger ? new ScenarioMesh(Setup.Seed * 7919 + 17, Setup.Loss, Setup.DelayChance) : null;
         using var owner = OwnerKey.Generate();
 
@@ -153,7 +185,7 @@ public sealed class ConvoyScenario(ConvoySetup setup)
     {
         var task = ConvoyTask.For(Setup.Map);
         var policy = new ConvoyPolicy(Setup.Map, spec.Machine);
-        var options = AgentOptions.With(story);
+        var options = Setup.DistrustRoads ? AgentOptions.With(story, new RoadDistrustExtension(_world!, spec.Name)) : AgentOptions.With(story);
         var vessel = new Vessel { Model = "convoy-planner", Physical = spec.Machine };
         return spec.Design switch
         {
@@ -187,6 +219,9 @@ public sealed class ConvoyScenario(ConvoySetup setup)
         if (Setup.BreakdownTruck is { } broken) faults.Add($"{broken} breaks down at tick {Setup.BreakdownTick}.");
         if (Setup.Loss > 0) faults.Add($"{Setup.Loss:P0} of messages are lost on the mesh, and {Setup.DelayChance:P0} of the rest arrive late.");
         if (!Setup.Ledger) faults.Add("No ledger: each truck knows only what it sees.");
+        if (Setup.StallAfter is { } stall) faults.Add($"Fix: a claim with no delivery for {stall} ticks may be taken over.");
+        if (Setup.DistrustRoads) faults.Add("Fix: a road caught lying is distrusted both ways for the rest of the run.");
+        if (Setup.HandOffWhenStranded) faults.Add("Fix: a truck that runs out of fuel hands back its claim.");
 
         return new ReplayHeader("convoy", Setup.Seed, Setup.Arm.ToString(), Setup.ArmText, Setup.MaxTicks,
             map.Nodes.Select(n => new ReplayNode(n.Id, n.Name, n.X, n.Y, n.Kind.ToString().ToLowerInvariant(), n.Demand)).ToList(),

@@ -208,6 +208,77 @@ What would change the failures, for a later version, each to be tested as a new 
 - distrust keyed by what a tool touches (the road), not by the tool's id;
 - a truck that hands off its claim when it finds itself stranded.
 
+## The fixes, as new arms (pre-registered 2026-10-28, before the code)
+
+Each fix from the first battery becomes a switch, tested in new arms on the same seeds and the same floods. Arms A
+to E stay as they were.
+
+- **Stalled-claim takeover.** A claim whose truck has delivered nothing to its village for 12 ticks (since the claim
+  or its last delivery there) may be taken over, as a silent one can. Twelve ticks is enough for the longest round
+  trip, depot to the farthest village and back, with a load and a refuel. Delivery reports carry a marker, so a
+  truck only driving about does not count as progress.
+- **Distrust by road.** An extension, not a change to the control layer: when the layer judges a drive a lie (it
+  reported arrival and nothing landed), the truck stops trusting that road in both directions for the rest of the run,
+  and tells its planner to avoid it. A drive that failed honestly (out of fuel) is not a lie about the road.
+- **Hand off when stranded.** A truck whose drive fails for lack of fuel hands back the claim it holds, on the
+  ledger, and claims nothing more.
+
+| arm | as | with |
+|---|---|---|
+| G | A | stalled-claim takeover |
+| H | A | distrust by road |
+| I | A | hand off when stranded |
+| J | A | all three |
+| K | E (a breakdown) | all three |
+| L | B (one design per truck) | all three |
+
+| id | claim | falsifier |
+|---|---|---|
+| N1 | the stalled-claim takeover delivers more than the plain loop (G against A) | as much or less in G |
+| N2 | distrust by road ends second tries on a lying road (H) | any second try in H |
+| N3 | handing off when stranded delivers more than the plain loop (I against A) | as much or less in I |
+| N4 | with all three, a ledger delivers at least as much as no ledger, with fewer wasted trips (J against C) | less delivered in J, or as many wasted trips |
+| N5 | with all three, a breakdown never leaves a village unserved while a working truck stands idle (K) | one such run |
+| N6 | with all three, the designs deliver at least as much as the plain loop and act on fewer lies (L against J) | less delivered in L, or as many lies or more |
+
+### Results of the second battery (2026-10-28)
+
+All eleven arms over the same 50 seeds, about two and a half minutes. Arms A to E reproduced the first battery's
+figures exactly.
+
+| arm | delivered | wasted trips | lies acted on | second tries on a lying road | stranded | served by tick (average) |
+|---|---|---|---|---|---|---|
+| A plain loop | 1,406 / 1,500 | 0 | 262 | 210 | 6 | 24.4 |
+| G stalled-claim takeover | 1,454 / 1,500 | 0 | 211 | 140 | 7 | 27.2 |
+| H distrust by road | 1,473 / 1,500 | 0 | 52 | 0 | 6 | 24.0 |
+| I hand off when stranded | 1,423 / 1,500 | 0 | 280 | 226 | 6 | 25.4 |
+| J all three | 1,500 / 1,500 | 0 | 54 | 0 | 6 | 25.5 |
+| K all three, a breakdown | 1,500 / 1,500 | 0 | 59 | 0 | 6 | 26.4 |
+| L all three, the designs | 1,500 / 1,500 | 0 | 61 | 0 | 6 | 27.4 |
+
+| | verdict | what it rests on |
+|---|---|---|
+| N1 | **held** | delivered G 1,454 against A 1,406 |
+| N2 | **held** | second tries H 0 against A 210 |
+| N3 | **held** | delivered I 1,423 against A 1,406 |
+| N4 | **held** | delivered J 1,500 against C 1,430; wasted trips J 0 against C 290 |
+| N5 | **held** | 0 of 50 runs with a breakdown left a village unserved while a truck stood idle |
+| N6 | **failed** | the designs and the plain loop both delivered 1,500; the designs acted on 61 lies against 54 |
+
+What the second battery says:
+- **The three fixes work best together.** Each alone helps a little. Together they deliver every unit in every run,
+  breakdowns included, with no wasted trip and no second try on a lying road. The ledger then beats working alone on
+  every measure but speed: arm C still finishes sooner (18.1 ticks against 25.5), because nobody waits to claim.
+- **Distrust by road does most of the work.** It cuts the lies acted on from 262 to 52 on its own.
+- **A takeover spreads a lie before it stops it.** With the stall rule alone (G) or the hand-off alone (I), a village
+  changes hands and the new truck tries the same lying road. That is why those arms act on nearly as many lies as
+  the plain loop; with distrust by road as well, it stops.
+- **The designs still add nothing here (N6).** With the fixes in place they deliver as much as the plain loop and act
+  on a few more lies. Whatever the designs do differently, it does not touch roads or claims.
+- **The stranded truck remains.** The truck with the lying fuel gauge still runs dry in some runs (6 in every arm).
+  The fixes make the convoy survive it, not avoid it. A truck that cross-checks its gauge against the fuel it has
+  spent would be the next fix to test.
+
 ## What this note does not cover
 
 - Physics, continuous space, or real-time simulation. The world is a road graph that steps one tick at a time.

@@ -44,6 +44,9 @@ public sealed class ConvoyTests
     [InlineData(ConvoyArm.D, 0)]
     [InlineData(ConvoyArm.D, 9)]
     [InlineData(ConvoyArm.E, 5)]
+    [InlineData(ConvoyArm.J, 0)]
+    [InlineData(ConvoyArm.K, 2)]
+    [InlineData(ConvoyArm.L, 3)]
     public async Task TheSameSeedGivesTheSameReplay(ConvoyArm arm, int seed) =>
         Assert.True(await ConvoyBattery.ReplaysMatchAsync(arm, seed));
 
@@ -222,5 +225,93 @@ public sealed class ConvoyTests
         runs[ConvoyArm.B] = [M(29, 0, lies: 1)];
         verdicts = ConvoyBattery.Score(runs, replaysMatch: false).ToDictionary(v => v.Id, v => v.Verdict);
         Assert.All(verdicts, v => Assert.Equal(v.Key == "M2" ? HypothesisVerdict.Held : HypothesisVerdict.Failed, v.Value));
+    }
+
+    [Fact]
+    public void TheFixesAreScoredOnlyWhenTheirArmsRan()
+    {
+        static ConvoyMeasures M(int delivered, int wasted, int lies = 0, int repeats = 0, int idle = 0) =>
+            new(delivered, 30, wasted, 0, lies, repeats, 20, true, idle, 10, 0);
+        var runs = new Dictionary<ConvoyArm, IReadOnlyList<ConvoyMeasures>>
+        {
+            [ConvoyArm.A] = [M(25, 0, lies: 4, repeats: 2)], [ConvoyArm.B] = [M(25, 0)], [ConvoyArm.C] = [M(28, 5)],
+            [ConvoyArm.D] = [M(30, 1)], [ConvoyArm.E] = [M(30, 0)],
+        };
+        Assert.DoesNotContain(ConvoyBattery.Score(runs, true), v => v.Id.StartsWith('N'));
+
+        runs[ConvoyArm.G] = [M(26, 0)];
+        runs[ConvoyArm.H] = [M(25, 0, lies: 2, repeats: 0)];
+        runs[ConvoyArm.I] = [M(27, 0)];
+        runs[ConvoyArm.J] = [M(29, 0, lies: 3)];
+        runs[ConvoyArm.K] = [M(30, 0)];
+        runs[ConvoyArm.L] = [M(30, 0, lies: 2)];
+        var verdicts = ConvoyBattery.Score(runs, true).Where(v => v.Id.StartsWith('N')).ToDictionary(v => v.Id, v => v.Verdict);
+        Assert.Equal(6, verdicts.Count);
+        Assert.All(verdicts.Values, v => Assert.Equal(HypothesisVerdict.Held, v));
+
+        runs[ConvoyArm.H] = [M(25, 0, repeats: 1)];
+        runs[ConvoyArm.J] = [M(27, 0)];
+        runs[ConvoyArm.K] = [M(28, 0, idle: 2)];
+        verdicts = ConvoyBattery.Score(runs, true).Where(v => v.Id.StartsWith('N')).ToDictionary(v => v.Id, v => v.Verdict);
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["N2"]);
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["N4"]);
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["N5"]);
+    }
+
+    /// <summary>Distrust by road: after a truck's first lie on a road, it never drives that road again, either way.</summary>
+    [Fact]
+    public async Task DistrustByRoadKeepsATruckOffALyingRoadForGood()
+    {
+        var caught = 0;
+        for (var seed = 0; seed < 8; seed++)
+        {
+            var run = await Run(ConvoyArm.H, seed);
+            var events = run.Ticks.SelectMany(t => t.Events.Select(e => (t.Tick, Event: e))).ToList();
+            foreach (var (tick, distrust) in events.Where(x => x.Event.Kind == "distrust"))
+            {
+                caught++;
+                Assert.DoesNotContain(events, x => x.Tick > tick && x.Event.Kind is "lie" or "drive" && x.Event.Truck == distrust.Truck && x.Event.Road == distrust.Road);
+            }
+            Assert.Equal(0, run.Measures.LyingRoadRepeats);
+        }
+        Assert.True(caught > 0, "no seed of 0 to 7 caught a truck on the lying road");
+    }
+
+    /// <summary>Handing off when stranded: a truck that runs dry holding a claim hands it back the same tick, and claims nothing after.</summary>
+    [Fact]
+    public async Task AStrandedTruckHandsBackItsClaim()
+    {
+        var handed = 0;
+        for (var seed = 0; seed < 8; seed++)
+        {
+            var run = await Run(ConvoyArm.I, seed);
+            for (var i = 0; i < run.Ticks.Count; i++)
+            {
+                foreach (var dry in run.Ticks[i].Events.Where(e => e.Kind == "out-of-fuel"))
+                {
+                    var before = i == 0 ? null : run.Ticks[i - 1].Trucks.Single(t => t.Name == dry.Truck).Claim;
+                    if (before is null) continue;
+                    handed++;
+                    Assert.Contains(run.Ticks[i].Events, e => e.Kind == "release" && e.Truck == dry.Truck && e.Text.Contains("hands", StringComparison.Ordinal));
+                    Assert.DoesNotContain(run.Ticks.Skip(i + 1).SelectMany(t => t.Events), e => e.Kind is "claim" or "takeover" && e.Truck == dry.Truck);
+                }
+            }
+        }
+        Assert.True(handed > 0, "no seed of 0 to 7 stranded a truck that held a claim");
+    }
+
+    /// <summary>The stalled-claim takeover: it happens only in the arms that have it, and only after the stall period without a delivery.</summary>
+    [Fact]
+    public async Task AStalledClaimIsTakenOverOnlyWithTheRule()
+    {
+        var stalled = 0;
+        for (var seed = 0; seed < 8; seed++)
+        {
+            var withRule = await Run(ConvoyArm.G, seed);
+            stalled += withRule.Ticks.SelectMany(t => t.Events).Count(e => e.Kind == "takeover" && e.Text.Contains("delivered nothing", StringComparison.Ordinal));
+            var without = await Run(ConvoyArm.A, seed);
+            Assert.DoesNotContain(without.Ticks.SelectMany(t => t.Events), e => e.Kind == "takeover" && e.Text.Contains("delivered nothing", StringComparison.Ordinal));
+        }
+        Assert.True(stalled > 0, "no seed of 0 to 7 stalled a claim");
     }
 }

@@ -54,6 +54,7 @@ public sealed class TruckView : ITickedWorld
     private int _tick;
     private int _lastSaid;
     private bool _done;
+    private bool _stranded;
 
     internal TurnGate Gate { get; } = new();
 
@@ -132,6 +133,16 @@ public sealed class TruckView : ITickedWorld
             {
                 _truck.Target = payload is { } p && p.StartsWith("target=", StringComparison.Ordinal) ? p["target=".Length..] : null;
                 var outcome = _world.Drive(_truck, toolId, parts[1], parts[2]);
+                if (!outcome.Succeeded && outcome.Observation == "out of fuel" && _setup.HandOffWhenStranded && !_stranded)
+                {
+                    _stranded = true;
+                    if (Radio && MyClaim() is { } held)
+                    {
+                        Say(new HandOffPayload(held.Id, $"stranded without fuel at {_truck.At}"));
+                        _truck.Claim = null;
+                        _world.Record(new ReplayEvent("release", $"{_truck.Name} is out of fuel at {_world.Name(_truck.At)} and hands {_world.Name(held.Village)} back.") { Truck = _truck.Name, Village = held.Village });
+                    }
+                }
                 if (outcome.Succeeded && _truck.At == parts[2])
                 {
                     if (_world.Map.Node(_truck.At).Kind == NodeKind.Village) Observe(_truck.At);
@@ -190,13 +201,15 @@ public sealed class TruckView : ITickedWorld
         if (MyClaim() is { } old) Say(new HandOffPayload(old.Id, $"switching to {village}"));
 
         var quiet = Owners().GetValueOrDefault(village);
-        var takeover = quiet is { Quiet: true } ? quiet.Id : null;
+        var takeover = quiet is { Open: true } && quiet.Truck != _truck.Name ? quiet.Id : null;
         var entry = Say(new ClaimPayload($"deliver:{village}") { Tool = _truck.Name, Session = takeover });
         _truck.Claim = village;
         var name = _world.Name(village);
         _world.Record(takeover is null
             ? new ReplayEvent("claim", $"{_truck.Name} claims the delivery to {name} on the ledger.") { Truck = _truck.Name, Village = village }
-            : new ReplayEvent("takeover", $"{_truck.Name} takes over {name}: {quiet!.Truck} has been silent for {_tick - quiet.LastHeard} ticks.") { Truck = _truck.Name, Village = village });
+            : new ReplayEvent("takeover", quiet!.Quiet
+                ? $"{_truck.Name} takes over {name}: {quiet.Truck} has been silent for {_tick - quiet.LastHeard} ticks."
+                : $"{_truck.Name} takes over {name}: {quiet.Truck} has delivered nothing there for {_tick - quiet.LastWork} ticks.") { Truck = _truck.Name, Village = village });
         Refresh();
         return new ActionOutcome(toolId, true, [$"mine:{village}"], $"claimed {entry.Id}");
     }
@@ -215,13 +228,13 @@ public sealed class TruckView : ITickedWorld
 
         if (need == 0)
         {
-            Say(new ReleasePayload(claim.Value.Id, Row(village)));
+            Say(new ReleasePayload(claim.Value.Id, Row(village) + " did=unload"));
             _truck.Claim = null;
             _world.Record(new ReplayEvent("release", $"{_truck.Name} reports {_world.Name(village)} served.") { Truck = _truck.Name, Village = village });
         }
         else
         {
-            Say(new ProgressPayload(claim.Value.Id, Row(village)));
+            Say(new ProgressPayload(claim.Value.Id, Row(village) + " did=unload"));
         }
     }
 
@@ -231,7 +244,7 @@ public sealed class TruckView : ITickedWorld
         if (MyClaimEntry() is not { } mine) return;
         var village = VillageOf(mine);
         var owner = Owners().GetValueOrDefault(village);
-        if (owner is null || owner.Truck == _truck.Name || owner.Quiet) return;
+        if (owner is null || owner.Truck == _truck.Name || owner.Open) return;
         Say(new HandOffPayload(mine.Id, $"{owner.Truck} claimed {village} first"));
         _truck.Claim = null;
         _world.Record(new ReplayEvent("release", $"{_truck.Name} leaves {_world.Name(village)} to {owner.Truck}, who claimed it first.") { Truck = _truck.Name, Village = village });
@@ -251,7 +264,16 @@ public sealed class TruckView : ITickedWorld
     }
 
     /// <summary>A claim on the ledger and who holds it: the truck, the claim's id, when it was made, when its truck was last heard, whether it went quiet.</summary>
-    private sealed record Holder(string Truck, string Id, int Claimed, int LastHeard, bool Quiet);
+    private sealed record Holder(string Truck, string Id, int Claimed, int LastHeard, bool Quiet)
+    {
+        /// <summary>Alive, but nothing delivered to the village for the stall period (only with <see cref="ConvoySetup.StallAfter"/>).</summary>
+        public bool Stalled { get; init; }
+
+        public int LastWork { get; init; }
+
+        /// <summary>May be taken over: silent, or stalled.</summary>
+        public bool Open => Quiet || Stalled;
+    }
 
     private static string VillageOf(SignedEntry claim) => claim.Body<ClaimPayload>().Goal.Replace("deliver:", "", StringComparison.Ordinal);
 
@@ -270,14 +292,29 @@ public sealed class TruckView : ITickedWorld
         var heard = entries.GroupBy(e => e.Cell).ToDictionary(g => g.Key, g => g.Max(TickOf), StringComparer.Ordinal);
         var claims = entries.Where(e => e.Kind == EntryKind.Claim && e.Body<ClaimPayload>().Goal.StartsWith("deliver:", StringComparison.Ordinal)).ToList();
         var superseded = claims.Select(c => c.Body<ClaimPayload>().Session).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        // The last delivery each cell reported to each village: what the stall rule counts as progress.
+        var delivered = new Dictionary<(string Cell, string Village), int>();
+        foreach (var e in entries.Where(e => e.Kind is EntryKind.Progress or EntryKind.Release))
+        {
+            var row = e.Kind == EntryKind.Progress ? e.Body<ProgressPayload>().Row : e.Body<ReleasePayload>().Evidence;
+            if (!row.Contains("did=unload", StringComparison.Ordinal)) continue;
+            var village = row.Split(' ').FirstOrDefault(p => p.StartsWith("v=", StringComparison.Ordinal))?[2..];
+            if (village is not null) delivered[(e.Cell, village)] = Math.Max(delivered.GetValueOrDefault((e.Cell, village)), TickOf(e));
+        }
+
         foreach (var group in claims.Where(c => !superseded.Contains(c.Id) && _ledger.StateOf(c.Id) == ClaimState.Active).GroupBy(VillageOf))
         {
             var holders = group.Select(c =>
             {
                 var last = heard.GetValueOrDefault(c.Cell);
-                return new Holder(c.Body<ClaimPayload>().Tool ?? c.Cell, c.Id, TickOf(c), last, _tick - last >= _setup.TakeoverAfter);
+                var work = Math.Max(TickOf(c), delivered.GetValueOrDefault((c.Cell, group.Key)));
+                return new Holder(c.Body<ClaimPayload>().Tool ?? c.Cell, c.Id, TickOf(c), last, _tick - last >= _setup.TakeoverAfter)
+                {
+                    LastWork = work,
+                    Stalled = _setup.StallAfter is { } stall && _tick - work >= stall,
+                };
             }).ToList();
-            var live = holders.Where(h => !h.Quiet).OrderBy(h => h.Claimed).ThenBy(h => h.Truck, StringComparer.Ordinal).FirstOrDefault();
+            var live = holders.Where(h => !h.Open).OrderBy(h => h.Claimed).ThenBy(h => h.Truck, StringComparer.Ordinal).FirstOrDefault();
             owners[group.Key] = live ?? holders.OrderBy(h => h.Claimed).ThenBy(h => h.Truck, StringComparer.Ordinal).First();
         }
         return owners;
@@ -337,10 +374,11 @@ public sealed class TruckView : ITickedWorld
             foreach (var (village, holder) in Owners())
             {
                 if (holder.Truck == _truck.Name) continue;
-                facts.Add(holder.Quiet ? $"quiet:{village}:{holder.Truck}" : $"claimed:{village}:{holder.Truck}");
+                facts.Add(holder.Open ? $"quiet:{village}:{holder.Truck}" : $"claimed:{village}:{holder.Truck}");
             }
         }
         if (_done) facts.Add("convoy.done");
+        if (_stranded) facts.Add("stranded");
         facts.UnionWith(_transient);
         _facts = facts;
     }
