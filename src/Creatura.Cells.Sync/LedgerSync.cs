@@ -254,6 +254,39 @@ public static class LedgerHub
         return report with { RevocationsTaken = taken };
     }
 
+    /// <summary>A signed HTTP client at the hub's root, for the endpoints beside <c>/sync</c>.</summary>
+    private static HttpClient RootClient(Uri hub, LocalCell cell, TimeProvider? clock, HttpMessageHandler? inner, TimeSpan timeout)
+    {
+        var root = hub.ToString().TrimEnd('/');
+        if (root.EndsWith("/sync", StringComparison.OrdinalIgnoreCase)) root = root[..^"/sync".Length];
+        return new HttpClient(new HubSigningHandler(cell, clock) { InnerHandler = inner ?? new HttpClientHandler() }) { BaseAddress = new Uri(root + "/"), Timeout = timeout };
+    }
+
+    /// <summary>
+    /// Uploads a sealed file's ciphertext, filed under its SHA-256 (or under <paramref name="name"/>, which the hub
+    /// refuses unless the bytes hash to it). Throws <see cref="SharedFileException"/> when the hub refuses the bytes.
+    /// </summary>
+    public static async Task PutFileAsync(Uri hub, LocalCell cell, byte[] ciphertext, CancellationToken cancellationToken, string? name = null, TimeProvider? clock = null)
+    {
+        using var http = RootClient(hub, cell, clock, null, TimeSpan.FromMinutes(5));
+        using var content = new ByteArrayContent(ciphertext);
+        using var response = await http.PutAsync($"files/{name ?? SharedFiles.Hash(ciphertext)}", content, cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode == System.Net.HttpStatusCode.RequestEntityTooLarge) throw new SharedFileException(SharedFileProblem.TooLarge, "the hub refused the file: over its size limit");
+        if (response.StatusCode == System.Net.HttpStatusCode.BadRequest) throw new SharedFileException(SharedFileProblem.Altered, "the hub refused the file: its bytes do not hash to its name");
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>Downloads a file's ciphertext by its SHA-256. Throws <see cref="SharedFileException"/> when it expired or was never there.</summary>
+    public static async Task<byte[]> GetFileAsync(Uri hub, LocalCell cell, string hash, CancellationToken cancellationToken, TimeProvider? clock = null)
+    {
+        using var http = RootClient(hub, cell, clock, null, TimeSpan.FromMinutes(5));
+        using var response = await http.GetAsync($"files/{hash}", cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode == System.Net.HttpStatusCode.Gone) throw new SharedFileException(SharedFileProblem.Expired, $"the hub kept {hash} for its retention period and has deleted it");
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) throw new SharedFileException(SharedFileProblem.NotFound, $"the hub has never had {hash}");
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Hands the hub this home's revocations and returns the hub's. The caller applies them through
     /// <see cref="WorkLedger.Revoke"/>, which keeps only those an owner it trusts signed.
@@ -261,13 +294,7 @@ public static class LedgerHub
     public static async Task<IReadOnlyList<Revocation>> ExchangeRevocationsAsync(Uri hub, LocalCell cell, IReadOnlyCollection<Revocation> mine, CancellationToken cancellationToken,
         TimeProvider? clock = null, HttpMessageHandler? inner = null)
     {
-        var root = hub.ToString().TrimEnd('/');
-        if (root.EndsWith("/sync", StringComparison.OrdinalIgnoreCase)) root = root[..^"/sync".Length];
-        using var http = new HttpClient(new HubSigningHandler(cell, clock) { InnerHandler = inner ?? new HttpClientHandler() })
-        {
-            BaseAddress = new Uri(root + "/"),
-            Timeout = TimeSpan.FromSeconds(30),
-        };
+        using var http = RootClient(hub, cell, clock, inner, TimeSpan.FromSeconds(30));
         if (mine.Count > 0)
         {
             using var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(mine, CellJson.Options), System.Text.Encoding.UTF8, "application/json");

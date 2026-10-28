@@ -179,6 +179,12 @@ public sealed class WorkLedger
                 case EntryKind.HandOff: _ = entry.Body<HandOffPayload>(); break;
                 case EntryKind.Release: _ = entry.Body<ReleasePayload>(); break;
                 case EntryKind.Heartbeat: _ = entry.Body<HeartbeatPayload>(); break;
+                case EntryKind.Artifact:
+                    var artifact = entry.Body<ArtifactPayload>();
+                    if (!SharedFiles.IsHash(artifact.Ciphertext) || !SharedFiles.IsHash(artifact.Plain)) return "an artifact whose hashes are not SHA-256";
+                    if (artifact.Size <= 0) return "an artifact with no bytes";
+                    if (artifact.Keys is not { Count: > 0 } || artifact.Keys.Any(k => string.IsNullOrEmpty(k.Cell))) return "an artifact no cell can open";
+                    break;
                 default: return "an unknown kind";
             }
         }

@@ -95,6 +95,11 @@ public sealed class CellHome
 
     public string EndorsementPathFor(string vesselId, string creatura) => Path.Combine(CellsDirectory, vesselId, SafeName(creatura) + ".endorsement.json");
 
+    public string EncryptionKeyPathFor(string vesselId, string creatura) => Path.Combine(CellsDirectory, vesselId, SafeName(creatura) + ".encryption.key");
+
+    /// <summary>Where this home keeps the ciphertext of files it fetched, by hash.</summary>
+    public string FilesDirectory => Path.Combine(Root, "files");
+
     /// <summary>The owner key, or null when this home has none (a vessel the owner endorses from elsewhere).</summary>
     public OwnerKey? LoadOwner() => File.Exists(OwnerKeyPath) ? OwnerKey.Load(OwnerKeyPath) : null;
 
@@ -182,7 +187,8 @@ public sealed class CellHome
         OwnerOnly.CreateDirectory(CellsDirectory);
         OwnerOnly.CreateDirectory(Path.Combine(CellsDirectory, hardware.VesselId));
         var key = CellKey.LoadOrCreate(KeyPathFor(hardware.VesselId, creatura), out _);
-        var cell = LocalCell.Create(id, hardware, position, key, name: creatura);
+        var cipher = CellCipher.LoadOrCreate(EncryptionKeyPathFor(hardware.VesselId, creatura));
+        var cell = LocalCell.Create(id, hardware, position, key, name: creatura, cipher: cipher);
 
         var endorsementPath = EndorsementPathFor(hardware.VesselId, creatura);
         if (File.Exists(endorsementPath))

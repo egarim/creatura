@@ -41,6 +41,11 @@ public static class CellCommand
           install-launchd ...          the same options: write them to ~/Library/LaunchAgents and load them (--dry-run)
           uninstall-launchd            unload and remove both agents
           owner-key [--out <file>]     on the owner's vessel: the owner's PUBLIC key, for a hub's --trust file
+          share --file <path> --hub <url> [--claim <id>] [--to <cell,...>] [--type <content type>]
+                                       seal a file (64 MB at most) for every endorsed cell, or only --to, upload it, record it
+          files [--claim <id>]         the shared files this cell can open, with name, type and size
+          fetch --artifact <id> --out <path> [--hub <url>]
+                                       download, check and open a shared file; a second fetch uses this vessel's copy
           revoke --cell <id> | --endorsement <file>  --reason <text> [--up-to <n>] [--hub <url>]
                                        on the owner's vessel: revoke a cell (a lost vessel); entries past n are refused;
                                        --endorsement names a cell that never wrote here by the endorsement you gave it
@@ -109,6 +114,9 @@ public static class CellCommand
                 "sync" => Sync(context),
                 "owner-key" => OwnerKeyCommand(context),
                 "revoke" => RevokeCommand(context),
+                "share" => Share(context),
+                "files" => Files(context),
+                "fetch" => Fetch(context),
                 "publish-hub" => PublishHubCommand(context),
                 "launchd-config" => LaunchdConfig(context),
                 "install-launchd" => InstallLaunchd(context),
@@ -117,7 +125,7 @@ public static class CellCommand
             };
         }
         catch (Exception e) when (e is InvalidOperationException or IOException or FormatException or ArgumentException
-                                      or HttpRequestException or TaskCanceledException or UriFormatException
+                                      or HttpRequestException or TaskCanceledException or UriFormatException or SharedFileException
                                       or UnauthorizedAccessException or JsonException or System.Security.Cryptography.CryptographicException)
         {
             error.WriteLine($"creatura cell {args[1]}: {e.Message}");
@@ -596,6 +604,133 @@ public static class CellCommand
     private static int UninstallLaunchd(Context c)
     {
         foreach (var line in LaunchdSetup.Uninstall([LaunchdSetup.SyncLabel, LaunchdSetup.HubLabel], AgentsDirectory(c), unload: !c.Options.ContainsKey("--no-load"))) c.Out.WriteLine(line);
+        return 0;
+    }
+
+    private static readonly Dictionary<string, string> ContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [".txt"] = "text/plain", [".log"] = "text/plain", [".md"] = "text/markdown", [".csv"] = "text/csv", [".html"] = "text/html",
+        [".json"] = "application/json", [".jsonl"] = "application/x-ndjson", [".xml"] = "application/xml", [".yaml"] = "application/yaml", [".yml"] = "application/yaml",
+        [".cs"] = "text/plain", [".py"] = "text/plain", [".js"] = "text/javascript", [".ts"] = "text/plain", [".sh"] = "text/plain",
+        [".png"] = "image/png", [".jpg"] = "image/jpeg", [".jpeg"] = "image/jpeg", [".gif"] = "image/gif", [".webp"] = "image/webp", [".svg"] = "image/svg+xml",
+        [".pdf"] = "application/pdf", [".zip"] = "application/zip", [".mp3"] = "audio/mpeg", [".wav"] = "audio/wav", [".mp4"] = "video/mp4",
+    };
+
+    private static LocalCell EndorsedCell(Context c)
+    {
+        if (!c.Home.IsInitialized) throw new InvalidOperationException($"no cell under {c.Home.Root}: run `creatura cell init`, or `request` on a vessel without the owner key");
+        var cell = c.Home.OpenCell(c.Source, Position(c), c.Creatura);
+        if (cell.Identity.IsEndorsed) return cell;
+        cell.Dispose();
+        throw new InvalidOperationException($"the {c.Creatura} cell is not endorsed: run `creatura cell accept` first");
+    }
+
+    /// <summary>
+    /// Seals a file for its recipients, uploads the ciphertext to the hub, keeps a copy here, and only then records the
+    /// Artifact entry, so an entry never names bytes the hub does not have. The other cells see it after their next sync.
+    /// </summary>
+    private static int Share(Context c)
+    {
+        var path = Path.GetFullPath(Required(c, "--file"));
+        var hub = new Uri(Required(c, "--hub"));
+        var size = new FileInfo(path).Length;
+        if (size > SharedFiles.MaxBytes) throw new SharedFileException(SharedFileProblem.TooLarge, $"{Path.GetFileName(path)} is {size:N0} bytes; the limit is {SharedFiles.MaxBytes:N0}");
+        using var cell = EndorsedCell(c);
+
+        WorkLedger snapshot;
+        using (LedgerLock.Acquire(c.Home.Root, InteractiveLockWait)) snapshot = OpenLedger(c, cell).Ledger;
+        var only = c.Options.GetValueOrDefault("--to") is { Length: > 0 } to ? to.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : null;
+        var recipients = SharedFiles.Recipients(snapshot, cell, only);
+        var type = c.Options.GetValueOrDefault("--type") ?? ContentTypes.GetValueOrDefault(Path.GetExtension(path)) ?? "application/octet-stream";
+        var sealedFile = SharedFiles.Seal(File.ReadAllBytes(path), Path.GetFileName(path), type, recipients);
+
+        LedgerHub.PutFileAsync(hub, cell, sealedFile.Ciphertext, CancellationToken.None).GetAwaiter().GetResult();
+        OwnerOnly.CreateDirectory(c.Home.FilesDirectory);
+        OwnerOnly.Replace(Path.Combine(c.Home.FilesDirectory, sealedFile.Payload.Ciphertext), sealedFile.Ciphertext);
+
+        SignedEntry entry;
+        using (LedgerLock.Acquire(c.Home.Root, InteractiveLockWait))
+        {
+            var (ledger, store) = OpenLedger(c, cell);
+            SayHelloIfNeeded(ledger, cell);
+            var claim = c.Options.GetValueOrDefault("--claim") ?? ledger.LatestActiveClaimOf(cell.Id)?.Id;
+            entry = ledger.Append(cell, sealedFile.Payload with { Claim = claim });
+            store.Save(ledger);
+        }
+
+        c.Out.WriteLine($"shared       {entry.Id}");
+        c.Out.WriteLine($"file         {Path.GetFileName(path)} ({type}, {size:N0} bytes), sealed for {recipients.Count} cell{(recipients.Count == 1 ? "" : "s")}");
+        c.Out.WriteLine($"hub          {hub} holds the ciphertext for 90 days; the other cells see the entry after their next sync");
+        return 0;
+    }
+
+    /// <summary>The Artifact entries this cell can open, labels read without downloading anything.</summary>
+    private static int Files(Context c)
+    {
+        using var cell = EndorsedCell(c);
+        var (ledger, _) = OpenLedger(c, cell);
+        var claim = c.Options.GetValueOrDefault("--claim");
+        var mine = ledger.Entries
+            .Where(e => e.Kind == EntryKind.Artifact && (claim is null || e.ClaimRef == claim))
+            .Select(e => (Entry: e, Payload: e.Body<ArtifactPayload>()))
+            .Where(a => a.Payload.Keys.Any(k => k.Cell == cell.Id))
+            .ToList();
+        c.Out.WriteLine($"{mine.Count} file{(mine.Count == 1 ? "" : "s")} {cell.Id} can open");
+        foreach (var (entry, payload) in mine)
+        {
+            string label;
+            try
+            {
+                var (name, type) = SharedFiles.Label(payload, cell);
+                label = $"{name}  {type}";
+            }
+            catch (SharedFileException e)
+            {
+                label = $"(cannot open: {e.Message})";
+            }
+            var kept = File.Exists(Path.Combine(c.Home.FilesDirectory, payload.Ciphertext)) ? ", kept here" : "";
+            c.Out.WriteLine($"{entry.Id,-28} {label}  {payload.Size:N0} bytes  from {entry.Cell} at {CellJson.Stamp(entry.Timestamp)[..16]}Z{kept}");
+            if (payload.Claim is { } about) c.Out.WriteLine($"{"",-28} for claim {about}");
+        }
+        return 0;
+    }
+
+    /// <summary>
+    /// Fetches a shared file: this vessel's copy when it has one, the hub's otherwise; checked and opened before
+    /// anything is written, so an altered file leaves nothing behind.
+    /// </summary>
+    private static int Fetch(Context c)
+    {
+        var id = Required(c, "--artifact");
+        var output = Path.GetFullPath(Required(c, "--out"));
+        if (File.Exists(output)) throw new InvalidOperationException($"{output} already exists");
+        using var cell = EndorsedCell(c);
+        var (ledger, _) = OpenLedger(c, cell);
+        var entry = ledger.Entries.FirstOrDefault(e => e.Id == id && e.Kind == EntryKind.Artifact)
+            ?? throw new InvalidOperationException($"no shared file {id} in this ledger: sync first");
+        var payload = entry.Body<ArtifactPayload>();
+
+        OwnerOnly.CreateDirectory(c.Home.FilesDirectory);
+        var copy = Path.Combine(c.Home.FilesDirectory, payload.Ciphertext);
+        var local = File.Exists(copy);
+        byte[] ciphertext;
+        if (local)
+        {
+            ciphertext = File.ReadAllBytes(copy);
+        }
+        else
+        {
+            var hub = c.Options.GetValueOrDefault("--hub") is { Length: > 0 } h ? new Uri(h) : throw new ArgumentException("--hub <url> is required: this vessel has no copy of the file");
+            ciphertext = LedgerHub.GetFileAsync(hub, cell, payload.Ciphertext, CancellationToken.None).GetAwaiter().GetResult();
+        }
+
+        var opened = SharedFiles.Open(ciphertext, payload, cell);
+        if (!local) OwnerOnly.Replace(copy, ciphertext);
+        var temporary = output + ".tmp-" + Guid.NewGuid().ToString("N")[..8];
+        File.WriteAllBytes(temporary, opened.Content);
+        File.Move(temporary, output);
+        c.Out.WriteLine($"fetched      {opened.Name} ({opened.ContentType}, {opened.Content.Length:N0} bytes) {(local ? "from this vessel's copy" : "from the hub")}");
+        c.Out.WriteLine($"written      {output}");
         return 0;
     }
 

@@ -12,7 +12,10 @@ public sealed record CellIdentity(CreaturaId Creatura, Hardware Hardware, Positi
 {
     public VesselEndorsement? Endorsement { get; init; }
 
-    /// <summary>The model the creatura runs on here (the Core's <see cref="Vessel"/>), when known.</summary>
+    /// <summary>The public half of the cell's encryption key (<see cref="CellCipher"/>): what files are sealed to. Null in a hello from before shared files.</summary>
+    public string? EncryptionKey { get; init; }
+
+        /// <summary>The model the creatura runs on here (the Core's <see cref="Vessel"/>), when known.</summary>
     public Vessel? Model { get; init; }
 
     [JsonIgnore]
@@ -40,13 +43,16 @@ public sealed record CellIdentity(CreaturaId Creatura, Hardware Hardware, Positi
 public sealed class LocalCell : IDisposable
 {
     private readonly CellKey _key;
+    private readonly CellCipher? _cipher;
 
-    private LocalCell(CellIdentity identity, CellKey key, string name)
+    private LocalCell(CellIdentity identity, CellKey key, string name, CellCipher? cipher = null)
     {
         Name = name;
         if (identity.PublicKey != key.PublicKey) throw new ArgumentException("the identity's public key is not this key's", nameof(identity));
+        if (cipher is not null && identity.EncryptionKey != cipher.PublicKey) throw new ArgumentException("the identity's encryption key is not this key's", nameof(identity));
         Identity = identity;
         _key = key;
+        _cipher = cipher;
     }
 
     public CellIdentity Identity { get; private set; }
@@ -56,8 +62,13 @@ public sealed class LocalCell : IDisposable
     /// <summary>The creatura's name in its home: the key its record is kept under.</summary>
     public string Name { get; }
 
-    public static LocalCell Create(CreaturaId creatura, Hardware hardware, Position position, CellKey key, VesselEndorsement? endorsement = null, string name = "creatura") =>
-        new(new CellIdentity(creatura, hardware, position, key.PublicKey) { Endorsement = endorsement }, key, name);
+    public static LocalCell Create(CreaturaId creatura, Hardware hardware, Position position, CellKey key, VesselEndorsement? endorsement = null, string name = "creatura",
+        CellCipher? cipher = null) =>
+        new(new CellIdentity(creatura, hardware, position, key.PublicKey) { Endorsement = endorsement, EncryptionKey = cipher?.PublicKey }, key, name, cipher);
+
+    /// <summary>The key agreed between this cell's encryption key and another public key (<see cref="CellCipher.Agree"/>). Throws when the cell has none.</summary>
+    public byte[] Agree(string otherPublicKey, byte[] context) =>
+        (_cipher ?? throw new SharedFileException(SharedFileProblem.NoEncryptionKey, $"{Id} has no encryption key")).Agree(otherPublicKey, context);
 
     /// <summary>Takes the owner's endorsement. Refuses one that does not cover this key on this vessel for this creatura.</summary>
     public LocalCell Endorsed(VesselEndorsement endorsement)
@@ -77,7 +88,11 @@ public sealed class LocalCell : IDisposable
 
     public string Sign(ReadOnlySpan<byte> data) => _key.Sign(data);
 
-    public void Dispose() => _key.Dispose();
+    public void Dispose()
+    {
+        _key.Dispose();
+        _cipher?.Dispose();
+    }
 
     public override string ToString() => Identity.ToString();
 }

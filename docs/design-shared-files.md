@@ -1,6 +1,6 @@
 # Design: sharing files between cells over the mesh
 
-Status: proposed, 2026-10-28. Nothing here is built. It follows [design-cells.md](design-cells.md), slices 1 to 4.
+Status: built 2026-10-28 (decisions below). It follows [design-cells.md](design-cells.md), slices 1 to 4.
 
 ## The problem, in the owner's words
 
@@ -85,6 +85,13 @@ that would need its own decision about what leaves a session.
 One thing the hub sees regardless: the ledger itself, which it stores unencrypted, so it knows which cell shared an
 artifact for which claim and when. Encrypting the ledger at the hub is a separate question, not part of this note.
 
+Decided by the owner, 2026-10-28: every recommendation. D1 (a) a fresh key per file, D2 (a) every endorsed, unrevoked
+cell by default, D3 64 MB, D4 90 days, D5 the owner's fleet only, D6 (a) names and types encrypted.
+
+One refinement while building: the name and type are sealed in a small label inside the Artifact entry, encrypted with
+the same file key. `files` can then list what a cell may open without downloading anything, and the hub still learns
+neither.
+
 ## Pre-registered tests, written before the code
 
 | id | claim | falsifier |
@@ -100,6 +107,32 @@ artifact for which claim and when. Encrypting the ledger at the hub is a separat
 
 And one live run, not a test: the second machine shares a file, and the owner's laptop fetches and opens it; then the owner's laptop shares
 one, and the second machine does the same.
+
+## Results (2026-10-28)
+
+F1 to F8 pass. Eight deliberate breaks each fail one of them:
+- the name sent in the clear (F2 among others);
+- revoked cells kept as recipients (F4);
+- any wrapped key tried, whoever it was for (F1);
+- the hub storing bytes under any name (F5);
+- the hub ignoring its size limit (F6);
+- nothing ever expiring (F7);
+- fetch ignoring the vessel's own copy (F8);
+- fetch writing before it checks (F3).
+
+In the third break, F4 kept passing: a key wrapped for another cell does not open with this cell's key, so the
+cryptography refuses it even without the check by cell id.
+
+The live run, on 2026-10-28:
+1. The owner's laptop's command, hub and sync job were updated first, since an older command would refuse Artifact entries and
+   the JSON store would then drop them. The second machine's copy was updated too.
+2. Both cells said a new hello carrying their encryption key.
+3. The second machine shared a 60-byte text file. The owner's laptop listed it by name, fetched it from the hub, and its SHA-256 matched
+   the second machine's original.
+4. The owner's laptop shared a 300,000-byte binary file, and the second machine fetched it with the same SHA-256.
+
+The hub held only the two ciphertexts, filed by hash and owner-only. `files` shows the sealed size, which is 32 bytes
+more than the file.
 
 ## What this note does not cover
 

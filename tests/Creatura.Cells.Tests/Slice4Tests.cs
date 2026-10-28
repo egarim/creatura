@@ -20,36 +20,6 @@ public sealed class Slice4Tests
 {
     private static readonly DateTimeOffset T0 = new(2026, 10, 28, 12, 0, 0, TimeSpan.Zero);
 
-    /// <summary>A running hub on a free loopback port.</summary>
-    private sealed class RunningHub : IAsyncDisposable
-    {
-        private readonly WebApplication _app;
-
-        private RunningHub(WebApplication app, Uri url)
-        {
-            _app = app;
-            Url = url;
-        }
-
-        public Uri Url { get; }
-
-        public HubDeltaStore Store => _app.Services.GetRequiredService<HubDeltaStore>();
-
-        public static async Task<RunningHub> StartAsync(string database, params string[] trustedOwners)
-        {
-            var app = HubApp.Create(new HubOptions(database, trustedOwners, "http://127.0.0.1:0"));
-            await app.StartAsync();
-            var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.First();
-            return new RunningHub(app, new Uri(address));
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            await _app.StopAsync();
-            await _app.DisposeAsync();
-        }
-    }
-
     private static (CellHome Home, OwnerKey Owner) NewHome(TempHome dir)
     {
         var home = new CellHome(dir.Path);

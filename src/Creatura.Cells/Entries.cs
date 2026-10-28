@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 
 namespace Creatura.Cells;
 
-/// <summary>The six things a cell can say in the work ledger (docs/design-cells.md, "The work ledger").</summary>
+/// <summary>The things a cell can say in the work ledger (docs/design-cells.md, "The work ledger").</summary>
 public enum EntryKind
 {
     /// <summary>This cell exists: creatura id, vessel, position, public key.</summary>
@@ -25,6 +25,9 @@ public enum EntryKind
 
     /// <summary>Still alive, with the vessel's load.</summary>
     Heartbeat,
+
+    /// <summary>A file shared with other cells: its hashes, its sealed label and its key wrapped for each recipient; the bytes are at the hub.</summary>
+    Artifact,
 }
 
 /// <summary>A payload of one entry kind. The kind is the type's, so a payload cannot be filed under another.</summary>
@@ -80,6 +83,22 @@ public sealed record ReleasePayload(string Claim, string Evidence) : IEntryPaylo
 public sealed record HeartbeatPayload(double? Load) : IEntryPayload
 {
     public static EntryKind Kind => EntryKind.Heartbeat;
+}
+
+/// <summary>A file's key, wrapped for one recipient cell: the ephemeral public key of the agreement and the sealed key (nonce, ciphertext and tag, base64).</summary>
+public sealed record WrappedKey(string Cell, string Ephemeral, string Sealed);
+
+/// <summary>
+/// A shared file (docs/design-shared-files.md): the SHA-256 of its ciphertext, by which the hub stores it, the
+/// ciphertext's size, the SHA-256 of the plain bytes, the name and content type sealed with the file's key
+/// (<see cref="Label"/>), and that key wrapped for each recipient. No name, no content, no key in the clear.
+/// </summary>
+public sealed record ArtifactPayload(string Ciphertext, long Size, string Plain, string Label, IReadOnlyList<WrappedKey> Keys) : IEntryPayload
+{
+    public static EntryKind Kind => EntryKind.Artifact;
+
+    /// <summary>The claim the file belongs to, when it belongs to one.</summary>
+    public string? Claim { get; init; }
 }
 
 /// <summary>
@@ -153,10 +172,10 @@ public sealed record SignedEntry
             ? Payload.Deserialize<T>(CellJson.Options) ?? throw new FormatException($"{Id} has an empty payload")
             : throw new InvalidOperationException($"{Id} is a {Kind}, not a {T.Kind}");
 
-    /// <summary>The claim a Progress, HandOff or Release entry is about; null for the other kinds.</summary>
+    /// <summary>The claim a Progress, HandOff, Release or Artifact entry is about; null for the other kinds.</summary>
     [JsonIgnore]
-    public string? ClaimRef => Kind is EntryKind.Progress or EntryKind.HandOff or EntryKind.Release
-        && Payload.ValueKind == JsonValueKind.Object && Payload.TryGetProperty("claim", out var claim) ? claim.GetString() : null;
+    public string? ClaimRef => Kind is EntryKind.Progress or EntryKind.HandOff or EntryKind.Release or EntryKind.Artifact
+        && Payload.ValueKind == JsonValueKind.Object && Payload.TryGetProperty("claim", out var claim) && claim.ValueKind == JsonValueKind.String ? claim.GetString() : null;
 
     /// <summary>The entry as canonical JSON, one line: what the ledger file holds and what equality compares.</summary>
     public string ToJson() => CellJson.Canonical(CellJson.ToElement(this));

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Shared files** ([docs/design-shared-files.md](docs/design-shared-files.md)). Each cell gets an encryption key
+  (`CellCipher`, ECDH P-256), announced in its hello. `SharedFiles` seals a file with a fresh AES-256-GCM key, and
+  the name and type separately in a label, then wraps the key for each recipient. That is every endorsed, unrevoked
+  cell by default, or `--to`. A seventh entry kind, `Artifact`, records the hashes, the sealed label and the wrapped
+  keys. The hub stores only ciphertext under its SHA-256 at `/files/{hash}`: 64 MB at most, kept 90 days, after which
+  fetch says expired. Commands: `share`, `files` and `fetch`. A fetched file is kept, so a second fetch needs no
+  network. Pre-registered tests F1 to F8; a live run between the owner's laptop and the second machine, both ways.
+
 - **Cells slice 4: the mesh.** `Creatura.Cells.Hub`: SyncFramework's sync controller at `/sync` over
   `HubDeltaStore`. That store verifies every pushed entry against the owner keys it trusts and stores each entry once.
   It numbers deltas from its own SQLite file, and the hub answers loopback and the mesh range only.

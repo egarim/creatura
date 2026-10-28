@@ -77,7 +77,17 @@ public static class HubAuth
 }
 
 /// <summary>Where the hub keeps its deltas, whom it trusts, and where it listens.</summary>
-public sealed record HubOptions(string DatabasePath, IReadOnlyCollection<string> TrustedOwners, string Url);
+public sealed record HubOptions(string DatabasePath, IReadOnlyCollection<string> TrustedOwners, string Url)
+{
+    /// <summary>The largest file the hub keeps: the cells' limit plus the sealing's few bytes (D3).</summary>
+    public long MaxFileBytes { get; init; } = SharedFiles.MaxBytes + 1024;
+
+    /// <summary>How long the hub keeps a file after its upload (D4).</summary>
+    public TimeSpan Retention { get; init; } = TimeSpan.FromDays(90);
+
+    /// <summary>The hub's clock: request windows and retention (tests move it).</summary>
+    public TimeProvider Clock { get; init; } = TimeProvider.System;
+}
 
 /// <summary>The hub as a web application, for the command line and for tests.</summary>
 public static class HubApp
@@ -86,18 +96,45 @@ public static class HubApp
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { ContentRootPath = AppContext.BaseDirectory });
         builder.WebHost.UseUrls(options.Url);
+        builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = options.MaxFileBytes + 64 * 1024);
         builder.Logging.ClearProviders();
 
         var store = new HubDeltaStore(options.DatabasePath, options.TrustedOwners);
         if (log is not null) store.Refused += (_, reason) => log($"refused {reason}");
         builder.Services.AddSingleton(store);
+        var files = new HubFileStore(options.DatabasePath, Path.Combine(Path.GetDirectoryName(Path.GetFullPath(options.DatabasePath))!, "files"),
+            options.MaxFileBytes, options.Retention, options.Clock);
+        builder.Services.AddSingleton(files);
         builder.Services.AddSyncServerWithDeltaStoreNode(store, LedgerHub.NodeId);
         builder.Services.AddControllers().AddApplicationPart(typeof(HubApp).Assembly);
 
         var app = builder.Build();
         app.Use(HubAccess.Middleware);
-        app.Use((context, next) => HubAuth.Middleware(context, next, options.TrustedOwners, TimeProvider.System, log, store));
+        app.Use((context, next) => HubAuth.Middleware(context, next, options.TrustedOwners, options.Clock, log, store));
         app.MapControllers();
+
+        // Shared files: ciphertext by its SHA-256. Any signed request may upload or download; only recipients can open.
+        app.MapPut("/files/{hash}", async (string hash, HttpContext context) =>
+        {
+            if (context.Request.ContentLength > options.MaxFileBytes) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+            using var buffer = new MemoryStream();
+            await context.Request.Body.CopyToAsync(buffer, context.RequestAborted);
+            var put = files.Put(hash, buffer.ToArray(), context.Items[HubAuth.CellItem] as string);
+            if (put is FilePut.Stored) log?.Invoke($"stored file {hash} ({buffer.Length:N0} bytes) from {context.Items[HubAuth.CellItem]}");
+            return put switch
+            {
+                FilePut.Stored => Results.StatusCode(StatusCodes.Status201Created),
+                FilePut.AlreadyHeld => Results.Ok(),
+                FilePut.TooLarge => Results.StatusCode(StatusCodes.Status413PayloadTooLarge),
+                _ => Results.BadRequest("the bytes do not hash to the name they were sent under"),
+            };
+        });
+        app.MapGet("/files/{hash}", (string hash) =>
+        {
+            var bytes = files.Get(hash, out var expired);
+            if (bytes is not null) return Results.Bytes(bytes, "application/octet-stream");
+            return expired ? Results.StatusCode(StatusCodes.Status410Gone) : Results.NotFound();
+        });
 
         // Revocations: any signed request may read them or hand them in; the store keeps only those an owner it trusts signed.
         app.MapGet("/revocations", () => Results.Text(System.Text.Json.JsonSerializer.Serialize(store.Revocations, CellJson.Options), "application/json"));
