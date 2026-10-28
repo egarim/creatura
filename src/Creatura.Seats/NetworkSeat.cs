@@ -120,9 +120,14 @@ public sealed class PolicyNetwork
 /// with the highest score (the lowest index on a tie). No language model, no randomness: the same situation gives the
 /// same action, so a seed still replays byte for byte. When none of the visible tools is in its vocabulary it waits,
 /// or gives no tool when waiting is not offered either.
+/// <para>For training by trial (step 3) it can sample instead: each visible action with its softmax share of the scores
+/// divided by <paramref name="temperature"/>, drawn from <paramref name="sample"/>, which the caller seeds so a run can
+/// be made again exactly.</para>
 /// </summary>
 /// <param name="encode">The world's features for a decision, in the order of <see cref="PolicyNetwork.Features"/>.</param>
-public sealed class NetworkSeat(PolicyNetwork network, Func<PolicyContext, IReadOnlyList<double>> encode, string name = "policy-network") : IPolicy
+/// <param name="sample">The generator to sample with; null plays the best visible action.</param>
+public sealed class NetworkSeat(PolicyNetwork network, Func<PolicyContext, IReadOnlyList<double>> encode, string name = "policy-network",
+    Random? sample = null, double temperature = 1) : IPolicy
 {
     public string Name => name;
 
@@ -141,6 +146,7 @@ public sealed class NetworkSeat(PolicyNetwork network, Func<PolicyContext, IRead
         for (var a = 0; a < network.Actions.Count; a++) input[features.Count + a] = visible.Contains(network.Actions[a]) ? 1 : 0;
 
         var scores = network.Scores(input);
+        if (sample is not null) return Sampled(scores, input, features.Count, visible);
         var best = -1;
         for (var a = 0; a < scores.Length; a++)
         {
@@ -161,5 +167,23 @@ public sealed class NetworkSeat(PolicyNetwork network, Func<PolicyContext, IRead
             if (input[features.Count + a] > 0) total += Math.Exp(scores[a] - top);
         }
         return new PolicySuggestion(network.Actions[best], string.Create(CultureInfo.InvariantCulture, $"network: {network.Actions[best]} ({1 / total:P0} of the visible choices)"));
+    }
+
+    private PolicySuggestion Sampled(double[] scores, double[] input, int offset, HashSet<string> visible)
+    {
+        var shown = Enumerable.Range(0, scores.Length).Where(a => input[offset + a] > 0).ToList();
+        if (shown.Count == 0)
+            return visible.Contains("wait") ? new PolicySuggestion("wait", "network: no visible action is in its vocabulary") : new PolicySuggestion(null, "network: no visible action is in its vocabulary");
+        var top = shown.Max(a => scores[a]);
+        var weights = shown.Select(a => Math.Exp((scores[a] - top) / temperature)).ToList();
+        var draw = sample!.NextDouble() * weights.Sum();
+        var pick = shown[^1];
+        for (var i = 0; i < shown.Count; i++)
+        {
+            draw -= weights[i];
+            if (draw < 0) { pick = shown[i]; break; }
+        }
+        var share = weights[shown.IndexOf(pick)] / weights.Sum();
+        return new PolicySuggestion(network.Actions[pick], string.Create(CultureInfo.InvariantCulture, $"network, sampled at {temperature}: {network.Actions[pick]} ({share:P0})"));
     }
 }

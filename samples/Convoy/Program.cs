@@ -8,7 +8,8 @@ using Creatura.Seats;
 // dotnet run --project samples/Convoy -- --dataset <dir> [--arms J] [--seeds 100-599] [--all-runs] [--only-landed]
 // --record <file.jsonl> keeps every decision of a run (or a battery) for training (docs/design-trained-models.md).
 // A model (arm S, or --model with any arm) is described in docs/convoy-models.md. Arm N's network is the embedded
-// convoy-policy-j unless --network names a weights file from tools/train/train_policy.py.
+// convoy-policy-j unless --network names a weights file from tools/train/train_policy.py; arm R's is convoy-policy-j-trial.
+// dotnet run --project samples/Convoy -- --rollouts runs.jsonl [--seeds 1000-1063] [--network w.json] [--temperature 2] [--sample-seed k]
 string? Option(string name) => Array.IndexOf(args, name) is var i and >= 0 && i + 1 < args.Length ? args[i + 1] : null;
 
 var catalog = Option("--models-file") is { } modelsFile ? ModelCatalog.Load(modelsFile) : null;
@@ -38,6 +39,33 @@ if (Adjust(ConvoySetup.For(ConvoyArm.S, 0)).SeatModel is { } seatName && (args.C
 IReadOnlyList<ConvoyArm> Arms(IReadOnlyList<ConvoyArm> fallback) => Option("--arms") is { } list
     ? list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(a => Enum.Parse<ConvoyArm>(a, ignoreCase: true)).ToList()
     : fallback;
+
+// Trial runs for training by trial (tools/train/train_trial.py): record only, with the network's choices sampled.
+if (Option("--rollouts") is { } rolloutsFile)
+{
+    var range = (Option("--seeds") ?? "1000-1063").Split('-');
+    var (from, to) = (int.Parse(range[0]), int.Parse(range[^1]));
+    if (from < ConvoyDatasets.FirstTrainingSeed)
+    {
+        Console.Error.WriteLine($"seeds 0 to {ConvoyDatasets.FirstTrainingSeed - 1} belong to the battery and are never trained on");
+        return 2;
+    }
+    var temperature = Option("--temperature") is { } tv ? double.Parse(tv, System.Globalization.CultureInfo.InvariantCulture) : (double?)null;
+    var sampleSeed = int.Parse(Option("--sample-seed") ?? "0");
+    var trials = new ConvoyRecorder();
+    foreach (var trialArm in Arms([ConvoyArm.N]))
+    {
+        for (var s = from; s <= to; s++)
+        {
+            var trial = await new ConvoyScenario(Adjust(ConvoySetup.For(trialArm, s)) with { SeatTemperature = temperature, SampleSeed = sampleSeed }, recorder: trials).RunAsync();
+            foreach (var error in trial.Errors) Console.Error.WriteLine($"{trialArm} seed {s}: {error}");
+        }
+    }
+    using (var trialFile = new StreamWriter(rolloutsFile)) trials.WriteJsonl(trialFile);
+    var all = trials.Runs.Select(r => r.Measures).ToList();
+    Console.WriteLine($"{all.Count} runs: delivered {all.Sum(m => m.Delivered)}/{all.Sum(m => m.Demand)}, lies {all.Sum(m => m.LiesBelieved)}, stranded {all.Sum(m => m.Stranded)}, wasted {all.Sum(m => m.WastedTrips)}");
+    return 0;
+}
 
 // A training dataset: record the arms over a range of seeds outside the battery's, then export (docs/design-trained-models.md).
 if (Option("--dataset") is { } datasetDir)

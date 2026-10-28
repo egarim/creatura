@@ -72,6 +72,9 @@ public sealed record ConvoyMeasures(int Delivered, int Demand, int WastedTrips, 
     int TicksToServe, bool LedgersIdentical, int IdleWhileUnserved, int MessagesSent, int MessagesLost)
 {
     public bool AllServed => Delivered >= Demand;
+
+    /// <summary>Of <see cref="LiesBelieved"/>, the one a lying fuel gauge caused: 1 when that truck ran dry, else 0. The rest are road lies.</summary>
+    public int GaugeStranded { get; init; }
 }
 
 /// <summary>What the language models in the seats used in one run: calls, failures, invalid answers, tokens, cost and time.</summary>

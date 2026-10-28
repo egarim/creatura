@@ -13,7 +13,8 @@ public sealed class HookTests
 
     private static HookEnvironment Env(DateTimeOffset? start = null, TimeSpan? lockWait = null)
     {
-        var clock = start ?? new DateTimeOffset(2026, 10, 28, 9, 0, 0, TimeSpan.Zero);
+        // After the real clock that `cell init` writes its hello with, so the hook's entries sort after it on any day.
+        var clock = start ?? DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 60);
         return new HookEnvironment
         {
             Vessel = Vessel,

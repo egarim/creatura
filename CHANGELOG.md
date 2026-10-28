@@ -30,7 +30,12 @@
   seeds. New command options: `--record` and `--dataset`. T1 held: recording changes no run. Step 2 is built too: `tools/train/train_policy.py` trains a policy network by
   example in numpy (`uv run`), `NetworkSeat` and `PolicyNetwork` in `Creatura.Seats` run it package-free,
   `ConvoyNetwork` refuses networks for another schema, and arm N puts `models/convoy-policy-j.json` (embedded) in every
-  seat; `--network <file>` names another. Arm N joined the default battery: T2 held (1500/1500, as J) and T4 held.
+  seat; `--network <file>` names another. Arm N joined the default battery: T2 held (1500/1500, as J) and T4 held. Step 3 too: `tools/train/train_trial.py`
+  trains the network further by trial (PPO in numpy) on runs the convoy plays with `--rollouts`, sampling through
+  `NetworkSeat` at a temperature with a seeded generator. Arm R carries the result
+  (`models/convoy-policy-j-trial.json`): T3 failed (1445/1500 delivered against J's 1500, though 46 lies against 54), T3b
+  held (2 strandings against 6). `ConvoyMeasures.GaugeStranded` separates the gauge's lies from the roads'. Fixed a
+  hook test whose pinned clock made it fail every day after 09:00 UTC.
   `samples/Convoy` runs one story or the battery. The **replay** is the interface for UIs: JSON lines described in
   [docs/replay-format.md](docs/replay-format.md), with `IScenarioObserver` for following a run live.
   `tools/convoy-viewer/index.html` is a three.js viewer with four sample runs built in.

@@ -1,6 +1,6 @@
 # Design: trained models for a world
 
-Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held.
+Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held; step 3 (training by trial) built: T3 failed, T3b held.
 
 ## The question, in the owner's words
 
@@ -253,6 +253,99 @@ What it shows, and what it does not:
 dotnet run --project samples/Convoy -c Release -- --dataset datasets/convoy-j --arms J --seeds 100-599
 uv run tools/train/train_policy.py datasets/convoy-j models/convoy-policy-j.json --held-out-from 550
 dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --arms J,N
+```
+
+## Step 3, registered before training (2026-10-28)
+
+Written before the sampling seat, the trial trainer or any trial run existed.
+
+**What trial can reach, read from the training data first.** In arm J's 500 training runs (seeds 100 to 599) the
+trucks acted on 490 road lies. 384 were the first time any truck tried that road. A truck cannot avoid those: the road
+reports itself open, as every open road does, and nothing in its view tells the lying one apart. The other 106 came
+after another truck had already caught the same road, but a truck's view does not include another truck's
+distrust (distrust is per truck), so no seat with these inputs can avoid them either. What remains is the other kind
+of lie the judge counts: a truck stranded because its fuel gauge reads three units high (35 strandings in those 500
+runs). That one is within a seat's reach: keep a margin of fuel. So training by trial can lower the lies only by
+lowering the strandings, and the prediction is that it will do that and nothing more.
+
+- **Arm R.** As N, with the network trained further by trial: `models/convoy-policy-j-trial.json`, embedded like N's.
+- **The start.** Arm N's network, trained by example. Trial changes it from there.
+- **The trial runs.** The network plays arm N's setup with its choices sampled (scores divided by a temperature of 2,
+  so it tries what it would not otherwise), on seeds 1,000 to 8,999. Seeds 9,000 to 9,199 are kept apart to choose
+  which trained network to keep. The battery's seeds 0 to 49 are not touched until arm R runs.
+- **The reward**, per truck and per decision, from the judge's own reading: +1 per unit delivered, -5 for an action the
+  control layer judged a lie, -20 when the truck becomes stranded, and -0.02 per tick it is still working.
+- **The method.** PPO in numpy (a clipped policy update, a separate value network, advantages with λ = 0.95 and
+  γ = 0.99, a small entropy bonus): 64 runs per round, at most 150 rounds. The sampling happens in C#, in the same
+  `NetworkSeat`, with a random generator seeded from the run's seed, so a round can be run again exactly.
+- **Which network is kept.** Every 10 rounds the network plays seeds 9,000 to 9,199 greedily (no sampling), and the
+  one with the best total reward there is kept. Arm N's network is scored the same way first, as round 0; if no round
+  beats it, that is the finding.
+
+Judged on seeds 0 to 49:
+- **T3** (as registered above): arm R delivers at least as much as arm J and acts on fewer lies.
+- **T3b**: arm R strands fewer trucks than arm J. This is the mechanism the prediction names; if T3 holds without it,
+  the prediction was wrong.
+- **T4 again**: arm R replays byte for byte for the same seed.
+
+Reported without a claim: the road lies and the strandings apart, wasted trips, and when the villages were served
+(a fuel margin costs refuelling trips, so arm R may serve later).
+
+## Step 3, built (2026-10-28)
+
+**T3 failed. T3b held, and T4 held for arm R.** On the battery's seeds 0 to 49:
+
+| | arm R (trial) | arm J (planner) | arm N (copy) |
+|---|---|---|---|
+| delivered | 1445/1500 | 1500/1500 | 1500/1500 |
+| runs that served every village | 37 of 50 | 50 of 50 | 50 of 50 |
+| lies acted on | 46 | 54 | 54 |
+| of them road lies | 44 | 48 | |
+| of them strandings by the lying gauge | 2 | 6 | |
+| stranded trucks | 2 | 6 | 7 |
+| villages served by tick (unserved counts 61) | 36.0 | 25.5 | 25.3 |
+
+Arm R acts on fewer lies, but delivers less, so T3, which asks for both, failed. T3b, the mechanism the prediction named,
+held: strandings fell from 6 to 2. Six runs of seed 0 replayed byte for byte.
+
+**What trial taught the network: caution.** Over the same 50 seeds, arm R's trucks refuelled 427 times against J's
+189, waited 2,420 ticks against 1,072, and drove 1,371 roads against 1,448. Claims rose to 494 from 366, so trucks
+claimed and let go more often. Keeping the tank fuller is what stopped the gauge strandings. Waiting and refuelling
+cost the time it needed to finish: in 13 runs the 60 ticks ran out with a village still short.
+
+**The prediction was partly wrong.** It said trial could lower the lies only through the strandings. Road lies fell
+too, 48 to 44. The likely reason is not that the network learned to tell the lying road apart (nothing in its inputs
+does that), but that it drove 5% fewer roads and so came to the lying one less often. Fewer lies by doing less is not
+the improvement the step was after.
+
+**Why it failed, as far as the training shows.** The reward priced one undelivered unit at 1 and one stranding at 20.
+Under that price list, giving up a few units to avoid a stranding is a good trade, and trial found it. The selection
+rule chose by the same reward, so it kept that trade too: round 110, with 5,740 units delivered on the selection seeds
+against the start's 5,998, but 1 stranding against 23 and 152 lies against 198. Every round after round 10 delivered
+less than the start. In short, the training did what the reward asked; the reward did not ask for what T3 asks.
+
+The numbers on the way:
+- The gradient was checked against finite differences before the run: the largest difference was 1.6e-10.
+- 150 rounds of 64 sampled runs on seeds 1,000 to 8,999 took 26 minutes on the laptop. Round 110 was kept.
+- The weights: `models/convoy-policy-j-trial.json`, embedded beside arm N's.
+- Four deliberate breaks of the sampling and scoring code each fail a test: sampling a hidden action, the sample seed
+  unused, T3b accepting as many strandings, and the temperature ignored. The last one at first passed: the sampling
+  test drew only at temperature 1. A draw at temperature 2 was added, and the break now fails.
+
+What a next attempt would change, each to be registered before it runs:
+- **Price an unserved unit at the end of the run**, so that a village left short costs more than a stranding saves.
+- **Keep only networks that deliver at least what the start delivers** on the selection seeds, and choose among them
+  by reward.
+- **Hold the network near its teacher** (a penalty for drifting from arm N's choices), so trial changes only what it
+  has a reason to change.
+- **Share distrust through the ledger**, a change to the design rather than to training. 106 of the 490 road lies in
+  the training data came after another truck had already caught that road. No seat can avoid them today, because a
+  truck's view does not include another truck's distrust.
+
+```bash
+dotnet build samples/Convoy -c Release
+uv run tools/train/train_trial.py models/convoy-policy-j.json models/convoy-policy-j-trial.json
+dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --arms J,N,R
 ```
 
 ## What this note does not cover

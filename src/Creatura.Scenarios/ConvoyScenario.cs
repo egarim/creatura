@@ -181,7 +181,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
                 LedgersIdentical: identical,
                 IdleWhileUnserved: world.Need.Values.Any(n => n > 0) ? Math.Max(idle, world.Trucks.Count(t => !t.Broken && t.Finished)) : 0,
                 MessagesSent: mesh?.Sent ?? 0,
-                MessagesLost: mesh?.Lost ?? 0);
+                MessagesLost: mesh?.Lost ?? 0) { GaugeStranded = gaugeStranded };
             var summary = new ReplaySummary(measures, Outcome(world, measures)) { Seat = SeatUsage() };
             recorder?.EndRun(measures);
             observer?.End(summary);
@@ -212,7 +212,9 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         else if (Setup.SeatNetwork is { } seatNetwork)
         {
             network = ConvoyNetwork.Load(seatNetwork);
-            policy = ConvoyNetwork.Seat(network, Setup.Map, spec.Machine);
+            var sample = Setup.SeatTemperature is null ? null
+                : new Random(unchecked(Setup.Seed * 1_000_003 + Setup.SampleSeed * 7_919 + Setup.Trucks.ToList().IndexOf(spec)));
+            policy = ConvoyNetwork.Seat(network, Setup.Map, spec.Machine, sample, Setup.SeatTemperature ?? 1);
         }
         if (recorder is not null) policy = recorder.Seat(policy, spec, Setup.Map);
         var observers = new List<IAgentExtension> { story };
@@ -373,6 +375,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         ConvoyArm.L => "Tests N6: all three fixes together, with one biological design per truck.",
         ConvoyArm.S => "Tests S1 and S2: a language model in every truck's seat instead of the offline planner, with all three fixes.",
         ConvoyArm.N => "Tests T2 and T4: a small network trained to copy arm J's planner, in every truck's seat, with all three fixes.",
+        ConvoyArm.R => "Tests T3 and T3b: arm N's network trained further by trial in the simulator, against arm J's planner.",
         _ => arm.ToString(),
     };
 

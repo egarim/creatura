@@ -159,6 +159,24 @@ public static class ConvoyBattery
             verdicts.Add(new("T4", "the network replays byte for byte for the same seed (N)", Held(same), same ? "six runs of seed 0 matched" : "a replay differed"));
         }
 
+        // The network trained further by trial (pre-registered as T3 and T3b, and T4 again), scored when arms R and J both ran.
+        if (runs.ContainsKey(ConvoyArm.R) && runs.ContainsKey(ConvoyArm.J))
+        {
+            var n = Math.Min(runs[ConvoyArm.R].Count, runs[ConvoyArm.J].Count);
+            int Over(ConvoyArm arm, Func<ConvoyMeasures, int> f) => runs[arm].Take(n).Sum(f);
+            static int GaugeStranded(ConvoyMeasures m) => m.GaugeStranded;
+            verdicts.Add(new("T3", "trained further by trial, the network delivers at least as much as arm J and acts on fewer lies (R against J)",
+                Held(Over(ConvoyArm.R, m => m.Delivered) >= Over(ConvoyArm.J, m => m.Delivered) && Over(ConvoyArm.R, m => m.LiesBelieved) < Over(ConvoyArm.J, m => m.LiesBelieved)),
+                $"delivered R {Over(ConvoyArm.R, m => m.Delivered)}, J {Over(ConvoyArm.J, m => m.Delivered)}; lies R {Over(ConvoyArm.R, m => m.LiesBelieved)}, J {Over(ConvoyArm.J, m => m.LiesBelieved)} "
+                + $"(road lies R {Over(ConvoyArm.R, m => m.LiesBelieved) - Over(ConvoyArm.R, GaugeStranded)}, J {Over(ConvoyArm.J, m => m.LiesBelieved) - Over(ConvoyArm.J, GaugeStranded)}) over {n} seeds"));
+            verdicts.Add(new("T3b", "trained by trial, the network strands fewer trucks than arm J (R against J)",
+                Held(Over(ConvoyArm.R, m => m.Stranded) < Over(ConvoyArm.J, m => m.Stranded)),
+                $"stranded R {Over(ConvoyArm.R, m => m.Stranded)}, J {Over(ConvoyArm.J, m => m.Stranded)}; wasted R {Over(ConvoyArm.R, m => m.WastedTrips)}, J {Over(ConvoyArm.J, m => m.WastedTrips)}; "
+                + $"served by tick {runs[ConvoyArm.R].Take(n).Average(m => m.TicksToServe):0.0} against {runs[ConvoyArm.J].Take(n).Average(m => m.TicksToServe):0.0}"));
+            var same = replays is not null && replays.TryGetValue(ConvoyArm.R, out var s) ? s : replaysMatch;
+            verdicts.Add(new("T4R", "the network trained by trial replays byte for byte for the same seed (R)", Held(same), same ? "six runs of seed 0 matched" : "a replay differed"));
+        }
+
         // The fixes (pre-registered as N1 to N6), scored only when their arms ran.
         if (new[] { ConvoyArm.G, ConvoyArm.H, ConvoyArm.I, ConvoyArm.J, ConvoyArm.K, ConvoyArm.L }.All(runs.ContainsKey))
         {

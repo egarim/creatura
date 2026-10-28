@@ -41,6 +41,9 @@ public enum ConvoyArm
 
     /// <summary>As J (all three fixes), with a policy network trained on arm J's planner in every truck's seat (docs/design-trained-models.md, step 2).</summary>
     N,
+
+    /// <summary>As N, with the network trained further by trial in the simulator (docs/design-trained-models.md, step 3).</summary>
+    R,
 }
 
 /// <summary>A truck: its name, its machine, and the design that drives it ("plain", "levin", "bach", "peterson").</summary>
@@ -91,6 +94,12 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
     /// <summary>The trained network in every truck's seat: <see cref="ConvoyNetwork.Embedded"/> or a weights file; null for the offline planner.</summary>
     public string? SeatNetwork { get; init; }
 
+    /// <summary>For training by trial: the network samples its choices at this temperature; null plays its best choice.</summary>
+    public double? SeatTemperature { get; init; }
+
+    /// <summary>Seeds the sampling, with the run's seed and the truck, so a trial run can be made again exactly.</summary>
+    public int SampleSeed { get; init; }
+
     public string ArmText => Arm switch
     {
         ConvoyArm.A => "plain loop, shared ledger, perfect link",
@@ -106,6 +115,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
         ConvoyArm.L => "one design per truck, shared ledger, all three fixes",
         ConvoyArm.S => $"a language model ({SeatModel}) in every truck's seat, shared ledger, all three fixes",
         ConvoyArm.N => $"a policy network ({SeatNetwork}) in every truck's seat, shared ledger, all three fixes",
+        ConvoyArm.R => $"a policy network trained by trial ({SeatNetwork}) in every truck's seat, shared ledger, all three fixes",
         _ => Arm.ToString(),
     };
 
@@ -163,6 +173,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
             ConvoyArm.L => AllFixes(setup),
             ConvoyArm.S => AllFixes(setup) with { SeatModel = DefaultSeatModel },
             ConvoyArm.N => AllFixes(setup) with { SeatNetwork = ConvoyNetwork.Embedded },
+            ConvoyArm.R => AllFixes(setup) with { SeatNetwork = ConvoyNetwork.EmbeddedTrial },
             _ => setup,
         };
     }

@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Creatura.Bench;
 using Creatura.Seats;
 
 namespace Creatura.Scenarios.Tests;
@@ -165,5 +166,86 @@ public sealed class NetworkSeatTests
             Assert.Contains("policy network", d!["seat"]!.GetValue<string>());
             Assert.Contains("ConvoyNetwork.Seat", d["cSharp"]!.GetValue<string>());
         });
+    }
+
+    // ------------------------------------------------------------------ step 3: sampling for trial, and arm R
+
+    [Fact]
+    public void SamplingPlaysOnlyVisibleActionsInProportionAndRepeatsWithTheSameSeed()
+    {
+        var network = PolicyNetwork.Parse(Tiny(), "tiny");
+        string Draw(Random random) => new NetworkSeat(network, _ => [0.3, 0.2], sample: random, temperature: 1).Next(Context("a", "b")).Tool!;
+        var first = new Random(5);
+        var again = new Random(5);
+        var picks = Enumerable.Range(0, 4000).Select(_ => Draw(first)).ToList();
+        Assert.Equal(picks.Take(200), Enumerable.Range(0, 200).Select(_ => Draw(again)));
+        Assert.All(picks, p => Assert.Contains(p, new[] { "a", "b" }));
+        // Scores 0.6 and 1.2 over the visible a and b: b has e^0.6 / (1 + e^0.6) = 64.6% of the draws.
+        Assert.InRange(picks.Count(p => p == "b") / 4000.0, 0.62, 0.67);
+        // At a temperature of 2 the scores are halved: b has e^0.3 / (1 + e^0.3) = 57.4%.
+        var warm = new Random(6);
+        var warmPicks = Enumerable.Range(0, 4000).Select(_ => new NetworkSeat(network, _ => [0.3, 0.2], sample: warm, temperature: 2).Next(Context("a", "b")).Tool).ToList();
+        Assert.InRange(warmPicks.Count(p => p == "b") / 4000.0, 0.55, 0.60);
+    }
+
+    [Fact]
+    public async Task ATrialRunRepeatsForItsSampleSeedAndDiffersForAnother()
+    {
+        async Task<string> Trial(int sampleSeed)
+        {
+            using var text = new StringWriter();
+            var setup = ConvoySetup.For(ConvoyArm.N, 1000) with { SeatTemperature = 2, SampleSeed = sampleSeed };
+            await new ConvoyScenario(setup).RunAsync(new JsonlReplayWriter(text));
+            return ConvoyBattery.Scrub(text.ToString());
+        }
+        Assert.Equal(await Trial(1), await Trial(1));
+        Assert.NotEqual(await Trial(1), await Trial(2));
+    }
+
+    [Fact]
+    public void ArmRCarriesTheNetworkTrainedByTrialAndSaysHowItWasTrained()
+    {
+        var setup = ConvoySetup.For(ConvoyArm.R, 3);
+        Assert.Equal(ConvoyNetwork.EmbeddedTrial, setup.SeatNetwork);
+        Assert.Null(setup.SeatTemperature);
+        Assert.Contains(ConvoyArm.R, ConvoyBattery.DefaultArms);
+        var network = ConvoyNetwork.Load(ConvoyNetwork.EmbeddedTrial);
+        ConvoyNetwork.Fits(network, setup.Map);
+        var training = network.Training!.Value;
+        Assert.Equal("trial", training.GetProperty("by").GetString());
+        Assert.Equal("example", training.GetProperty("startedFrom").GetProperty("by").GetString());
+        // Neither its trial seeds nor its selection seeds are the battery's.
+        Assert.True(training.GetProperty("trialSeeds")[0].GetInt32() >= ConvoyDatasets.FirstTrainingSeed);
+        Assert.True(training.GetProperty("selectionSeeds")[0].GetInt32() >= ConvoyDatasets.FirstTrainingSeed);
+    }
+
+    /// <summary>T4 for arm R: trained by trial, it still plays its best choice, so a seed replays byte for byte.</summary>
+    [Fact]
+    public async Task T4_ArmRReplaysByteForByte() => Assert.True(await ConvoyBattery.ReplaysMatchAsync(ConvoyArm.R, 0));
+
+    [Fact]
+    public void TheTrainedArmsAreScoredAgainstJ()
+    {
+        static ConvoyMeasures M(int delivered, int lies = 0, int stranded = 0, int gauge = 0) =>
+            new(delivered, 30, 0, stranded, lies, 0, 20, true, 0, 10, 0) { GaugeStranded = gauge };
+        var runs = new Dictionary<ConvoyArm, IReadOnlyList<ConvoyMeasures>>
+        {
+            [ConvoyArm.J] = [M(30, lies: 3, stranded: 1, gauge: 1), M(30, lies: 1)],
+            [ConvoyArm.N] = [M(29, lies: 3, stranded: 1, gauge: 1), M(30, lies: 1)],
+            [ConvoyArm.R] = [M(30, lies: 2), M(30, lies: 1)],
+        };
+        var verdicts = ConvoyBattery.Score(runs, true).ToDictionary(v => v.Id);
+        Assert.Equal(HypothesisVerdict.Held, verdicts["T2"].Verdict); // 59 of 60 is over 95%
+        Assert.Equal(HypothesisVerdict.Held, verdicts["T3"].Verdict);
+        Assert.Equal(HypothesisVerdict.Held, verdicts["T3b"].Verdict);
+        Assert.Contains("road lies R 3, J 3", verdicts["T3"].Evidence);
+
+        runs[ConvoyArm.N] = [M(27), M(28)];
+        runs[ConvoyArm.R] = [M(30, lies: 4, stranded: 1), M(29)];
+        verdicts = ConvoyBattery.Score(runs, true).ToDictionary(v => v.Id);
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["T2"].Verdict);
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["T3"].Verdict);
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["T3b"].Verdict);
+        Assert.Equal(HypothesisVerdict.Failed, ConvoyBattery.Score(runs, false).Single(v => v.Id == "T4R").Verdict);
     }
 }

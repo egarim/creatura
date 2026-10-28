@@ -327,6 +327,9 @@ Arm N is arm J with a small policy network, trained by example on J's planner, i
 default battery. Over seeds 0 to 49 it delivered 1500 of 1500 and replayed byte for byte (T2 and T4 held). The design,
 the training and the results are in [design-trained-models.md](design-trained-models.md).
 
+Arm R is arm N's network trained further by trial in the simulator. It stranded fewer trucks than J (2 against 6) and
+acted on fewer lies (46 against 54), but delivered less (1445 of 1500), so T3 failed and T3b held.
+
 ## What this note does not cover
 
 - Physics, continuous space, or real-time simulation. The world is a road graph that steps one tick at a time.
