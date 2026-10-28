@@ -142,7 +142,7 @@ successful run is nearer 110.
 | model | per run, at most | 5 seeds | 50 seeds |
 |---|---|---|---|
 | a local Ollama model | free (about an hour of compute on a laptop for a full run) | free | free |
-| `deepseek-chat`, at the catalog's $0.28 / $0.42 per million | about $0.09 | about $0.45 | about $4.50 |
+| `deepseek-chat`, at the catalog's $0.28 / $0.42 per million | about $0.09 (measured: $0.075 over 10 runs) | about $0.45 | about $4.50 |
 | `gpt-4.1-mini`, at the catalog's $0.40 / $1.60 per million | about $0.14 | about $0.70 | about $7 |
 
 These come from the catalog's prices, which can be out of date. The cost printed after a run is computed from the

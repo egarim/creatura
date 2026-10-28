@@ -321,6 +321,44 @@ seed and ticks.
 
 The gap between a valid answer and a good one is what training would close: see docs/design-trained-models.md.
 
+### A hosted model: `deepseek-chat` on seeds 0 to 4 (2026-10-28)
+
+Ten full runs: two per seed, because a mistake in the command (`--model` filled arm J's seat too, now fixed) ran
+the model twice over the same five seeds. Both passes are arm S's setup; the planner's own runs on the same seeds
+are the baseline.
+
+| | planner (arm J) | `deepseek-chat`, pass 1 | `deepseek-chat`, pass 2 | both passes |
+|---|---|---|---|---|
+| delivered | 150/150 | 149/150 | 150/150 | 299/300 |
+| lies acted on | 9 | 6 | 11 | 17 (planner, twice: 18) |
+| trucks stranded | 2 | 2 | 5 | 7 (planner, twice: 4) |
+| wasted trips | 0 | 1 | 0 | 1 |
+| villages served by tick (unserved counts 61) | 29.2 | 42.8 | 38.4 | 40.6 |
+
+**S1 and S2 come out mixed, which is the honest reading of two passes.** S1 held in pass 2 (150 delivered, as the
+planner) and failed by one unit in pass 1 (seed 3 ran out of time 1 unit short). S2 held in pass 1 (6 lies against
+9) and failed in pass 2 (11 against 9); over both passes the model acted on 17 lies where the planner, run twice,
+would act on 18. As registered, five seeds give a first reading, not a result.
+
+What the reading says:
+- **A hosted model drives the convoy about as well as the planner.** It delivered 299 of 300 units, against the
+  local 7B model's 0 to 5 units in 8 ticks. Only 22 of its 1,242 answers were refused (1.8%), all before they ran.
+- **It is slower and strands more trucks.** The villages were served about 11 ticks later on average, and 7
+  trucks ran dry against the planner's 4 over the same seeds twice. The model reads the lying fuel gauge as
+  readily as the planner, and plans less tightly.
+- **It is not repeatable.** The same seed gave different runs: seed 1 was served at tick 34 in one pass and 50 in
+  the other. That is why arm S stays out of the default battery.
+- **The architecture held again.** Every refused answer was refused before it ran; no truck did anything the
+  world did not allow.
+
+Cost: 1,242 calls, 2.45 million prompt tokens (1.40 million of them served from DeepSeek's cache) and 0.15 million
+completion tokens, $0.75 at the catalog's prices (cache hits are billed lower, so the bill is less), 36 minutes of
+model time. About 124 calls and $0.075 a run.
+
+The first try of this run failed on every call: hosted providers accept only letters, digits, `_` and `-` in a
+function name, and the seat sent tool ids such as `claim:alba`. `ModelPolicy` now offers tools under safe names
+and maps the call back (see the CHANGELOG).
+
 ## A trained network in the seat (2026-10-28)
 
 Arm N is arm J with a small policy network, trained by example on J's planner, in every truck's seat. It is in the

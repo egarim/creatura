@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **The first hosted-model runs of arm S** (`deepseek-chat`, seeds 0 to 4, two passes): 299 of 300 units delivered
+  against the planner's 300, 17 lies against 18, but 7 trucks stranded against 4 and villages served about 11 ticks
+  later. S1 and S2 come out mixed across the two passes (docs/design-machine-vessels.md). 1,242 calls, $0.75 at
+  catalog prices.
+
 - **Fix: `--model` in a battery filled every arm's seat.** `--battery --arms J,S --model deepseek-chat` put the model
   in arm J's seat too, so the planner baseline ran with the model and the run cost twice what was quoted. `--model`
   now fills only the arms that carry a model, or the one arm named with `--arm` for a single run.
