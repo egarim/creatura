@@ -180,6 +180,32 @@ public sealed class RecorderTests
             Assert.Equal(File.ReadAllText(System.IO.Path.Combine(a.Path, set)), File.ReadAllText(System.IO.Path.Combine(b.Path, set)));
     }
 
+    /// <summary>The world model's set: features before and after each action, and battery seeds only as an evaluation set.</summary>
+    [Fact]
+    public async Task TheWorldSetHoldsFeaturesBeforeAndAfterAndKeepsTheBatterysSeedsForEvaluation()
+    {
+        var recorder = new ConvoyRecorder();
+        await new ConvoyScenario(ConvoySetup.For(ConvoyArm.J, 130), recorder: recorder).RunAsync();
+        using var dir = new TempDirectory();
+        var file = System.IO.Path.Combine(dir.Path, "world.jsonl");
+        var written = ConvoyDatasets.ExportWorld(recorder.Runs, file);
+        Assert.Equal(recorder.Runs[0].Decisions.Count(d => d.Verdict is not null && d.ActionIndex is not null), written);
+
+        var schema = ConvoyFeatures.Schema(RoadMap.FloodedValley());
+        var lines = File.ReadLines(file).Select(l => JsonNode.Parse(l)!).ToList();
+        Assert.All(lines, l => Assert.Equal(schema.Names.Count, l["after"]!.AsArray().Count));
+        // A drive that landed is seen arriving: the destination's at. feature is 1 after it.
+        var drive = lines.First(l => l["actionId"]!.GetValue<string>().StartsWith("drive:", StringComparison.Ordinal) && l["verdict"]!.GetValue<string>() == "Landed");
+        var destination = drive["actionId"]!.GetValue<string>().Split(':')[2];
+        Assert.Equal(1.0, drive["after"]![schema.Names.ToList().IndexOf($"at.{destination}")]!.GetValue<double>());
+
+        var battery = new ConvoyRecorder();
+        await new ConvoyScenario(ConvoySetup.For(ConvoyArm.J, 3), recorder: battery).RunAsync();
+        Assert.Throws<ArgumentException>(() => ConvoyDatasets.ExportWorld(battery.Runs, file));
+        Assert.True(ConvoyDatasets.ExportWorld(battery.Runs, file, evaluation: true) > 0);
+        Assert.All(File.ReadLines(file), l => Assert.True(JsonNode.Parse(l)!["evaluation"]!.GetValue<bool>()));
+    }
+
     private sealed class CapturingModel : IModelTransport
     {
         public Provider Provider => Provider.Ollama;

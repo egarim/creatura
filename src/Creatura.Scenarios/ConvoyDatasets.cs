@@ -46,6 +46,42 @@ public static class ConvoyDatasets
         return [new ChatMessage("system", system), new ChatMessage("user", user)];
     }
 
+    /// <summary>
+    /// A world model's set (docs/design-trained-models.md, step 5): every action that ran, as the features the truck saw
+    /// before, the action's index, its verdict, and the features after, encoded from the facts afterwards with the same
+    /// encoder and the notes of before. Seeds below <see cref="FirstTrainingSeed"/> are refused unless the set is for
+    /// <paramref name="evaluation"/> only, as the battery's seeds may be judged on but never trained on.
+    /// </summary>
+    /// <returns>How many transitions were written.</returns>
+    public static int ExportWorld(IEnumerable<RecordedRun> recorded, string path, bool evaluation = false)
+    {
+        var runs = recorded.ToList();
+        var early = runs.Where(r => r.Setup.Seed < FirstTrainingSeed).Select(r => r.Setup.Seed).Distinct().Order().ToList();
+        if (early.Count > 0 && !evaluation)
+            throw new ArgumentException($"seeds {string.Join(", ", early)} belong to the battery (0 to {FirstTrainingSeed - 1}); export them only as an evaluation set");
+        var json = JsonlReplayWriter.Options;
+        var count = 0;
+        using var output = new StreamWriter(path);
+        foreach (var run in runs)
+        {
+            foreach (var d in run.Decisions.Where(d => d.Verdict is not null && d.ActionIndex is not null))
+            {
+                var machine = run.Setup.Trucks.Single(t => t.Name == d.Truck).Machine;
+                var after = ConvoyFeatures.Encode(run.Setup.Map, machine, d.FactsAfter.ToHashSet(StringComparer.Ordinal), d.Seat.Notes, d.Tick, d.Seat.MaxTicks);
+                var line = new JsonObject
+                {
+                    ["run"] = run.Id, ["arm"] = run.Setup.Arm.ToString(), ["seed"] = run.Setup.Seed, ["truck"] = d.Truck, ["tick"] = d.Tick,
+                    ["action"] = d.ActionIndex, ["actionId"] = d.Chosen, ["verdict"] = d.Verdict, ["evaluation"] = evaluation,
+                    ["before"] = new JsonArray(d.Features.Select(x => (JsonNode)JsonValue.Create(Math.Round(x, 6))!).ToArray()),
+                    ["after"] = new JsonArray(after.Select(x => (JsonNode)JsonValue.Create(Math.Round(x, 6))!).ToArray()),
+                };
+                output.WriteLine(line.ToJsonString(json));
+                count++;
+            }
+        }
+        return count;
+    }
+
     public static DatasetCard Export(IEnumerable<RecordedRun> recorded, DatasetOptions options, string directory)
     {
         var runs = recorded.ToList();

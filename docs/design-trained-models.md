@@ -431,6 +431,87 @@ uv run tools/train/train_trial.py models/convoy-policy-j.json models/convoy-poli
 dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --arms W,Q
 ```
 
+## Step 5, the world model, registered before training (2026-10-28)
+
+Written before the exporter, the trainer or any world model existed.
+
+- **What it predicts.** Given what a truck sees before an action (the 61 features) and the action (one of the 36),
+  the features it will see after: where it is, its fuel and load, the villages' needs, the claims, the roads. A small
+  network, 97 inputs (the features and the action as one bit each) to 61 outputs between 0 and 1, trained by example
+  with cross-entropy against what was observed. It decides nothing.
+- **Surprise.** For an action that ran, the surprise is the cross-entropy between what the model predicted and what
+  was observed after, summed over the 61 features. A lie is a drive the world reported as arrived while the truck did
+  not move: the model, which has seen thousands of drives arrive, should find "still here" surprising.
+- **The data.** Training: arm J's transitions from seeds 100 to 549; seeds 550 to 599 held out to choose the stopping
+  point. Judging: arm J's transitions on the battery's seeds 0 to 49, recorded fresh, and DeepSeek's transitions on seeds
+  0 to 4 from the arm S run. Those were recorded on the battery's seeds, so by the rule they are never trained on: they
+  serve here only as a test of a driver the model never saw. DeepSeek runs on seeds from 50 up could be training data
+  later.
+
+Judged on those seeds:
+
+| id | claim | falsifier |
+|---|---|---|
+| T6 | the median surprise at a lie exceeds the surprise at 95% of the actions that landed (arm J, seeds 0 to 49) | the median at or below that 95th percentile |
+| T6b | the same holds for DeepSeek's transitions (seeds 0 to 4), a driver whose choices the model never saw | as for T6 |
+
+Reported without a claim: how often the model predicts the next features exactly (rounded) for landed actions, the
+share of lies above the 95th percentile (the lies it would catch for a 5% false-alarm rate), and the surprise by kind
+of action.
+
+The prediction, and its limit: T6 should hold, because a lie breaks the most regular pattern in the data (a drive on
+a road the sensor calls open arrives). That makes the learned model a rediscovery of what the control layer's effect
+check does by construction: it measures, after the act, that what was reported did not happen. It cannot tell the
+lying road apart before the truck tries it, since nothing in the features does (step 3 found the same). What it adds
+over the hand-coded check is a graded expectation that a regulator's prediction slot can read, learned from data
+rather than written for one world.
+
+## Step 5, the world model, built (2026-10-28)
+
+**T6 held. T6b failed.**
+
+| set | transitions | lies | landed, 95th percentile of surprise | lies, median surprise | lies above that percentile | landed predicted exactly |
+|---|---|---|---|---|---|---|
+| arm J, seeds 0 to 49 (the planner) | 3,981 | 54 | 4.25 | **9.48** | **100%** | 63% |
+| DeepSeek, seeds 0 to 4 (arm S, both passes) | 1,242 | 89 | 14.54 | **11.24** | 38% | 9% |
+
+On the planner's own driving, every lie stood out: all 54 were more surprising than 95% of the actions that landed,
+with a median surprise more than twice that line. The model rediscovered from data alone what the control layer's
+effect check does by construction, as predicted.
+
+On DeepSeek's driving it did not, for two reasons the breakdown shows:
+- **A driver it never saw.** Trained only on the planner's transitions, it found DeepSeek's ordinary actions
+  surprising: it predicted only 9% of them exactly, against 63% of the planner's, and the 95th percentile of
+  "normal" rose from 4.25 to 14.54. Waits and claims in situations the planner never reaches were the most surprising
+  (median 5.7 and 5.5, against 3.6 and 1.5 for the planner).
+- **Not every lie is the world's.** 29 of DeepSeek's 89 lies were its own actions that did not land: 23 claims, 4
+  unloads and 2 early reports of done, which the two-way judge counts as lies. The model's surprise at them was
+  moderate (medians 8.0, 7.3 and 11.2). Its 60 drive lies, the lying road itself, had a median of 14.1, just under
+  the line.
+
+What it shows: a world model is only as good as the variety of driving it learned from. This is the concrete use of
+other drivers' runs as training material, the question that led here. The DeepSeek runs sit on the battery's seeds,
+so they stay a test set; the next step is to train on varied driving from training seeds: the sampled trial runs of
+step 3 (free), other arms' planners, or DeepSeek runs on seeds from 50 up (about $0.075 each). Then T6b can be judged
+again on the same DeepSeek set.
+
+The numbers on the way:
+- The model: 97 → 128 → 128 → 61, sigmoid outputs, trained in 9 seconds on 34,875 transitions (seeds 100 to 549),
+  kept at epoch 53 by the held-out surprise on seeds 550 to 599. The weights are `models/convoy-world-j.json`
+  (355 KB), not embedded: nothing reads them in C# yet.
+- The surprise includes the spread of the features that are fractions (fuel, load, time), which no prediction can
+  remove; that sets the floor of about 3 for an ordinary action.
+- A deliberate break, scoring surprise against the features before the action instead of after, makes T6 fail
+  (the landed actions' 95th percentile rises to 27.0): the measure depends on what was observed, as it should.
+- The exporter refuses the battery's seeds unless a set is marked for evaluation, and a test checks it.
+
+```bash
+dotnet run --project samples/Convoy -c Release -- --world datasets/convoy-j/runs.jsonl datasets/world/train.jsonl
+dotnet run --project samples/Convoy -c Release -- --world datasets/world/j-battery-runs.jsonl datasets/world/eval-j.jsonl --evaluation
+uv run tools/train/train_world.py datasets/world/train.jsonl models/convoy-world-j.json \
+    --judge datasets/world/eval-j.jsonl datasets/world/eval-deepseek.jsonl
+```
+
 ## What this note does not cover
 
 - Training on data from real machines or real users. Every dataset here comes from simulated worlds.

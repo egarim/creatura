@@ -42,6 +42,14 @@ IReadOnlyList<ConvoyArm> Arms(IReadOnlyList<ConvoyArm> fallback) => Option("--ar
     ? list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(a => Enum.Parse<ConvoyArm>(a, ignoreCase: true)).ToList()
     : fallback;
 
+// A world model's set from any recording: --world <runs.jsonl> <out.jsonl> [--evaluation] (battery seeds need --evaluation).
+if (Array.IndexOf(args, "--world") is var worldAt and >= 0 && worldAt + 2 < args.Length)
+{
+    var written = ConvoyDatasets.ExportWorld(ConvoyRecorder.ReadJsonl(args[worldAt + 1]), args[worldAt + 2], args.Contains("--evaluation"));
+    Console.WriteLine($"{written:N0} transitions written to {args[worldAt + 2]}{(args.Contains("--evaluation") ? " (evaluation only)" : "")}");
+    return 0;
+}
+
 // Trial runs for training by trial (tools/train/train_trial.py): record only, with the network's choices sampled.
 if (Option("--rollouts") is { } rolloutsFile)
 {

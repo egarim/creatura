@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **A world model for the convoy** (docs/design-trained-models.md, step 5): `ConvoyDatasets.ExportWorld` and the
+  `--world <runs> <out> [--evaluation]` option write each action as features before and after;
+  `tools/train/train_world.py` trains a forward model in numpy and measures its surprise. T6 held on the planner's
+  driving (every lie above the 95th percentile of landed actions); T6b failed on DeepSeek's, a driver it never saw.
+
 - **The first hosted-model runs of arm S** (`deepseek-chat`, seeds 0 to 4, two passes): 299 of 300 units delivered
   against the planner's 300, 17 lies against 18, but 7 trucks stranded against 4 and villages served about 11 ticks
   later. S1 and S2 come out mixed across the two passes (docs/design-machine-vessels.md). 1,242 calls, $0.75 at
