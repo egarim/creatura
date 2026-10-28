@@ -285,6 +285,34 @@ C19 passes. Live, on 2026-10-28, the hub ran on the owner's laptop from a file o
 home. The second machine wrote a heartbeat and synced, and the owner's laptop synced. The second machine synced again, and both ledgers ended
 with 55 entries and the digest `9f1b4623b9f333d5`.
 
+### Who may read the hub
+
+Until now the hub checked everything it was sent but served the whole ledger to any machine on the mesh, and other
+fleet machines are on it. Entries hold goals, folders, repository names and session ids. Now every request to
+`/sync` must be signed by a cell an owner the hub trusts has endorsed. Three headers carry it:
+- `X-Creatura-Endorsement`: the cell's endorsement, base64 JSON;
+- `X-Creatura-Time`: when the request was signed, UTC;
+- `X-Creatura-Signature`: the cell's signature over the purpose, the method, the path and query, that time, and
+  the SHA-256 of the body.
+The hub checks the endorsement's owner and signature, that the time is within five minutes of its own clock, and
+the request signature against the endorsed key, before any controller runs. Anything else gets 401 with no ledger
+content. The mesh range check stays in front of it.
+
+What this does not do: a request captured on the wire could be replayed within its five minutes. The mesh encrypts
+traffic between machines, so capturing it means being on one of them. There is no revocation yet: a cell whose
+vessel is lost keeps its access until a revocation list exists (the lost-device steps in FLEET.md apply meanwhile).
+
+| id | claim | falsifier |
+|---|---|---|
+| C20 | the hub answers only requests signed by an endorsed cell of an owner it trusts, within five minutes, over that exact request | an answer to an unsigned request, one signed by another owner's cell, one outside the window, one whose body or path changed after signing, or one signed by a key the endorsement does not cover |
+
+C20 passes. Five deliberate breaks each fail it: no check at all, no time window, the body left unsigned, the request
+signature unchecked, and any owner's endorsement accepted. C17 changed with it: another owner's cell is now turned
+away at the door, so its entries never reach the hub's store. Before, they reached it and were refused there.
+
+Live, on 2026-10-28, an unsigned fetch from the second machine got 401 with no ledger content, and the hub logged it. Signed
+syncs from the second machine and the owner's laptop ended with 59 entries and the same digest, `df62185ba5ed6e48`.
+
 ## Decided (owner, 2026-10-28)
 
 1. **Root of trust: both.** An owner key signs each vessel once (the ledger's trust); the mesh admits the machine (the

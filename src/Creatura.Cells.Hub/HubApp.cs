@@ -34,6 +34,45 @@ public static class HubAccess
     }
 }
 
+/// <summary>
+/// Who the hub answers: requests signed by an endorsed cell of an owner it trusts, within five minutes, over exactly
+/// that request (<see cref="HubRequest"/>, C20). Everything else gets 401 and the reason, never ledger content.
+/// </summary>
+public static class HubAuth
+{
+    public const string CellItem = "creatura.cell";
+
+    public static async Task Middleware(HttpContext context, RequestDelegate next, IReadOnlyCollection<string> trustedOwners, TimeProvider clock, Action<string>? log = null)
+    {
+        context.Request.EnableBuffering();
+        byte[] body;
+        using (var buffer = new MemoryStream())
+        {
+            await context.Request.Body.CopyToAsync(buffer, context.RequestAborted).ConfigureAwait(false);
+            body = buffer.ToArray();
+        }
+        context.Request.Body.Position = 0;
+
+        // The request target exactly as it came over the wire: what the client signed.
+        var target = context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpRequestFeature>()?.RawTarget is { Length: > 0 } raw
+            ? raw
+            : context.Request.Path + context.Request.QueryString;
+        var headers = context.Request.Headers;
+        var reason = HubRequest.Verify(trustedOwners, headers[HubRequest.EndorsementHeader], headers[HubRequest.TimeHeader], headers[HubRequest.SignatureHeader],
+            context.Request.Method, target, body, clock.GetUtcNow(), out var cell);
+        if (reason is not null)
+        {
+            log?.Invoke($"401 {context.Connection.RemoteIpAddress} {context.Request.Method} {context.Request.Path}: {reason}");
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await context.Response.WriteAsync(reason, context.RequestAborted).ConfigureAwait(false);
+            return;
+        }
+
+        context.Items[CellItem] = cell;
+        await next(context).ConfigureAwait(false);
+    }
+}
+
 /// <summary>Where the hub keeps its deltas, whom it trusts, and where it listens.</summary>
 public sealed record HubOptions(string DatabasePath, IReadOnlyCollection<string> TrustedOwners, string Url);
 
@@ -54,6 +93,7 @@ public static class HubApp
 
         var app = builder.Build();
         app.Use(HubAccess.Middleware);
+        app.Use((context, next) => HubAuth.Middleware(context, next, options.TrustedOwners, TimeProvider.System, log));
         app.MapControllers();
         return app;
     }

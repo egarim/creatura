@@ -11,6 +11,9 @@
   Pre-registered tests C13 to C18. A live run between the owner's laptop and the second machine ended with identical ledgers.
   The hub also runs with no creatura home: `--trust <file>` gives it owner public keys and `--data <dir>` its
   database, and `creatura cell owner-key --out <file>` writes that file. It never needs a private key (C19).
+  Every request to the hub is signed by an endorsed cell: the endorsement, the time and a signature over the method,
+  the path, the time and the body (`HubRequest`, `HubSigningHandler`). The hub answers nothing else, so other machines
+  on the mesh can no longer read the ledger (C20).
 
 - **Cells slice 3: the ledger in SQLite, synced through SyncFramework.** `ILedgerStore`, which `JsonLedgerStore`
   implements. `SqliteLedgerStore` (`src/Creatura.Cells.Sqlite`, package `Microsoft.Data.Sqlite` 10.0.14): one row per

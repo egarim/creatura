@@ -194,6 +194,25 @@ public sealed class LedgerSyncNode
 }
 
 /// <summary>
+/// Signs every request to a hub as its cell (<see cref="HubRequest"/>): the endorsement, the time and the signature
+/// over the method, path and query, time and body. The hub answers nothing else (C20).
+/// </summary>
+public sealed class HubSigningHandler(LocalCell cell, TimeProvider? clock = null) : DelegatingHandler
+{
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var body = request.Content is null ? [] : await request.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        var at = (clock ?? TimeProvider.System).GetUtcNow();
+        foreach (var (name, value) in HubRequest.Sign(cell, request.Method.Method, request.RequestUri!.PathAndQuery, at, body))
+        {
+            request.Headers.Remove(name);
+            request.Headers.TryAddWithoutValidation(name, value);
+        }
+        return await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+}
+
+/// <summary>
 /// The ledger hub's address as SyncFramework sees it: the server node every cell pushes to and pulls from, served
 /// at <c>/sync/</c> by <c>Creatura.Cells.Hub</c>.
 /// </summary>
@@ -201,22 +220,26 @@ public static class LedgerHub
 {
     public const string NodeId = "ledger";
 
-    /// <summary>The HTTP client for a hub; <paramref name="hub"/> is its base address, with or without <c>/sync/</c>.</summary>
-    public static ISyncFrameworkClient Http(Uri hub, TimeSpan? timeout = null)
+    /// <summary>
+    /// The HTTP client for a hub, every request signed as <paramref name="cell"/>. <paramref name="hub"/> is its base
+    /// address, with or without <c>/sync/</c>. <paramref name="inner"/> replaces the network handler (tests).
+    /// </summary>
+    public static ISyncFrameworkClient Http(Uri hub, LocalCell cell, TimeSpan? timeout = null, TimeProvider? clock = null, HttpMessageHandler? inner = null)
     {
         var text = hub.ToString().TrimEnd('/');
         if (!text.EndsWith("/sync", StringComparison.OrdinalIgnoreCase)) text += "/sync";
-        return new SyncFrameworkHttpClient(new HttpClient { BaseAddress = new Uri(text + "/"), Timeout = timeout ?? TimeSpan.FromSeconds(30) }, NodeId);
+        var handler = new HubSigningHandler(cell, clock) { InnerHandler = inner ?? new HttpClientHandler() };
+        return new SyncFrameworkHttpClient(new HttpClient(handler) { BaseAddress = new Uri(text + "/"), Timeout = timeout ?? TimeSpan.FromSeconds(30) }, NodeId);
     }
 
     /// <summary>
-    /// One sync of a ledger with a hub over HTTP, the state read from and written to <paramref name="statePath"/>:
-    /// what the command calls, so it needs no SyncFramework type of its own.
+    /// One sync of a ledger with a hub over HTTP as <paramref name="cell"/>, the state read from and written to
+    /// <paramref name="statePath"/>: what the command calls, so it needs no SyncFramework type of its own.
     /// </summary>
     /// <param name="persist">Saves the ledger after the sync and before the cursors are saved, so a crash in between pulls again rather than losing what was pulled.</param>
-    public static async Task<LedgerSyncReport> SyncAsync(WorkLedger ledger, string identity, Uri hub, string statePath, Action<WorkLedger> persist, CancellationToken cancellationToken)
+    public static async Task<LedgerSyncReport> SyncAsync(WorkLedger ledger, LocalCell cell, Uri hub, string statePath, Action<WorkLedger> persist, CancellationToken cancellationToken)
     {
-        var node = new LedgerSyncNode(ledger, identity, Http(hub), LedgerSyncState.Load(statePath));
+        var node = new LedgerSyncNode(ledger, cell.Id, Http(hub, cell), LedgerSyncState.Load(statePath));
         var report = await node.SyncAsync(cancellationToken).ConfigureAwait(false);
         persist(ledger);
         node.State.Save(statePath);

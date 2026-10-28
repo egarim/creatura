@@ -420,7 +420,7 @@ public static class CellCommand
         var syncDirectory = Path.Combine(c.Home.Root, "sync");
         OwnerOnly.CreateDirectory(syncDirectory);
         var statePath = Path.Combine(syncDirectory, $"{hub.Host}_{hub.Port}.json");
-        var report = LedgerHub.SyncAsync(snapshot, cell.Id, hub, statePath, ledger =>
+        var report = LedgerHub.SyncAsync(snapshot, cell, hub, statePath, ledger =>
         {
             using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
             var (fresh, store) = OpenLedger(c, cell);

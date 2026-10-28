@@ -68,7 +68,7 @@ public sealed class Slice4Tests
     }
 
     private static LedgerSyncNode Node(RunningHub hub, WorkLedger ledger, LocalCell cell, LedgerSyncState? state = null) =>
-        new(ledger, cell.Id, LedgerHub.Http(hub.Url), state);
+        new(ledger, cell.Id, LedgerHub.Http(hub.Url, cell), state);
 
     /// <summary>C13: two homes converge through the hub over real HTTP.</summary>
     [Fact]
@@ -118,7 +118,7 @@ public sealed class Slice4Tests
         var tampered = new Delta(a.Id, Encoding.UTF8.GetBytes(node.ToJsonString()));
 
         await using var hub = await RunningHub.StartAsync(Path.Combine(dir.Path, "hub.db"), owner.PublicKey);
-        var client = LedgerHub.Http(hub.Url);
+        var client = LedgerHub.Http(hub.Url, a);
         var bad = new List<IDelta> { tampered, new Delta(a.Id, Encoding.UTF8.GetBytes("rm -rf ~")), LedgerDelta.From(foreign) };
         Assert.True((await client.PushAsync(bad, CancellationToken.None)).Success);
         Assert.True((await client.PushAsync([LedgerDelta.From(claim)], CancellationToken.None)).Success);
@@ -183,17 +183,17 @@ public sealed class Slice4Tests
 
         // Two runs of the command: each a new ledger read from what the last one saved, and the cursors from the file.
         var saved = new List<SignedEntry>();
-        var first = await LedgerHub.SyncAsync(ledgerA, a.Id, hub.Url, statePath, l => saved = [.. l.Entries], CancellationToken.None);
+        var first = await LedgerHub.SyncAsync(ledgerA, a, hub.Url, statePath, l => saved = [.. l.Entries], CancellationToken.None);
         Assert.Equal((4, 4), (first.Sent, first.Pulled.Added));
         Assert.True(OwnerOnly.IsOwnerOnly(statePath));
 
         var rerun = new WorkLedger(owner.PublicKey);
         rerun.MergeVerified(saved);
-        var second = await LedgerHub.SyncAsync(rerun, a.Id, hub.Url, statePath, _ => { }, CancellationToken.None);
+        var second = await LedgerHub.SyncAsync(rerun, a, hub.Url, statePath, _ => { }, CancellationToken.None);
         Assert.Equal((0, 0, 0), (second.Sent, second.Pulled.Added, second.Pulled.Duplicates));
 
         rerun.Append(a, new HeartbeatPayload(0.9), T0.AddMinutes(30));
-        var third = await LedgerHub.SyncAsync(rerun, a.Id, hub.Url, statePath, _ => { }, CancellationToken.None);
+        var third = await LedgerHub.SyncAsync(rerun, a, hub.Url, statePath, _ => { }, CancellationToken.None);
         Assert.Equal((1, 0, 0), (third.Sent, third.Pulled.Added, third.Pulled.Duplicates));
         Assert.Equal(new HubCounts(9, 0, 0), hub.Store.Counts);
     }
@@ -251,14 +251,17 @@ public sealed class Slice4Tests
         await using var hub = await RunningHub.StartAsync(Path.Combine(air.Path, "hub.db"), owner.PublicKey);
         var url = hub.Url.ToString();
         Run(surface, surfaceVessel, "cell", "sync", "--hub", url);
-        Run(stranger, new FakeVessel("raw-stranger"), "cell", "sync", "--hub", url);
+
+        // Another owner's cell is turned away at the door (C20): its request is not signed by a cell the hub's owner
+        // endorsed, so nothing it sends reaches the store and nothing is served to it.
+        Assert.NotEqual(0, Fails(stranger, new FakeVessel("raw-stranger"), "cell", "sync", "--hub", url));
         var synced = Run(air, airVessel, "cell", "sync", "--hub", url);
         Assert.Contains("received     2 new", synced);
 
         var ledger = Run(air, airVessel, "cell", "ledger");
         Assert.Contains("from the surface", ledger);
         Assert.DoesNotContain("from a stranger", ledger);
-        Assert.Equal(2, hub.Store.Counts.Rejected);
+        Assert.Equal(new HubCounts(Stored: 4, Duplicates: 0, Rejected: 0), hub.Store.Counts);   // two hellos and two claims
 
         var back = Run(surface, surfaceVessel, "cell", "sync", "--hub", url);
         Assert.Contains("received     2 new", back);
@@ -321,7 +324,7 @@ public sealed class Slice4Tests
         Directory.CreateDirectory(Path.Combine(server.Path, "hub"));
         await using (var hub = await RunningHub.StartAsync(data.Options.DatabasePath, [.. data.Options.TrustedOwners]))
         {
-            var client = LedgerHub.Http(hub.Url);
+            var client = LedgerHub.Http(hub.Url, a);
             var mine = new WorkLedger(a.Identity.Endorsement!.OwnerPublicKey).Append(a, new HelloPayload(a.Identity), T0);
             var theirs = new WorkLedger(stranger.Identity.Endorsement!.OwnerPublicKey).Append(stranger, new HelloPayload(stranger.Identity), T0);
             Assert.True((await client.PushAsync([LedgerDelta.From(mine), LedgerDelta.From(theirs)], CancellationToken.None)).Success);
@@ -340,5 +343,89 @@ public sealed class Slice4Tests
         var empty = Path.Combine(server.Path, "empty.txt");
         File.WriteAllText(empty, "# nobody\n\n");
         Assert.Throws<ArgumentException>(() => HubCommandLine.ReadTrustFile(empty));
+    }
+
+    /// <summary>Changes a request after it was signed: the body, the query, or the endorsement header.</summary>
+    private sealed class Tamper(Func<HttpRequestMessage, Task> change) : DelegatingHandler(new HttpClientHandler())
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await change(request);
+            return await base.SendAsync(request, cancellationToken);
+        }
+    }
+
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    /// <summary>
+    /// C20: the hub answers only requests signed by an endorsed cell of an owner it trusts, within five minutes, over
+    /// that exact request.
+    /// </summary>
+    [Fact]
+    public async Task C20_TheHubAnswersOnlyRequestsSignedByAnEndorsedCell()
+    {
+        using var dir = new TempHome();
+        using var strangerDir = new TempHome();
+        var (home, owner) = NewHome(dir);
+        var (strangerHome, _) = NewHome(strangerDir);
+        using var a = NewCell(home, "raw-vessel-a", "alpha");
+        using var b = NewCell(home, "raw-vessel-b", "beta");
+        using var stranger = NewCell(strangerHome, "raw-vessel-s", "mallory");
+        var ledger = new WorkLedger(owner.PublicKey);
+        Work(ledger, a, "something private: a client's repository", 0);
+
+        await using var hub = await RunningHub.StartAsync(Path.Combine(dir.Path, "hub.db"), owner.PublicKey);
+        var fetch = new Uri(hub.Url, "/sync/Fetch?startIndex=-1&identity=someone");
+
+        // The control: a's cell pushes and b's cell reads it back.
+        Assert.True((await Node(hub, ledger, a).SyncAsync(CancellationToken.None)).Pushed);
+        Assert.Equal(4, (await LedgerHub.Http(hub.Url, b).FetchAsync("-1", b.Id, CancellationToken.None)).Deltas.Count);
+
+        // Unsigned: a plain request, from loopback, which the mesh check lets through.
+        using (var plain = new HttpClient())
+        {
+            var answer = await plain.GetAsync(fetch);
+            Assert.Equal(HttpStatusCode.Unauthorized, answer.StatusCode);
+            Assert.DoesNotContain("private", await answer.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await plain.PostAsync(new Uri(hub.Url, "/sync/Push"), new StringContent("[]"))).StatusCode);
+        }
+
+        async Task<HttpStatusCode> Status(LocalCell signer, TimeProvider? clock = null, Func<HttpRequestMessage, Task>? change = null, HttpMethod? method = null)
+        {
+            using var client = new HttpClient(new HubSigningHandler(signer, clock) { InnerHandler = new Tamper(change ?? (_ => Task.CompletedTask)) });
+            using var request = new HttpRequestMessage(method ?? HttpMethod.Get, fetch);
+            if (request.Method == HttpMethod.Post) request.Content = new StringContent("[]", Encoding.UTF8, "application/json");
+            return (await client.SendAsync(request)).StatusCode;
+        }
+
+        Assert.Equal(HttpStatusCode.OK, await Status(b));
+        Assert.Equal(HttpStatusCode.Unauthorized, await Status(stranger));
+        Assert.Equal(HttpStatusCode.Unauthorized, await Status(b, new FixedClock(DateTimeOffset.UtcNow.AddMinutes(-10))));
+        Assert.Equal(HttpStatusCode.Unauthorized, await Status(b, new FixedClock(DateTimeOffset.UtcNow.AddMinutes(10))));
+        Assert.Equal(HttpStatusCode.OK, await Status(b, new FixedClock(DateTimeOffset.UtcNow.AddMinutes(-4))));
+        Assert.Equal(HttpStatusCode.Unauthorized, await Status(b, change: r =>
+        {
+            r.RequestUri = new Uri(r.RequestUri!.ToString().Replace("identity=someone", "identity=someone-else", StringComparison.Ordinal));
+            return Task.CompletedTask;
+        }));
+        Assert.Equal(HttpStatusCode.Unauthorized, await Status(b, method: HttpMethod.Post, change: r =>
+        {
+            r.Content = new StringContent("[ ]", Encoding.UTF8, "application/json");
+            return Task.CompletedTask;
+        }));
+
+        // Signed by b's key under a's endorsement: the endorsement does not cover the key that signed.
+        var aEndorsement = HubRequest.Sign(a, "GET", "/", DateTimeOffset.UtcNow, [])[0].Value;
+        Assert.Equal(HttpStatusCode.Unauthorized, await Status(b, change: r =>
+        {
+            r.Headers.Remove(HubRequest.EndorsementHeader);
+            r.Headers.TryAddWithoutValidation(HubRequest.EndorsementHeader, aEndorsement);
+            return Task.CompletedTask;
+        }));
+
+        Assert.Equal(new HubCounts(4, 0, 0), hub.Store.Counts);
     }
 }
