@@ -2,7 +2,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-  /* Layout: a field guide. One reading column, two wide plates that may scroll sideways on a phone. */
+  /* Layout: a field guide. One reading column; the creature with its key; then wide plates that may scroll sideways on a phone. */
   :root {
     --bg: #f5f7f3;
     --bg-2: #eaeee6;
@@ -14,6 +14,10 @@
     --world: #d9dde8;       /* the world: cool slate */
     --world-soft: #eef0f6;
     --lie: #a8423a;         /* a lie, and only a lie */
+    --ink: #071b2b;         /* the icon's navy */
+    --gold: #9c7c32;        /* the icon's gold, a shade deeper to hold on the light page */
+    --cells: #3d5f8a;       /* the cells and the mesh */
+    --cells-soft: #e3eaf3;
     --display: "IBM Plex Serif", Georgia, "Times New Roman", serif;
     --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
@@ -22,12 +26,14 @@
     :root:not([data-theme="light"]) {
       --bg: #121816; --bg-2: #1a221f; --fg: #e4ebe6; --fg-2: #a3b1a9; --line: #35423b;
       --accent: #5fc0a8; --accent-soft: #1d3a33; --world: #2b3240; --world-soft: #1c2129; --lie: #e0776d;
+      --ink: #d8e2ea; --gold: #d4b264; --cells: #8fb0dc; --cells-soft: #1b2533;
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
     --bg: #121816; --bg-2: #1a221f; --fg: #e4ebe6; --fg-2: #a3b1a9; --line: #35423b;
     --accent: #5fc0a8; --accent-soft: #1d3a33; --world: #2b3240; --world-soft: #1c2129; --lie: #e0776d;
+    --ink: #d8e2ea; --gold: #d4b264; --cells: #8fb0dc; --cells-soft: #1b2533;
     color-scheme: dark;
   }
   body {
@@ -37,14 +43,15 @@
     padding-right: max(16px, env(safe-area-inset-right, 0px));
     padding-block: 32px 64px;
   }
-  main { max-width: 1120px; margin: 0 auto; display: grid; gap: 40px; }
+  main { max-width: 1120px; margin: 0 auto; display: grid; gap: 48px; }
   .prose { max-width: 68ch; }
   .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--fg-2); }
   h1 { font-family: var(--display); font-weight: 600; font-size: clamp(32px, 5vw, 48px); line-height: 1.1; margin: 6px 0 14px; text-wrap: balance; }
   h2 { font-family: var(--display); font-weight: 600; font-size: 24px; line-height: 1.2; margin: 0 0 6px; text-wrap: balance; }
+  h3 { font-family: var(--display); font-weight: 600; font-size: 17px; margin: 0 0 8px; }
   p { margin: 0 0 12px; }
   .lede { font-size: 17px; color: var(--fg); }
-  figure { margin: 0; display: grid; gap: 12px; }
+  figure { margin: 0; display: grid; gap: 12px; min-width: 0; }
   .plate { overflow-x: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding-block: 18px; }
   .plate svg { display: block; min-width: 960px; width: 100%; height: auto; font-family: var(--body); }
   .plate svg .t { font-size: 12.5px; fill: var(--fg); }
@@ -55,42 +62,102 @@
   .plate svg .a { font-size: 11px; fill: var(--fg-2); font-style: italic; }
   .plate svg .acc { fill: var(--accent); }
   .plate svg .lie { fill: var(--lie); }
+  .plate svg .cel { fill: var(--cells); }
   figcaption { font-size: 14px; color: var(--fg-2); max-width: 72ch; }
   figcaption b { color: var(--fg); font-weight: 600; }
   .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px 40px; align-items: start; }
+  .grid2 > * { min-width: 0; }
   table { border-collapse: collapse; width: 100%; font-size: 14px; }
   th { text-align: left; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--fg-2); font-weight: 500; padding: 0 12px 8px 0; border-bottom: 1px solid var(--line); }
   td { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; min-width: 0; }
   td:first-child { font-weight: 600; white-space: nowrap; }
+  td code { overflow-wrap: anywhere; }
+  .table-wrap { overflow-x: auto; }
   code { font-family: var(--mono); font-size: 12.5px; background: var(--bg-2); padding: 1px 5px; border-radius: 3px; }
   .latin dt { font-family: var(--display); font-size: 20px; font-weight: 600; margin-top: 14px; }
   .latin dt small { font-family: var(--mono); font-size: 11px; font-weight: 400; color: var(--fg-2); margin-left: 8px; letter-spacing: .04em; }
   .latin dd { margin: 2px 0 0; color: var(--fg); }
   .note { font-size: 13px; color: var(--fg-2); border-top: 1px solid var(--line); padding-top: 14px; max-width: 72ch; }
   a { color: var(--accent); }
+  a:focus-visible, li:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  /* ---- Plate I: the creature and its key ---- */
+  .creature { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 28px 40px; align-items: start;
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding-block: 22px; }
+  .creature .drawing { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); }
+  .creature svg { display: block; width: 100%; max-width: 480px; height: auto; margin-inline: auto; }
+  .creature .ink { fill: var(--ink); }
+  .creature .gold { fill: var(--gold); }
+  .creature .ground { stroke: var(--fg-2); stroke-width: 1.2; stroke-dasharray: 5 4; }
+  .creature .ground-label { font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; fill: var(--fg-2); }
+  .mk circle { fill: var(--bg); stroke: var(--accent); stroke-width: 1.6; transition: fill .15s; }
+  .mk text { font-family: var(--mono); font-size: 10px; font-weight: 500; fill: var(--fg); }
+  .legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+  .legend li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .legend li:last-child { border-bottom: 0; }
+  .legend .num { font-family: var(--mono); font-size: 12px; width: 24px; height: 24px; border-radius: 50%; border: 1.6px solid var(--accent);
+    display: grid; place-items: center; color: var(--fg); margin-top: 1px; }
+  .legend li:is(:hover, :focus-within) .num { background: var(--gold); border-color: var(--gold); color: var(--bg); }
+  .legend .part { font-family: var(--display); font-weight: 600; font-size: 16px; line-height: 1.3; }
+  .legend .what { font-size: 14px; }
+  .legend .what a { font-weight: 600; }
+  .legend .types { font-family: var(--mono); font-size: 11.5px; color: var(--fg-2); margin-top: 2px; overflow-wrap: anywhere; }
+  .creature:has(li[data-p="1"]:is(:hover,:focus-within)) .mk[data-p="1"] circle{fill:var(--gold);stroke:var(--gold)}.creature:has(li[data-p="1"]:is(:hover,:focus-within)) .mk[data-p="1"] text{fill:var(--bg)}.creature:has(li[data-p="2"]:is(:hover,:focus-within)) .mk[data-p="2"] circle{fill:var(--gold);stroke:var(--gold)}.creature:has(li[data-p="2"]:is(:hover,:focus-within)) .mk[data-p="2"] text{fill:var(--bg)}.creature:has(li[data-p="3"]:is(:hover,:focus-within)) .mk[data-p="3"] circle{fill:var(--gold);stroke:var(--gold)}.creature:has(li[data-p="3"]:is(:hover,:focus-within)) .mk[data-p="3"] text{fill:var(--bg)}.creature:has(li[data-p="4"]:is(:hover,:focus-within)) .mk[data-p="4"] circle{fill:var(--gold);stroke:var(--gold)}.creature:has(li[data-p="4"]:is(:hover,:focus-within)) .mk[data-p="4"] text{fill:var(--bg)}.creature:has(li[data-p="5"]:is(:hover,:focus-within)) .mk[data-p="5"] circle{fill:var(--gold);stroke:var(--gold)}.creature:has(li[data-p="5"]:is(:hover,:focus-within)) .mk[data-p="5"] text{fill:var(--bg)}.creature:has(li[data-p="6"]:is(:hover,:focus-within)) .mk[data-p="6"] circle{fill:var(--gold);stroke:var(--gold)}.creature:has(li[data-p="6"]:is(:hover,:focus-within)) .mk[data-p="6"] text{fill:var(--bg)}.creature:has(li[data-p="7"]:is(:hover,:focus-within)) .mk[data-p="7"] circle{fill:var(--gold);stroke:var(--gold)}.creature:has(li[data-p="7"]:is(:hover,:focus-within)) .mk[data-p="7"] text{fill:var(--bg)}.creature:has(li[data-p="8"]:is(:hover,:focus-within)) .mk[data-p="8"] circle{fill:var(--gold);stroke:var(--gold)}.creature:has(li[data-p="8"]:is(:hover,:focus-within)) .mk[data-p="8"] text{fill:var(--bg)}.creature:has(li[data-p="9"]:is(:hover,:focus-within)) .mk[data-p="9"] circle{fill:var(--gold);stroke:var(--gold)}.creature:has(li[data-p="9"]:is(:hover,:focus-within)) .mk[data-p="9"] text{fill:var(--bg)}.creature:has(li[data-p="10"]:is(:hover,:focus-within)) .mk[data-p="10"] circle{fill:var(--gold);stroke:var(--gold)}.creature:has(li[data-p="10"]:is(:hover,:focus-within)) .mk[data-p="10"] text{fill:var(--bg)}.creature:has(li[data-p="11"]:is(:hover,:focus-within)) .mk[data-p="11"] circle{fill:var(--gold);stroke:var(--gold)}.creature:has(li[data-p="11"]:is(:hover,:focus-within)) .mk[data-p="11"] text{fill:var(--bg)}
+  @media (max-width: 760px) {
+    .creature { grid-template-columns: minmax(0, 1fr); }
+    .creature .drawing { position: static; }
+    .creature svg { max-width: 380px; }
+  }
+
+  /* ---- Plate IV: how an entry travels ---- */
+  .steps { margin: 0; padding-left: 22px; display: grid; gap: 8px; font-size: 14px; }
+  .steps li::marker { font-family: var(--mono); color: var(--fg-2); }
   @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+  @media (prefers-reduced-motion: reduce) { .mk circle { transition: none; } }
 </style>
 
 <main>
   <header class="prose">
-    <div class="eyebrow">Creatura · plate I and II · 2026-10-28</div>
+    <div class="eyebrow">Creatura · plates I to IV · 2026-10-28</div>
     <h1>The anatomy of a creatura</h1>
     <p class="lede">Creatura is an agent framework for building agents out of regulation patterns taken from how living things and minds keep themselves on course. The core is one generic agent: a loop, a control layer between the model and its tools, and a contract for worlds that can lie. Everything else plugs in. A design is a <b>regulator</b> that fills the loop's slots, a behaviour is an <b>extension</b> that hooks into its verbs, and a <b>world</b> is where both are trained and tested.</p>
-    <p>Two plates: what the parts are and which of them talk, then what happens in one tick. Names in monospace are the types in the code.</p>
+    <p>Four plates: the creature itself with each part named, what the parts are and which of them talk, what happens in one tick, and how creaturas on different vessels share their work. Names in monospace are the types in the code.</p>
   </header>
 
-  <!-- ====================== PLATE I: ANATOMY ====================== -->
-  <figure>
+  <!-- ====================== PLATE I: THE CREATURE ====================== -->
+  <figure id="creature">
     <div class="eyebrow">Plate I</div>
+    <h2>The creature, part by part</h2>
+    <div class="creature">
+      <div class="drawing">
+        <svg viewBox="0 0 378 330" role="img" aria-label="The project's icon, a winged lion with a halo and a star, standing on a dashed ground line, with eleven numbered markers on its parts: head, mane, halo, star, body, raised paw, legs, wings, tail, the tail's tuft and the ground. The key beside it names the part of the framework each stands for.">
+          <path class="ink" fill-rule="evenodd" d="M276 203 L274 204 L274 205 L266 213 L261 216 L254 223 L254 224 L256 223 L264 223 L265 224 L268 224 L269 223 L275 223 L276 224 L290 223 L291 224 L291 233 L290 234 L290 239 L289 241 L284 243 L278 243 L276 245 L276 254 L280 262 L283 262 L294 257 L303 247 L306 238 L306 219 L305 216 L300 211 L292 208 L282 207 Z M80 189 L79 190 L80 193 L80 200 L78 204 L54 230 L50 239 L49 250 L53 262 L62 272 L70 276 L86 278 L89 277 L91 275 L95 267 L97 261 L97 258 L98 257 L98 251 L104 249 L109 249 L115 245 L116 242 L118 240 L123 225 L131 210 L125 212 L116 220 L105 235 L97 249 L89 259 L84 262 L78 264 L72 263 L68 261 L63 256 L60 249 L60 242 L62 236 L65 231 L80 215 L86 203 L86 190 L85 189 Z M202 171 L193 170 L189 174 L187 180 L192 179 L194 177 L202 173 Z M186 169 L180 166 L174 166 L171 171 L162 181 L162 183 L164 184 L170 184 L171 185 L176 184 L180 180 L186 171 Z M38 166 L45 177 L52 183 L49 184 L50 186 L56 191 L59 191 L60 192 L71 191 L73 190 L76 186 L78 187 L82 187 L84 186 L84 183 L80 175 L75 170 L69 167 L61 166 L60 165 L49 166 L48 167 Z M171 164 L165 159 L161 158 L149 167 L148 169 L140 176 L140 178 L146 180 L148 182 L150 182 L157 178 L171 165 Z M158 154 L150 147 L147 146 L132 158 L124 163 L122 166 L123 168 L129 172 L133 172 L135 170 L146 164 Z M144 141 L136 135 L130 137 L125 140 L123 140 L111 146 L109 148 L106 149 L105 152 L111 158 L115 159 L134 150 L143 144 Z M133 130 L128 123 L126 122 L121 122 L117 124 L113 124 L112 125 L105 126 L88 132 L88 134 L90 138 L94 142 L96 143 L101 143 L102 142 L105 142 L111 140 L123 134 L133 131 Z M65 106 L69 116 L72 119 L76 120 L79 122 L85 122 L86 123 L90 123 L91 122 L101 122 L102 121 L114 120 L115 119 L118 119 L124 117 L122 112 L117 107 L110 107 L109 108 L85 108 L84 107 L70 107 L69 106 Z M52 82 L52 84 L56 93 L58 95 L66 98 L77 99 L78 100 L83 100 L84 101 L91 101 L92 102 L100 102 L101 103 L117 103 L115 99 L114 92 L110 90 L94 88 L93 87 L84 86 L83 85 L68 84 L67 83 L61 83 L60 82 Z M273 78 L270 78 L269 79 L268 78 L264 80 L249 79 L248 80 L243 80 L231 84 L223 89 L214 98 L208 106 L202 111 L198 113 L197 116 L200 122 L208 130 L211 130 L213 128 L224 123 L230 123 L233 126 L234 130 L232 135 L224 143 L224 144 L225 144 L233 139 L234 140 L234 149 L231 158 L227 163 L226 160 L227 159 L227 155 L229 150 L229 144 L229 146 L227 148 L217 166 L214 170 L205 178 L183 189 L178 190 L175 192 L170 193 L160 198 L153 200 L151 202 L146 204 L137 212 L132 220 L125 241 L121 248 L115 253 L109 256 L105 256 L104 257 L100 271 L98 274 L98 276 L96 279 L92 291 L92 294 L89 303 L127 303 L128 304 L131 304 L130 299 L125 292 L121 290 L115 290 L114 291 L111 291 L110 290 L110 287 L115 272 L118 269 L123 269 L124 268 L128 268 L129 267 L136 266 L145 262 L151 258 L161 248 L166 238 L171 222 L174 220 L175 221 L174 222 L174 236 L169 248 L165 254 L146 271 L143 277 L148 279 L150 281 L150 283 L153 282 L168 293 L173 298 L174 303 L207 303 L210 304 L210 298 L207 292 L203 288 L199 286 L192 286 L189 288 L187 288 L171 274 L174 270 L179 269 L190 264 L197 257 L200 249 L200 238 L198 233 L196 232 L184 232 L183 233 L178 233 L175 235 L174 233 L178 229 L186 226 L197 226 L198 227 L203 227 L204 228 L216 229 L218 225 L220 215 L223 212 L226 211 L227 214 L226 215 L226 219 L224 224 L224 228 L221 235 L221 238 L224 235 L228 233 L230 234 L230 242 L229 243 L229 249 L230 252 L228 254 L225 255 L224 263 L230 261 L232 263 L231 265 L231 275 L230 276 L230 282 L229 285 L232 286 L232 289 L234 292 L235 298 L236 299 L236 303 L267 303 L268 304 L269 303 L267 297 L261 290 L257 288 L248 288 L247 287 L247 221 L249 218 L253 216 L256 211 L256 208 L264 187 L264 177 L265 176 L267 177 L267 180 L268 181 L268 189 L267 190 L265 204 L263 209 L268 204 L276 192 L279 183 L279 179 L281 178 L282 179 L282 182 L283 182 L284 169 L277 148 L278 147 L281 150 L285 158 L291 163 L290 155 L285 140 L285 137 L286 136 L290 139 L296 140 L297 141 L301 139 L297 138 L289 131 L286 127 L284 122 L277 113 L279 112 L284 114 L292 114 L293 113 L296 113 L300 110 L299 111 L295 111 L289 109 L282 104 L277 99 L273 93 L269 94 L264 98 L258 99 L257 100 L252 100 L249 98 L250 96 L258 95 L267 90 L271 85 Z M250 165 L251 166 L250 178 L251 179 L251 183 L253 188 L253 191 L251 193 L248 186 L247 178 L246 177 L247 175 L247 171 Z M241 139 L243 141 L242 154 L241 155 L240 162 L236 167 L235 165 L239 154 L240 140 Z M249 129 L254 140 L253 143 L250 138 L248 132 Z M256 126 L258 131 L258 137 L257 138 L255 132 L255 127 Z M230 96 L231 99 L227 103 L223 105 L221 103 L222 101 L226 97 Z M265 81 L257 86 L252 87 L249 89 L247 88 L249 85 L255 82 L257 82 L259 80 L262 81 L264 80 Z M120 65 L120 68 L119 69 L120 85 L123 91 L123 94 L126 96 L124 98 L124 101 L127 107 L130 111 L144 114 L148 116 L147 117 L133 117 L136 123 L140 127 L144 127 L145 128 L144 132 L148 136 L158 135 L159 136 L154 139 L154 140 L159 146 L165 149 L173 157 L186 162 L189 162 L198 165 L202 165 L204 166 L206 169 L211 163 L215 155 L203 151 L197 147 L189 139 L185 133 L180 121 L179 112 L178 111 L178 103 L177 102 L176 96 L174 93 L169 88 L163 84 L157 82 L148 77 L143 76 L133 71 L131 71 Z M125 97 L126 96 L129 96 L130 97 L134 97 L139 99 L138 100 L132 100 Z M260 44 L258 40 L248 40 L247 41 L242 41 L241 42 L237 42 L236 43 L232 43 L231 44 L227 44 L226 45 L219 46 L206 51 L203 51 L186 58 L183 62 L183 67 L185 69 L184 68 L185 67 L184 66 L185 63 L191 58 L193 55 L196 57 L197 56 L198 58 L192 62 L197 59 L224 50 L227 50 L232 48 L238 48 L239 47 L249 47 L250 46 L252 47 L252 49 L247 53 L241 54 L231 58 L228 58 L215 63 L201 66 L197 68 L193 67 L192 68 L194 69 L191 71 L190 70 L187 70 L188 71 L203 71 L204 70 L219 67 L233 62 L234 61 L233 60 L238 56 L239 57 L240 56 L242 57 L244 55 L247 54 L250 55 L253 53 L257 52 L260 48 Z M206 52 L208 51 L213 53 L209 55 Z M243 45 L246 44 L249 46 L246 47 Z M42 27 L43 28 L43 36 L45 42 L49 46 L56 50 L71 55 L93 66 L95 66 L100 69 L109 72 L108 73 L100 72 L96 70 L93 70 L78 65 L67 60 L48 56 L44 54 L44 59 L46 63 L46 66 L50 71 L74 79 L87 81 L92 83 L96 83 L100 85 L104 85 L109 87 L113 87 L111 77 L110 76 L110 64 L111 63 L111 59 L105 57 L88 48 L86 48 L80 44 L76 43 L55 32 L53 32 L44 27 Z"/>
+          <path class="gold" fill-rule="evenodd" d="M260 42 L259 40 L257 39 L245 40 L243 42 L240 41 L240 42 L237 44 L236 42 L235 42 L233 44 L230 43 L229 44 L226 44 L225 46 L222 45 L220 47 L218 46 L204 51 L201 51 L192 55 L190 55 L184 59 L185 58 L187 59 L185 61 L183 66 L182 63 L182 66 L183 69 L186 71 L192 70 L193 71 L191 72 L199 72 L194 72 L193 71 L199 69 L201 70 L202 69 L203 71 L205 71 L202 69 L203 68 L205 69 L206 67 L207 70 L208 70 L209 68 L212 69 L214 67 L216 68 L227 64 L236 63 L237 64 L236 66 L236 75 L240 75 L242 73 L243 70 L243 60 L245 58 L249 57 L257 52 L254 53 L252 52 L248 54 L246 54 L245 53 L247 52 L234 56 L232 58 L231 57 L229 59 L228 58 L227 60 L224 59 L226 60 L225 61 L221 60 L222 61 L221 62 L219 61 L218 63 L215 62 L217 63 L216 64 L211 63 L213 64 L207 67 L204 65 L206 67 L202 69 L200 68 L201 66 L200 66 L201 67 L198 70 L195 68 L197 67 L194 67 L192 64 L193 62 L192 61 L193 60 L195 61 L200 59 L199 58 L200 57 L203 58 L206 56 L211 55 L212 53 L214 54 L215 52 L217 53 L218 51 L220 52 L219 51 L220 50 L224 51 L226 49 L228 50 L229 49 L233 49 L235 47 L236 48 L240 48 L245 46 L246 47 L252 47 L253 46 L252 45 L252 42 L254 40 L255 41 L256 40 L259 42 L258 43 L259 42 L260 44 Z M144 21 L144 26 L142 32 L140 34 L134 36 L133 38 L136 40 L140 41 L143 44 L144 51 L147 51 L148 48 L148 42 L151 40 L156 39 L156 36 L151 34 L148 31 L147 29 L147 23 L146 21 Z M245 33 L244 30 L239 23 L231 16 L229 16 L227 14 L221 12 L216 12 L215 11 L201 12 L194 16 L192 16 L186 20 L181 25 L176 34 L174 45 L175 47 L178 46 L184 32 L192 24 L206 18 L216 18 L227 23 L233 28 L237 33 L240 39 L241 38 L242 39 L245 38 Z"/>
+          <line class="ground" x1="30" y1="312" x2="314" y2="312"/>
+          <text class="ground-label" x="30" y="326">THE BENCH · WORLDS · ORACLE · BATTERIES</text>
+          <g class="mk" data-p="1"><circle cx="226" cy="101" r="9"/><text x="226" y="104.6" text-anchor="middle">1</text></g><g class="mk" data-p="2"><circle cx="279" cy="140" r="9"/><text x="279" y="143.6" text-anchor="middle">2</text></g><g class="mk" data-p="3"><circle cx="209" cy="12" r="9"/><text x="209" y="15.6" text-anchor="middle">3</text></g><g class="mk" data-p="4"><circle cx="145" cy="36" r="9"/><text x="145" y="39.6" text-anchor="middle">4</text></g><g class="mk" data-p="5"><circle cx="183" cy="222" r="9"/><text x="183" y="225.6" text-anchor="middle">5</text></g><g class="mk" data-p="6"><circle cx="296" cy="236" r="9"/><text x="296" y="239.6" text-anchor="middle">6</text></g><g class="mk" data-p="7"><circle cx="170" cy="290" r="9"/><text x="170" y="293.6" text-anchor="middle">7</text></g><g class="mk" data-p="8"><circle cx="92" cy="104" r="9"/><text x="92" y="107.6" text-anchor="middle">8</text></g><g class="mk" data-p="9"><circle cx="78" cy="236" r="9"/><text x="78" y="239.6" text-anchor="middle">9</text></g><g class="mk" data-p="10"><circle cx="60" cy="177" r="9"/><text x="60" y="180.6" text-anchor="middle">10</text></g><g class="mk" data-p="11"><circle cx="330" cy="312" r="9"/><text x="330" y="315.6" text-anchor="middle">11</text></g>
+        </svg>
+      </div>
+      <ol class="legend"><li data-p="1"><span class="num">1</span><div><div class="part">The head</div><div class="what"><a href="#parts">The seat</a>: where each choice is made: a model, a trained network or a planner answers one visible tool, or none.</div><div class="types">IPolicy · ModelPolicy · NetworkSeat · SeatView</div></div></li><li data-p="2"><span class="num">2</span><div><div class="part">The mane</div><div class="what"><a href="#parts">The regulator</a>: the design wrapped around the seat; it shapes what the head gets to see.</div><div class="types">IRegulator · ColonyRegulator · SelfModelRegulator · MapKeeperRegulator · OrientingRegulator · HybridRegulator</div></div></li><li data-p="3"><span class="num">3</span><div><div class="part">The halo</div><div class="what"><a href="#parts">The control layer</a>: it watches every act from above: what may be seen, what may be done, what really happened.</div><div class="types">ControlLayer: Visibility · Gatekeeper · EffectCheck · Ledger</div></div></li><li data-p="4"><span class="num">4</span><div><div class="part">The star</div><div class="what"><a href="#tick">The task</a>: the goal it steers by, read from the facts and never from a report.</div><div class="types">AgentTask · AgentTask.Goal</div></div></li><li data-p="5"><span class="num">5</span><div><div class="part">The body</div><div class="what"><a href="#tick">The loop</a>: it carries everything, tick after tick.</div><div class="types">ReferenceLoop · ITickedWorld</div></div></li><li data-p="6"><span class="num">6</span><div><div class="part">The raised paw</div><div class="what"><a href="#parts">Acting</a>: the only part that touches the world, and the world answers, sometimes with a lie.</div><div class="types">Tool · ActionOutcome · ActionVerdict</div></div></li><li data-p="7"><span class="num">7</span><div><div class="part">The legs</div><div class="what"><a href="#parts">The vessel</a>: what it stands on: the computer, the machine it drives, and the model.</div><div class="types">Vessel · Hardware · PhysicalMachine</div></div></li><li data-p="8"><span class="num">8</span><div><div class="part">The wings</div><div class="what"><a href="#mesh">The cells</a>: how it reaches beyond one vessel: identity, the signed ledger, the hub and the mesh.</div><div class="types">CreaturaId · CellKey · WorkLedger · LedgerSyncNode</div></div></li><li data-p="9"><span class="num">9</span><div><div class="part">The tail</div><div class="what"><a href="#parts">The record</a>: what trails behind it: what it earned across cases, and the trace it gives off.</div><div class="types">AgentRecord · IRecordStore · TraceEvent</div></div></li><li data-p="10"><span class="num">10</span><div><div class="part">The tail’s tuft</div><div class="what"><a href="#parts">The extensions</a>: loose behaviours hooked on the loop’s verbs, after the regulator.</div><div class="types">IAgentExtension · RoadDistrustExtension · CriticExtension</div></div></li><li data-p="11"><span class="num">11</span><div><div class="part">The ground</div><div class="what"><a href="#bench">The bench</a>: where every creatura is trained and tested: worlds that lie, an oracle it cannot fool, batteries stated before they run.</div><div class="types">IOracle · Battery · Hypothesis · ConvoyBattery</div></div></li></ol>
+    </div>
+    <figcaption><b>One animal, many parts, one direction.</b> The head chooses, but only among what the halo lets it see, and the halo judges every act of the paw by what happened in the world rather than by what the paw reports. The wings carry its work to other creaturas; the tail keeps what it has earned. It stands on the bench, where every claim about it is tested before it is believed.</figcaption>
+  </figure>
+
+  <!-- ====================== PLATE II: THE PARTS ====================== -->
+  <figure id="parts">
+    <div class="eyebrow">Plate II</div>
     <h2>The parts, and who talks to whom</h2>
     <div class="plate">
-    <svg viewBox="0 0 1200 720" role="img" aria-label="A creatura (identity, regulator, seat, extensions, loop, record) on the left; the control layer with Visibility, Gatekeeper, EffectCheck and Ledger in the middle; the world with facts, tools, barriers, oracle and controls on the right; the trace below the creatura feeding the Augur below the world. Arrows: the layer offers visible tools to the seat, the seat proposes a tool, the gatekeeper acts in the world, the effect check reads the facts, the verdict goes back into the loop, the ledger snapshots into the record, the creatura gives off a trace that the Augur reads.">
+    <svg viewBox="0 0 1200 840" role="img" aria-label="A creatura (identity with its vessel, regulator, seat, extensions, loop, record) on the left; the control layer with Visibility, Gatekeeper, EffectCheck and its own ledger in the middle; the world with facts, tools, barriers, oracle, controls and several creaturas on the right; the trace and the critic below; the cells along the bottom: identity, the work ledger, the hub and sync, shared files. Arrows: the layer offers visible tools to the seat, the seat proposes a tool, the gatekeeper acts in the world, the effect check reads the facts, the verdict goes back into the loop, the layer's ledger goes into the record at sleep, the creatura gives off a trace the critic reads, and writes its work to the cells.">
       <defs>
         <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
           <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
         </marker>
         <marker id="ar-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
           <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        </marker>
+        <marker id="ar-cel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--cells)"/>
         </marker>
       </defs>
 
@@ -102,16 +169,16 @@
       <!-- identity -->
       <rect x="50" y="105" width="490" height="66" rx="4" fill="var(--bg)" stroke="var(--line)"/>
       <line x1="175" y1="105" x2="175" y2="171" stroke="var(--line)"/>
-      <line x1="360" y1="105" x2="360" y2="171" stroke="var(--line)"/>
+      <line x1="372" y1="105" x2="372" y2="171" stroke="var(--line)"/>
       <text x="62" y="124" class="k">IDENTITY · WHO</text>
       <text x="62" y="143" class="t">role · principal</text>
       <text x="62" y="160" class="s">commitments · scope</text>
-      <text x="187" y="124" class="k">VESSEL</text>
-      <text x="187" y="143" class="t">the hardware + the model</text>
-      <text x="187" y="160" class="s">machine · OS · model · window</text>
-      <text x="372" y="124" class="k">WHERE</text>
-      <text x="372" y="143" class="t">its place on the network</text>
-      <text x="372" y="160" class="s">in-process · mesh · internet</text>
+      <text x="187" y="124" class="k">VESSEL · WHAT IT STANDS ON</text>
+      <text x="187" y="143" class="t">computer · machine · model</text>
+      <text x="187" y="160" class="m" style="font-size:10.5px">Hardware · PhysicalMachine</text>
+      <text x="384" y="124" class="k">WHERE</text>
+      <text x="384" y="143" class="t">its place on the network</text>
+      <text x="384" y="160" class="s">in-process · mesh · internet</text>
 
       <!-- regulator -->
       <rect x="50" y="190" width="300" height="210" rx="4" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5"/>
@@ -134,21 +201,22 @@
       <!-- seat -->
       <rect x="380" y="190" width="160" height="95" rx="4" fill="var(--bg)" stroke="var(--line)"/>
       <text x="392" y="213" class="h" style="font-size:15px">Seat</text>
-      <text x="392" y="236" class="t">the model, or the planner</text>
-      <text x="392" y="254" class="s">answers one tool, or none</text>
-      <text x="392" y="272" class="s">reads only the SeatView</text>
+      <text x="392" y="234" class="t">a model, a network,</text>
+      <text x="392" y="250" class="t">or a planner</text>
+      <text x="392" y="267" class="m" style="font-size:10.5px">ModelPolicy · NetworkSeat</text>
+      <text x="392" y="280" class="s">one visible tool, or none</text>
 
       <!-- extensions -->
       <rect x="380" y="305" width="160" height="95" rx="4" fill="var(--bg)" stroke="var(--line)" stroke-dasharray="4 3"/>
       <text x="392" y="328" class="h" style="font-size:15px">Extensions</text>
       <text x="392" y="350" class="m">honest · explore · record</text>
-      <text x="392" y="367" class="m">dream · critic · biology</text>
+      <text x="392" y="367" class="m">critic · biology · distrust</text>
       <text x="392" y="387" class="s">hooked on the loop's verbs</text>
 
       <!-- loop -->
       <rect x="50" y="420" width="490" height="50" rx="4" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5"/>
       <text x="62" y="441" class="h" style="font-size:15px">ReferenceLoop</text>
-      <text x="62" y="460" class="s">one tick: offer → decide → admit → act → judge → record → stop? (plate II)</text>
+      <text x="62" y="460" class="s">one tick: offer → decide → admit → act → judge → record → stop? (plate III)</text>
 
       <!-- record -->
       <rect x="50" y="490" width="490" height="90" rx="4" fill="var(--bg)" stroke="var(--line)"/>
@@ -186,47 +254,56 @@
 
       <rect x="612" y="480" width="126" height="100" rx="4" fill="var(--bg)" stroke="var(--line)"/>
       <text x="622" y="500" class="t" style="font-weight:600">Ledger</text>
-      <text x="622" y="518" class="s">quarantine, decaying</text>
-      <text x="622" y="533" class="s">failures vs budget</text>
-      <text x="622" y="548" class="s">predictions · audit</text>
-      <text x="622" y="563" class="s">trace · notes</text>
+      <text x="622" y="516" class="s">the layer's own: a</text>
+      <text x="622" y="531" class="m" style="font-size:10.5px">SelfModel</text>
+      <text x="622" y="546" class="s">quarantine · predictions</text>
+      <text x="622" y="561" class="s">audit · not the cells'</text>
+      <text x="622" y="574" class="m" style="font-size:10.5px">WorkLedger</text>
 
       <!-- ===== the world ===== -->
       <rect x="790" y="60" width="380" height="540" rx="10" fill="var(--world-soft)" stroke="var(--world)" stroke-width="1.5"/>
       <text x="810" y="88" class="h">World</text>
       <text x="868" y="88" class="s">the simulator: where a creatura is trained and tested</text>
 
-      <rect x="810" y="110" width="340" height="70" rx="4" fill="var(--bg)" stroke="var(--line)"/>
-      <text x="822" y="132" class="t" style="font-weight:600">Facts</text>
-      <text x="870" y="132" class="s">the registry: the only truth</text>
-      <text x="822" y="152" class="s">What is actually the case. A creatura reads it;</text>
-      <text x="822" y="167" class="s">only an action can change it.</text>
+      <rect x="810" y="106" width="340" height="62" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="822" y="126" class="t" style="font-weight:600">Facts</text>
+      <text x="870" y="126" class="s">the registry: the only truth</text>
+      <text x="822" y="145" class="s">What is actually the case. A creatura reads it;</text>
+      <text x="822" y="160" class="s">only an action can change it.</text>
 
-      <rect x="810" y="200" width="340" height="70" rx="4" fill="var(--bg)" stroke="var(--line)"/>
-      <text x="822" y="222" class="t" style="font-weight:600">Tools</text>
-      <text x="868" y="222" class="s">requires · grants · kind</text>
-      <text x="822" y="242" class="s">They may <tspan class="lie">lie</tspan> (report success, change nothing),</text>
-      <text x="822" y="257" class="s">fail honestly, or vanish.</text>
+      <rect x="810" y="180" width="340" height="62" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="822" y="200" class="t" style="font-weight:600">Tools</text>
+      <text x="868" y="200" class="s">requires · grants · kind</text>
+      <text x="822" y="219" class="s">They may <tspan class="lie">lie</tspan> (report success, change nothing),</text>
+      <text x="822" y="234" class="s">fail honestly, or vanish.</text>
 
-      <rect x="810" y="290" width="340" height="70" rx="4" fill="var(--bg)" stroke="var(--line)"/>
-      <text x="822" y="312" class="t" style="font-weight:600">Barriers</text>
-      <text x="890" y="312" class="s">faults injected on purpose</text>
-      <text x="822" y="332" class="s">revoke a tool · lie once · lie always ·</text>
-      <text x="822" y="347" class="s">a shortcut that looks like the goal · an approval to earn</text>
+      <rect x="810" y="254" width="340" height="62" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="822" y="274" class="t" style="font-weight:600">Barriers</text>
+      <text x="890" y="274" class="s">faults injected on purpose</text>
+      <text x="822" y="293" class="s">revoke a tool · lie once · lie always ·</text>
+      <text x="822" y="308" class="s">a shortcut that looks like the goal · an approval to earn</text>
 
-      <rect x="810" y="380" width="340" height="70" rx="4" fill="var(--bg)" stroke="var(--line)"/>
-      <text x="822" y="402" class="t" style="font-weight:600">Oracle</text>
-      <text x="876" y="402" class="s">goal as evidence</text>
-      <text x="822" y="422" class="s">The goal is a fact the creatura cannot write itself.</text>
-      <text x="822" y="437" class="s">Outcome: real · claimed · handed off · open.</text>
+      <rect x="810" y="328" width="340" height="62" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="822" y="348" class="t" style="font-weight:600">Oracle</text>
+      <text x="876" y="348" class="s">goal as evidence</text>
+      <text x="822" y="367" class="s">The goal is a fact the creatura cannot write itself.</text>
+      <text x="822" y="382" class="s">Outcome: real · claimed · handed off · open.</text>
 
-      <rect x="810" y="470" width="340" height="70" rx="4" fill="var(--bg)" stroke="var(--line)" stroke-dasharray="4 3"/>
-      <text x="822" y="492" class="t" style="font-weight:600">Controls</text>
-      <text x="888" y="492" class="s">baselines beside the creatura</text>
-      <text x="822" y="512" class="s">careless · random walker · adversary · oracle planner:</text>
-      <text x="822" y="527" class="s">same tools, no control layer, so a result means something.</text>
+      <rect x="810" y="402" width="340" height="62" rx="4" fill="var(--bg)" stroke="var(--line)" stroke-dasharray="4 3"/>
+      <text x="822" y="422" class="t" style="font-weight:600">Controls</text>
+      <text x="888" y="422" class="s">baselines beside the creatura</text>
+      <text x="822" y="441" class="s">careless · random walker · adversary · oracle planner:</text>
+      <text x="822" y="456" class="s">same tools, no control layer, so a result means something.</text>
 
-      <!-- ===== bottom: monstrum and augur ===== -->
+      <rect x="810" y="476" width="340" height="104" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="822" y="496" class="t" style="font-weight:600">Several creaturas</text>
+      <text x="940" y="496" class="s">one world, stepped tick by tick</text>
+      <text x="822" y="515" class="m" style="font-size:10.5px">ITickedWorld · Creatura.Scenarios</text>
+      <text x="822" y="534" class="s">The convoy: three trucks, each a creatura with its own</text>
+      <text x="822" y="549" class="s">view (TruckView) and sensors that can lie, coordinating</text>
+      <text x="822" y="564" class="s">through their cells over an in-memory mesh (plate IV).</text>
+
+      <!-- ===== monstrum and augur ===== -->
       <rect x="30" y="625" width="530" height="75" rx="10" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5"/>
       <text x="50" y="650" class="h">Monstrum</text>
       <text x="140" y="650" class="s">the trace: what the creatura shows</text>
@@ -239,39 +316,53 @@
       <text x="620" y="672" class="s">Watches the route. A claim cites a fact or stays silent. The right to interrupt is earned</text>
       <text x="620" y="688" class="s">by precision and lost on noise. The owner, not the agent, holds the off switch.</text>
 
+      <!-- ===== the cells ===== -->
+      <rect x="30" y="728" width="1140" height="96" rx="10" fill="var(--cells-soft)" stroke="var(--cells)" stroke-width="1.5"/>
+      <text x="50" y="752" class="h">Cells</text>
+      <text x="100" y="752" class="s">how a creatura reaches beyond one vessel (plate IV) · namespace Creatura.Cells</text>
+      <g>
+        <rect x="50" y="764" width="268" height="48" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+        <text x="60" y="782" class="t" style="font-weight:600">Identity</text>
+        <text x="60" y="802" class="m" style="font-size:10.5px">CreaturaId · CellKey · OwnerKey</text>
+        <rect x="330" y="764" width="268" height="48" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+        <text x="340" y="782" class="t" style="font-weight:600">Work ledger</text>
+        <text x="425" y="782" class="s">signed, append-only</text>
+        <text x="340" y="802" class="m" style="font-size:10.5px">WorkLedger · SignedEntry</text>
+        <rect x="610" y="764" width="268" height="48" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+        <text x="620" y="782" class="t" style="font-weight:600">Hub and sync</text>
+        <text x="620" y="802" class="m" style="font-size:10.5px">LedgerSyncNode · HubRequest</text>
+        <rect x="890" y="764" width="260" height="48" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+        <text x="900" y="782" class="t" style="font-weight:600">Shared files</text>
+        <text x="900" y="802" class="m" style="font-size:10.5px">CellCipher · SharedFiles</text>
+      </g>
+
       <!-- ===== arrows ===== -->
-      <!-- offers visible tools: Visibility -> Seat -->
       <line x1="612" y1="205" x2="542" y2="205" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
       <text x="577" y="199" class="a" text-anchor="middle">offers</text>
-      <!-- proposes a tool: Seat -> Gatekeeper -->
       <line x1="540" y1="262" x2="610" y2="262" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
       <text x="575" y="276" class="a" text-anchor="middle">proposes</text>
-      <!-- acts: Gatekeeper -> Tools -->
-      <path d="M738,300 H775 V235 H808" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <path d="M738,300 H775 V211 H808" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
       <text x="780" y="262" class="a">acts</text>
-      <!-- facts: Facts -> EffectCheck -->
-      <path d="M810,150 H760 V410 H740" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <path d="M810,137 H760 V410 H740" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
       <text x="766" y="334" class="a">facts</text>
-      <!-- verdict: EffectCheck -> loop -->
       <path d="M612,420 H575 V445 H542" fill="none" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#ar-acc)"/>
       <text x="576" y="412" class="a acc" text-anchor="middle">verdict</text>
-      <!-- snapshot: Ledger -> Record -->
       <line x1="612" y1="540" x2="542" y2="540" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
       <text x="577" y="534" class="a" text-anchor="middle">at sleep</text>
-      <!-- gives off: creatura -> monstrum -->
       <line x1="295" y1="600" x2="295" y2="623" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#ar-acc)"/>
       <text x="303" y="616" class="a acc">gives off</text>
-      <!-- reads: monstrum -> augur -->
       <line x1="560" y1="662" x2="598" y2="662" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
       <text x="579" y="655" class="a" text-anchor="middle">reads</text>
+      <path d="M540,592 H580 V726" fill="none" stroke="var(--cells)" stroke-width="1.5" marker-end="url(#ar-cel)"/>
+      <text x="586" y="716" class="a cel">writes its work: claims, progress, warnings</text>
     </svg>
     </div>
-    <figcaption><b>The membrane is the point.</b> The seat never touches the world directly. The control layer decides what the model may see, refuses what it may not do, and judges every action by the facts rather than by the tool's report; only then does the verdict reach the regulator's memory. Controls stand in the same world without that layer. The creatura gives off a trace, and a critic with no hands reads it.</figcaption>
+    <figcaption><b>The membrane is the point.</b> The seat never touches the world directly. The control layer decides what the model may see, refuses what it may not do, and judges every action by the facts rather than by the tool's report; only then does the verdict reach the regulator's memory. <b>Two ledgers, two jobs:</b> the control layer's ledger is the creatura's own memory of its tools (a <code>SelfModel</code>); the cells' <code>WorkLedger</code> is the signed record of who is working on what, shared with other creaturas.</figcaption>
   </figure>
 
-  <!-- ====================== PLATE II: ONE TICK ====================== -->
-  <figure>
-    <div class="eyebrow">Plate II</div>
+  <!-- ====================== PLATE III: ONE TICK ====================== -->
+  <figure id="tick">
+    <div class="eyebrow">Plate III</div>
     <h2>One tick of the loop</h2>
     <div class="plate">
     <svg viewBox="0 0 1200 290" role="img" aria-label="Nine steps left to right: stop check, offer, freedom, decide, admit, act, judge, record, goal check; a refused admission skips act and judge and goes straight to record; a hand-off leaves the loop at the stop check unless an extension vetoes it; a met goal leaves at the end; otherwise the next tick starts again.">
@@ -358,35 +449,181 @@
       <text x="472" y="191" class="s" text-anchor="middle">is refused, not obeyed</text>
     </svg>
     </div>
-    <figcaption><b>Every regulator runs this same tick.</b> The slots it fills are the stop check, the shaping of the offer, the error and what it buys, the decision kind, the gate, the memory update, and what the seat gets to read. Levin, Bach, Peterson and Sokolov differ only inside those slots. Bach and Levin already run on it; the hybrid, the map-keeper and the orienting agent are being moved onto it now.</figcaption>
+    <figcaption><b>Every regulator runs this same tick.</b> The slots it fills are the stop check, the shaping of the offer, the error and what it buys, the decision kind, the gate, the memory update, and what the seat gets to read. Levin, Bach, Peterson, Sokolov and the hybrid differ only inside those slots; all five regulators run on this one loop, and so does the plain loop that fills no slot at all.</figcaption>
+  </figure>
+
+  
+  <!-- ====================== PLATE IV: THE MESH ====================== -->
+  <figure id="mesh">
+    <div class="eyebrow">Plate IV</div>
+    <h2>The mesh: how creaturas share their work</h2>
+    <p class="prose">Every creatura keeps a complete copy of the work ledger. Nothing is the single source of truth: entries are signed by the cell that wrote them, copied between vessels, and checked again wherever they arrive. The same ledger runs in two places: across real vessels, through a hub on a private network; and inside one simulated world, where trucks pass entries over an in-memory mesh.</p>
+    <div class="plate">
+    <svg viewBox="0 0 1200 600" role="img" aria-label="Left: two vessels on a private mesh network. The laptop holds the owner key, a cell, its ledger, the Claude Code hooks, an automatic sync every minute, and the hub with its database and shared files. The second machine holds a cell endorsed by the owner through request, endorse and accept, its ledger and its hooks; it syncs with the hub. Every sync request is signed. A dashed box shows the hub moving later to the VPN server, trusting only the owner's public key. Right: inside the convoy, three trucks each with a cell and ledger exchange entries over an in-memory mesh that delivers each entry the next tick, can lose or delay it, and ends with a final sync that leaves every ledger identical.">
+      <defs>
+        <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--cells)"/>
+        </marker>
+        <marker id="ar4g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <!-- ===== left: across vessels ===== -->
+      <text x="30" y="34" class="k">ACROSS VESSELS · THE CELLS' MESH</text>
+      <!-- the private network band -->
+      <rect x="30" y="268" width="690" height="64" rx="8" fill="var(--cells-soft)" stroke="var(--cells)" stroke-dasharray="5 4"/>
+      <text x="46" y="292" class="t" style="font-weight:600">Private mesh network</text>
+      <text x="46" y="311" class="s">a WireGuard mesh such as Tailscale: only the owner's devices are on it;</text>
+      <text x="46" y="325" class="s">the hub listens on its mesh address, never on every interface</text>
+
+      <!-- the laptop -->
+      <rect x="30" y="50" width="400" height="200" rx="10" fill="var(--bg)" stroke="var(--cells)" stroke-width="1.5"/>
+      <text x="48" y="76" class="h">The laptop</text>
+      <text x="196" y="76" class="s">the owner's vessel</text>
+      <rect x="48" y="92" width="170" height="56" rx="4" fill="var(--bg-2)" stroke="var(--line)"/>
+      <text x="58" y="111" class="t" style="font-weight:600">Owner key</text>
+      <text x="58" y="127" class="m" style="font-size:10.5px">OwnerKey</text>
+      <text x="58" y="141" class="s">endorses each vessel's cell</text>
+      <rect x="230" y="92" width="182" height="56" rx="4" fill="var(--bg-2)" stroke="var(--line)"/>
+      <text x="240" y="111" class="t" style="font-weight:600">Cell and ledger</text>
+      <text x="240" y="127" class="m" style="font-size:10.5px">LocalCell · WorkLedger</text>
+      <text x="240" y="141" class="s">Claude Code hooks write claims</text>
+      <rect x="48" y="160" width="364" height="76" rx="4" fill="var(--accent-soft)" stroke="var(--accent)"/>
+      <text x="58" y="180" class="t" style="font-weight:600">The hub</text>
+      <text x="118" y="180" class="m" style="font-size:10.5px">creatura-hub</text>
+      <text x="58" y="198" class="s">keeps the deltas (hub.db) and the shared files' sealed bytes;</text>
+      <text x="58" y="213" class="s">holds no cell key, so it can relay entries but never forge one</text>
+      <text x="58" y="228" class="s">launchd runs it, and a sync of this cell every 60 seconds</text>
+
+      <!-- the second machine -->
+      <rect x="470" y="50" width="250" height="200" rx="10" fill="var(--bg)" stroke="var(--cells)" stroke-width="1.5"/>
+      <text x="488" y="76" class="h">The second machine</text>
+      <text x="488" y="94" class="s">a second vessel, joined once:</text>
+      <text x="488" y="114" class="m" style="font-size:10.5px">request → endorse → accept</text>
+      <text x="488" y="132" class="s">the owner's vessel signs its cell</text>
+      <text x="488" y="146" class="s">into a VesselEndorsement</text>
+      <rect x="488" y="160" width="214" height="76" rx="4" fill="var(--bg-2)" stroke="var(--line)"/>
+      <text x="498" y="180" class="t" style="font-weight:600">Cell and ledger</text>
+      <text x="498" y="198" class="s">a full copy of the ledger;</text>
+      <text x="498" y="213" class="s">its hooks write its own claims</text>
+      <text x="498" y="228" class="s">syncs with the hub on demand</text>
+
+      <!-- arrows: syncs through the mesh -->
+      <path d="M230,250 V266" fill="none" stroke="var(--cells)" stroke-width="1.5" marker-end="url(#ar4)"/>
+      <path d="M595,250 V266" fill="none" stroke="var(--cells)" stroke-width="1.5" marker-end="url(#ar4)"/>
+      <path d="M595,268 V250" fill="none" stroke="none"/>
+      <text x="604" y="262" class="a cel">push · pull</text>
+      <text x="238" y="262" class="a cel">push · pull</text>
+
+      <!-- signed request detail -->
+      <rect x="30" y="350" width="690" height="104" rx="8" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="46" y="374" class="t" style="font-weight:600">Every sync request is signed</text>
+      <text x="46" y="393" class="m" style="font-size:10.5px">X-Creatura-Endorsement · X-Creatura-Time · X-Creatura-Signature</text>
+      <text x="46" y="412" class="s">The hub refuses a request whose cell the owner did not endorse, one older than five minutes, one it has</text>
+      <text x="46" y="427" class="s">seen before (a replay), and anything from a cell the owner revoked (a lost vessel). Then every cell checks</text>
+      <text x="46" y="442" class="s">every entry again when it merges: the signature, the endorsement, the payload.</text>
+
+      <!-- later: the hub on the VPN server -->
+      <rect x="30" y="472" width="690" height="92" rx="8" fill="none" stroke="var(--fg-2)" stroke-dasharray="5 4"/>
+      <text x="46" y="496" class="t" style="font-weight:600">Later: the hub on the VPN server</text>
+      <text x="46" y="515" class="s">The hub does not need the owner's private key. Given only the owner's public key</text>
+      <text x="46" y="530" class="m" style="font-size:10.5px">creatura-hub --listen &lt;mesh address&gt; --trust owner.pub --data &lt;dir&gt;</text>
+      <text x="46" y="549" class="s">it can move to the server where the mesh's control plane already lives, and the vessels keep syncing.</text>
+
+      <!-- divider -->
+      <line x1="750" y1="30" x2="750" y2="570" stroke="var(--line)"/>
+
+      <!-- ===== right: inside one world ===== -->
+      <text x="780" y="34" class="k">INSIDE ONE WORLD · THE CONVOY'S MESH</text>
+      <rect x="780" y="50" width="390" height="414" rx="10" fill="var(--world-soft)" stroke="var(--world)" stroke-width="1.5"/>
+      <!-- three trucks -->
+      <g>
+        <rect x="800" y="72" width="110" height="64" rx="4" fill="var(--bg)" stroke="var(--cells)"/>
+        <text x="812" y="94" class="t" style="font-weight:600">Truck 1</text>
+        <text x="812" y="112" class="s">cell · ledger</text>
+        <text x="812" y="127" class="s">own view</text>
+        <rect x="1040" y="72" width="110" height="64" rx="4" fill="var(--bg)" stroke="var(--cells)"/>
+        <text x="1052" y="94" class="t" style="font-weight:600">Truck 2</text>
+        <text x="1052" y="112" class="s">cell · ledger</text>
+        <text x="1052" y="127" class="s">own view</text>
+        <rect x="920" y="330" width="110" height="64" rx="4" fill="var(--bg)" stroke="var(--cells)"/>
+        <text x="932" y="352" class="t" style="font-weight:600">Truck 3</text>
+        <text x="932" y="370" class="s">cell · ledger</text>
+        <text x="932" y="385" class="s">own view</text>
+      </g>
+      <!-- the mesh in the middle -->
+      <ellipse cx="975" cy="222" rx="96" ry="44" fill="var(--cells-soft)" stroke="var(--cells)" stroke-width="1.5"/>
+      <text x="975" y="216" class="t" text-anchor="middle" style="font-weight:600">ScenarioMesh</text>
+      <text x="975" y="233" class="s" text-anchor="middle">next tick · seeded loss, delay</text>
+      <path d="M870,136 L920,186" fill="none" stroke="var(--cells)" stroke-width="1.4" marker-start="url(#ar4)" marker-end="url(#ar4)"/>
+      <path d="M1080,136 L1030,186" fill="none" stroke="var(--cells)" stroke-width="1.4" marker-start="url(#ar4)" marker-end="url(#ar4)"/>
+      <path d="M975,266 V328" fill="none" stroke="var(--cells)" stroke-width="1.4" marker-start="url(#ar4)" marker-end="url(#ar4)"/>
+      <!-- entry kinds -->
+      <text x="800" y="420" class="k">WHAT THE TRUCKS SAY</text>
+      <text x="800" y="438" class="m" style="font-size:10.5px">hello · claim · progress · release</text>
+      <text x="800" y="453" class="m" style="font-size:10.5px">hand-off · heartbeat · warning</text>
+      <!-- notes -->
+      <text x="780" y="492" class="s">A claim says "this village is mine"; a warning says "this road lies".</text>
+      <text x="780" y="508" class="s">An entry reaches the others the tick after it is written; in arm D,</text>
+      <text x="780" y="524" class="s">30% are lost and some arrive late. After the run, a final sync</text>
+      <text x="780" y="540" class="s">leaves every truck's ledger identical, byte for byte.</text>
+    </svg>
+    </div>
+    <div class="grid2">
+      <div>
+        <h3>How one entry travels</h3>
+        <ol class="steps">
+          <li>A cell writes an entry: its next sequence number, the time, the kind and the payload, signed with its <code>CellKey</code> and carrying the owner's endorsement.</li>
+          <li>It goes into the cell's own ledger first, on disk (<code>ledger.json</code>, or <code>ledger.db</code> with SQLite).</li>
+          <li>A sync pushes what the hub has not seen and pulls what this cell has not seen, as deltas, in one signed request.</li>
+          <li>The hub checks the request and keeps the deltas; it never needs to open an entry to relay it.</li>
+          <li>Every cell that pulls the entry checks its signature and endorsement again before merging it.</li>
+          <li>Every ledger sorts its entries the same way (time, cell, sequence), so two vessels with the same entries hold the same ledger.</li>
+        </ol>
+      </div>
+      <div>
+        <h3>What the ledger is for</h3>
+        <p>Claims, progress, hand-offs and releases say who is working on what, so two creaturas do not do the same job: in the convoy, a ledger cut wasted trips from 290 to 0 over 50 seeds. Heartbeats show who is still alive, so a silent creatura's claim can be taken over. Shared files travel as sealed artifacts, readable only by the cells they were sealed for. Warnings carry what one creatura saw to all the others: with roads shared that way, no truck drove a road another had already caught lying.</p>
+        <p class="note">The design: <a href="https://github.com/egarim/creatura/blob/main/docs/design-cells.md">design-cells.md</a> and <a href="https://github.com/egarim/creatura/blob/main/docs/design-shared-files.md">design-shared-files.md</a>; the convoy: <a href="https://github.com/egarim/creatura/blob/main/docs/design-machine-vessels.md">design-machine-vessels.md</a>.</p>
+      </div>
+    </div>
+    <figcaption><b>A relay, not a master.</b> The hub stores and forwards; it cannot write in any cell's name. The owner's key decides which cells belong, and a revocation from the owner shuts a lost vessel out everywhere it reaches.</figcaption>
   </figure>
 
   <!-- ====================== GLOSSARY ====================== -->
-  <section class="grid2">
+  <section class="grid2" id="bench">
     <div>
       <div class="eyebrow">The kinds of things</div>
       <h2>What each word means</h2>
+      <div class="table-wrap">
       <table>
         <thead><tr><th>kind</th><th>what it is</th><th>in code</th></tr></thead>
         <tbody>
           <tr><td>creatura</td><td>an assembled agent: the loop with a regulator in it, plus its identity, seat and extensions</td><td><code>ReferenceLoop</code></td></tr>
           <tr><td>regulator</td><td>a design. Fills the loop's slots: error signal, what error buys, memory, gate and stop</td><td><code>IRegulator</code>, <code>ColonyRegulator</code>, <code>SelfModelRegulator</code>, <code>MapKeeperRegulator</code>, <code>HybridRegulator</code>, <code>OrientingRegulator</code></td></tr>
           <tr><td>join</td><td>two regulators in one creatura under one fold law per slot</td><td><code>Regulators.Join</code>, <code>JoinRules</code></td></tr>
-          <tr><td>control layer</td><td>the membrane between seat and world: what may be seen, what may be done, what really happened</td><td><code>ControlLayer</code>: Visibility, Gatekeeper, EffectCheck, Ledger</td></tr>
-          <tr><td>seat</td><td>whatever fills the decision slot: a model, or the offline planner</td><td><code>IPolicy</code>, <code>SeatView</code></td></tr>
+          <tr><td>control layer</td><td>the membrane between seat and world: what may be seen, what may be done, what really happened. Its ledger is the creatura's memory of its tools</td><td><code>ControlLayer</code>: Visibility, Gatekeeper, EffectCheck, Ledger (<code>SelfModel</code>)</td></tr>
+          <tr><td>seat</td><td>whatever fills the decision slot: a catalogued model, a trained network, or an offline planner</td><td><code>IPolicy</code>, <code>SeatView</code>, <code>ModelPolicy</code>, <code>NetworkSeat</code></td></tr>
           <tr><td>identity</td><td>who the agent is, the vessel it runs in, where it sits on the network</td><td><code>Identity</code>, <code>Vessel</code></td></tr>
+          <tr><td>vessel</td><td>what a creatura stands on: the computer, the machine it drives, the model</td><td><code>Vessel</code>, <code>Hardware</code>, <code>PhysicalMachine</code></td></tr>
           <tr><td>extension</td><td>a loadable behaviour hooked on the loop's verbs after the regulator</td><td><code>IAgentExtension</code></td></tr>
-          <tr><td>world</td><td>a fact registry plus tools that may lie, fail honestly or vanish; the registry is the only truth</td><td><code>IWorldView</code>, <code>IWorld</code></td></tr>
+          <tr><td>world</td><td>a fact registry plus tools that may lie, fail honestly or vanish; the registry is the only truth</td><td><code>IWorldView</code>, <code>IWorld</code>, <code>ITickedWorld</code></td></tr>
+          <tr><td>scenario</td><td>several creaturas in one world, stepped one tick at a time: the convoy</td><td><code>ConvoyWorld</code>, <code>TruckView</code>, <code>ScenarioMesh</code></td></tr>
           <tr><td>barrier</td><td>a fault injected on purpose to test the creatura against</td><td><code>FaultRule</code>, <code>Barrier</code></td></tr>
           <tr><td>control</td><td>a baseline run beside the creatura in the same world: careless, random, adversary, oracle planner</td><td>plain <code>IAgent</code></td></tr>
           <tr><td>oracle</td><td>the goal as evidence the agent cannot author; classifies a run as real, claimed, handed off or open</td><td><code>AgentTask.Goal</code>, <code>IOracle</code></td></tr>
+          <tr><td>battery</td><td>a pre-registered experiment: hypotheses first, arms with controls, repeats, scored held or failed</td><td><code>Battery</code>, <code>Hypothesis</code>, <code>ConvoyBattery</code></td></tr>
           <tr><td>critic</td><td>an owned observer with no hands: record and replay, judgement, governance</td><td><code>HotzAgent</code>, <code>CriticExtension</code></td></tr>
           <tr><td>record</td><td>what a creatura earns across cases; a trainer earns it, an exam freezes it</td><td><code>AgentRecord</code>, <code>IRecordStore</code></td></tr>
           <tr><td>trace</td><td>the observable run: rows, notes, routes, calls; golden traces pin them</td><td><code>TraceEvent</code>, <code>AgentRun</code></td></tr>
-          <tr><td>battery</td><td>a pre-registered experiment: hypotheses first, arms with controls, repeats, scored held or failed</td><td><code>Battery</code>, <code>Hypothesis</code></td></tr>
+          <tr><td>cell</td><td>a creatura's identity on one vessel: its key, endorsed by the owner</td><td><code>CreaturaId</code>, <code>CellKey</code>, <code>LocalCell</code>, <code>VesselEndorsement</code></td></tr>
+          <tr><td>work ledger</td><td>the signed, append-only record of who is working on what, copied to every cell</td><td><code>WorkLedger</code>, <code>SignedEntry</code>, <code>EntryKind</code></td></tr>
+          <tr><td>hub</td><td>a relay the cells sync through; it checks every request and cannot forge an entry</td><td><code>creatura-hub</code>, <code>LedgerSyncNode</code>, <code>HubRequest</code>, <code>Revocation</code></td></tr>
           <tr><td>host</td><td>a runtime that owns the model call and hands the layer its hooks</td><td>Agent Framework middleware; Semantic Kernel reserved</td></tr>
         </tbody>
       </table>
+      </div>
     </div>
     <div>
       <div class="eyebrow">The Latin</div>
@@ -403,7 +640,8 @@
         <dt>Vessel <small>English, after vas electionis · a person as a chosen vessel</small></dt>
         <dd>The hardware and the model a creatura inhabits. Kept in English because Spanish <i>vas</i> means "you go"; the Latin stays as etymology.</dd>
       </dl>
-      <p class="note" style="margin-top:22px">Source of truth: <a href="https://github.com/egarim/biological-agents/blob/main/design-framework.md">design-framework.md</a>. Code: <a href="https://github.com/egarim/creatura">egarim/creatura</a>. State on 2026-10-28: the Core, the loop and the Bach and Levin regulators are in the framework; the hybrid, the map-keeper and the orienting regulator are being moved onto the loop. Scenario pictures come later, when there are test scenarios to picture.</p>
+      
+      <p class="note" style="margin-top:22px">Source of truth: <a href="https://github.com/egarim/biological-agents/blob/main/design-framework.md">design-framework.md</a>. Code: <a href="https://github.com/egarim/creatura">egarim/creatura</a>. State on 2026-10-28: all five regulators run on the one loop; seats take catalogued models and trained networks; cells sync through a hub with signed requests, revocation and shared files; the convoy runs several creaturas in one world. The icon is the project's own: a winged lion with a halo and a star.</p>
     </div>
   </section>
 </main>

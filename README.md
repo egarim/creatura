@@ -292,11 +292,10 @@ same verbs in the research repository's
 
 ## Anatomy
 
-[docs/anatomy.html](docs/anatomy.html) draws the parts and who talks to whom (plate I), one tick of the loop
-(plate II), the kinds of things with their types, and the five Latin names. The same page is published at
-https://claude.ai/artifact/QncbLz7HcCTxKbUQQPksKA. It predates the cells, the convoy and the trained seats;
-reviewing it, and drawing the anatomy on the project's icon, is
-[egarim/creatura#1](https://github.com/egarim/creatura/issues/1).
+[docs/anatomy.html](docs/anatomy.html) draws Creatura in four plates: the project's icon, a winged lion, with each
+part named for the part of the framework it stands for (plate I); the parts and who talks to whom, the cells
+included (plate II); one tick of the loop (plate III); and the mesh, across vessels through the hub and inside the
+convoy's world (plate IV). The same page is published at https://claude.ai/artifact/QncbLz7HcCTxKbUQQPksKA.
 
 ## Cells
 
