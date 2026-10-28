@@ -6,3 +6,4 @@ obj/
 
 # macOS
 .DS_Store
+datasets/

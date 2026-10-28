@@ -22,18 +22,21 @@ public sealed class ConvoyModelSeat(IPolicy model, RoadMap map, PhysicalMachine 
 
     public async Task<PolicySuggestion> NextAsync(PolicyContext context, CancellationToken cancellationToken = default)
     {
-        var briefed = context with
-        {
-            GoalText = "Get supplies to every village that still needs them, together with the other trucks, without doing the same job twice.",
-            Notes = [Briefing, .. context.Notes],
-        };
-        var suggestion = await model.NextAsync(briefed, cancellationToken).ConfigureAwait(false);
+        var suggestion = await model.NextAsync(Briefed(context, Briefing), cancellationToken).ConfigureAwait(false);
         if (suggestion.Tool is null && context.Tools.Any(t => t.Id == "wait"))
             return new PolicySuggestion("wait", $"the model chose no action ({suggestion.Rationale})");
         return suggestion;
     }
 
-    private static string Brief(RoadMap map, PhysicalMachine machine, string truck)
+    /// <summary>The context as the model reads it: the convoy's goal in words and the briefing before the truck's own notes.</summary>
+    public static PolicyContext Briefed(PolicyContext context, string briefing) => context with
+    {
+        GoalText = "Get supplies to every village that still needs them, together with the other trucks, without doing the same job twice.",
+        Notes = [briefing, .. context.Notes],
+    };
+
+    /// <summary>The briefing for one truck on one map: what a dataset puts before each decision, as the seat does.</summary>
+    public static string Brief(RoadMap map, PhysicalMachine machine, string truck)
     {
         var text = new StringBuilder();
         text.AppendLine($"You drive {truck}, one of three trucks. It carries {machine.Capacity} units and holds fuel for {machine.FuelCapacity / Math.Max(1, machine.FuelPerStep)} roads; every road you drive costs {machine.FuelPerStep} fuel.");

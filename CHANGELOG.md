@@ -23,7 +23,11 @@
   `--calls` and `--ticks`, and the battery `--arms`; S1 and S2 are scored when arms S and J ran. Arm S is not in the
   default battery. [docs/convoy-models.md](docs/convoy-models.md) says how to set up a model for the demo. First local runs: `qwen2.5:7b` delivered 5 units in 8 ticks against the planner's 15. A design for
   trained models (a policy network in the seat, a language model adapter, a learned world model, all fed by the
-  recorder) is proposed in [docs/design-trained-models.md](docs/design-trained-models.md).
+  recorder) is proposed in [docs/design-trained-models.md](docs/design-trained-models.md). Its step 1 is built: `ConvoyRecorder` records
+  every decision at the seat with its verdict and the facts afterwards, beside the generic `ExampleRecorder`. Also
+  `ConvoyFeatures` (61 features), `ConvoyActions` (36 actions), `ModelPolicy.RenderPrompt` made public, and
+  `ConvoyDatasets.Export`, which writes policy, chat and transition sets with a card and never exports the battery's
+  seeds. New command options: `--record` and `--dataset`. T1 held: recording changes no run.
   `samples/Convoy` runs one story or the battery. The **replay** is the interface for UIs: JSON lines described in
   [docs/replay-format.md](docs/replay-format.md), with `IScenarioObserver` for following a run live.
   `tools/convoy-viewer/index.html` is a three.js viewer with four sample runs built in.

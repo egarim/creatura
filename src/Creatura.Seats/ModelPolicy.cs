@@ -70,9 +70,16 @@ public sealed class ModelPolicy : IPolicy
     /// <summary>How many prompts the budget trimmed in this policy's life.</summary>
     public int PromptsTrimmed { get; private set; }
 
+    /// <summary>
+    /// The system and user messages this seat sends for a context, exactly as <see cref="NextAsync"/> builds them
+    /// (with no prompt budget): what a dataset renders a decision in, so a model trained on it sees the seat's own prompt.
+    /// </summary>
+    public static (string System, string User) RenderPrompt(PolicyContext context, bool nativeTools) =>
+        (nativeTools ? SystemPrompt : SystemPrompt + "\n" + JsonInstruction, BuildUserPrompt(context, nativeTools));
+
     public async Task<PolicySuggestion> NextAsync(PolicyContext context, CancellationToken cancellationToken = default)
     {
-        var system = _endpoint.NativeTools ? SystemPrompt : SystemPrompt + "\n" + JsonInstruction;
+        var system = RenderPrompt(context, _endpoint.NativeTools).System;
         var tools = _endpoint.NativeTools ? BuildTools(context.Tools) : null;
         var toolChars = tools is null ? 0 : tools.Sum(t => t.Name.Length + t.Description.Length + t.Parameters.ToJsonString().Length);
         var trim = 0;

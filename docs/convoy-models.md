@@ -153,6 +153,16 @@ tokens the provider reported.
 Open the replay in [`tools/convoy-viewer/index.html`](../tools/convoy-viewer/index.html). Each truck's agent popup
 shows the model, where it runs, its price, and the C# that builds the seat, `new ConvoyModelSeat(SeatFactory.Model("…"), …)`.
 
+## Recording training data
+
+`--record runs.jsonl` keeps every decision of a run or a battery: what the seat was given, what it chose, and what it
+came to. `--dataset <dir>` records and exports training sets in one step, from seeds 50 up only (the battery's seeds
+are never exported). See [design-trained-models.md](design-trained-models.md#step-1-built-2026-10-28).
+
+```bash
+dotnet run --project samples/Convoy -c Release -- --dataset datasets/convoy-j --arms J --seeds 100-299
+```
+
 ## When something goes wrong
 
 | what you see | what it means |

@@ -1,6 +1,6 @@
 # Design: trained models for a world
 
-Status: proposed, 2026-10-28. Nothing here is built.
+Status: decided 2026-10-28; step 1 (the recorder) built.
 
 ## The question, in the owner's words
 
@@ -117,6 +117,20 @@ is what makes a trained model reusable: any truck in a convoy world can load one
 | T-D5 | which decisions to learn from | all; only runs that served every village; only actions that landed | **runs of arm J that served every village**, all their actions, with the verdicts kept for a later filter |
 | T-D6 | where the weights live | in the repository; as release assets; on the hub as shared files | **the repository** for small networks (kilobytes), **shared files** later for adapters |
 
+Decided by the owner, 2026-10-28: every recommendation (T-D1 the policy network first, T-D2 Python on the laptop with
+plain weights read in C#, T-D3 the plain network first, T-D4 by example then by trial, T-D5 arm J's fully served runs,
+T-D6 weights in the repository).
+
+How step 1 records, settled while building it:
+- **At the seat, joined to an observer.** A recording wrapper around each truck's seat captures exactly what the
+  seat was given (facts, visible tools, notes, goal, tick, freedom, history) and what it chose. An observer extension
+  adds what the action came to: the control layer's verdict, what the world reported, and the facts afterwards. The
+  loop-side `ExampleRecorder` alone cannot see the seat's notes (the roads the truck distrusts), so it is attached as
+  well, unchanged, as the generic seam, writing its own examples beside the convoy's richer records.
+- **The language-model export uses the JSON protocol** (one object, `{"tool": …, "why": …}`), rendered by the same
+  code that builds a model seat's prompt, so a model trained on it sees at training time exactly what it sees in the
+  seat.
+
 ## Pre-registered hypotheses
 
 All judged on the battery's seeds 0 to 49, never trained on.
@@ -138,6 +152,36 @@ All judged on the battery's seeds 0 to 49, never trained on.
 3. Training by trial in the simulator, and the arm again (T3).
 4. The trained-model catalog.
 5. The adapter (T5) and the world model (T6), each as its own step.
+
+## Step 1, built (2026-10-28)
+
+**T1 held.** A recorded run replays byte for byte as an unrecorded one, in arms J, C, D and L. Five deliberate breaks
+each fail a test:
+- recording that nudges a decision (T1 fails in all four arms);
+- facts afterwards that are the facts before;
+- an export that skips the briefing (the exported prompt no longer matches what a model seat sends);
+- the battery's seeds exported;
+- the served-runs filter ignored.
+
+What it is, in the code:
+- `ConvoyRecorder` (`src/Creatura.Scenarios`): a recording wrapper at each truck's seat, an observer for what each
+  action came to, and the generic `ExampleRecorder` beside them, unchanged.
+- `ConvoyFeatures`: 61 features for the flooded valley, schema hash `ad24852ae9d8f47a`. `ConvoyActions`: 36 actions.
+- `ModelPolicy.RenderPrompt` and `ConvoyModelSeat.Briefed`: the seat's own prompt code, now public. A test checks
+  that every exported prompt is exactly the one a model seat sent.
+- `ConvoyDatasets.Export`: `policy.jsonl`, `chat.jsonl`, `transitions.jsonl` and `card.json`. It refuses seeds below 50.
+- The command: `--record <file>` for any run or battery, and `--dataset <dir>` to record and export in one step.
+
+A first dataset: arm J, seeds 100 to 299, recorded and exported in 18 seconds. All 200 runs served every village and
+were kept: 15,423 decisions and as many transitions. On disk: `policy.jsonl` 4.7 MB, `transitions.jsonl` 14 MB,
+`chat.jsonl` 69 MB (each line carries the seat's full prompt), and `runs.jsonl` 39 MB (the recording itself, to export
+again with other filters). Datasets are not committed: the command makes them again from the code.
+
+```bash
+dotnet run --project samples/Convoy -c Release -- --dataset datasets/convoy-j --arms J --seeds 100-599
+```
+
+Next is step 2: train the policy network by example from `policy.jsonl`, and put it in the seat.
 
 ## What this note does not cover
 

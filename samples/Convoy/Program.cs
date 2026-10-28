@@ -5,6 +5,8 @@ using Creatura.Seats;
 // dotnet run --project samples/Convoy -- [--arm A..L|S] [--seed n] [--replay run.jsonl] [--quiet]
 //     [--model <catalog name>] [--models-file models.json] [--calls calls.jsonl] [--ticks n]
 // dotnet run --project samples/Convoy -- --battery [--seeds 50] [--arms J,S] [--model <name>] ...
+// dotnet run --project samples/Convoy -- --dataset <dir> [--arms J] [--seeds 100-599] [--all-runs] [--only-landed]
+// --record <file.jsonl> keeps every decision of a run (or a battery) for training (docs/design-trained-models.md).
 // A model (arm S, or --model with any arm) is described in docs/convoy-models.md.
 string? Option(string name) => Array.IndexOf(args, name) is var i and >= 0 && i + 1 < args.Length ? args[i + 1] : null;
 
@@ -30,14 +32,48 @@ if (Adjust(ConvoySetup.For(ConvoyArm.S, 0)).SeatModel is { } seatName && (args.C
     Console.Error.WriteLine($"seat: {endpoint.Name} = {endpoint.Model} through {endpoint.ProviderName} at {endpoint.BaseUrl}");
 }
 
+IReadOnlyList<ConvoyArm> Arms(IReadOnlyList<ConvoyArm> fallback) => Option("--arms") is { } list
+    ? list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(a => Enum.Parse<ConvoyArm>(a, ignoreCase: true)).ToList()
+    : fallback;
+
+// A training dataset: record the arms over a range of seeds outside the battery's, then export (docs/design-trained-models.md).
+if (Option("--dataset") is { } datasetDir)
+{
+    var range = (Option("--seeds") ?? "100-599").Split('-');
+    var (from, to) = (int.Parse(range[0]), int.Parse(range[^1]));
+    if (from < ConvoyDatasets.FirstTrainingSeed)
+    {
+        Console.Error.WriteLine($"seeds 0 to {ConvoyDatasets.FirstTrainingSeed - 1} belong to the battery and are never trained on; start at {ConvoyDatasets.FirstTrainingSeed} or above");
+        return 2;
+    }
+    var recorder = new ConvoyRecorder();
+    foreach (var datasetArm in Arms([ConvoyArm.J]))
+    {
+        for (var s = from; s <= to; s++)
+        {
+            var recorded = await new ConvoyScenario(Adjust(ConvoySetup.For(datasetArm, s)), calls: calls, catalog: catalog, recorder: recorder).RunAsync();
+            foreach (var error in recorded.Errors) Console.Error.WriteLine($"{datasetArm} seed {s}: {error}");
+        }
+        Console.Error.WriteLine($"arm {datasetArm}: seeds {from} to {to} recorded");
+    }
+    Directory.CreateDirectory(datasetDir);
+    using (var runsFile = new StreamWriter(Path.Combine(datasetDir, "runs.jsonl"))) recorder.WriteJsonl(runsFile);
+    var card = ConvoyDatasets.Export(recorder.Runs, new DatasetOptions { OnlyServed = !args.Contains("--all-runs"), OnlyLanded = args.Contains("--only-landed") }, datasetDir);
+    Console.WriteLine($"dataset {Path.GetFullPath(datasetDir)}: {card.Runs} of {recorder.Runs.Count} runs kept, {card.Decisions:N0} decisions, {card.Transitions:N0} transitions, "
+        + $"{card.Features.Count} features (schema {card.SchemaHash}), {card.Actions.Count} actions");
+    return 0;
+}
+
+var recordTo = Option("--record");
+var recorderForRun = recordTo is null ? null : new ConvoyRecorder();
+
 if (args.Contains("--battery"))
 {
     var seeds = int.Parse(Option("--seeds") ?? "50");
-    var arms = Option("--arms") is { } list
-        ? list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(a => Enum.Parse<ConvoyArm>(a, ignoreCase: true)).ToList()
-        : ConvoyBattery.DefaultArms;
-    var report = await ConvoyBattery.RunAsync(seeds, arms, setup => new ConvoyScenario(Adjust(setup), calls: calls, catalog: catalog), line => Console.Error.WriteLine(line));
+    var arms = Arms(ConvoyBattery.DefaultArms);
+    var report = await ConvoyBattery.RunAsync(seeds, arms, setup => new ConvoyScenario(Adjust(setup), calls: calls, catalog: catalog, recorder: recorderForRun), line => Console.Error.WriteLine(line));
     Console.WriteLine(report.Render());
+    if (recordTo is not null) { using var recordFile = new StreamWriter(recordTo); recorderForRun!.WriteJsonl(recordFile); }
     return 0;
 }
 
@@ -45,7 +81,13 @@ var arm = Enum.Parse<ConvoyArm>(Option("--arm") ?? (model is null ? "A" : "S"), 
 var seed = int.Parse(Option("--seed") ?? "1");
 using var file = Option("--replay") is { } path ? new StreamWriter(path) : null;
 var observer = new StoryPrinter(Console.Out, args.Contains("--quiet"), file is null ? null : new JsonlReplayWriter(file));
-var run = await new ConvoyScenario(Adjust(ConvoySetup.For(arm, seed)), calls: calls, catalog: catalog).RunAsync(observer);
+var run = await new ConvoyScenario(Adjust(ConvoySetup.For(arm, seed)), calls: calls, catalog: catalog, recorder: recorderForRun).RunAsync(observer);
+if (recordTo is not null)
+{
+    using var recordFile = new StreamWriter(recordTo);
+    recorderForRun!.WriteJsonl(recordFile);
+    Console.WriteLine($"Recorded {recorderForRun.Runs.Sum(r => r.Decisions.Count)} decisions to {recordTo}.");
+}
 if (run.Summary.Seat is { } seat)
 {
     Console.WriteLine($"The seat ({seat.Model}) made {seat.Calls} calls ({seat.Failed} failed, {seat.Invalid} invalid), {seat.PromptTokens:N0} prompt and {seat.CompletionTokens:N0} completion tokens, "

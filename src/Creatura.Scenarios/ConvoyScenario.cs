@@ -76,7 +76,8 @@ public sealed record ConvoyRun(ConvoySetup Setup, ReplayHeader Header, IReadOnly
 /// <param name="models">The client the model seats call through; a default client (the network) when null.</param>
 /// <param name="calls">Where the model seats log every call; nowhere when null.</param>
 /// <param name="catalog">Where model names are looked up; the process-wide catalog (<c>models.json</c> beside the program, else the compiled table) when null.</param>
-public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null, CallLog? calls = null, ModelCatalog? catalog = null)
+/// <param name="recorder">Records every decision for training (docs/design-trained-models.md); nothing when null. It observes only.</param>
+public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null, CallLog? calls = null, ModelCatalog? catalog = null, ConvoyRecorder? recorder = null)
 {
     public ConvoySetup Setup { get; } = setup;
 
@@ -90,6 +91,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
     {
         var world = new ConvoyWorld(Setup);
         _world = world;
+        recorder?.BeginRun(Setup);
         var mesh = Setup.Ledger ? new ScenarioMesh(Setup.Seed * 7919 + 17, Setup.Loss, Setup.DelayChance) : null;
         using var owner = OwnerKey.Generate();
 
@@ -181,6 +183,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
                 MessagesSent: mesh?.Sent ?? 0,
                 MessagesLost: mesh?.Lost ?? 0);
             var summary = new ReplaySummary(measures, Outcome(world, measures)) { Seat = SeatUsage() };
+            recorder?.EndRun(measures);
             observer?.End(summary);
             return new ConvoyRun(Setup, header, ticks, summary, finished.OfType<AgentRun>().ToList(), errors);
         }
@@ -205,7 +208,11 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
             _seats.Add(model);
             policy = new ConvoyModelSeat(model, Setup.Map, spec.Machine, spec.Name);
         }
-        var options = Setup.DistrustRoads ? AgentOptions.With(story, new RoadDistrustExtension(_world!, spec.Name)) : AgentOptions.With(story);
+        if (recorder is not null) policy = recorder.Seat(policy, spec, Setup.Map);
+        var observers = new List<IAgentExtension> { story };
+        if (Setup.DistrustRoads) observers.Add(new RoadDistrustExtension(_world!, spec.Name));
+        if (recorder is not null) observers.AddRange(recorder.Extensions(spec));
+        var options = new AgentOptions(observers);
         var vessel = new Vessel { Model = endpoint?.Model ?? "convoy-planner", Physical = spec.Machine };
         var m = spec.Machine;
         var variable = spec.Name.ToLowerInvariant().Replace(" ", "", StringComparison.Ordinal);

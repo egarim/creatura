@@ -386,7 +386,7 @@ public sealed class TruckView : ITickedWorld
     }
 
     /// <summary>Every tool any truck could have on this map.</summary>
-    private static IReadOnlyList<Tool> AllToolsOf(RoadMap map, bool radio)
+    internal static IReadOnlyList<Tool> AllToolsOf(RoadMap map, bool radio)
     {
         var tools = new List<Tool>();
         foreach (var road in map.Roads)
