@@ -36,26 +36,43 @@ src/Creatura.Seats/           the model seats: IModelTransport (Ollama, OpenAI-c
 src/Creatura.Hosts.AgentFramework/
                               the Microsoft Agent Framework host: ControlLayerMiddleware, ToolFilteringChatClient,
                               WorldTools, ControlledAgent, PlannerChatClient (the offline model) and ChatClientPolicy
-                              (any IChatClient in the loop's seat); the ONLY project here with a package reference
-                              (Microsoft.Agents.AI.OpenAI) (namespace Creatura.Hosts.AgentFramework)
+                              (any IChatClient in the loop's seat); package: Microsoft.Agents.AI.OpenAI
+                              (namespace Creatura.Hosts.AgentFramework)
 src/Creatura.Cells/           the cells: CreaturaId, CellKey / OwnerKey (ECDSA P-256), VesselProbe and Hardware, Position,
-                              CellIdentity, SignedEntry and the eight entry kinds, WorkLedger, JsonLedgerStore, ICellNetwork
-                              and InProcessCellNetwork; no packages (namespace Creatura.Cells)
-src/Creatura.Cli/             the `creatura cell` command over Creatura.Cells; no packages
+                              CellIdentity, SignedEntry and the eight entry kinds, WorkLedger, JsonLedgerStore, signed hub
+                              requests, revocations, shared files (CellCipher, SharedFiles), ICellNetwork; no packages
+                              (namespace Creatura.Cells)
+src/Creatura.Cells.Sqlite/    SqliteLedgerStore, the ledger in SQLite; package: Microsoft.Data.Sqlite
+src/Creatura.Cells.Sync/      the ledger over SyncFramework (LedgerSync); package: BIT.Data.Sync
+src/Creatura.Cells.Hub/       the ledger hub, `creatura-hub`: an ASP.NET host for the sync endpoint and the shared files'
+                              bytes; packages: BIT.Data.Sync.AspNetCore, Microsoft.Data.Sqlite
+src/Creatura.Cli/             the `creatura cell` command over the cells, the hub client and the Claude Code hooks
+src/Creatura.Scenarios/       several creaturas in one shared world: the convoy (ConvoyWorld, TruckView, ConvoyPolicy,
+                              ScenarioMesh, ConvoyBattery), the replay writer, the recorder and dataset exporter, and the
+                              trained networks' seats (ConvoyNetwork); no packages (namespace Creatura.Scenarios)
 samples/QuickStart/           the quick start below, offline
 samples/AgentFrameworkHost/   the control layer on Agent Framework over the toy suite's four barriers, offline by
                               default; --compare runs it beside the designs, --seat <catalog name> puts a model in it
+samples/Convoy/               the convoy from the command line: one run, a battery, recordings, datasets, trial runs
 samples/models.json           the compiled model catalog written out, to copy beside an executable and edit
+models/                       trained policy networks (plain JSON weights), embedded in Creatura.Scenarios
+tools/convoy-viewer/          a three.js page that plays a convoy replay back as a story
+tools/train/                  the trainers, Python and numpy run with `uv`: by example (train_policy.py), by trial (train_trial.py)
 tests/Creatura.Tests/         xunit; the tests that need nothing but the Core and its toy domain, plus the golden traces,
                               FakeHost and CorePurityTest; no Agent Framework package
-tests/Creatura.Cells.Tests/   the cells' pre-registered tests C1 to C5, the command's tests and CellsPurityTest
+tests/Creatura.Cells.Tests/   the cells' pre-registered tests, the hub, sync, shared files, hooks, the command and
+                              CellsPurityTest
 tests/Creatura.Hosts.AgentFramework.Tests/
                               the host's tests and its four goldens (golden/restore-*-controlled.jsonl)
+tests/Creatura.Scenarios.Tests/
+                              the convoy, the model seat, the recorder, the networks, shared distrust
 ```
 
 ```sh
 dotnet build Creatura.slnx
 dotnet test tests/Creatura.Tests
+dotnet test tests/Creatura.Cells.Tests
+dotnet test tests/Creatura.Scenarios.Tests
 ```
 
 ## Building beside biological-agents
@@ -215,7 +232,8 @@ Console.WriteLine(exam.Report.ToMarkdown());
 `Row` carries the columns every result file has had, and `Row.ToLegacyCsv` writes the two archived shapes byte for byte;
 `AppendOnlyCsv` only ever appends and sends a changed header to a new file name. `ExampleRecorder` is the fine-tune seam: one
 example per judged action (the rendered context, the suggestion, the registry's verdict) and the outcome class at sleep,
-into an `IExampleSink`; nothing consumes it yet.
+into an `IExampleSink`. The convoy's recorder attaches it beside its own richer records, and its exporter turns them
+into training sets ([docs/design-trained-models.md](docs/design-trained-models.md)).
 
 ## The seats
 
@@ -276,31 +294,97 @@ same verbs in the research repository's
 
 [docs/anatomy.html](docs/anatomy.html) draws the parts and who talks to whom (plate I), one tick of the loop
 (plate II), the kinds of things with their types, and the five Latin names. The same page is published at
-https://claude.ai/artifact/QncbLz7HcCTxKbUQQPksKA. Scenario pictures come later, when there are test
-scenarios to picture.
+https://claude.ai/artifact/QncbLz7HcCTxKbUQQPksKA. It predates the cells, the convoy and the trained seats;
+reviewing it, and drawing the anatomy on the project's icon, is
+[egarim/creatura#1](https://github.com/egarim/creatura/issues/1).
 
 ## Cells
 
 [docs/design-cells.md](docs/design-cells.md) gives each agent an identity bound to its hardware and network, and a
-signed, append-only work ledger that says who is working on what. The first slice is built and runs offline:
-`Creatura.Cells` (identity, keys, the vessel probe, the ledger, the in-process network) and the `creatura cell`
-command. The mesh network, the relay and the host-tool hooks are not built yet.
+signed, append-only work ledger that says who is working on what. What is built:
+
+- **Identity and the ledger.** An owner key endorses each vessel's cell; every entry is signed by its cell and
+  verified on merge. The eight entry kinds: hello, claim, progress, hand-off, release, heartbeat, artifact (a shared
+  file) and warning (something a cell saw that the others may act on).
+- **The hub and sync.** `creatura-hub` serves the ledger over SyncFramework on the mesh address, trusting the owner
+  keys it is given (`--trust`), so it can run on a vessel that does not hold the owner key. Every request is signed by
+  its cell; replays and revoked cells are refused.
+- **Joining a vessel.** On a new vessel: `request`; on the owner's: `endorse`; back on the new one: `accept`.
+- **Shared files** ([docs/design-shared-files.md](docs/design-shared-files.md)). Sealed per recipient cell; the hub
+  keeps only ciphertext.
+- **Claude Code hooks.** Each session's prompts and tools become a claim with its progress and a hand-off.
+- **Automatic sync on macOS.** launchd agents for the sync, and for the hub on the vessel that serves it.
 
 ```bash
 dotnet run --project src/Creatura.Cli -- cell init
+dotnet run --project src/Creatura.Cli -- cell --help
 ```
 
-| command | what it does |
+| group | commands |
 |---|---|
-| `creatura cell init` | creates the owner key if absent, endorses this vessel's cell, writes its hello (idempotent) |
-| `creatura cell whoami` | creatura id, vessel id (the hardware identifier hashed with the owner's salt), hardware, position, key fingerprint, endorsement |
-| `creatura cell claim --goal <text> [--repo --branch --folder --tool --session]` | claims work |
-| `creatura cell progress --row <text> [--claim <id>] [--stress <0..1>] [--blocked]` | a step of the latest active claim |
-| `creatura cell release --evidence <text> [--claim <id>]` | done, with evidence |
-| `creatura cell handoff --reason <text> [--claim <id>]` | stopping, and why |
-| `creatura cell heartbeat [--load <n>]` | still alive |
-| `creatura cell ledger [--open] [--path <claim>]` | every entry, the claims not released, or one claim's path |
+| this cell | `init`, `whoami`, `owner-key` |
+| work | `claim`, `progress`, `release`, `handoff`, `heartbeat`, `ledger` |
+| more vessels | `request`, `endorse`, `accept`, `revoke` |
+| the hub | `sync`, `publish-hub`, `launchd-config`, `install-launchd`, `uninstall-launchd` |
+| shared files | `share`, `files`, `fetch` |
+| Claude Code | `hook`, `hooks-config`, `install-hooks`, `uninstall-hooks`, `publish-bin` |
 
-Every command takes `--home <dir>` (default `~/.creatura`, or `$CREATURA_HOME`), `--creatura <name>` and
-`--no-mesh`. Private keys, the vessel salt and the ledger are written owner-only; the raw hardware identifier is
-never written or printed (C4). To install the command as `creatura`, pack `src/Creatura.Cli` as a .NET tool.
+Every command takes `--home <dir>` (default `~/.creatura`, or `$CREATURA_HOME`), `--creatura <name>`, `--no-mesh` and
+`--store json|sqlite`. Private keys, the vessel salt and the ledger are written owner-only; the raw hardware
+identifier is never written or printed. A hub must run a version that knows every entry kind its cells write.
+
+## The convoy: machines acting together
+
+[docs/design-machine-vessels.md](docs/design-machine-vessels.md) gives creaturas physical vessels. Three trucks, each
+a creatura with its own cell and ledger, deliver 30 units of supplies to four villages after a flood, coordinating
+over an in-memory mesh. The world lies: one flooded road keeps reporting itself open, and one truck's fuel gauge reads
+high. A judge reads only the world. Everything runs offline and a seed replays byte for byte.
+
+```bash
+dotnet run --project samples/Convoy -- --arm J --seed 0
+dotnet run --project samples/Convoy -c Release -- --battery --seeds 50
+dotnet run --project samples/Convoy -- --arm J --seed 0 --replay run.jsonl --quiet
+```
+
+The battery runs every arm over the same 50 seeds and scores the pre-registered hypotheses. The latest run
+(2026-10-28), units delivered of 1500 and lies acted on:
+
+| arm | what is in the trucks | delivered | lies |
+|---|---|---|---|
+| A | the plain loop and the trucks' planner, a shared ledger | 1406 | 262 |
+| C | as A, no ledger: each truck alone | 1430 | 407 |
+| J | as A, with three fixes: stalled claims taken over, a lying road distrusted, a stranded truck handing back its claim | 1500 | 54 |
+| W | as J, with distrust shared through the ledger (a `Warning` entry) | 1500 | 45 |
+| N | as J, with a policy network trained by example on J's planner | 1500 | 54 |
+| Q | as W, with that network trained further by trial | 1500 | 41 |
+
+Arms B, D, E, G, H, I, K and L test one design or one fault at a time. Arm R is the first attempt at training by
+trial, which delivered less. Arm S puts a language model in the seat, set up as
+[docs/convoy-models.md](docs/convoy-models.md) describes. Every result, including the failed hypotheses, is in the
+design.
+
+**Watching a run.** [tools/convoy-viewer/index.html](tools/convoy-viewer/index.html) plays a replay back in three.js:
+the map, the trucks, the story, and each truck's agent definition in C#. Open the page and drop a replay file on it. The
+format is [docs/replay-format.md](docs/replay-format.md).
+
+## Trained models
+
+[docs/design-trained-models.md](docs/design-trained-models.md): a seat does not have to be a language model. The
+convoy records every decision with what it came to, exports training sets, and trains small networks that fill the
+seat. The trucks' planner keeps no state between ticks, so a small network can copy it.
+
+1. **The recorder.** `--record` keeps every decision; `--dataset` also exports policy, chat and transition sets, never
+   from the battery's seeds 0 to 49.
+2. **By example.** A 97-64-64-36 network copies arm J's planner: 99.97% of held-out decisions (arm N).
+3. **By trial.** PPO in the simulator. The first attempt traded deliveries for caution (arm R). The second priced a
+   village left short and anchored the network to its teacher (arm Q).
+
+```bash
+dotnet run --project samples/Convoy -c Release -- --dataset datasets/convoy-j --arms J --seeds 100-599
+uv run tools/train/train_policy.py datasets/convoy-j models/convoy-policy-j.json --held-out-from 550
+dotnet build samples/Convoy -c Release
+uv run tools/train/train_trial.py models/convoy-policy-j.json models/convoy-policy-w-trial.json \
+    --arm W --end-penalty 5 --anchor 0.2 --keep-at-least-start --work datasets/trial-w
+```
+
+Datasets are not committed; the commands make them again. The weights are, in `models/`.
