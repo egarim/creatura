@@ -459,7 +459,7 @@
     <h2>The mesh: how creaturas share their work</h2>
     <p class="prose">Every creatura keeps a complete copy of the work ledger. Nothing is the single source of truth: entries are signed by the cell that wrote them, copied between vessels, and checked again wherever they arrive. The same ledger runs in two places: across real vessels, through a hub on a private network; and inside one simulated world, where trucks pass entries over an in-memory mesh.</p>
     <div class="plate">
-    <svg viewBox="0 0 1200 600" role="img" aria-label="Left: two vessels on a private mesh network. The owner's laptop holds the owner key, a cell, its ledger, the Claude Code hooks, an automatic sync every minute, and the hub with its database and shared files. The second machine holds a cell endorsed by the owner through request, endorse and accept, its ledger and its hooks; it syncs with the hub. Every sync request is signed. A dashed box shows the hub moving later to the VPN server, trusting only the owner's public key. Right: inside the convoy, three trucks each with a cell and ledger exchange entries over an in-memory mesh that delivers each entry the next tick, can lose or delay it, and ends with a final sync that leaves every ledger identical.">
+    <svg viewBox="0 0 1200 600" role="img" aria-label="Left: two vessels on a private mesh network. The owner's laptop holds the owner key, a cell, its ledger, the Claude Code hooks, an automatic sync every minute, and the hub with its database and shared files. The second machine holds a cell endorsed by the owner through request, endorse and accept, its ledger and its hooks; it syncs with the hub. Every sync request is signed. A dashed box notes that the hub needs only the owner's public key, so it can run on any machine on the network. Right: inside the convoy, three trucks each with a cell and ledger exchange entries over an in-memory mesh that delivers each entry the next tick, can lose or delay it, and ends with a final sync that leaves every ledger identical.">
       <defs>
         <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
           <path d="M0,0 L10,5 L0,10 z" fill="var(--cells)"/>
@@ -474,7 +474,7 @@
       <!-- the private network band -->
       <rect x="30" y="268" width="690" height="64" rx="8" fill="var(--cells-soft)" stroke="var(--cells)" stroke-dasharray="5 4"/>
       <text x="46" y="292" class="t" style="font-weight:600">Private mesh network</text>
-      <text x="46" y="311" class="s">a WireGuard mesh such as Tailscale: only the owner's devices are on it;</text>
+      <text x="46" y="311" class="s">a private network that only the owner's machines can join;</text>
       <text x="46" y="325" class="s">the hub listens on its mesh address, never on every interface</text>
 
       <!-- the laptop -->
@@ -524,12 +524,12 @@
       <text x="46" y="427" class="s">seen before (a replay), and anything from a cell the owner revoked (a lost vessel). Then every cell checks</text>
       <text x="46" y="442" class="s">every entry again when it merges: the signature, the endorsement, the payload.</text>
 
-      <!-- later: the hub on the VPN server -->
+      <!-- the hub holds no private key -->
       <rect x="30" y="472" width="690" height="92" rx="8" fill="none" stroke="var(--fg-2)" stroke-dasharray="5 4"/>
-      <text x="46" y="496" class="t" style="font-weight:600">Later: the hub on a server</text>
-      <text x="46" y="515" class="s">The hub does not need the owner's private key. Given only the owner's public key</text>
+      <text x="46" y="496" class="t" style="font-weight:600">The hub needs no private key</text>
+      <text x="46" y="515" class="s">It does not need the owner's private key, only the owner's public key:</text>
       <text x="46" y="530" class="m" style="font-size:10.5px">creatura-hub --listen &lt;mesh address&gt; --trust owner.pub --data &lt;dir&gt;</text>
-      <text x="46" y="549" class="s">it can move to a server on the same mesh, and the vessels keep syncing.</text>
+      <text x="46" y="549" class="s">so it can run on any machine on the network, and the vessels keep syncing.</text>
 
       <!-- divider -->
       <line x1="750" y1="30" x2="750" y2="570" stroke="var(--line)"/>

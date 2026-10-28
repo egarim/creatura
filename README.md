@@ -281,7 +281,7 @@ same verbs in the research notes, which are not published.
 [docs/anatomy.html](docs/anatomy.html) draws Creatura in four plates: the project's icon, a winged lion, with each
 part named for the part of the framework it stands for (plate I); the parts and who talks to whom, the cells
 included (plate II); one tick of the loop (plate III); and the mesh, across vessels through the hub and inside the
-convoy's world (plate IV). The same page is published at https://claude.ai/artifact/QncbLz7HcCTxKbUQQPksKA.
+convoy's world (plate IV). Open the file in a browser; it needs nothing else.
 
 ## Cells
 
