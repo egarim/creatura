@@ -29,13 +29,14 @@ public static class HooksSetup
     /// <summary>Indented, and with '&gt;' and '&amp;' left as they are, so a settings file reads as a person would write it.</summary>
     public static readonly JsonSerializerOptions Pretty = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
-    public static string HookCommandLine(string command, string home, string creatura, string goal) =>
-        $"{ShellQuote(command)} cell hook --home {ShellQuote(home)} --creatura {ShellQuote(creatura)} --goal {goal} >/dev/null 2>&1 || true";
+    public static string HookCommandLine(string command, string home, string creatura, string goal, string? store = null) =>
+        $"{ShellQuote(command)} cell hook --home {ShellQuote(home)} --creatura {ShellQuote(creatura)} --goal {goal}"
+        + (store is "sqlite" ? " --store sqlite" : "") + " >/dev/null 2>&1 || true";
 
     /// <summary>The <c>hooks</c> object: one group per event, each with one command hook.</summary>
-    public static JsonObject HooksBlock(string command, string home, string creatura = HookCommand.DefaultCreatura, string goal = "folder")
+    public static JsonObject HooksBlock(string command, string home, string creatura = HookCommand.DefaultCreatura, string goal = "folder", string? store = null)
     {
-        var line = HookCommandLine(command, home, creatura, goal);
+        var line = HookCommandLine(command, home, creatura, goal, store);
         var hooks = new JsonObject();
         foreach (var (name, isAsync) in Events)
         {

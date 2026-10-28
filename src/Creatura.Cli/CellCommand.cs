@@ -35,6 +35,8 @@ public static class CellCommand
           --home <dir>                 where keys, record and ledger live (default ~/.creatura, or $CREATURA_HOME)
           --creatura <name>            which creatura in that home (default creatura)
           --no-mesh                    do not read the mesh client's status
+          --store json|sqlite          where the ledger lives (default json: <home>/ledger.json; sqlite: <home>/ledger.db,
+                                       which imports ledger.json on its first run and is the ledger from then on)
         """;
 
     private static readonly HashSet<string> Flags = new(StringComparer.Ordinal) { "--open", "--blocked", "--no-mesh", "--help", "--dry-run" };
@@ -51,9 +53,11 @@ public static class CellCommand
         }
 
         Dictionary<string, string?> options;
+        Func<CellHome, ILedgerStore>? store;
         try
         {
             options = Parse(args[2..]);
+            store = LedgerStores.Factory(options.GetValueOrDefault("--store"));
         }
         catch (ArgumentException e)
         {
@@ -61,7 +65,7 @@ public static class CellCommand
             return 2;
         }
 
-        var home = new CellHome(options.GetValueOrDefault("--home") ?? Environment.GetEnvironmentVariable("CREATURA_HOME"));
+        var home = new CellHome(options.GetValueOrDefault("--home") ?? Environment.GetEnvironmentVariable("CREATURA_HOME"), store);
         var context = new Context(home, options.GetValueOrDefault("--creatura") ?? "creatura", options.ContainsKey("--no-mesh"), source, output, error, options);
         try
         {
@@ -205,7 +209,7 @@ public static class CellCommand
 
         using var owner = c.Home.LoadOwner();
         var ledger = new WorkLedger(owner is null ? [] : [owner.PublicKey]);
-        Report(c, c.Home.Ledger.LoadInto(ledger));
+        Report(c, LedgerStores.LoadInto(c.Home, c.Home.Ledger, ledger));
 
         if (c.Options.GetValueOrDefault("--path") is { } claimId)
         {
@@ -277,13 +281,13 @@ public static class CellCommand
         (c.NoMesh ? null : Cells.Position.FromTailscaleStatus((c.Source ?? new PlatformVesselSource()).MeshStatusJson()))
         ?? new Position(PositionKind.InProcess) { Channel = "creatura cell" };
 
-    private static (WorkLedger Ledger, JsonLedgerStore Store) OpenLedger(Context c, LocalCell cell)
+    private static (WorkLedger Ledger, ILedgerStore Store) OpenLedger(Context c, LocalCell cell)
     {
         using var owner = c.Home.LoadOwner();
         var trusted = new[] { owner?.PublicKey, cell.Identity.Endorsement?.OwnerPublicKey }.OfType<string>().Distinct();
         var ledger = new WorkLedger(trusted);
         var store = c.Home.Ledger;
-        Report(c, store.LoadInto(ledger));
+        Report(c, LedgerStores.LoadInto(c.Home, store, ledger));
         return (ledger, store);
     }
 
@@ -305,7 +309,7 @@ public static class CellCommand
 
     private static System.Text.Json.Nodes.JsonObject Block(Context c) =>
         HooksSetup.HooksBlock(HookCommandPath(c), c.Home.Root, c.Options.GetValueOrDefault("--creatura") ?? HookCommand.DefaultCreatura,
-            c.Options.GetValueOrDefault("--goal") is "prompt" ? "prompt" : "folder");
+            c.Options.GetValueOrDefault("--goal") is "prompt" ? "prompt" : "folder", c.Options.GetValueOrDefault("--store"));
 
     private static int HooksConfig(Context c)
     {

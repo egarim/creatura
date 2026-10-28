@@ -144,6 +144,64 @@ Pre-registered tests, written before the code:
 
 The mesh implementation and the host-tool hooks come after the owner has read the first slice running.
 
+## Slice 3: the ledger in SQLite, synced through SyncFramework
+
+Slice 2 left two costs in every hook run: the JSON store rewrites the whole file, and loading it checks both
+signatures of every entry again. One hook also dropped an event when the lock stayed held too long. Slice 3 adds:
+
+- **`ILedgerStore`**, which `JsonLedgerStore` and the new store both implement.
+- **`SqliteLedgerStore`** (project `Creatura.Cells.Sqlite`, package `Microsoft.Data.Sqlite`), one row per entry
+  keyed by (cell, sequence), WAL mode. A save writes only the entries it has not seen. A conflict keeps the smaller
+  hash, the rule `WorkLedger.Merge` uses. An entry is verified once, when it enters a ledger from outside, and
+  loading checks each row's hash and the owner's trust without checking the signatures again. `VerifyOnLoad` checks
+  everything. An empty database imports `ledger.json` through a full merge.
+- **A SyncFramework transport** (project `Creatura.Cells.Sync`, a sibling reference to egarim/SyncFramework's
+  `BIT.Data.Sync`). One signed entry is one delta: its operation is the entry's canonical JSON and its identity is the
+  cell. `LedgerDeltaProcessor` parses each delta and merges it through `WorkLedger.Merge`. Nothing in a delta is ever
+  executed. The server is a relay and trusts nothing: every cell verifies what it pulls.
+- **The command** takes `--store sqlite` (default `json`). The hooks installed on the owner's laptop stay on JSON until the
+  owner moves them.
+
+Pre-registered tests, written before the code:
+
+| id | claim | falsifier |
+|---|---|---|
+| C6 | a ledger saved to SQLite and loaded back holds the same entries; a save after one append writes one row | a different digest, or more than one row written |
+| C7 | a row altered in the database is left out on load; with `VerifyOnLoad`, a row re-hashed after a change is rejected too | an altered row loaded |
+| C8 | an empty database imports `ledger.json` with the same digest and refuses what the JSON load refuses | a different digest, or a rejected entry imported |
+| C9 | two cells that each claim work converge through `SyncFrameworkServer` and the in-memory client, in either sync order | any difference after both have synced twice |
+| C10 | a delta altered after signing, one that is not an entry, and one endorsed by an untrusted owner never reach a ledger; a valid entry relayed under another identity is accepted | a bad delta merged, or a valid one refused |
+| C11 | a cell offline during three claims catches up with one sync and ends identical | a missing or duplicated entry |
+| C12 | a cell that pulls before it ever pushed still pushes all its own entries | an own entry never reaching the server |
+
+And one measurement, not a test: hook runs with each store on today's ledger and on a ledger of 2,000 entries.
+
+### Results (2026-10-28)
+
+C6 to C12 pass, offline, against the in-memory server. Each test was also run against a deliberate break of what it
+guards: the processor skipping signatures, the load skipping the row hash, the save resending every entry, the
+conflict rule reversed, and the cursor guard removed. Two breaks survived the first version of the tests. A save
+that resent everything still changed only one row, so C6 now also counts the entries a save sends. Nothing raced
+two writers for one sequence, so a conflict test was added. Every break now fails a test.
+
+C12 found a flaw in SyncFramework's `MemoryDeltaStore`: a client that pulled before its first push got the server's
+index as its push cursor and never pushed its own deltas. `LedgerSyncNode` guards against it, and the fix is
+egarim/SyncFramework#27.
+
+Hook runs (`creatura cell hook`, Release build, median of 10, the owner's laptop):
+
+| entries | store | PostToolUse | Stop (writes one entry) | Stop max |
+|---|---|---|---|---|
+| 23 | json | 65 ms | 322 ms | 419 ms |
+| 23 | sqlite | 69 ms | 339 ms | 395 ms |
+| 2,000 | json | 66 ms | 887 ms | 1,001 ms |
+| 2,000 | sqlite | 65 ms | 352 ms | 421 ms |
+
+At today's size the stores cost the same. At 2,000 entries SQLite keeps a write at its small-ledger cost and JSON
+takes 2.5 times longer. A write on a small ledger takes about 250 ms more than a PostToolUse run, which writes nothing. Both
+stores show it, so it lies elsewhere in the write path, not yet measured. That is the next cost to look at, and it
+is not part of this slice.
+
 ## Decided (owner, 2026-10-28)
 
 1. **Root of trust: both.** An owner key signs each vessel once (the ledger's trust); the mesh admits the machine (the

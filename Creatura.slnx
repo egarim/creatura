@@ -5,6 +5,8 @@
     <Project Path="src/Creatura.Bench/Creatura.Bench.csproj" />
     <Project Path="src/Creatura.Seats/Creatura.Seats.csproj" />
     <Project Path="src/Creatura.Cells/Creatura.Cells.csproj" />
+    <Project Path="src/Creatura.Cells.Sqlite/Creatura.Cells.Sqlite.csproj" />
+    <Project Path="src/Creatura.Cells.Sync/Creatura.Cells.Sync.csproj" />
     <Project Path="src/Creatura.Cli/Creatura.Cli.csproj" />
     <Project Path="src/Creatura.Hosts.AgentFramework/Creatura.Hosts.AgentFramework.csproj" />
   </Folder>

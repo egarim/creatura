@@ -220,7 +220,9 @@ public class CellsTests
 
 /// <summary>
 /// Creatura.Cells and the creatura command stay package-free like the Core: no <c>PackageReference</c> in their
-/// project files and no framework, model abstraction or provider SDK among their assemblies' references.
+/// project files and no framework, model abstraction or provider SDK among their assemblies' references. The command's
+/// one package, Microsoft.Data.Sqlite, comes through Creatura.Cells.Sqlite (slice 3), which only the command may
+/// reference; Creatura.Cells references neither.
 /// </summary>
 public class CellsPurityTest
 {
@@ -262,7 +264,7 @@ public class CellsPurityTest
         Assert.NotEmpty(references);
         Assert.All(references, name => Assert.True(
             name.StartsWith("System", StringComparison.Ordinal) || name.StartsWith("Microsoft.Win32", StringComparison.Ordinal)
-            || name is "netstandard" or "Creatura" or "Creatura.Cells",
+            || name is "netstandard" or "Creatura" or "Creatura.Cells" || (project == "Creatura.Cli" && name == "Creatura.Cells.Sqlite"),
             $"{project} references {name}"));
     }
 }

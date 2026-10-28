@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The work ledger over egarim/SyncFramework (docs/design-cells.md, "Slice 3"). BIT.Data.Sync is package-free; it
+       is referenced from a sibling checkout (~/Projects/SyncFramework) until a release with the in-memory client
+       reaches nuget.org. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Creatura.Cells.Sync</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Creatura.Cells\Creatura.Cells.csproj" />
+    <ProjectReference Include="..\..\..\SyncFramework\src\BIT.Data.Sync\BIT.Data.Sync.csproj" />
+  </ItemGroup>
+
+</Project>

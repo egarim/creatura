@@ -66,6 +66,9 @@ public sealed class WorkLedger
 
     public int Count => _entries.Count;
 
+    /// <summary>The entry this ledger holds for (cell, sequence), or null.</summary>
+    public SignedEntry? Get(string cell, long sequence) => _entries.GetValueOrDefault((cell, sequence));
+
     public IReadOnlyList<SignedEntry> Entries => _ordered ??= _entries.Values
         .OrderBy(e => e.Timestamp).ThenBy(e => e.Cell, StringComparer.Ordinal).ThenBy(e => e.Sequence).ToList();
 
@@ -81,13 +84,23 @@ public sealed class WorkLedger
         return entry;
     }
 
-    public MergeResult Merge(IEnumerable<SignedEntry> entries)
+    public MergeResult Merge(IEnumerable<SignedEntry> entries) => Merge(entries, checkSignatures: true);
+
+    /// <summary>
+    /// Merges entries that a store verified when they entered it: every check of <see cref="Merge"/> except the two
+    /// signature checks, which are what a load costs. Only for the owner's own store (an owner-only file the owner
+    /// alone writes); anything that arrives from a peer, a relay or a file edited by hand goes through
+    /// <see cref="Merge"/>.
+    /// </summary>
+    public MergeResult MergeVerified(IEnumerable<SignedEntry> entries) => Merge(entries, checkSignatures: false);
+
+    private MergeResult Merge(IEnumerable<SignedEntry> entries, bool checkSignatures)
     {
         int added = 0, duplicates = 0, conflicts = 0;
         var rejected = new List<Rejection>();
         foreach (var entry in entries)
         {
-            if (Verify(entry) is { } reason)
+            if (Verify(entry, checkSignatures) is { } reason)
             {
                 rejected.Add(new Rejection(entry.Id, reason));
                 continue;
@@ -113,14 +126,16 @@ public sealed class WorkLedger
     }
 
     /// <summary>Why the entry would be rejected, or null when it verifies and its cell is endorsed by a trusted owner.</summary>
-    public string? Verify(SignedEntry entry)
+    public string? Verify(SignedEntry entry) => Verify(entry, checkSignatures: true);
+
+    private string? Verify(SignedEntry entry, bool checkSignatures)
     {
         if (entry.Sequence < 1) return "a sequence below 1";
         if (entry.Endorsement is not { } endorsement) return "no endorsement";
         if (!_owners.Contains(endorsement.OwnerPublicKey)) return "endorsed by an owner this ledger does not trust";
-        if (!endorsement.Verify()) return "the endorsement's signature does not verify";
+        if (checkSignatures && !endorsement.Verify()) return "the endorsement's signature does not verify";
         if (CellKey.CellIdOf(endorsement.CellPublicKey) != entry.Cell) return "the entry's cell is not the endorsed key";
-        if (!CellKey.Verify(endorsement.CellPublicKey, entry.SignedBytes(), entry.Signature)) return "the signature does not verify";
+        if (checkSignatures && !CellKey.Verify(endorsement.CellPublicKey, entry.SignedBytes(), entry.Signature)) return "the signature does not verify";
 
         try
         {
@@ -211,11 +226,24 @@ public sealed class WorkLedger
 }
 
 /// <summary>
+/// Where a cell keeps its ledger between runs. <see cref="LoadInto"/> merges what is stored into a ledger and says
+/// what it refused; <see cref="Save"/> stores what the ledger holds. A store holds only entries a ledger admitted.
+/// </summary>
+public interface ILedgerStore
+{
+    string Path { get; }
+
+    MergeResult LoadInto(WorkLedger ledger);
+
+    void Save(WorkLedger ledger);
+}
+
+/// <summary>
 /// The ledger on disk: one owner-only JSON file, <c>{"schema":1,"entries":[...]}</c> with one canonical entry per
 /// line, written whole through a rename. Loading merges into a ledger, so a file edited by hand is checked like any
 /// other arrival.
 /// </summary>
-public sealed class JsonLedgerStore(string path)
+public sealed class JsonLedgerStore(string path) : ILedgerStore
 {
     public const int Schema = 1;
 

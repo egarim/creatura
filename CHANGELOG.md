@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Cells slice 3: the ledger in SQLite, synced through SyncFramework.** `ILedgerStore`, which `JsonLedgerStore`
+  implements. `SqliteLedgerStore` (`src/Creatura.Cells.Sqlite`, package `Microsoft.Data.Sqlite` 10.0.14): one row per
+  entry, WAL mode, owner-only file. It saves only new entries and settles conflicts by the smaller hash, as merge
+  does. Loads check each row's hash and the owner's trust through `WorkLedger.MergeVerified`, and `VerifyOnLoad`
+  checks the signatures too. An empty database imports `ledger.json` with every signature checked.
+  `src/Creatura.Cells.Sync` (sibling reference to egarim/SyncFramework's `BIT.Data.Sync`): `LedgerDelta` maps one
+  entry to one delta, `LedgerDeltaProcessor` merges deltas through `WorkLedger.Merge` and never executes anything,
+  and `LedgerSyncNode` stages, pushes and pulls. The command takes `--store json|sqlite` (default json), also passed
+  through `hooks-config` and `install-hooks`. Pre-registered tests C6 to C12, plus a conflict test added after a
+  mutation of the conflict rule survived them.
+
 - **Cells slice 2: Claude Code joins.** `creatura cell hook` reads one Claude Code hook event on stdin, prints
   nothing and always exits 0: the first prompt of a session writes a `Claim` (goal from the folder and branch, or the
   first line of the prompt scrubbed of secret-shaped text with `--goal prompt`), each finished turn writes one

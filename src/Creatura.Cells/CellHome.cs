@@ -21,7 +21,15 @@ public sealed class CellHome
 {
     public const string VesselsPartKey = "cells.vessels";
 
-    public CellHome(string? root = null) => Root = Path.GetFullPath(root ?? DefaultRoot);
+    /// <param name="root">The home directory (default <see cref="DefaultRoot"/>).</param>
+    /// <param name="ledgerStore">How the home keeps its ledger; the JSON file when null (another store, such as SQLite, lives in its own project).</param>
+    public CellHome(string? root = null, Func<CellHome, ILedgerStore>? ledgerStore = null)
+    {
+        Root = Path.GetFullPath(root ?? DefaultRoot);
+        _ledgerStore = ledgerStore;
+    }
+
+    private readonly Func<CellHome, ILedgerStore>? _ledgerStore;
 
     public static string DefaultRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".creatura");
 
@@ -39,7 +47,10 @@ public sealed class CellHome
 
     public string LedgerPath => Path.Combine(Root, "ledger.json");
 
-    public JsonLedgerStore Ledger => new(LedgerPath);
+    /// <summary>The ledger file of the JSON store, whichever store the home uses: a SQLite store imports it once.</summary>
+    public JsonLedgerStore JsonLedger => new(LedgerPath);
+
+    public ILedgerStore Ledger => _ledgerStore?.Invoke(this) ?? JsonLedger;
 
     /// <summary>True once <see cref="EnsureOwner"/> has run here: there is a salt to hash vessel ids with.</summary>
     public bool IsInitialized => File.Exists(SaltPath);

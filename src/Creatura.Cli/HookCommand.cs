@@ -81,7 +81,7 @@ public static class HookCommand
             var options = Options(args);
             root = options.GetValueOrDefault("--home") ?? Environment.GetEnvironmentVariable("CREATURA_HOME");
             var json = stdin.ReadToEnd();
-            Handle(json, new CellHome(root), options.GetValueOrDefault("--goal") ?? "folder", options.GetValueOrDefault("--creatura") ?? DefaultCreatura, new HookEnvironment());
+            Handle(json, new CellHome(root, LedgerStores.Factory(options.GetValueOrDefault("--store"))), options.GetValueOrDefault("--goal") ?? "folder", options.GetValueOrDefault("--creatura") ?? DefaultCreatura, new HookEnvironment());
         }
         catch (Exception e)
         {
@@ -247,7 +247,7 @@ public static class HookCommand
         var trusted = new[] { owner?.PublicKey, cell.Identity.Endorsement?.OwnerPublicKey }.OfType<string>().Distinct();
         var ledger = new WorkLedger(trusted);
         var store = home.Ledger;
-        store.LoadInto(ledger);
+        LedgerStores.LoadInto(home, store, ledger);
         CellCommand.SayHelloIfNeeded(ledger, cell);
         var entry = ledger.Append(cell, payload, env.Now());
         store.Save(ledger);
