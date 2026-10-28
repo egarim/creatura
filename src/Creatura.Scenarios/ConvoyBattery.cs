@@ -195,6 +195,24 @@ public static class ConvoyBattery
             verdicts.Add(new("T7c", "the network trained by trial on W's setup replays byte for byte for the same seed (Q)", Held(same), same ? "six runs of seed 0 matched" : "a replay differed"));
         }
 
+        // The learned judge (pre-registered as T8 to T8c), scored when arms X and J both ran.
+        if (runs.ContainsKey(ConvoyArm.X) && runs.ContainsKey(ConvoyArm.J))
+        {
+            var n = Math.Min(runs[ConvoyArm.X].Count, runs[ConvoyArm.J].Count);
+            int Over(ConvoyArm arm, Func<ConvoyMeasures, int> f) => runs[arm].Take(n).Sum(f);
+            verdicts.Add(new("T8", "with the learned judge in place of the hand-coded check, the trucks deliver at least as much as arm J and act on no more lies (X against J)",
+                Held(Over(ConvoyArm.X, m => m.Delivered) >= Over(ConvoyArm.J, m => m.Delivered) && Over(ConvoyArm.X, m => m.LiesBelieved) <= Over(ConvoyArm.J, m => m.LiesBelieved)),
+                $"delivered X {Over(ConvoyArm.X, m => m.Delivered)}, J {Over(ConvoyArm.J, m => m.Delivered)}; lies X {Over(ConvoyArm.X, m => m.LiesBelieved)}, J {Over(ConvoyArm.J, m => m.LiesBelieved)}; "
+                + $"stranded X {Over(ConvoyArm.X, m => m.Stranded)}, J {Over(ConvoyArm.J, m => m.Stranded)}; served by tick {runs[ConvoyArm.X].Take(n).Average(m => m.TicksToServe):0.0} against {runs[ConvoyArm.J].Take(n).Average(m => m.TicksToServe):0.0} over {n} seeds"));
+            var judged = Over(ConvoyArm.X, m => m.Judged);
+            var alarms = Over(ConvoyArm.X, m => m.JudgeFalseAlarms);
+            verdicts.Add(new("T8b", "the learned judge gives false alarms on fewer than 1% of the actions it judges (X)",
+                Held(judged > 0 && alarms < 0.01 * judged),
+                $"false alarms {alarms} of {judged} judged ({(judged == 0 ? 0 : alarms / (double)judged):P2}); misses {Over(ConvoyArm.X, m => m.JudgeMisses)}"));
+            var same = replays is not null && replays.TryGetValue(ConvoyArm.X, out var s) ? s : replaysMatch;
+            verdicts.Add(new("T8c", "with the learned judge, a seed replays byte for byte (X)", Held(same), same ? "six runs of seed 0 matched" : "a replay differed"));
+        }
+
         // Shared distrust (pre-registered as W1 to W3), scored when arms W and J both ran.
         if (runs.ContainsKey(ConvoyArm.W) && runs.ContainsKey(ConvoyArm.J))
         {

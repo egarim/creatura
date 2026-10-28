@@ -1,3 +1,4 @@
+using System.Globalization;
 using Creatura.Cells;
 using Creatura.Seats;
 
@@ -83,6 +84,58 @@ internal sealed class RoadDistrustExtension(ConvoyWorld world, string truck, Tru
     }
 }
 
+/// <summary>
+/// The learned judge (arm X, docs/design-trained-models.md, step 5): before each decision it encodes what the truck
+/// sees, after the action what it sees then, and asks the world model how surprising the change was. Above the
+/// threshold the action is a lie, at or below it landed. It replaces the layer's verdict, so the quarantine, the
+/// regulator's memory and road distrust all act on the world model's judgement instead of the hand-coded check's.
+/// </summary>
+internal sealed class LearnedJudgeExtension(ConvoyWorld world, TruckSpec spec, WorldModel model, double threshold, RoadDistrustExtension? distrust) : IAgentExtension
+{
+    private readonly List<string> _vocabulary = ConvoyActions.Vocabulary(world.Map);
+    private double[]? _before;
+    private int _beforeTick = -1;
+
+    public string Name => "learned-judge";
+
+    public int Judged { get; private set; }
+
+    public int FalseAlarms { get; private set; }
+
+    public int Misses { get; private set; }
+
+    private IEnumerable<string> Notes() => distrust?.Roads.Select(r => $"avoid:{r}") ?? [];
+
+    private double[] Encode(TickContext context) =>
+        ConvoyFeatures.Encode(world.Map, spec.Machine, context.World.Facts, Notes(), context.Tick, context.MaxTicks);
+
+    public IReadOnlyList<Tool> VisibleTools(TickContext context, IReadOnlyList<Tool> visible)
+    {
+        _before = Encode(context);
+        _beforeTick = context.Tick;
+        return visible;
+    }
+
+    public ActionVerdict Judge(TickContext context, Tool tool, ActionOutcome outcome, bool landed, ActionVerdict verdict)
+    {
+        var action = _vocabulary.IndexOf(tool.Id);
+        if (action < 0 || _before is null || _beforeTick != context.Tick) return verdict;
+        var surprise = model.Surprise(_before, action, Encode(context));
+        Judged++;
+        var learned = surprise > threshold ? ActionVerdict.Lied : ActionVerdict.Landed;
+        if (learned == ActionVerdict.Lied && landed) FalseAlarms++;
+        if (learned == ActionVerdict.Landed && !landed) Misses++;
+        if (learned == ActionVerdict.Lied)
+        {
+            var road = tool.Id.StartsWith("drive:", StringComparison.Ordinal) ? tool.Id.Split(':')[1] : null;
+            world.Record(new ReplayEvent("surprised", string.Create(CultureInfo.InvariantCulture,
+                $"{spec.Name}'s world model did not expect what followed {tool.Id} (surprise {surprise:0.0} above {threshold:0.0}), so it is judged a lie."))
+                { Truck = spec.Name, Road = road, Verdict = learned.ToString() });
+        }
+        return learned;
+    }
+}
+
 /// <summary>What one run left: the replay, the judge's measures, and anything that went wrong in a truck's loop.</summary>
 public sealed record ConvoyRun(ConvoySetup Setup, ReplayHeader Header, IReadOnlyList<ReplayTick> Ticks, ReplaySummary Summary, IReadOnlyList<AgentRun> Runs, IReadOnlyList<string> Errors)
 {
@@ -104,6 +157,8 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
     public ConvoySetup Setup { get; } = setup;
 
     private readonly List<ModelPolicy> _seats = [];
+
+    private readonly List<LearnedJudgeExtension> _judges = [];
 
     private ConvoyWorld? _world;
 
@@ -203,7 +258,8 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
                 LedgersIdentical: identical,
                 IdleWhileUnserved: world.Need.Values.Any(n => n > 0) ? Math.Max(idle, world.Trucks.Count(t => !t.Broken && t.Finished)) : 0,
                 MessagesSent: mesh?.Sent ?? 0,
-                MessagesLost: mesh?.Lost ?? 0) { GaugeStranded = gaugeStranded, LiesAlreadyCaught = world.Trucks.Sum(t => t.LiesAlreadyCaught) };
+                MessagesLost: mesh?.Lost ?? 0) { GaugeStranded = gaugeStranded, LiesAlreadyCaught = world.Trucks.Sum(t => t.LiesAlreadyCaught),
+                    Judged = _judges.Sum(j => j.Judged), JudgeFalseAlarms = _judges.Sum(j => j.FalseAlarms), JudgeMisses = _judges.Sum(j => j.Misses) };
             var summary = new ReplaySummary(measures, Outcome(world, measures)) { Seat = SeatUsage() };
             recorder?.EndRun(measures);
             observer?.End(summary);
@@ -239,7 +295,14 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         }
         if (recorder is not null) policy = recorder.Seat(policy, spec, Setup.Map);
         var observers = new List<IAgentExtension> { story };
-        if (Setup.DistrustRoads) observers.Add(new RoadDistrustExtension(_world!, spec.Name, Setup.ShareDistrust ? view : null));
+        RoadDistrustExtension? distrust = Setup.DistrustRoads ? new RoadDistrustExtension(_world!, spec.Name, Setup.ShareDistrust ? view : null) : null;
+        if (distrust is not null) observers.Add(distrust);
+        if (Setup.LearnedJudge is { } judgeModel)
+        {
+            var judge = new LearnedJudgeExtension(_world!, spec, ConvoyNetwork.LoadWorld(judgeModel, Setup.Map), Setup.LearnedJudgeThreshold, distrust);
+            _judges.Add(judge);
+            observers.Add(judge);
+        }
         if (recorder is not null) observers.AddRange(recorder.Extensions(spec));
         var options = new AgentOptions(observers);
         var vessel = new Vessel { Model = endpoint?.Model ?? (network is null ? "convoy-planner" : "convoy-network"), Physical = spec.Machine };
@@ -249,6 +312,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         if (Setup.DistrustRoads) extensions.Add(Setup.ShareDistrust
             ? "RoadDistrustExtension, shared: a road caught lying is avoided both ways for the rest of the run, and a warning on the ledger tells the other trucks to avoid it too"
             : "RoadDistrustExtension: a road caught lying is avoided both ways for the rest of the run");
+        if (Setup.LearnedJudge is not null) extensions.Add($"LearnedJudgeExtension: the world model {Setup.LearnedJudge} judges every action by its surprise (above {Setup.LearnedJudgeThreshold.ToString(CultureInfo.InvariantCulture)} is a lie), in place of the effect check");
 
         const string designLayer = "ControlLayerOptions.Design: an action whose effect did not land counts as a lie, whatever the tool reported (two-way judge); a tool judged a lie is set aside for 3 ticks, then trusted again; honest failures are habituated";
         (ReferenceLoop Loop, string Title, string About, string Regulator, string Layer, string LayerCode) made = spec.Design switch
@@ -287,7 +351,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
                 ? $"ConvoyNetwork.Seat(ConvoyNetwork.Load(\"{Setup.SeatNetwork}\"), map, machine),  // a trained policy network, {network.Source}"
                 : "new ConvoyPolicy(map, machine),      // the offline planner: no language model is called";
         var extensionCode = Setup.DistrustRoads
-            ? $"AgentOptions.With(new StoryExtension(world, \"{spec.Name}\"), new RoadDistrustExtension(world, \"{spec.Name}\"{(Setup.ShareDistrust ? ", shared: view" : "")}))"
+            ? $"AgentOptions.With(new StoryExtension(world, \"{spec.Name}\"), new RoadDistrustExtension(world, \"{spec.Name}\"{(Setup.ShareDistrust ? ", shared: view" : "")}){(Setup.LearnedJudge is null ? "" : $", new LearnedJudgeExtension(world, \"{spec.Name}\", ConvoyNetwork.LoadWorld(\"{Setup.LearnedJudge}\", map))")})"
             : $"AgentOptions.With(new StoryExtension(world, \"{spec.Name}\"))";
         var csharp = $$"""
             // {{spec.Name}}: {{made.Title}}, arm {{Setup.Arm}} (src/Creatura.Scenarios/ConvoyScenario.cs, Build)
@@ -338,6 +402,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         if (!Setup.Ledger) faults.Add("No ledger: each truck knows only what it sees.");
         if (Setup.StallAfter is { } stall) faults.Add($"Fix: a claim with no delivery for {stall} ticks may be taken over.");
         if (Setup.DistrustRoads) faults.Add("Fix: a road caught lying is distrusted both ways for the rest of the run.");
+        if (Setup.LearnedJudge is not null) faults.Add($"Learned judge: each truck's world model, not the effect check, decides whether an action landed or lied.");
         if (Setup.ShareDistrust) faults.Add("Shared distrust: a truck that catches a road lying warns the others on the ledger, and they avoid it too.");
         if (Setup.HandOffWhenStranded) faults.Add("Fix: a truck that runs out of fuel hands back its claim.");
 
@@ -401,6 +466,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         ConvoyArm.N => "Tests T2 and T4: a small network trained to copy arm J's planner, in every truck's seat, with all three fixes.",
         ConvoyArm.R => "Tests T3 and T3b: arm N's network trained further by trial in the simulator, against arm J's planner.",
         ConvoyArm.W => "Tests W1 and W2: all three fixes, and a truck that catches a road lying warns the others through the ledger.",
+        ConvoyArm.X => "Tests T8 and T8b: a world model's surprise judges every action, in place of the control layer's hand-coded effect check.",
         ConvoyArm.Q => "Tests T7 and T7b: the network trained by trial again, on W's setup, with a reward that prices unserved villages and an anchor to its teacher.",
         _ => arm.ToString(),
     };

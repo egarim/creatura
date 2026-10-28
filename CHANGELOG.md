@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **The world model in the loop** (arm X): `WorldModel` in `Creatura.Seats` and `LearnedJudgeExtension`, which lets
+  a world model's surprise judge every action in place of the effect check. It caught every lie (no misses) but
+  raised false alarms on 3.1% of actions, and its detours led to more lies than arm J (63 against 54): T8 and T8b
+  failed, T8c held. Arm X joins the default battery.
+
 - **The world model, retrained on varied driving** (`models/convoy-world-varied.json`): planners in ten other setups
   and a sampled network, all free and from training seeds. T6c and T6d held: on DeepSeek's driving it now flags 80%
   of the road lies (50% before), and on the planner's it still flags every lie. `train_world.py --held-out-digit`.

@@ -576,6 +576,78 @@ uv run tools/train/train_world.py datasets/world/train-varied.jsonl models/convo
 Next for the world model: read its surprise in a regulator's prediction slot, so a truck that finds an outcome
 surprising can act on it the way the designs act on an anomaly.
 
+## Step 5, the world model in the loop, registered before the code (2026-10-28)
+
+Written before the C# world model, the extension or arm X existed. The threshold below was fixed from training seeds
+only; the battery's seeds were not looked at.
+
+- **Where surprise enters.** The Core has no slot named "prediction" that a learned model could fill; what it has is
+  the control layer's re-judge chain. After the layer's effect check, each extension may replace the verdict on the
+  action, and the replaced verdict is the one the quarantine, the regulator's memory (`Record`), the distrust
+  extension and every observer see. A `LearnedJudgeExtension` puts the world model there.
+- **What it does.** Before each decision it encodes what the truck sees; after the action it encodes what the truck
+  sees then, and asks the world model how surprising the change was. Above the threshold the action is judged a lie;
+  at or below it, landed. It overrides the layer's own verdict entirely, so in this arm the hand-coded effect check
+  decides nothing.
+- **The model and the threshold.** `models/convoy-world-j.json`, the model trained on arm J's planner (its truck
+  drives like the planner). Threshold **4.606**: the 99.5th percentile of its surprise at landed actions on its held-out
+  training seeds 550 to 599, where it flagged 0.52% of landed actions and caught all 50 lies.
+- **Arm X:** arm J with the learned judge in every truck. The rest of the battery is unchanged.
+
+Judged on seeds 0 to 49:
+
+| id | claim | falsifier |
+|---|---|---|
+| T8 | with the learned judge in place of the hand-coded check, the trucks deliver at least as much as arm J and act on no more lies | less delivered, or more lies acted on |
+| T8b | the learned judge gives false alarms (an action that landed, judged a lie) on fewer than 1% of the actions it judges | 1% or more |
+| T8c | arm X replays byte for byte for the same seed | any difference |
+
+Reported without a claim: lies the learned judge missed, its false alarms by kind of action, and when the villages
+were served. The prediction: it catches nearly every lie; a few false alarms cost little, unless one falls on a drive,
+which makes the truck distrust a good road for the rest of the run.
+
+## Step 5, the world model in the loop, built (2026-10-28)
+
+**T8 failed, T8b failed, T8c held.** On seeds 0 to 49:
+
+| | arm X (learned judge) | arm J (hand-coded check) |
+|---|---|---|
+| delivered | 1500/1500 | 1500/1500 |
+| lies acted on | 63 | 54 |
+| of them road lies | 56 | 48 |
+| trucks stranded | 8 | 6 |
+| villages served by tick | 27.7 | 25.5 |
+| lies the judge missed | **0** | (the check misses none by construction) |
+| false alarms | **131 of 4,197 judged (3.1%)** | none |
+
+The learned judge caught every lie: not one lying drive was judged landed, and no truck took a lying road twice. It
+also called 131 actions lies that had landed, six times the 0.52% its calibration had shown. Arm X still delivered
+everything, but acted on more lies and served the villages two ticks later.
+
+**Why: the judge changed the driving it judged.** The threshold was fixed on arm J's own driving. In arm X, 34 of the
+false alarms fell on drives that had in fact arrived, and road distrust then made the truck avoid a good road for the
+rest of the run. The detours took trucks into situations the planner never reaches, which the model, trained only on
+the planner's driving, found more surprising still: 62 false alarms fell on waits, the rest on refuels, loads, unloads,
+claims and early reports of done, and all of them after tick 10. The detours also sent more trucks onto the lying road
+for the first time (56 road lies against 48). A fixed threshold held on the driving it was set on and not on the
+driving it caused.
+
+What would change it, each to be registered before it runs:
+- **Judge only what the world can contradict.** A wait, a claim or a report changes nothing the model can check
+  against the world; leave those to the hand-coded check, and judge drives, loads, unloads and refuels.
+- **Let a learned lie quarantine, not condemn.** A road distrusted for good on one surprise is the costliest mistake;
+  the layer's three-tick quarantine is enough until the hand-coded check, or a second surprise, agrees.
+- **Train on varied driving, and calibrate on it.** The varied model of the last step held up on a driver it never
+  saw; calibrated on varied driving, the threshold would allow for the detours its own alarms cause.
+
+T8c held: the world model's arithmetic is deterministic, and six runs of seed 0 replayed byte for byte.
+
+The code: `WorldModel` (`Creatura.Seats`) reads a model from `train_world.py` and repeats its arithmetic exactly (a
+test pins one surprise to the Python value, 234.71997016536898); `LearnedJudgeExtension` and arm X are in
+`Creatura.Scenarios`, with `ConvoyMeasures.Judged`, `JudgeFalseAlarms` and `JudgeMisses`. Four deliberate breaks each
+fail a test: surprise against what the truck saw before (95 false alarms on one seed: this one passed until a test
+counted false alarms), no sigmoid on the output, the learned verdict ignored, and T8b accepting 1%.
+
 ## What this note does not cover
 
 - Training on data from real machines or real users. Every dataset here comes from simulated worlds.

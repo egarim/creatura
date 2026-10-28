@@ -52,6 +52,22 @@ public static class ConvoyNetwork
         return new NetworkSeat(network, c => ConvoyFeatures.Encode(map, machine, c.Facts, c.Notes, c.Tick, c.MaxTicks), "convoy-network", sample, temperature);
     }
 
+    /// <summary>The world model arm X's learned judge reads (docs/design-trained-models.md, step 5), embedded in this assembly.</summary>
+    public const string EmbeddedWorld = "convoy-world-j";
+
+    private static readonly ConcurrentDictionary<string, WorldModel> LoadedWorlds = new(StringComparer.Ordinal);
+
+    /// <summary>An embedded world model by its name, or a weights file by its path, checked against the map's schema and vocabulary.</summary>
+    public static WorldModel LoadWorld(string nameOrPath, RoadMap map) => LoadedWorlds.GetOrAdd(nameOrPath, key =>
+    {
+        using var stream = typeof(ConvoyNetwork).Assembly.GetManifestResourceStream($"Creatura.Scenarios.{key}.json");
+        var model = stream is null ? WorldModel.Load(key) : WorldModel.Parse(new StreamReader(stream).ReadToEnd(), $"models/{key}.json");
+        var schema = ConvoyFeatures.Schema(map);
+        if (model.World != "convoy" || model.SchemaHash != schema.Hash || !model.Features.SequenceEqual(schema.Names) || !model.Actions.SequenceEqual(ConvoyActions.Vocabulary(map)))
+            throw new ArgumentException($"{model.Source} was trained for another world, schema or action vocabulary than the map {map.Name}'s");
+        return model;
+    });
+
     /// <summary>Refuses a network trained for another world, another feature schema or another action vocabulary.</summary>
     public static void Fits(PolicyNetwork network, RoadMap map)
     {

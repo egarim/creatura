@@ -50,6 +50,9 @@ public enum ConvoyArm
 
     /// <summary>As W (distrust shared), with arm N's network trained further by trial on W's setup (step 3's second attempt).</summary>
     Q,
+
+    /// <summary>As J (all three fixes), with a learned judge: a world model's surprise, not the hand-coded effect check, decides each verdict (docs/design-trained-models.md, step 5).</summary>
+    X,
 }
 
 /// <summary>A truck: its name, its machine, and the design that drives it ("plain", "levin", "bach", "peterson").</summary>
@@ -94,6 +97,12 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
     /// <summary>A truck that catches a road lying warns the others on the ledger, and they distrust it too (needs <see cref="DistrustRoads"/> and a ledger).</summary>
     public bool ShareDistrust { get; init; }
 
+    /// <summary>The world model whose surprise judges every action in place of the effect check; null for the hand-coded check.</summary>
+    public string? LearnedJudge { get; init; }
+
+    /// <summary>Above this surprise the learned judge calls an action a lie (fixed from training seeds; see step 5's registration).</summary>
+    public double LearnedJudgeThreshold { get; init; } = 4.606;
+
     /// <summary>A truck whose drive fails for lack of fuel hands back its claim and claims nothing more.</summary>
     public bool HandOffWhenStranded { get; init; }
 
@@ -126,6 +135,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
         ConvoyArm.N => $"a policy network ({SeatNetwork}) in every truck's seat, shared ledger, all three fixes",
         ConvoyArm.R => $"a policy network trained by trial ({SeatNetwork}) in every truck's seat, shared ledger, all three fixes",
         ConvoyArm.W => "plain loop, shared ledger, all three fixes, distrust shared through the ledger",
+        ConvoyArm.X => $"plain loop, shared ledger, all three fixes, a learned judge ({LearnedJudge}) in place of the effect check",
         ConvoyArm.Q => $"a policy network trained by trial on W's setup ({SeatNetwork}) in every truck's seat, all three fixes, distrust shared",
         _ => Arm.ToString(),
     };
@@ -187,6 +197,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
             ConvoyArm.R => AllFixes(setup) with { SeatNetwork = ConvoyNetwork.EmbeddedTrial },
             ConvoyArm.W => AllFixes(setup) with { ShareDistrust = true },
             ConvoyArm.Q => AllFixes(setup) with { ShareDistrust = true, SeatNetwork = ConvoyNetwork.EmbeddedTrialShared },
+            ConvoyArm.X => AllFixes(setup) with { LearnedJudge = ConvoyNetwork.EmbeddedWorld },
             _ => setup,
         };
     }

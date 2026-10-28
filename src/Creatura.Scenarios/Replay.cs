@@ -78,6 +78,13 @@ public sealed record ConvoyMeasures(int Delivered, int Demand, int WastedTrips, 
 
     /// <summary>Road lies acted on after another truck had acted on the same lying road at an earlier tick: what shared distrust is for.</summary>
     public int LiesAlreadyCaught { get; init; }
+
+    /// <summary>With a learned judge: the actions it judged, those that landed but it called lies, and those that did not land but it called landed.</summary>
+    public int Judged { get; init; }
+
+    public int JudgeFalseAlarms { get; init; }
+
+    public int JudgeMisses { get; init; }
 }
 
 /// <summary>What the language models in the seats used in one run: calls, failures, invalid answers, tokens, cost and time.</summary>
