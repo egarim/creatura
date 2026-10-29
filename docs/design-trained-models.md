@@ -1121,6 +1121,148 @@ threshold. It is not ahead. Its false alarms are about twice the rule's, and the
 be strictly better, failed on both sets of seeds. Seeds 0 to 49 have now been used by two tests of this judge;
 seeds 2000 to 2049 by one.
 
+## Step 7, a world model in a learned representation, registered before the code (2026-10-29)
+
+Written before the trainer, the model file or the loader existed. Nothing below has been run.
+
+**Why.** Part 4 named two steps for the world model: a forward model over the facts, then a model that predicts in a
+representation it learns, which is JEPA's idea. Step 5 built the first. The forward model has to predict every
+feature, so a feature no prediction can pin down (a fuel fraction, a misread position) adds to every surprise, lie or
+not; step 6 found that a misread made a landed drive as surprising as a lie. A model that predicts in its own
+representation may learn to spend less on what cannot be predicted. Or it may learn to ignore what a lie changes.
+This step finds out which.
+
+**The model.** Three small networks, numpy only, trained by `tools/train/train_jepa.py`:
+- an **encoder** from the 61 features to an embedding of 32 numbers (61 → 128 → 32, relu then linear);
+- a **target encoder** of the same shape, never trained directly: after each step its weights move 1% of the way to
+  the encoder's (an exponential moving average, 0.99);
+- a **predictor** from the embedding and the action (one bit for each of the 36) to the next embedding
+  (68 → 128 → 32, relu then linear).
+
+The loss is the squared distance between the predicted embedding and the target encoder's embedding of the features
+after, with no gradient into the target. Against collapse (every state mapped to one point, which makes every
+prediction perfect), the encoder's embeddings in each batch carry two more terms, as in VICReg: each of the 32
+numbers must keep a standard deviation of at least 1, and the numbers must not be correlated with each other (VICReg's
+weights: 25, 25 and 1 for prediction, variance and covariance). The file keeps all three networks.
+
+**Latent surprise.** For an action that ran: encode the features before, predict the next embedding from it and the
+action, encode the features after with the target encoder, and take the squared distance. It decides nothing.
+
+**The data and the rule on seeds.**
+- Clean world: trained on `datasets/world/train-varied.jsonl`, the set `convoy-world-varied.json` learned from
+  (seeds 100 to 1,099); seeds ending in 9 held out.
+- Noisy world: trained on `datasets/noisy/train-noisy.jsonl`, the set `convoy-world-noisy.json` learned from (seeds
+  50 to 599); seeds ending in 9 held out.
+- The held-out training seeds choose the stopping point, by a measure that uses no labels: the prediction error as a
+  share of the target embedding's variance (a raw distance would fall just by shrinking the embedding). They also
+  choose the one setting tuned (the embedding size, 16, 32 or 64,
+  if 32 shows collapse or a held-out lie separation clearly below the forward model's on the same held-out seeds).
+  The battery's seeds are scored once, with the model chosen, and never used to choose anything.
+
+**The measure.** How well a score separates lies from honest outcomes, without a threshold: the share of (lie,
+landed) pairs in which the lie scores higher (the area under the ROC curve, AUC; 1 is perfect, 0.5 is chance).
+
+Judged on the battery's sets, already recorded:
+
+| id | claim | falsifier |
+|---|---|---|
+| T13 | on arm J's driving (seeds 0 to 49, `eval-j.jsonl`), the JEPA's latent surprise separates lies from landed actions at least as well as `convoy-world-varied.json`'s surprise: its AUC is at least the forward model's | a lower AUC |
+| T13b | the same on DeepSeek's driving (seeds 0 to 4, `eval-deepseek.jsonl`) | a lower AUC |
+| T13c | in the noisy world (arm U, seeds 0 to 49, `eval-u.jsonl`, labelled by the truth: lies against landed, honest failures left out), the noisy JEPA's AUC is at least `convoy-world-noisy.json`'s | a lower AUC |
+| T13d | the C# loader repeats the trainer's arithmetic: a fixed input gives the trainer's latent surprise to 9 digits | any larger difference |
+
+Reported without a claim: the share of lies above the 95th percentile of landed actions for both models (step 5's
+measure), a bootstrap 95% interval for each AUC difference (2,000 resamples), the AUC by kind of action, and a check
+for collapse (the spread of each embedding number on the test set, and how many numbers carry 99% of the variance).
+
+The prediction: T13 and T13b are close to a coin toss against a strong baseline. The forward model already puts every
+planner lie above its line, so T13 needs the JEPA to be near perfect too, and the variance term keeps the
+representation from discarding what a lie changes but does not reward keeping it. T13c is the real question: if the
+JEPA learns that a position reading is often wrong and a gauge reading less so, it beats the forward model there;
+step 6 suggests a single-step model cannot know a misread from a lie, so a loss there is also likely.
+
+## Step 7, a world model in a learned representation, built (2026-10-29)
+
+**T13 failed by a hair, T13b held, T13c failed, T13d held.** Every run is in docs/experiment-log.md (step 7).
+
+| test set | lies | AUC, JEPA | AUC, forward model | difference, 95% interval | lies above the line, JEPA | forward model |
+|---|---|---|---|---|---|---|
+| arm J, seeds 0 to 49 (T13) | 54 | 0.9997 | **0.9998** | −0.0005 to 0.0003 | 100% | 100% |
+| DeepSeek, seeds 0 to 4 (T13b) | 89 | **0.9164** | 0.8682 | **0.0105 to 0.0856** | 59.6% | 62.9% |
+| noisy world, arm U, seeds 0 to 49 (T13c) | 75 | 0.9052 | **0.9161** | −0.032 to 0.009 | 28.0% | 17.3% |
+
+"The line" is step 5's: the 95th percentile of the surprise at landed actions.
+
+**T13 is a tie.** Both models put every planner lie above the line. The JEPA's AUC is lower in the fourth decimal and
+the interval spans zero; by the registered rule it failed.
+
+**T13b held, and the reason is the lying road.** On DeepSeek's driving the JEPA separates the lying road's 60 drives
+far better (AUC 0.983 against 0.911) and DeepSeek's own mistakes worse: claims of a held village 0.55 against 0.72,
+the two early reports of done 0.30 against 0.94. The forward model sums an error over every feature, so a claim that
+changes one bit still shows. The JEPA weighs what its representation keeps, and a claim's bit is not much of it. The
+step-5 measure says the same from the other side: at the line, the JEPA catches fewer of DeepSeek's lies (59.6%
+against 62.9%), because the claims sit below it.
+
+**T13c failed narrowly.** In the noisy world all 75 lies are drives, and the two models are level on them (0.917
+against 0.915). At the line, which is what a judge would use, the JEPA catches 28% of the lies against 17%; the
+registered claim was the AUC, and that went to the forward model.
+
+**What the training seeds showed first (the tuning the registration allowed).** In both worlds the default embedding
+of 32 separated lies worse than the forward model on the held-out training seeds, so 16 and 64 were tried:
+
+| world | forward model | embedding 16 | 32 | 64 | kept |
+|---|---|---|---|---|---|
+| clean (train-varied) | 0.726 | 0.686 | **0.687** | 0.644 | 32 |
+| noisy (train-noisy) | 0.928 | 0.349 | 0.595 | **0.912** | 64 |
+
+The registration said "clearly below" and gave no number. The gaps were 0.04 and 0.33, against a standard error of
+about 0.01 and 0.02.
+
+**The finding that matters: a JEPA learns that what happens often is normal, lies included.** In the noisy world,
+embedding 32, the held-out AUC fell as the prediction improved: 0.87 at epoch 1, 0.92 at epoch 5, 0.64 at epoch 21,
+0.37 at epoch 37, below chance. The variance check showed no collapse at any point (every number kept its spread).
+The representation stayed rich and stopped carrying what a lie changes. Embedding 64 was kept because its
+label-free stopping measure stopped it at epoch 9, before that happened. That is luck, not design.
+
+The clean world shows the same thing in one place. Of the 1,540 drive lies on the held-out training seeds, 932 come
+from arms E and K, where a truck breaks down at tick 8 and keeps reporting drives that go nowhere. Both models learned
+that a broken truck stays put; the JEPA learned it more firmly (AUC 0.25 and 0.14 there, against 0.50 and 0.47). In
+every other arm the JEPA separated drive lies better (0.87 to 1.0 against 0.75 to 1.0). So the held-out number that
+drove the tuning was mostly about the broken truck, which the battery's test sets do not contain.
+
+What step 7 shows: predicting in a learned representation helps exactly where the registration hoped. It sees the
+lying road more clearly than a sum over the features does, on a driver it never saw. But a self-supervised model has
+no notion of a lie, only of the usual. Where a lie is frequent in training (a broken truck, a road taken again and
+again), it becomes the usual, and the longer the JEPA trains the more it forgets it. The forward model shares the
+flaw, less strongly, because it must account for every feature. A usable latent judge needs either training data
+where lies are rare, or a signal that says what must not be ignored. That is a labelled head, the lie judge of step
+6 by another route.
+
+The numbers on the way:
+- Clean: 61 → 128 → 32 encoder and target encoder, 68 → 128 → 32 predictor, trained in 33 seconds on 142,423
+  transitions (seeds 100 to 1,099, those ending in 9 held out), kept at epoch 48. `models/convoy-jepa-varied.json`
+  (358 KB). Noisy: embedding 64, 112,643 transitions (seeds 50 to 599), kept at epoch 9, 11 seconds.
+  `models/convoy-jepa-noisy.json` (520 KB). Neither is embedded; nothing in the loop reads them yet.
+- The hand-written gradients were checked against finite differences before any training (worst relative error
+  9e-9).
+- The scored runs reproduced the tuning runs' weights exactly (random seed 1).
+- T13d: `JepaModel` (`Creatura.Seats`) gives the trainer's latent surprise for a fixed input to 9 digits
+  (85.9984981945168 for the clean model, 226.06305231021395 for the noisy one). Run once by hand, its AUC on
+  DeepSeek's set was the trainer's 0.9164; that check is not a test, since the datasets are not in the repository.
+  Three deliberate breaks each fail two of its three tests: the encoder in place of the target encoder, a relu on
+  the output layer, and surprise against the features before.
+- The two results files, `datasets/world/results-jepa.json` and `datasets/noisy/results-jepa.json`, stay local with
+  the datasets.
+
+```bash
+uv run tools/train/train_jepa.py datasets/world/train-varied.jsonl models/convoy-jepa-varied.json --held-out-digit 9 \
+    --against models/convoy-world-varied.json --judge datasets/world/eval-j.jsonl datasets/world/eval-deepseek.jsonl \
+    --results datasets/world/results-jepa.json
+uv run tools/train/train_jepa.py datasets/noisy/train-noisy.jsonl models/convoy-jepa-noisy.json --held-out-digit 9 \
+    --embedding 64 --against models/convoy-world-noisy.json --judge datasets/noisy/eval-u.jsonl \
+    --results datasets/noisy/results-jepa.json
+```
+
 ## What this note does not cover
 
 - Training on data from real machines or real users. Every dataset here comes from simulated worlds.

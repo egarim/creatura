@@ -169,3 +169,31 @@ runs are recorded only in the design note.
 - #40: `dotnet test (760/760); tools/try-onboarding.sh`
 
 </details>
+
+## Step 7
+
+8 entries; 2 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 41 | 2026-10-29 23:03 | `7beaa98`* | tune | 100-1099 | JEPA, clean world, embedding 32 (the registered default) | kept epoch 48 of 56 (held-out relative error 0.0162); no collapse (embedding std min 0.96, 31 of 32 dims for 99% variance); held-out lie AUC 0.687 against the forward model's 0.726 on the same held-out seeds (1,657 lies); the held-out AUC swung 0.55 to 0.78 between epochs | triggered the registered rule: try embedding 16 and 64 |
+| 42 | 2026-10-29 23:04 | `7beaa98`* | tune | 100-1099 | JEPA, clean world, embedding 16 and 64 (the registered tuning) | held-out lie AUC: 16 -> 0.686 (epoch 24, 16 of 16 dims), 64 -> 0.644 (epoch 33, 51 of 64 dims); 32 was 0.687; forward model 0.726. No collapse in any | embedding 32 kept; all three below the forward model on training seeds |
+| 43 | 2026-10-29 23:05 | `7beaa98`* | test | 0-49 **battery** | T13, T13b: JEPA latent surprise against convoy-world-varied's surprise (AUC) | T13 failed: arm J AUC 0.9997 vs 0.9998 (difference 95% interval -0.0005 to 0.0003), both 100% of lies above landed P95. T13b held: DeepSeek AUC 0.9164 vs 0.8682 (interval 0.0105 to 0.0856); above P95 59.6% vs 62.9%. By kind on DeepSeek: drives 0.983 vs 0.911, claims 0.553 vs 0.717, report-done 0.30 vs 0.94, unloads 0.79 vs 0.86. Weights identical to the tuning run (seed 1) | models/convoy-jepa-varied.json; design note step 7 |
+| 44 | 2026-10-29 23:06 | `7beaa98`* | tune | 50-599 | JEPA, noisy world, embedding 32, 16 and 64 (the registered tuning) | held-out lie AUC (truth labels, 150 lies), forward model 0.928: 32 -> 0.595 (epoch 29), 16 -> 0.349 (epoch 33), 64 -> 0.912 (stopped at epoch 9). For 32 the AUC fell as the prediction improved: 0.87 at epoch 1, 0.92 at 5, 0.64 at 21, 0.37 at 37. No collapse by the variance check in any: the representation keeps its spread but stops carrying what a lie changes | embedding 64 kept for T13c, as the rule says |
+| 45 | 2026-10-29 23:06 | `7beaa98`* | test | 0-49 **battery** | T13c: noisy JEPA latent surprise against convoy-world-noisy's surprise (AUC, truth labels) | T13c failed: AUC 0.9052 vs 0.9161 (difference 95% interval -0.032 to 0.009), 75 lies, all drives (drives alone 0.917 vs 0.915). Lies above landed P95: 28.0% vs 17.3%. No collapse (43 of 64 dims for 99%) | models/convoy-jepa-noisy.json; design note step 7 |
+| 46 | 2026-10-29 23:08 | `7beaa98`* | build | — | JepaModel loader: T13d and three deliberate breaks | T13d held: C# latent surprise 85.9984981945168 equals the trainer's to 9 digits, and the C# AUC on eval-deepseek is 0.9164 as the trainer reported. Breaks: the encoder in place of the target encoder, relu on the output layer, surprise against the features before: each fails 2 of 3 tests | tests/Creatura.Scenarios.Tests/JepaModelTests.cs |
+| 47 | 2026-10-29 23:09 | `7beaa98`* | probe | 100-1099 | Why the JEPA trailed on held-out training seeds but led on DeepSeek: AUC by kind and arm | Clean held-out: 1,540 of 1,657 lies are drives; JEPA 0.488 vs world 0.655 on them. 932 come from arms E and K (a truck breaks down at tick 8, its drives fail again and again): JEPA 0.25 and 0.14, world 0.50 and 0.47. Every other arm: JEPA 0.87 to 1.0, world 0.75 to 1.0. Claims 0.975 vs 0.837, unloads 0.939 vs 0.749, report-done 0.213 vs 0.827. Noisy held-out: drives only, 0.929 vs 0.924 | design note step 7, the explanation |
+| 48 | 2026-10-29 23:29 | `7beaa98`* | build | — | JepaModel tests made repository-only; breaks rerun | The AUC test read datasets/world/eval-deepseek.jsonl, which .gitignore keeps out of the repository, so it would fail in CI. Replaced by the noisy model's arithmetic pinned to the trainer (226.06305231021395). 3 of 3 pass; each of the three breaks fails 2 of 3 | tests/Creatura.Scenarios.Tests/JepaModelTests.cs |
+
+<details><summary>Commands</summary>
+
+- #41: `uv run tools/train/train_jepa.py datasets/world/train-varied.jsonl <scratch>/jepa-varied-e32.json --held-out-digit 9 --against models/convoy-world-varied.json`
+- #42: `train_jepa.py train-varied.jsonl --held-out-digit 9 --embedding 16\|64 --against models/convoy-world-varied.json`
+- #43: `uv run tools/train/train_jepa.py datasets/world/train-varied.jsonl models/convoy-jepa-varied.json --held-out-digit 9 --against models/convoy-world-varied.json --judge datasets/world/eval-j.jsonl datasets/world/eval-deepseek.jsonl --results datasets/world/results-jepa.json`
+- #44: `train_jepa.py datasets/noisy/train-noisy.jsonl --held-out-digit 9 --embedding 32\|16\|64 --against models/convoy-world-noisy.json`
+- #45: `uv run tools/train/train_jepa.py datasets/noisy/train-noisy.jsonl models/convoy-jepa-noisy.json --held-out-digit 9 --embedding 64 --against models/convoy-world-noisy.json --judge datasets/noisy/eval-u.jsonl --results datasets/noisy/results-jepa.json`
+- #46: `dotnet test --filter JepaModelTests; breaks in src/Creatura.Seats/JepaModel.cs, each restored and touched`
+- #47: `<scratch>/heldkinds.py: both models on the seeds ending in 9 of train-varied and train-noisy`
+- #48: `dotnet test --filter JepaModelTests; the same three breaks`
+
+</details>
