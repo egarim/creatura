@@ -42,8 +42,12 @@ public sealed record ConvoyBatteryReport(int Seeds, IReadOnlyDictionary<ConvoyAr
 /// </summary>
 public static class ConvoyBattery
 {
-    /// <summary>The arms the battery runs by default: every arm with the offline planner. Arm S (a model in the seat) costs money and is not repeatable, so it runs only when asked for.</summary>
-    public static IReadOnlyList<ConvoyArm> DefaultArms => Enum.GetValues<ConvoyArm>().Where(a => a != ConvoyArm.S).ToList();
+    /// <summary>
+    /// The arms the battery runs by default: every arm with the offline planner. Arm S (a model in the seat) costs money
+    /// and is not repeatable, so it runs only when asked for. Arm P runs only when asked for too: its gate before the
+    /// loop (T10b) failed, so by step 6's registration it is not scored.
+    /// </summary>
+    public static IReadOnlyList<ConvoyArm> DefaultArms => Enum.GetValues<ConvoyArm>().Where(a => a is not ConvoyArm.S and not ConvoyArm.P).ToList();
 
     public static Task<ConvoyBatteryReport> RunAsync(int seeds, Action<string>? progress = null, CancellationToken cancellationToken = default) =>
         RunAsync(seeds, DefaultArms, null, progress, cancellationToken);
@@ -234,6 +238,64 @@ public static class ConvoyBattery
         {
             var same = new[] { ConvoyArm.Y, ConvoyArm.Z }.Where(runs.ContainsKey).All(a => replays is not null && replays.TryGetValue(a, out var r) ? r : replaysMatch);
             verdicts.Add(new("T9e", "arms Y and Z replay byte for byte", Held(same), same ? "six runs of seed 0 matched in each" : "a replay differed"));
+        }
+
+        // The noisy world (pre-registered as T10 to T10g; T10b is scored before the loop, by tools/train/train_landed.py).
+        // Every rate is over the run's checked actions: drives, loads, unloads and refuels whose truth was landed or a lie.
+        static double Rate(int part, int whole) => whole == 0 ? 0 : part / (double)whole;
+        int Of(ConvoyArm a, int n, Func<ConvoyMeasures, int> f) => runs[a].Take(n).Sum(f);
+        double ServedBy(ConvoyArm a, int n) => runs[a].Take(n).Average(m => m.TicksToServe);
+        string Errors(ConvoyArm a, int n) =>
+            $"arm {a}: false alarms {Of(a, n, m => m.CheckFalseAlarms)} of {Of(a, n, m => m.Checked)} checked ({Rate(Of(a, n, m => m.CheckFalseAlarms), Of(a, n, m => m.Checked)):P2}), "
+            + $"misses {Of(a, n, m => m.CheckMisses)} of {Of(a, n, m => m.CheckedLies)} lies";
+        double ErrorRate(ConvoyArm a, int n) => Rate(Of(a, n, m => m.CheckFalseAlarms + m.CheckMisses), Of(a, n, m => m.Checked));
+        int Common(params ConvoyArm[] arms) => arms.Min(a => runs[a].Count);
+        if (runs.ContainsKey(ConvoyArm.U) && runs.ContainsKey(ConvoyArm.J))
+        {
+            var n = Common(ConvoyArm.U, ConvoyArm.J);
+            var rate = Rate(Of(ConvoyArm.U, n, m => m.CheckFalseAlarms), Of(ConvoyArm.U, n, m => m.Checked));
+            verdicts.Add(new("T10", "the noise breaks the exact check: arm U's check gives false alarms on more than 1% of checked actions, and arm U serves the villages later than arm J",
+                Held(rate > 0.01 && ServedBy(ConvoyArm.U, n) > ServedBy(ConvoyArm.J, n)),
+                $"{Errors(ConvoyArm.U, n)}; served by tick U {ServedBy(ConvoyArm.U, n):0.0}, J {ServedBy(ConvoyArm.J, n):0.0}; delivered U {Of(ConvoyArm.U, n, m => m.Delivered)}, J {Of(ConvoyArm.J, n, m => m.Delivered)} over {n} seeds"));
+        }
+        if (runs.ContainsKey(ConvoyArm.P) && runs.ContainsKey(ConvoyArm.U))
+        {
+            var n = Common(ConvoyArm.P, ConvoyArm.U);
+            verdicts.Add(new("T10c", "arm P (the lie judge) delivers at least as much as arm U, serves the villages no later on average, and acts on no more lies",
+                Held(Of(ConvoyArm.P, n, m => m.Delivered) >= Of(ConvoyArm.U, n, m => m.Delivered) && ServedBy(ConvoyArm.P, n) <= ServedBy(ConvoyArm.U, n)
+                    && Of(ConvoyArm.P, n, m => m.LiesBelieved) <= Of(ConvoyArm.U, n, m => m.LiesBelieved)),
+                $"delivered P {Of(ConvoyArm.P, n, m => m.Delivered)}, U {Of(ConvoyArm.U, n, m => m.Delivered)}; served by tick P {ServedBy(ConvoyArm.P, n):0.0}, U {ServedBy(ConvoyArm.U, n):0.0}; "
+                + $"lies P {Of(ConvoyArm.P, n, m => m.LiesBelieved)}, U {Of(ConvoyArm.U, n, m => m.LiesBelieved)}; stranded P {Of(ConvoyArm.P, n, m => m.Stranded)}, U {Of(ConvoyArm.U, n, m => m.Stranded)} over {n} seeds"));
+        }
+        if (runs.ContainsKey(ConvoyArm.P) && runs.ContainsKey(ConvoyArm.V))
+        {
+            var n = Common(ConvoyArm.P, ConvoyArm.V);
+            verdicts.Add(new("T10d", "arm P's judge has a lower error rate (false alarms plus misses over checked actions) than arm V's fused check, and arm P delivers at least as much as arm V",
+                Held(ErrorRate(ConvoyArm.P, n) < ErrorRate(ConvoyArm.V, n) && Of(ConvoyArm.P, n, m => m.Delivered) >= Of(ConvoyArm.V, n, m => m.Delivered)),
+                $"error rate P {ErrorRate(ConvoyArm.P, n):P2}, V {ErrorRate(ConvoyArm.V, n):P2}; {Errors(ConvoyArm.P, n)}; {Errors(ConvoyArm.V, n)}; "
+                + $"delivered P {Of(ConvoyArm.P, n, m => m.Delivered)}, V {Of(ConvoyArm.V, n, m => m.Delivered)}; served by tick P {ServedBy(ConvoyArm.P, n):0.0}, V {ServedBy(ConvoyArm.V, n):0.0}; "
+                + $"lies P {Of(ConvoyArm.P, n, m => m.LiesBelieved)}, V {Of(ConvoyArm.V, n, m => m.LiesBelieved)}"));
+        }
+        if (runs.ContainsKey(ConvoyArm.P))
+        {
+            var n = runs[ConvoyArm.P].Count;
+            var rate = Rate(Of(ConvoyArm.P, n, m => m.CheckFalseAlarms), Of(ConvoyArm.P, n, m => m.Checked));
+            verdicts.Add(new("T10e", "arm P's judge gives false alarms on fewer than 1% of the actions it judges",
+                Held(Of(ConvoyArm.P, n, m => m.Checked) > 0 && rate < 0.01), $"{Errors(ConvoyArm.P, n)}; the judge's own count: {Of(ConvoyArm.P, n, m => m.JudgeFalseAlarms)} of {Of(ConvoyArm.P, n, m => m.Judged)} judged"));
+        }
+        if (runs.ContainsKey(ConvoyArm.F))
+        {
+            var n = runs[ConvoyArm.F].Count;
+            var misses = Rate(Of(ConvoyArm.F, n, m => m.CheckMisses), Of(ConvoyArm.F, n, m => m.CheckedLies));
+            var alarms = Rate(Of(ConvoyArm.F, n, m => m.CheckFalseAlarms), Of(ConvoyArm.F, n, m => m.Checked));
+            verdicts.Add(new("T10f", "arm F's judge (surprise) misses fewer than 10% of lies with false alarms under 1%",
+                Held(Of(ConvoyArm.F, n, m => m.CheckedLies) > 0 && misses < 0.10 && alarms < 0.01), $"{Errors(ConvoyArm.F, n)} ({misses:P1} missed); lies acted on {Of(ConvoyArm.F, n, m => m.LiesBelieved)}"));
+        }
+        var noisy = new[] { ConvoyArm.U, ConvoyArm.V, ConvoyArm.F, ConvoyArm.P }.Where(runs.ContainsKey).ToList();
+        if (noisy.Count > 0)
+        {
+            var same = noisy.All(a => replays is not null && replays.TryGetValue(a, out var r) ? r : replaysMatch);
+            verdicts.Add(new("T10g", $"the noisy arms replay byte for byte ({string.Join(", ", noisy)})", Held(same), same ? "six runs of seed 0 matched in each" : "a replay differed"));
         }
 
         // Shared distrust (pre-registered as W1 to W3), scored when arms W and J both ran.

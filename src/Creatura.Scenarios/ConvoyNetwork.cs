@@ -58,6 +58,12 @@ public static class ConvoyNetwork
     /// <summary>The world model trained on varied driving (step 5), the one arm Z's learned judge reads.</summary>
     public const string EmbeddedWorldVaried = "convoy-world-varied";
 
+    /// <summary>The world model retrained on noisy driving (step 6), the one arm F's learned judge reads.</summary>
+    public const string EmbeddedWorldNoisy = "convoy-world-noisy";
+
+    /// <summary>The lie judge trained on the noisy world's truth (step 6), the one arm P's learned judge reads.</summary>
+    public const string EmbeddedJudgeNoisy = "convoy-judge-noisy";
+
     private static readonly ConcurrentDictionary<string, WorldModel> LoadedWorlds = new(StringComparer.Ordinal);
 
     /// <summary>An embedded world model by its name, or a weights file by its path, checked against the map's schema and vocabulary.</summary>
@@ -71,6 +77,37 @@ public static class ConvoyNetwork
         return model;
     });
 
+    private static readonly ConcurrentDictionary<string, LieJudge> LoadedJudges = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// What a learned judge reads (steps 5 and 6), by an embedded name or a path: a world model, scored by its surprise,
+    /// or a lie judge, scored by its probability of a lie. Either is checked against the map's schema and vocabulary.
+    /// </summary>
+    internal static ActionScorer LoadScorer(string nameOrPath, RoadMap map)
+    {
+        using var stream = typeof(ConvoyNetwork).Assembly.GetManifestResourceStream($"Creatura.Scenarios.{nameOrPath}.json");
+        var json = stream is null ? File.ReadAllText(nameOrPath) : new StreamReader(stream).ReadToEnd();
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        if (doc.RootElement.TryGetProperty("kind", out var kind) && kind.GetString() == "judge")
+        {
+            var judge = LoadJudge(nameOrPath, map);
+            return new ActionScorer("lie probability", judge.Score);
+        }
+        var world = LoadWorld(nameOrPath, map);
+        return new ActionScorer("surprise", world.Surprise);
+    }
+
+    /// <summary>An embedded lie judge by its name, or a weights file by its path, checked against the map's schema and vocabulary.</summary>
+    public static LieJudge LoadJudge(string nameOrPath, RoadMap map) => LoadedJudges.GetOrAdd(nameOrPath, key =>
+    {
+        using var stream = typeof(ConvoyNetwork).Assembly.GetManifestResourceStream($"Creatura.Scenarios.{key}.json");
+        var judge = stream is null ? LieJudge.Load(key) : LieJudge.Parse(new StreamReader(stream).ReadToEnd(), $"models/{key}.json");
+        var schema = ConvoyFeatures.Schema(map);
+        if (judge.World != "convoy" || judge.SchemaHash != schema.Hash || !judge.Features.SequenceEqual(schema.Names) || !judge.Actions.SequenceEqual(ConvoyActions.Vocabulary(map)))
+            throw new ArgumentException($"{judge.Source} was trained for another world, schema or action vocabulary than the map {map.Name}'s");
+        return judge;
+    });
+
     /// <summary>Refuses a network trained for another world, another feature schema or another action vocabulary.</summary>
     public static void Fits(PolicyNetwork network, RoadMap map)
     {
@@ -82,3 +119,6 @@ public static class ConvoyNetwork
             throw new ArgumentException($"{network.Source} scores another action vocabulary than the map {map.Name}'s");
     }
 }
+
+/// <summary>How a learned judge scores an action from what was seen before it, the action and what was seen after: higher is more like a lie.</summary>
+internal sealed record ActionScorer(string Kind, Func<IReadOnlyList<double>, int, IReadOnlyList<double>, double> Score);

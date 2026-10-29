@@ -58,6 +58,9 @@ public sealed class DecisionRecord
     public string? Rationale { get; set; }
     public int? ActionIndex { get; set; }
     public string? Verdict { get; set; }
+
+    /// <summary>What the action really came to, as the world knows it (step 6): Landed, Lied or HonestFailure.</summary>
+    public string? Truth { get; set; }
     public bool? Reported { get; set; }
     public string? Observation { get; set; }
     public IReadOnlyList<string> FactsAfter { get; set; } = [];
@@ -104,7 +107,7 @@ public sealed class ConvoyRecorder
     internal IPolicy Seat(IPolicy seat, TruckSpec spec, RoadMap map) => new RecordingSeat(this, seat, spec, map);
 
     /// <summary>The truck's observers: the verdict on each recorded decision, and the generic seam.</summary>
-    internal IEnumerable<IAgentExtension> Extensions(TruckSpec spec) => [new Outcomes(this, spec.Name), new ExampleRecorder(Examples)];
+    internal IEnumerable<IAgentExtension> Extensions(TruckSpec spec, TruckView? view = null) => [new Outcomes(this, spec.Name, view), new ExampleRecorder(Examples)];
 
     private sealed class RecordingSeat(ConvoyRecorder recorder, IPolicy inner, TruckSpec spec, RoadMap map) : IPolicy
     {
@@ -129,7 +132,7 @@ public sealed class ConvoyRecorder
         }
     }
 
-    private sealed class Outcomes(ConvoyRecorder recorder, string truck) : IAgentExtension
+    private sealed class Outcomes(ConvoyRecorder recorder, string truck, TruckView? view) : IAgentExtension
     {
         public string Name => "convoy-recorder";
 
@@ -138,6 +141,7 @@ public sealed class ConvoyRecorder
             var decision = recorder._decisions.LastOrDefault(d => d.Truck == truck && d.Tick == context.Tick && d.Chosen == tool.Id && d.Verdict is null);
             if (decision is null) return;
             decision.Verdict = verdict.ToString();
+            decision.Truth = view?.LastTruth?.ToString();
             decision.Reported = outcome.Succeeded;
             decision.Observation = outcome.Observation;
             decision.FactsAfter = context.World.Facts.Order(StringComparer.Ordinal).ToList();

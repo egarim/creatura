@@ -85,6 +85,18 @@ public sealed record ConvoyMeasures(int Delivered, int Demand, int WastedTrips, 
     public int JudgeFalseAlarms { get; init; }
 
     public int JudgeMisses { get; init; }
+
+    /// <summary>Drives, loads, unloads and refuels whose truth was landed or a lie, judged in the run (step 6).</summary>
+    public int Checked { get; init; }
+
+    /// <summary>Of <see cref="Checked"/>, those whose truth was a lie.</summary>
+    public int CheckedLies { get; init; }
+
+    /// <summary>Of <see cref="Checked"/>, landed actions whose final verdict was a lie.</summary>
+    public int CheckFalseAlarms { get; init; }
+
+    /// <summary>Of <see cref="CheckedLies"/>, lies whose final verdict was not a lie.</summary>
+    public int CheckMisses { get; init; }
 }
 
 /// <summary>What the language models in the seats used in one run: calls, failures, invalid answers, tokens, cost and time.</summary>

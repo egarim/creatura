@@ -21,6 +21,7 @@
          (docs/design-trained-models.md, steps 2 and 3). -->
     <EmbeddedResource Include="..\..\models\convoy-policy-*.json" LogicalName="Creatura.Scenarios.%(Filename).json" />
     <EmbeddedResource Include="..\..\models\convoy-world-*.json" LogicalName="Creatura.Scenarios.%(Filename).json" />
+    <EmbeddedResource Include="..\..\models\convoy-judge-*.json" LogicalName="Creatura.Scenarios.%(Filename).json" />
   </ItemGroup>
 
 </Project>

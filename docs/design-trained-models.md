@@ -1,6 +1,6 @@
 # Design: trained models for a world
 
-Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held; step 3 (training by trial) built: the first attempt failed T3; the second held T7, T7b and T7c. Step 5 (the world model and the learned judge) built: T9 failed by three lies. Step 6 (a noisy world) registered, not built.
+Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held; step 3 (training by trial) built: the first attempt failed T3; the second held T7, T7b and T7c. Step 5 (the world model and the learned judge) built: T9 failed by three lies. Step 6 (a noisy world) built: T10 held; T10b failed, so the lie judge was not run; T10f failed, as predicted.
 
 ## The question, in the owner's words
 
@@ -804,12 +804,102 @@ reached what an engineer wrote knowing the noise model, without being told it.
 
 **Cost.** No paid model: recording, training and the battery all run on the laptop.
 
-**Open for the owner before the code:**
-- the noise levels (0.10 for position, 0.15 each side for the gauge), chosen so the check breaks without making the
-  convoy undeliverable;
-- whether arm V belongs in the step: without it the comparison is against a check that ignores the noise, which is
-  easy to beat;
-- whether the landed-judge may learn from the simulator's truth, or only the world-model judge (no labels) counts.
+**Decided (2026-10-29; the owner left the three choices to the author):**
+- **The noise levels stay at 0.10 and 0.15, with one check on training seeds.** Before any battery run, arms J and U run
+  noisy on training seeds 50 to 149. If arm U delivers less than 95% of the demand there, the convoy is too broken for
+  the comparison to mean anything and both levels are halved, once. If arm U's check gives false alarms on 1% or fewer
+  of its judged actions there, the noise is too weak and the position level doubles, once. The levels that come out
+  are written here before seeds 0 to 49 run. **The check, run 2026-10-29:** arm U on seeds 50 to 149 delivered 2,956
+  of 3,000 (98.5%), and its check gave false alarms on 395 of 5,458 checked actions (7.2%), missing 2 of 129 lies; it
+  served the villages by tick 36.9 on average against arm J's 24.7 there. Neither rule applies: **the levels stay at
+  0.10 and 0.15.**
+- **Arm V stays.** Beating a check that ignores the noise would prove little; the fused check is the bar.
+- **The landed-judge learns from the simulator's truth.** A real machine would not have it, which is the design's
+  stated price; arm F, which needs no labels, runs beside it so the step says what each kind of judge can do.
+
+**Thresholds, fixed before any battery run (2026-10-29).** Data: arm U on seeds 50 to 599 (550 runs, 60,744
+transitions) and the policy network sampled at temperature 2 in the noisy world on the same seeds (64,367
+transitions); seeds ending in 9 held out.
+
+- **Arm P, the lie judge** (`models/convoy-judge-noisy.json`, 158 → 128 → 128 → 1, trained on 54,007 checked actions
+  with 1,464 lies): **t1 = 0.555544, t2 = 0.955596.** On arm U's held-out seeds (2,960 landed, 77 lies) it calls 66% of
+  the lies lies at t1 and 5% at t2. Four training settings were tried (lies weighted up or not; 64 or 128 units; two
+  rates) and the one with the fewest held-out errors kept; the choice was made on training seeds only.
+- **Arm F, the world model** (`models/convoy-world-noisy.json`, retrained on the same data): **t1 = 10.82, t2 = 12.534.**
+  On the same held-out actions only 3.9% of lies are above t1 (median surprise at a lie 8.46, at a landed action 3.75):
+  the misreads make landed actions as surprising as lies.
+
+What the held-out seeds already say about T10b: on those 77 lies the fused check catches 64% with 0.37% false alarms (39
+errors); the judge 66% with 0.51% (41 errors). The 90% bar in T10b was set without working out what the noise allows:
+when a truck that really drove misreads its position as the starting place, the readings are those of a lie, and only
+the gauge (one unit, itself noisy) can tell them apart. T10b is scored as registered all the same.
+
+## Step 6, a noisy world, built (2026-10-29)
+
+**T10 held. T10b failed, so arm P was not run on the battery, and T10c, T10d and T10e are not scored. T10f failed,
+as predicted. T10g held.** On seeds 0 to 49:
+
+| | arm J (clean world) | arm U (effect check) | arm V (fused check) | arm F (world model) |
+|---|---|---|---|---|
+| delivered | 1500/1500 | 1471/1500 | **1500/1500** | 1406/1500 |
+| lies acted on | 54 | 81 | **75** | 1118 |
+| a lying road taken again | 0 | 3 | 14 | 1036 |
+| trucks stranded | 6 | 8 | 6 | 2 |
+| villages served by tick (unserved counts 61) | 25.5 | 35.9 | **29.1** | 43.7 |
+| false alarms, of checked actions | 0 of 2,387 | 204 of 2,882 (7.1%) | **10 of 2,519 (0.40%)** | 16 of 3,423 (0.47%) |
+| lies missed | 0 of 48 | 3 of 75 | 14 of 69 | 1,078 of 1,116 |
+
+With the noise off nothing moved: the 900 runs of the clean battery make the same decisions, one for one, as before
+the change (cell ids, which are random, scrubbed), so every earlier result stands.
+
+**The noise breaks the exact check (T10).** Arm U's check still catches lies (3 missed of 75), but it calls 7.1% of
+landed actions lies, and each false alarm on a drive costs the truck a good road for the rest of the run. The
+villages were served ten ticks later than in the clean world, and five runs ended short (29 units).
+
+**The fused check is the best judge in the noisy world.** Arm V delivered everything, served the villages 6.8 ticks
+sooner than U, acted on fewer lies (75 against 81), and cried wolf on 0.40% of actions. Its price is the lie it reads
+as a misread: it missed 14, and each was a second trip on the lying road.
+
+**T10b failed, so the lie judge is not scored.** On arm U's battery actions (2,882 checked, 75 lies) at t1 it called
+62.7% of the lies lies (the bar was 90%), called 0.61% of landed actions lies (under 1%, held), and made 45 errors
+against the fused check's 32. A slip to own: the code for arm P was written before T10b was scored, where the
+registration said it would be built only after. It was not run on the battery's seeds, and it is left out of the
+default battery.
+
+**Why the lie judge loses, found on training seeds only.** Arm P run on seeds 50 to 149 to find out, not as a test:
+it delivered 2,991 of 3,000 (U 2,956, V 2,998) and served the villages by tick 34.1 (U 36.9, V 30.1), but acted on 591
+lies (U 144, V 152), 462 of them a second time on the same road. On seed 77 one truck took the lying road from the
+depot towards Alba 33 times. Each time it read the depot before and after, with a full gauge (it was the truck whose
+gauge reads high, so the gauge said nothing), and the judge gave the drive 0.02 to 0.34, under t1. For one drive seen
+in training that is close to the right answer: a truck that really reaches Alba misreads its position as the depot
+about once in thirty, lies are rare, so "the depot again" alone is roughly an even bet. But the judge was trained on
+single actions, from driving where a lie was caught at once, and it has no memory. In the loop a missed lie is tried
+again, and each try looks like the same even bet. The fused check does not weigh how rare lies are: it calls the same
+readings a lie every time. This is the trouble that DAgger names for policies (a learner's errors take it where its
+teacher never went), here in a judge.
+
+**T10f failed, as predicted.** Arm F's world model missed 1,078 of 1,116 lies (96.6%): a misread makes a landed drive
+as surprising as a lie, and the one feature that tells them apart, the gauge, barely moves a sum over 61 features.
+Its trucks took the lying road 1,036 more times; 94 units went undelivered in 17 runs.
+
+What step 6 shows: in a world where no exact check exists, a hand-written rule built on knowing the noise beat both
+learned judges, and the reason is not that the networks are too small. The world model scores what is surprising, not
+what is a lie; the lie judge scores how likely a lie is for one action, as its training data saw it, and the loop
+changes those odds. A second attempt, not registered, has three directions: give the judge memory (the tries on this
+road, or the last few readings), train it on the loop's own driving (record arm P and relabel by the truth), or set its
+threshold by what each error costs in the loop rather than by a fixed false-alarm rate.
+
+The code: `SensorNoise` and `ConvoySetup.Noise` (off by default); `TruckView.LastTruth`, recorded as `truth` beside
+each verdict and exported in world sets; `VerdictTally` and the measures `Checked`, `CheckedLies`, `CheckFalseAlarms`
+and `CheckMisses` for every arm; `FusedCheckExtension`; `LieJudge` in `Creatura.Seats` and
+`tools/train/train_landed.py`; arms U, V, F and P; T10, T10c to T10g in the battery. Twelve tests in
+`NoisyWorldTests`. Eight deliberate breaks each fail a test: the position never misread, the gauge only reading low, a
+lie recorded as landed, the fused check taking position or gauge, false alarms counted on caught lies, T10 accepting
+exactly 1%, the lie judge reading its inputs in the wrong order, and the learned judge counting against the noisy
+check instead of the truth. That last one passed at first (on the seed the test used, both counts agreed); the test
+now compares the judge's counts with the truth's over six more seeds. A slip in the break script also showed up and was
+fixed: it restored each file with its old timestamp, so the build kept the broken code, and two tests failed for a
+break they did not cover; every break was run again with the files touched.
 
 ## What this note does not cover
 

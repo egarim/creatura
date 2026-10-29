@@ -51,6 +51,7 @@ public sealed class TruckView : ITickedWorld
     private readonly Dictionary<string, (int Need, int Tick)> _believed = new(StringComparer.Ordinal);
     private readonly HashSet<string> _transient = new(StringComparer.Ordinal);
     private HashSet<string> _facts = new(StringComparer.Ordinal);
+    private readonly Random? _noise;
     private int _tick;
     private int _lastSaid;
     private bool _done;
@@ -69,6 +70,8 @@ public sealed class TruckView : ITickedWorld
         _others = setup.Trucks.Select(t => t.Name).Where(n => n != truck.Name).ToList();
         foreach (var village in world.Map.Villages) _believed[village.Id] = (village.Demand, 0);
         _all = AllToolsOf(world.Map, Radio);
+        // Its own stream per truck, from the run's seed, so a noisy run replays exactly; none without noise.
+        if (setup.Noise is not null) _noise = new Random(unchecked(setup.Seed * 486_187_739 + setup.Trucks.ToList().FindIndex(t => t.Name == truck.Name) * 7_919 + 11));
         Refresh();
     }
 
@@ -87,6 +90,12 @@ public sealed class TruckView : ITickedWorld
     public bool Radio => _ledger is not null;
 
     public int Ticks { get; private set; }
+
+    /// <summary>
+    /// What the last action really came to, as the world knows it and the truck does not (step 6): a lie when it took
+    /// the lying road, landed when it succeeded otherwise, an honest failure when it failed.
+    /// </summary>
+    public ActionVerdict? LastTruth { get; private set; }
 
     public IReadOnlySet<string> Facts => _facts;
 
@@ -119,7 +128,9 @@ public sealed class TruckView : ITickedWorld
     public ActionOutcome Act(string toolId, string? payload = null)
     {
         Ticks++;
+        var lies = _truck.LyingRoadAttempts;
         var outcome = Run(toolId, payload);
+        LastTruth = _truck.LyingRoadAttempts > lies ? ActionVerdict.Lied : outcome.Succeeded ? ActionVerdict.Landed : ActionVerdict.HonestFailure;
         Refresh();
         return outcome;
     }
@@ -374,15 +385,16 @@ public sealed class TruckView : ITickedWorld
     private void Refresh()
     {
         TakeInReports();
+        var (at, gauge) = Read();
         var facts = new HashSet<string>(StringComparer.Ordinal)
         {
-            $"at:{_truck.At}",
-            $"fuel:{_world.Gauge(_truck)}",
+            $"at:{at}",
+            $"fuel:{gauge}",
             $"load:{_truck.Load}",
             $"truck:{_truck.Name}",
         };
         if (_truck.Load > 0) facts.Add("loaded");
-        if (_world.Gauge(_truck) >= _truck.Spec.Machine.FuelCapacity) facts.Add("fuel:full");
+        if (gauge >= _truck.Spec.Machine.FuelCapacity) facts.Add("fuel:full");
         if (Radio) facts.Add("radio");
         foreach (var road in _world.Map.Roads.Where(r => _world.SensedOpen(r.Id))) facts.Add($"road:{road.Id}:open");
         foreach (var (village, (need, _)) in _believed)
@@ -406,6 +418,25 @@ public sealed class TruckView : ITickedWorld
         if (_stranded) facts.Add("stranded");
         facts.UnionWith(_transient);
         _facts = facts;
+    }
+
+    /// <summary>
+    /// What the position and fuel sensors read: the truth (and the gauge that reads high), or with noisy sensors a
+    /// neighbouring place and a gauge off by one. Both draws are made at every reading, so the stream stays in step.
+    /// The roads in front of the truck (the tools it is offered) are what they are; only the readings are noisy.
+    /// </summary>
+    private (string At, int Gauge) Read()
+    {
+        var at = _truck.At;
+        var gauge = _world.Gauge(_truck);
+        if (_noise is null || _setup.Noise is not { } noise) return (at, gauge);
+        var misread = _noise.NextDouble() < noise.PositionMisread;
+        var neighbours = _world.Map.Roads.Where(r => r.Touches(at)).Select(r => r.Other(at)).Order(StringComparer.Ordinal).ToList();
+        var pick = _noise.Next(Math.Max(1, neighbours.Count));
+        if (misread && neighbours.Count > 0) at = neighbours[pick];
+        var jitter = _noise.NextDouble();
+        gauge += jitter < noise.GaugeJitter ? -1 : jitter < 2 * noise.GaugeJitter ? 1 : 0;
+        return (at, Math.Max(0, gauge));
     }
 
     /// <summary>Every tool any truck could have on this map.</summary>

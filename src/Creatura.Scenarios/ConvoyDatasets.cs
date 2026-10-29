@@ -71,7 +71,7 @@ public static class ConvoyDatasets
                 var line = new JsonObject
                 {
                     ["run"] = run.Id, ["arm"] = run.Setup.Arm.ToString(), ["seed"] = run.Setup.Seed, ["truck"] = d.Truck, ["tick"] = d.Tick,
-                    ["action"] = d.ActionIndex, ["actionId"] = d.Chosen, ["verdict"] = d.Verdict, ["evaluation"] = evaluation,
+                    ["action"] = d.ActionIndex, ["actionId"] = d.Chosen, ["verdict"] = d.Verdict, ["truth"] = d.Truth, ["evaluation"] = evaluation,
                     ["before"] = new JsonArray(d.Features.Select(x => (JsonNode)JsonValue.Create(Math.Round(x, 6))!).ToArray()),
                     ["after"] = new JsonArray(after.Select(x => (JsonNode)JsonValue.Create(Math.Round(x, 6))!).ToArray()),
                 };

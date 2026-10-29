@@ -364,6 +364,12 @@ seat. The trucks' planner keeps no state between ticks, so a small network can c
 2. **By example.** A 97-64-64-36 network copies arm J's planner: 99.97% of held-out decisions (arm N).
 3. **By trial.** PPO in the simulator. The first attempt traded deliveries for caution (arm R). The second priced a
    village left short and anchored the network to its teacher (arm Q).
+4. **A learned judge.** A world model's surprise in place of the effect check (arms X, Y, Z). It nearly matches the
+   exact check once it judges only what the world can contradict, and cannot beat it, since in the convoy that check
+   is exact.
+5. **A noisy world.** With noisy position and fuel readings the exact check cries wolf (arm U). A check written knowing
+   the noise does best (arm V); a world model misses lies (arm F), and a lie judge trained on the truth misses the
+   same lie again and again in the loop.
 
 ```bash
 dotnet run --project samples/Convoy -c Release -- --dataset datasets/convoy-j --arms J --seeds 100-599

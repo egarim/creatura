@@ -59,6 +59,18 @@ public enum ConvoyArm
 
     /// <summary>As Y, with the world model trained on varied driving and its thresholds calibrated on varied driving.</summary>
     Z,
+
+    /// <summary>As J, in the noisy world: position and fuel readings are noisy, so the hand-coded effect check is no longer exact (docs/design-trained-models.md, step 6).</summary>
+    U,
+
+    /// <summary>As U, with a hand-written check fused from the position and the gauge, written knowing the noise.</summary>
+    V,
+
+    /// <summary>As U, with step 5's learned judge by surprise, the world model retrained on noisy driving.</summary>
+    F,
+
+    /// <summary>As U, with a learned judge that gives the probability an action was a lie, trained on the simulator's truth.</summary>
+    P,
 }
 
 /// <summary>A truck: its name, its machine, and the design that drives it ("plain", "levin", "bach", "peterson").</summary>
@@ -72,6 +84,17 @@ public sealed record Closure(string Road, int Tick);
 /// and the truck whose fuel gauge reads high.
 /// </summary>
 public sealed record ConvoyFaults(IReadOnlyList<Closure> Closures, string LyingRoad, string GaugeLiar, int GaugeOffset);
+
+/// <summary>
+/// Noisy sensors (docs/design-trained-models.md, step 6): at every reading, the truck's position reads as a neighbouring
+/// place with probability <paramref name="PositionMisread"/>, and its fuel gauge reads one unit low, or one unit high,
+/// each with probability <paramref name="GaugeJitter"/>.
+/// </summary>
+public sealed record SensorNoise(double PositionMisread, double GaugeJitter)
+{
+    /// <summary>The levels registered for step 6.</summary>
+    public static SensorNoise Registered { get; } = new(0.10, 0.15);
+}
 
 /// <summary>Everything one run is made of, decided by the arm and the seed before the first tick.</summary>
 public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, ConvoyFaults Faults, int Seed, ConvoyArm Arm)
@@ -115,6 +138,12 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
     /// <summary>A learned lie distrusts its road for good only above this surprise, or at its second on that road; null: every learned lie does.</summary>
     public double? LearnedJudgeCondemn { get; init; }
 
+    /// <summary>The trucks' sensors are noisy; null: every reading is the truth (every arm before step 6).</summary>
+    public SensorNoise? Noise { get; init; }
+
+    /// <summary>The fused check, written knowing the noise, judges drives and refuels in place of the effect check (arm V).</summary>
+    public bool FusedCheck { get; init; }
+
     /// <summary>A truck whose drive fails for lack of fuel hands back its claim and claims nothing more.</summary>
     public bool HandOffWhenStranded { get; init; }
 
@@ -149,6 +178,9 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
         ConvoyArm.W => "plain loop, shared ledger, all three fixes, distrust shared through the ledger",
         ConvoyArm.Y or ConvoyArm.Z => $"plain loop, shared ledger, all three fixes, a learned judge ({LearnedJudge}) on checkable actions that quarantines before it condemns",
         ConvoyArm.X => $"plain loop, shared ledger, all three fixes, a learned judge ({LearnedJudge}) in place of the effect check",
+        ConvoyArm.U => "plain loop, shared ledger, all three fixes, noisy sensors",
+        ConvoyArm.V => "plain loop, shared ledger, all three fixes, noisy sensors, a check fused from position and gauge",
+        ConvoyArm.F or ConvoyArm.P => $"plain loop, shared ledger, all three fixes, noisy sensors, a learned judge ({LearnedJudge}) on checkable actions that quarantines before it condemns",
         ConvoyArm.Q => $"a policy network trained by trial on W's setup ({SeatNetwork}) in every truck's seat, all three fixes, distrust shared",
         _ => Arm.ToString(),
     };
@@ -213,6 +245,10 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
             ConvoyArm.X => AllFixes(setup) with { LearnedJudge = ConvoyNetwork.EmbeddedWorld },
             ConvoyArm.Y => AllFixes(setup) with { LearnedJudge = ConvoyNetwork.EmbeddedWorld, LearnedJudgeThreshold = 4.720, LearnedJudgeCondemn = 5.785, LearnedJudgeCheckableOnly = true },
             ConvoyArm.Z => AllFixes(setup) with { LearnedJudge = ConvoyNetwork.EmbeddedWorldVaried, LearnedJudgeThreshold = 7.628, LearnedJudgeCondemn = 16.813, LearnedJudgeCheckableOnly = true },
+            ConvoyArm.U => AllFixes(setup) with { Noise = SensorNoise.Registered },
+            ConvoyArm.V => AllFixes(setup) with { Noise = SensorNoise.Registered, FusedCheck = true },
+            ConvoyArm.F => AllFixes(setup) with { Noise = SensorNoise.Registered, LearnedJudge = ConvoyNetwork.EmbeddedWorldNoisy, LearnedJudgeThreshold = 10.82, LearnedJudgeCondemn = 12.534, LearnedJudgeCheckableOnly = true },
+            ConvoyArm.P => AllFixes(setup) with { Noise = SensorNoise.Registered, LearnedJudge = ConvoyNetwork.EmbeddedJudgeNoisy, LearnedJudgeThreshold = 0.555544, LearnedJudgeCondemn = 0.955596, LearnedJudgeCheckableOnly = true },
             _ => setup,
         };
     }

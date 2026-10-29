@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **A noisy world** (docs/design-trained-models.md, step 6): `ConvoySetup.Noise` makes position and fuel readings
+  noisy (off by default; the clean battery is unchanged, decision for decision). Every action's truth is recorded
+  beside its verdict, and every arm now reports its check's false alarms and misses against it. Arm U (the effect
+  check) cried wolf on 7.1% of actions and served the villages ten ticks later: T10 held. Arm V, a check fused from
+  position and gauge, was the best judge there: 1500/1500, 0.40% false alarms, 14 lies missed. A lie judge trained on
+  the simulator's truth (`LieJudge`, `tools/train/train_landed.py`) failed its gate before the loop (T10b), so arm P
+  was not scored; on training seeds it missed the same lie again and again, having no memory. Arm F (the world model
+  retrained on noisy driving) missed 96.6% of lies, as predicted (T10f failed). T10g held.
+
 - **The learned judge's second attempt** (arms Y and Z): it judges only drives, loads, unloads and refuels, and a
   learned lie quarantines before it condemns a road (above a second threshold, or at the second lie on it). Arm Y,
   with the planner's world model, delivered 1500/1500 in the same time as J with 0.79% false alarms and no lie missed,

@@ -100,7 +100,10 @@ kinds it does not know, so later versions can add them.
 `measures` is the judge's reading of the world (decision D6 of docs/design-machine-vessels.md); `outcome` says it in
 sentences. Two counts break `liesBelieved` down: `gaugeStranded` (1 when the truck with the lying fuel gauge ran dry,
 the rest are road lies) and `liesAlreadyCaught` (road lies acted on after another truck had acted on the same lying
-road at an earlier tick).
+road at an earlier tick). Four more score each run's verdicts against the world's truth (docs/design-trained-models.md,
+step 6): `checked` (drives, loads, unloads and refuels that landed or lied), `checkedLies`, `checkFalseAlarms` (landed
+actions judged lies) and `checkMisses` (lies judged anything else). In the clean world arm J's are zero by
+construction. With a learned judge, `judged`, `judgeFalseAlarms` and `judgeMisses` count its own verdicts.
 
 ## Making a replay
 
