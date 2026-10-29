@@ -426,6 +426,9 @@ signed, append-only work ledger that says who is working on what. What is built:
   keeps only ciphertext.
 - **Claude Code hooks.** Each session's prompts and tools become a claim with its progress and a hand-off.
 - **Automatic sync on macOS.** launchd agents for the sync, and for the hub on the vessel that serves it.
+- **The activity stream** ([docs/design-activity-stream.md](docs/design-activity-stream.md)). The ledger as an
+  Activity Streams 2.0 collection, and `creatura cell stream`: a read-only page of who is working on what, served on
+  127.0.0.1 only from this vessel's copy of the ledger, one thread per claim, quiet vessels marked.
 
 ```bash
 dotnet run --project src/Creatura.Cli -- cell init
@@ -435,7 +438,7 @@ dotnet run --project src/Creatura.Cli -- cell --help
 | group | commands |
 |---|---|
 | this cell | `init`, `whoami`, `owner-key` |
-| work | `claim`, `progress`, `release`, `handoff`, `heartbeat`, `ledger` |
+| work | `claim`, `progress`, `release`, `handoff`, `heartbeat`, `ledger`, `activity`, `stream` |
 | more vessels | `request`, `endorse`, `accept`, `revoke` |
 | the hub | `sync`, `publish-hub`, `launchd-config`, `install-launchd`, `uninstall-launchd` |
 | shared files | `share`, `files`, `fetch` |

@@ -119,3 +119,19 @@ runs are recorded only in the design note.
 - #33: `python3 skbreaks.py (scratch): claim not replaced, every function offered, terminate ignored, no tick per request, outcome not reported, plugin prefix not read back, refused function runs`
 
 </details>
+
+## Step activity-stream
+
+2 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 34 | 2026-10-29 18:18 | `1702d86`* | build | — | Six deliberate breaks of the activity stream (C23 to C26) | first pass 5 of 6: the sealed name got through because C25 searched raw JSON (base64 '+' escaped); C25 now searches decoded strings; second pass 6 of 6. C26's first version was fooled by a VPN tunnel accepting any TCP connect; it now checks for the stream's answer | that C23 to C26 catch what they claim |
+| 35 | 2026-10-29 18:18 | `1702d86`* | check | — | The stream on this laptop's real ledger, and the full suite | 239 activities from 2 cells, the Surface marked quiet, POST 405; 741 of 741 tests pass | the results section of docs/design-activity-stream.md |
+
+<details><summary>Commands</summary>
+
+- #34: `python3 streambreaks.py (scratch): a build time in the document, heartbeats in the timeline, progress outside its thread, an artifact's sealed name copied in, the server on every interface, every method answered`
+- #35: `creatura cell stream --creatura claude-code --no-open; dotnet test Creatura.slnx`
+
+</details>

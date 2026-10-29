@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creatura · Activity</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --paper: #f5f2ea; --card: #fffdf8; --ink: #0d1b26; --muted: #5d6870; --hair: #d9d3c4;
+    --navy: #071b2b; --gold: #b49345; --gold-soft: #efe4c8; --red: #a33a32; --red-soft: #f6e1dd;
+    --green: #3f7a48; --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #08141d; --card: #0e1d29; --ink: #e7ecef; --muted: #93a1ab; --hair: #22323f;
+      --gold: #c9a95c; --gold-soft: #2a2516; --red: #e0786d; --red-soft: #3a1c1a; --green: #7fbf86;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 var(--sans); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px max(16px, env(safe-area-inset-left)) 64px; }
+  header { display: flex; align-items: center; gap: 18px; padding-bottom: 20px; border-bottom: 1px solid var(--hair); }
+  header img { width: 56px; height: 56px; }
+  .overline { font: 600 11px/1.2 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+  h1 { font: 500 34px/1.1 var(--serif); margin: 4px 0 2px; letter-spacing: -.01em; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .live { margin-left: auto; text-align: right; font-size: 12px; color: var(--muted); }
+  .live b { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 6px; vertical-align: 1px; }
+  .live.stale b { background: var(--red); }
+  .grid { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 32px; margin-top: 24px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  aside h2, main h2 { font: 600 11px/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+  .actor { display: grid; grid-template-columns: 44px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hair); cursor: pointer; }
+  .actor:first-of-type { border-top: 0; }
+  .actor.on .name { text-decoration: underline; text-decoration-color: var(--gold); text-underline-offset: 3px; }
+  .face { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--ring, var(--gold)); background: var(--card); display: grid; place-items: center; }
+  .face img { width: 26px; height: 26px; }
+  .face.small { width: 28px; height: 28px; border-width: 2px; }
+  .face.small img { width: 18px; height: 18px; }
+  .name { font-weight: 600; }
+  .meta { color: var(--muted); font-size: 12px; }
+  .quiet { color: var(--red); font-weight: 600; }
+  .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 22px 0 6px; padding-top: 18px; border-top: 1px solid var(--hair); }
+  .filters select, .filters input[type=search] { font: inherit; font-size: 13px; color: var(--ink); background: var(--card); border: 1px solid var(--hair); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+  .filters input[type=search] { flex: 1 1 100%; }
+  .filters label { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .thread, .single { background: var(--card); border: 1px solid var(--hair); border-radius: 10px; margin-bottom: 14px; }
+  .thread > .top { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 14px 16px 10px; }
+  .goal { font: 500 19px/1.25 var(--serif); overflow-wrap: anywhere; }
+  .where { color: var(--muted); font-size: 12px; font-family: var(--mono); overflow-wrap: anywhere; }
+  .state { font: 600 11px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; padding: 5px 8px; border-radius: 99px; white-space: nowrap; }
+  .state.Active { background: var(--gold-soft); color: var(--gold); }
+  .state.Released { background: transparent; color: var(--green); border: 1px solid currentColor; }
+  .state.HandedOff { background: transparent; color: var(--muted); border: 1px solid var(--hair); }
+  ol.steps { list-style: none; margin: 0; padding: 0 16px 12px 56px; }
+  ol.steps li { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 10px; padding: 5px 0; border-top: 1px solid var(--hair); font-size: 14px; }
+  ol.steps li .t { font-family: var(--mono); font-size: 12px; color: var(--muted); padding-top: 1px; }
+  ol.steps li .x { overflow-wrap: anywhere; }
+  ol.steps li.bad .x, .single.bad .x { color: var(--red); }
+  ol.steps li.done .x { color: var(--green); }
+  .tag { font: 600 10px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+  .more { background: none; border: 0; color: var(--gold); font: inherit; font-size: 13px; cursor: pointer; padding: 4px 16px 12px 56px; }
+  .single { display: grid; grid-template-columns: 28px 74px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 16px; font-size: 14px; }
+  .single.bad { background: var(--red-soft); border-color: transparent; }
+  .single .t { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .empty { color: var(--muted); padding: 40px 0; text-align: center; }
+  footer { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--hair); color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <picture><source srcset="icon-light.svg" media="(prefers-color-scheme: dark)"><img src="icon.svg" alt="Creatura"></picture>
+    <div>
+      <div class="overline">Creatura · cells</div>
+      <h1>Who is working on what</h1>
+      <div class="sub" id="summary">reading the ledger…</div>
+    </div>
+    <div class="live" id="live"><b></b><span id="updated">connecting</span><br><span>refreshes every 15 s</span></div>
+  </header>
+
+  <div class="grid">
+    <aside>
+      <h2>Cells</h2>
+      <div id="actors"></div>
+      <div class="filters">
+        <select id="vessel" aria-label="Vessel"><option value="">every vessel</option></select>
+        <input type="search" id="search" placeholder="search goals and steps" aria-label="Search">
+        <label><input type="checkbox" id="open"> open claims only</label>
+      </div>
+      <div class="note">Click a cell to show only its work. Times come from each vessel's clock, so order across machines is approximate.</div>
+    </aside>
+    <main>
+      <h2 id="heading">Activity</h2>
+      <div id="stream"></div>
+    </main>
+  </div>
+  <footer>Read-only, from this machine's copy of the ledger. Every line is a signed entry; the stream is a view of it, never the record.</footer>
+</div>
+
+<script>
+"use strict";
+const state = { actors: [], items: [], cell: "", vessel: "", search: "", open: false, expanded: new Set() };
+const QUIET_MINUTES = 15;
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+function ago(iso) {
+  const s = Math.max(0, (Date.now() - Date.parse(iso)) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.floor(s / 60) + " min ago";
+  if (s < 86400) return Math.floor(s / 3600) + " h ago";
+  return Math.floor(s / 86400) + " d ago";
+}
+function clock(iso) {
+  const d = new Date(iso), now = new Date();
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return d.toDateString() === now.toDateString() ? time : d.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + time;
+}
+function face(actor, small) {
+  const f = el("span", "face" + (small ? " small" : ""));
+  f.style.setProperty("--ring", actor ? actor["creatura:ring"] : "var(--gold)");
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const img = el("img"); img.src = dark ? "icon-light.svg" : "icon.svg"; img.alt = "";
+  f.title = actor ? actor.name : "";
+  f.append(img);
+  return f;
+}
+
+async function load() {
+  try {
+    const head = await (await fetch("activity", { cache: "no-store" })).json();
+    const last = Number((head.last || "page=1").split("page=")[1]) || 1;
+    const items = [];
+    for (let n = 1; n <= last; n++) items.push(...(await (await fetch("activity?page=" + n, { cache: "no-store" })).json()).orderedItems);
+    state.actors = head["creatura:actors"] || [];
+    state.items = items;
+    document.getElementById("summary").textContent = head.summary;
+    document.getElementById("updated").textContent = "updated " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    document.getElementById("live").classList.remove("stale");
+    render();
+  } catch (e) {
+    document.getElementById("live").classList.add("stale");
+    document.getElementById("updated").textContent = "cannot read the ledger";
+  }
+}
+
+function render() {
+  const byId = Object.fromEntries(state.actors.map(a => [a.id, a]));
+
+  // Vessels for the filter.
+  const vessels = [...new Map(state.actors.map(a => [a["creatura:vessel"], a["creatura:vesselName"]])).entries()];
+  const select = document.getElementById("vessel");
+  const chosen = select.value;
+  select.replaceChildren(el("option", null, "every vessel"));
+  select.firstChild.value = "";
+  for (const [id, name] of vessels) { const o = el("option", null, name); o.value = id; select.append(o); }
+  select.value = vessels.some(([id]) => id === chosen) ? chosen : "";
+  state.vessel = select.value;
+
+  // Cells, with when each was last seen.
+  const actors = document.getElementById("actors");
+  actors.replaceChildren();
+  for (const a of state.actors) {
+    const row = el("div", "actor" + (state.cell === a.id ? " on" : ""));
+    const quiet = (Date.now() - Date.parse(a["creatura:lastSeen"])) / 60000 > QUIET_MINUTES;
+    const info = el("div");
+    info.append(el("div", "name", a.name));
+    const seen = el("div", "meta");
+    if (quiet) seen.append(el("span", "quiet", "quiet · "));
+    seen.append(document.createTextNode("last seen " + ago(a["creatura:lastSeen"]) + (a["creatura:load"] != null ? " · load " + a["creatura:load"] : "")));
+    info.append(seen);
+    if (a["creatura:hardware"]) info.append(el("div", "meta", a["creatura:hardware"]));
+    row.append(face(a), info);
+    row.onclick = () => { state.cell = state.cell === a.id ? "" : a.id; render(); };
+    actors.append(row);
+  }
+
+  // Threads: a claim and every step in its context; anything outside a claim stands alone.
+  const threads = new Map(), singles = [];
+  for (const item of state.items) {
+    if (item.context) {
+      if (!threads.has(item.context)) threads.set(item.context, { id: item.context, steps: [], claim: null });
+      const t = threads.get(item.context);
+      if (item.type === "Create" && item.object && item.object.id === item.context) t.claim = item; else t.steps.push(item);
+    } else singles.push(item);
+  }
+  const cards = [];
+  for (const t of threads.values()) {
+    const all = [t.claim, ...t.steps].filter(Boolean);
+    t.latest = all.map(i => i.published).sort().pop();
+    t.state = t.steps.some(s => s.type === "creatura:Release") ? "Released" : t.steps.some(s => s.type === "Leave") ? "HandedOff" : "Active";
+    t.actor = byId[(t.claim || t.steps[0]).actor];
+    cards.push({ kind: "thread", at: t.latest, t });
+  }
+  for (const s of singles) cards.push({ kind: "single", at: s.published, s, actor: byId[s.actor] });
+  cards.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+
+  const q = state.search.trim().toLowerCase();
+  const keep = c => {
+    const actor = c.kind === "thread" ? c.t.actor : c.actor;
+    if (state.cell && (!actor || actor.id !== state.cell)) return false;
+    if (state.vessel && (!actor || actor["creatura:vessel"] !== state.vessel)) return false;
+    if (state.open && (c.kind !== "thread" || c.t.state === "Released")) return false;
+    if (q) {
+      const text = c.kind === "thread" ? [c.t.claim && c.t.claim.object.name, ...c.t.steps.map(s => s.summary)].join(" ") : c.s.summary;
+      if (!(text || "").toLowerCase().includes(q)) return false;
+    }
+    return true;
+  };
+
+  const stream = document.getElementById("stream");
+  stream.replaceChildren();
+  const shown = cards.filter(keep);
+  document.getElementById("heading").textContent = shown.length + " of " + cards.length + (cards.length === 1 ? " item" : " items") + ", newest first";
+  if (shown.length === 0) { stream.append(el("div", "empty", "Nothing matches.")); return; }
+  for (const c of shown) stream.append(c.kind === "thread" ? threadCard(c.t) : singleRow(c.s, c.actor));
+}
+
+function threadCard(t) {
+  const card = el("section", "thread");
+  const top = el("div", "top");
+  const body = el("div");
+  const goal = t.claim ? t.claim.object.name : "(claim not in this ledger)";
+  body.append(el("div", "goal", goal));
+  const o = t.claim ? t.claim.object : {};
+  const where = [o["creatura:repo"] && (o["creatura:repo"] + (o["creatura:branch"] ? " · " + o["creatura:branch"] : "")), o["creatura:folder"], o["creatura:tool"] && (o["creatura:tool"] + (o["creatura:session"] ? " " + o["creatura:session"].slice(0, 8) : ""))].filter(Boolean).join("  ·  ");
+  body.append(el("div", "where", (t.actor ? t.actor.name + "  ·  " : "") + (t.claim ? "started " + clock(t.claim.published) : "") + (where ? "  ·  " + where : "")));
+  const badge = el("span", "state " + t.state, t.state === "HandedOff" ? "handed off" : t.state.toLowerCase());
+  top.append(face(t.actor, true), body, badge);
+  card.append(top);
+
+  const steps = el("ol", "steps");
+  const open = state.expanded.has(t.id);
+  const list = open ? t.steps : t.steps.slice(0, 5);
+  for (const s of list) {
+    const bad = s["creatura:blocked"] === true;
+    const li = el("li", bad ? "bad" : s.type === "creatura:Release" ? "done" : "");
+    li.title = s.published + "  ·  " + s.id;
+    const x = el("span", "x");
+    const label = { "Update": null, "Leave": "stopped", "creatura:Release": "finished", "Create": "file" }[s.type];
+    if (label) x.append(el("span", "tag", label));
+    x.append(document.createTextNode(s.content || (s.result && s.result.content) || s.summary));
+    if (s["creatura:stress"] != null) x.append(el("span", "meta", "  stress " + s["creatura:stress"]));
+    li.append(el("span", "t", clock(s.published)), x);
+    steps.append(li);
+  }
+  if (t.steps.length) card.append(steps);
+  if (t.steps.length > 5) {
+    const more = el("button", "more", open ? "show fewer" : "show all " + t.steps.length + " steps");
+    more.onclick = () => { open ? state.expanded.delete(t.id) : state.expanded.add(t.id); render(); };
+    card.append(more);
+  }
+  return card;
+}
+
+function singleRow(s, actor) {
+  const row = el("div", "single" + (s.type === "Flag" ? " bad" : ""));
+  row.title = s.published + "  ·  " + s.id;
+  row.append(face(actor, true), el("span", "t", clock(s.published)), el("span", "x", s.summary));
+  return row;
+}
+
+document.getElementById("vessel").onchange = e => { state.vessel = e.target.value; render(); };
+document.getElementById("search").oninput = e => { state.search = e.target.value; render(); };
+document.getElementById("open").onchange = e => { state.open = e.target.checked; render(); };
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>

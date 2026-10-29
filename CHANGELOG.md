@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **The activity stream** (docs/design-activity-stream.md, the first slice): `ActivityStream` in `Creatura.Cells`
+  presents the ledger in Activity Streams 2.0, a pure function of the verified ledger with nothing sealed in it;
+  `creatura cell activity` writes it, and `creatura cell stream` serves it with a page on 127.0.0.1 only, read-only.
+  C23 to C26 hold; six deliberate breaks each fail one. Offers to cells come next.
+
 ## 0.2.0-preview.1 (2026-10-29)
 
 - **Tests run in en-US on any machine** (`tests/TestCulture.cs`): the goldens are recorded in en-US number formatting,

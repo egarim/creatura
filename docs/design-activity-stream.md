@@ -1,6 +1,7 @@
 # Design: the activity stream, and goals offered to cells
 
-Status: proposed (2026-10-29). Nothing here is built; the tests below are written before the code.
+Status: decided (owner, 2026-10-29: every recommendation below taken). The first slice, the read-only stream, is
+being built; offers come after the owner has used it. The tests below were written before the code.
 
 ## The problem
 
@@ -123,8 +124,9 @@ cell signature around it alone is not enough.
 verified, unexpired, not withdrawn and not yet claimed. Claude Code adds what a `SessionStart` hook prints to the
 session's context, which is why the hook prints nothing today; its JSON output also has a field for a message shown
 to the person. The first version shows the offer to the person only, with its id. Whoever runs the session starts
-it, and the first prompt's `Claim` then cites the offer (`ClaimPayload.Offer`). `creatura cell accept --offer <id>`
-and `decline --offer <id> --reason <text>` do the same from a terminal. Putting an offer straight into the model's
+it, and the first prompt's `Claim` then cites the offer (`ClaimPayload.Offer`). `creatura cell take --offer <id>`
+and `decline --offer <id> --reason <text>` do the same from a terminal (`accept` is taken: it accepts an
+endorsement). Putting an offer straight into the model's
 context, for sessions nobody watches, is open decision 3.
 
 **Two takers.** An offer to a vessel can be claimed by two cells at once; the ledger has no leader to stop it. Both
@@ -155,9 +157,35 @@ offer shown, the second claim on an offer dropped.
 1. **The stream, read-only** (C23 to C26): the projection in `Creatura.Cells`, package-free; `creatura cell activity`
    and `creatura cell stream`; the page, with the actors' faces once the owner has picked the versions.
 2. **Offers** (C27 to C29), after the owner has used the stream for a while: the `Offer` and `Withdraw` entries, the
-   `offer`, `withdraw`, `accept` and `decline` commands, `ClaimPayload.Offer`, and the hook's `SessionStart` change.
+   `offer`, `withdraw`, `take` and `decline` commands, `ClaimPayload.Offer`, and the hook's `SessionStart` change.
 
-## Open decisions
+### Results (2026-10-29): the stream
+
+Built: `ActivityStream` in `Creatura.Cells` (package-free), `creatura cell activity [--out <file>]`, and
+`creatura cell stream [--port <n>] [--no-open]` with its page, served by a small HTTP server on a socket bound to
+127.0.0.1 (not HttpListener, which needs an administrator for some prefixes on Windows). The page and the icons are
+embedded in the tool, and it renders ledger text as text, never as markup.
+
+C23, C24, C25 and C26 pass. Six deliberate breaks each fail one: a build time stamped into the document (C23),
+heartbeats let into the timeline and progress outside its claim's thread (C24), an artifact's sealed name copied in
+(C25), the server bound to every interface and every method answered (C26). Two of the tests were wrong at first,
+and the breaks and the machine showed it:
+- C25 searched the raw JSON, where the writer escapes base64's `+` as `\u002B`, so a copied sealed name was not
+  found. It now searches every decoded string as well.
+- C26 tried a TCP connection to the machine's other addresses, and a VPN's tunnel interface accepted it on a port
+  where nothing listened. The falsifier is the stream's answer, so it now sends a request and looks for one.
+
+Live on the owner's laptop, against its real ledger: 239 activities from 2 cells (Claude Code on the laptop and on the
+Surface), one thread per claim, the Surface marked quiet after a day without an entry, and a POST refused with 405.
+The page's figures are all the project's icon until the owner picks the versions; the rings already differ by vessel.
+
+## Decided (owner, 2026-10-29)
+
+Every recommendation below: the stream on a local page first; offers as entries of the owner's cell; the person
+reads an offer first; offers to a cell or a vessel; a figure per kind of actor and a ring colour per vessel (until
+the owner picks the figures, every actor wears the project's icon); Activity Streams 2.0.
+
+## Open decisions (as first written)
 
 1. **Where the stream is shown first.** (a) A local page from the home's own ledger; (b) a page on the hub, which needs
    a browser sign-in first. Recommendation: (a).

@@ -22,6 +22,9 @@ public static class CellCommand
           handoff --reason <text>      stopping, and why (--claim <id>)
           heartbeat                    still alive (--load <number>)
           ledger                       every entry; --open: the claims not released; --path <claim>: one claim's path
+          activity [--out <file>]      the ledger as an Activity Streams 2.0 collection (docs/design-activity-stream.md)
+          stream [--port <n>] [--no-open]
+                                       serve the activity stream as a page on 127.0.0.1 only, read-only, and open it
 
         joining Claude Code (docs/design-cells.md, "How host tools join"):
           hook                         one hook event on stdin; prints nothing, always exits 0 (--goal folder|prompt)
@@ -60,7 +63,7 @@ public static class CellCommand
                                        which imports ledger.json on its first run and is the ledger from then on)
         """;
 
-    private static readonly HashSet<string> Flags = new(StringComparer.Ordinal) { "--open", "--blocked", "--no-mesh", "--help", "--dry-run", "--quiet", "--no-load" };
+    private static readonly HashSet<string> Flags = new(StringComparer.Ordinal) { "--open", "--blocked", "--no-mesh", "--help", "--dry-run", "--quiet", "--no-load", "--no-open" };
 
     private static readonly TimeSpan InteractiveLockWait = TimeSpan.FromSeconds(10);
 
@@ -104,6 +107,8 @@ public static class CellCommand
                 "handoff" => OnClaim(context, "--reason", (claim, reason) => new HandOffPayload(claim, reason)),
                 "heartbeat" => Heartbeat(context),
                 "ledger" => Ledger(context),
+                "activity" => Activity(context),
+                "stream" => Stream(context),
                 "hooks-config" => HooksConfig(context),
                 "install-hooks" => InstallHooks(context, install: true),
                 "uninstall-hooks" => InstallHooks(context, install: false),
@@ -273,6 +278,102 @@ public static class CellCommand
         c.Out.WriteLine($"{ledger.Count} entr{(ledger.Count == 1 ? "y" : "ies")} from {cells} cell{(cells == 1 ? "" : "s")}, digest {ledger.Digest()[..16]}");
         foreach (var entry in ledger.Entries) c.Out.WriteLine(Line(entry));
         return 0;
+    }
+
+    /// <summary>The ledger as one Activity Streams 2.0 document, to a file or the console.</summary>
+    private static int Activity(Context c)
+    {
+        if (!c.Home.IsInitialized)
+        {
+            c.Err.WriteLine($"no cell under {c.Home.Root}: run `creatura cell init`");
+            return 1;
+        }
+
+        using var cell = c.Home.OpenCell(c.Source, Position(c), c.Creatura);
+        WorkLedger ledger;
+        using (LedgerLock.Acquire(c.Home.Root, InteractiveLockWait)) ledger = OpenLedger(c, cell).Ledger;
+        var document = ActivityStream.Document(ledger);
+        if (c.Options.GetValueOrDefault("--out") is { } path)
+        {
+            File.WriteAllText(path, document);
+            c.Out.WriteLine($"activity     {ledger.Entries.Count(e => e.Kind != EntryKind.Heartbeat)} activities written to {path}");
+        }
+        else
+        {
+            c.Out.WriteLine(document);
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// The activity stream as a page (docs/design-activity-stream.md): served on 127.0.0.1 only, read-only, from this
+    /// home's ledger, read again for every request; opened in the browser unless --no-open. Runs until stopped.
+    /// </summary>
+    private static int Stream(Context c)
+    {
+        if (!c.Home.IsInitialized)
+        {
+            c.Err.WriteLine($"no cell under {c.Home.Root}: run `creatura cell init`");
+            return 1;
+        }
+
+        using var cell = c.Home.OpenCell(c.Source, Position(c), c.Creatura);
+        var port = c.Options.GetValueOrDefault("--port") is { } p ? int.Parse(p, CultureInfo.InvariantCulture) : 7357;
+        WorkLedger Read()
+        {
+            using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
+            return OpenLedger(c, cell).Ledger;
+        }
+
+        StreamServer server;
+        try
+        {
+            server = StreamServer.Start(Read, port);
+        }
+        catch (System.Net.Sockets.SocketException e) when (e.SocketErrorCode == System.Net.Sockets.SocketError.AddressAlreadyInUse)
+        {
+            // Another stream already serves this machine's ledger there: open it rather than start a second one.
+            var there = new Uri($"http://127.0.0.1:{port}/");
+            if (StreamServer.IsStream(there))
+            {
+                c.Out.WriteLine($"stream       already running at {there}");
+                if (!c.Options.ContainsKey("--no-open")) OpenInBrowser(there);
+                return 0;
+            }
+
+            if (c.Options.ContainsKey("--port"))
+            {
+                c.Err.WriteLine($"creatura cell stream: port {port} is in use by something else; choose another with --port");
+                return 2;
+            }
+
+            server = StreamServer.Start(Read, 0);
+            c.Out.WriteLine($"port {port} is in use by something else; using {server.Address.Port}");
+        }
+
+        c.Out.WriteLine($"stream       {server.Address} (127.0.0.1 only, read-only; Ctrl+C to stop)");
+        if (!c.Options.ContainsKey("--no-open")) OpenInBrowser(server.Address);
+
+        using var stopped = new ManualResetEventSlim();
+        Console.CancelKeyPress += (_, e) => { e.Cancel = true; stopped.Set(); };
+        stopped.Wait();
+        server.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        return 0;
+    }
+
+    private static void OpenInBrowser(Uri address)
+    {
+        try
+        {
+            var (file, arguments) = OperatingSystem.IsMacOS() ? ("open", address.ToString())
+                : OperatingSystem.IsWindows() ? ("explorer.exe", address.ToString())
+                : ("xdg-open", address.ToString());
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(file, arguments) { UseShellExecute = false })?.Dispose();
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+        }
     }
 
     private static string Line(SignedEntry e)

@@ -19,6 +19,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The activity stream's page and the icons it shows (StreamPage): embedded, so the page fetches nothing from outside. -->
+    <EmbeddedResource Include="stream.html" LogicalName="stream.html" />
+    <EmbeddedResource Include="..\..\docs\assets\creatura-icon.svg" LogicalName="icon.svg" Link="icon.svg" />
+    <EmbeddedResource Include="..\..\docs\assets\creatura-icon-light.svg" LogicalName="icon-light.svg" Link="icon-light.svg" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Creatura\Creatura.csproj" />
     <ProjectReference Include="..\Creatura.Cells\Creatura.Cells.csproj" />
     <ProjectReference Include="..\Creatura.Cells.Sqlite\Creatura.Cells.Sqlite.csproj" />
