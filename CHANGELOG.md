@@ -13,6 +13,14 @@
 - **The SessionStart hook speaks**: it runs synchronously and lets stdout through (stderr still discarded), so an
   offer's message reaches the person; run `creatura cell install-hooks` again to upgrade (it replaces the old group).
 - **The stream reports an unreadable ledger** with a 500 and the reason, instead of dropping the connection.
+- **Getting started** (docs/design-onboarding.md): `creatura new [agent|world|sk]` makes a project from a template,
+  `creatura run --design <d> --world <w>` tries a design with no code, and `creatura doctor` says what is set up and
+  what is missing. The templates are also a `dotnet new` package, `Creatura.Templates`; a made project references the
+  packages of the tool's own version, and `--source <folder>` restores them from a folder of `.nupkg` files. O1, O3,
+  O4 and O5 hold in the unit suite and O2 in `tools/try-onboarding.sh`.
+- **The packages** carry a README, the icon, SourceLink and symbol packages (`.snupkg`).
+- **Headless sessions leave their steps**: SessionEnd reads the turns whose Stop never landed from the transcript
+  (tool names and files only) and writes them before the HandOff, so a `claude -p` session's claim has its steps.
 
 ## 0.2.0-preview.1 (2026-10-29)
 

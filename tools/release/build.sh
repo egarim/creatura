@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds a release's files into one folder: each program as a self-contained single-file executable for each platform
-# (no .NET needed to run it), one archive per program and platform, the NuGet packages, and SHA256SUMS. The release
-# workflow runs this; run it locally the same way to check a release before tagging it.
+# (no .NET needed to run it), one archive per program and platform, the NuGet packages and their symbols, and
+# SHA256SUMS. The release workflow runs this; run it locally the same way to check a release before tagging it.
 #
 #   tools/release/build.sh <version> <out-dir> [rid ...]     e.g. tools/release/build.sh 0.2.0 artifacts osx-arm64
 #
@@ -74,12 +74,15 @@ TXT
   done
 done
 
-# The libraries and the tool as NuGet packages (the hub is a web app and does not pack).
+# The libraries and the tool as NuGet packages (the hub is a web app and does not pack). Each .nupkg gets its symbols
+# beside it as a .snupkg (Directory.Build.props), which `dotnet nuget push` sends to nuget.org's symbol server with it.
 mkdir -p "$out/nuget"
 for project in "$root"/src/*/*.csproj; do
   case "$project" in *Creatura.Cells.Hub*) continue ;; esac
   dotnet pack "$project" -c Release -p:Version="$version" -o "$out/nuget" --nologo -v quiet
 done
+# The dotnet new templates (Creatura.Templates): packing writes this version into each template's default.
+dotnet pack "$root/templates/Creatura.Templates.csproj" -c Release -p:Version="$version" -o "$out/nuget" --nologo -v quiet
 
-(cd "$out" && find . -maxdepth 2 -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.nupkg' \) | sed 's|^\./||' | sort | xargs shasum -a 256 > SHA256SUMS)
+(cd "$out" && find . -maxdepth 2 -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.nupkg' -o -name '*.snupkg' \) | sed 's|^\./||' | sort | xargs shasum -a 256 > SHA256SUMS)
 echo "done: $out"

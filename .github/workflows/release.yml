@@ -1,10 +1,12 @@
 # A release: push a tag like v0.2.0 (or v0.2.0-preview.1) and this tests the solution, builds each program for six
 # platforms with tools/release/build.sh, runs every binary on a machine of its own platform, and only then creates
-# the GitHub release with the archives, the NuGet packages and SHA256SUMS. The notes are the CHANGELOG's section for
-# that version. "Run workflow" by hand does everything but the release, as a dry run.
+# the GitHub release with the archives, the NuGet packages (each with its .snupkg of symbols) and SHA256SUMS. The
+# notes are the CHANGELOG's section for that version. "Run workflow" by hand does everything but the release, as a dry
+# run.
 #
 # NuGet: the packages are pushed to nuget.org only when the repository has a NUGET_API_KEY secret; without one they are
-# attached to the release and nothing else happens.
+# attached to the release and nothing else happens. Pushing a .nupkg also pushes the .snupkg beside it (the symbols, for
+# debugging into the packages with SourceLink).
 name: release
 
 on:
@@ -121,7 +123,7 @@ jobs:
         run: |
           pre=""; [[ "$V" == *-* ]] && pre="--prerelease"
           gh release create "$GITHUB_REF_NAME" --verify-tag --title "Creatura $V" --notes-file notes.md $pre \
-            artifacts/*.tar.gz artifacts/*.zip artifacts/nuget/*.nupkg artifacts/SHA256SUMS
+            artifacts/*.tar.gz artifacts/*.zip artifacts/nuget/*.nupkg artifacts/nuget/*.snupkg artifacts/SHA256SUMS
       - name: Push the packages to nuget.org (only with a NUGET_API_KEY secret)
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}

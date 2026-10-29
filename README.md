@@ -55,6 +55,30 @@ Windows (x64 and arm64); no .NET is needed to run them. `creatura-convoy` plays 
 `convoy-viewer.html`, which comes with it; `creatura` is the cell command; `creatura-hub` is the ledger hub. The
 framework itself is a library: build it from this repository, or take the NuGet packages attached to the release.
 
+## Get started
+
+With the `creatura` program (from the next release on; until then, `dotnet run --project src/Creatura.Cli --` in
+this repository does the same):
+
+```bash
+creatura run --design bach --world restore --barriers patchlies   # a design on a world, no code, offline
+creatura run --list                                              # the designs, the worlds and their barriers, the seats
+creatura new agent                                               # a project: agent, world or sk; with no name, it asks
+creatura doctor                                                  # what is set up and what is missing, with the fix
+```
+
+Or with `dotnet new`: `dotnet new install Creatura.Templates`, then `dotnet new creatura-agent -n MyAgent`.
+
+| Template | What you get |
+|---|---|
+| `agent` / `creatura-agent` | the designs, then your own regulator, on the toy world with one tool that lies; offline |
+| `world` / `creatura-world` | your own world: facts, tools that require and grant them, one that lies, and the designs on it; offline |
+| `sk` / `creatura-sk` | the control layer on Semantic Kernel: offline until a model key is set, then that model through the OpenAI chat API; the project holds the name of the key's variable, never the key |
+
+The packages are not on nuget.org yet. Until they are, download the `.nupkg` files from the release into a folder
+and pass it: `creatura new agent --source <folder>` writes a `nuget.config` that restores from it.
+`docs/design-onboarding.md` has the design and its tests.
+
 ## About
 
 An agent framework for building agents out of regulation patterns taken from how living things and minds
@@ -119,15 +143,16 @@ sample worlds are `Creatura.Worlds.Samples`; and `Creatura.Cli` is in `Creatura.
 |---|---|---|
 | [Creatura.Cells/](src/Creatura.Cells) | the cells: CreaturaId, CellKey / OwnerKey (ECDSA P-256), VesselProbe and Hardware, Position, CellIdentity, SignedEntry and the eight entry kinds, WorkLedger, JsonLedgerStore, signed hub requests, revocations, shared files (CellCipher, SharedFiles), ICellNetwork | none |
 | [Creatura.Cells.Sqlite/](src/Creatura.Cells.Sqlite) | SqliteLedgerStore, the ledger in SQLite | Microsoft.Data.Sqlite |
-| [Creatura.Cells.Sync/](src/Creatura.Cells.Sync) | the ledger over SyncFramework (LedgerSync) | BIT.Data.Sync |
+| [Creatura.Cells.Sync/](src/Creatura.Cells.Sync) | the ledger over SyncFramework (`LedgerSyncNode`, `LedgerHub`) | BIT.Data.Sync |
 | [Creatura.Cells.Hub/](src/Creatura.Cells.Hub) | the ledger hub, `creatura-hub`: an ASP.NET host for the sync endpoint and the shared files' bytes | BIT.Data.Sync.AspNetCore, Microsoft.Data.Sqlite |
-| [Creatura.Cli/](src/Creatura.Cli) | the `creatura cell` command over the cells, the hub client and the Claude Code hooks | none |
+| [Creatura.Cli/](src/Creatura.Cli) | the `creatura` command: `new`, `run` and `doctor` to get started, and `creatura cell` over the cells, the hub client and the Claude Code hooks | none |
 | [Creatura.Scenarios/](src/Creatura.Scenarios) | several creaturas in one shared world: the convoy (ConvoyWorld, TruckView, ConvoyPolicy, ScenarioMesh, ConvoyBattery), the replay writer, the recorder and dataset exporter, and the trained networks' seats (ConvoyNetwork) | none |
 
 **Samples, models and tools**
 
 | folder | what it holds |
 |---|---|
+| [templates/](templates) | the `dotnet new` templates (`Creatura.Templates`), which `creatura new` also makes: `creatura-agent`, `creatura-world`, `creatura-sk` |
 | [samples/QuickStart/](samples/QuickStart) | the quick start below, offline |
 | [samples/AgentFrameworkHost/](samples/AgentFrameworkHost) | the control layer on Agent Framework over the toy suite's four barriers, offline by default; `--compare` runs it beside the designs, `--seat <catalog name>` puts a model in it |
 | [samples/SemanticKernelHost/](samples/SemanticKernelHost) | the same on Semantic Kernel, with the same options |
@@ -350,9 +375,11 @@ base URL is somebody's own name an environment variable for it and are skipped, 
 using Creatura.Seats;
 
 var seat = SeatFactory.Model("deepseek-chat", log: new CallLog("runs/calls.jsonl"));   // the key is read at the first call, by name
-var run  = await AgentCatalog.Make("bach", seat, WorldCatalog.Permit.Task).RunAsync(WorldCatalog.Permit.Create(WorldCatalog.Permit.Set("all")));
-var row  = Scoreboard.RowFor(DateTimeOffset.UtcNow, seat, "seat", "demo-worlds", "permit", "bach", 1,
-               RegistryOracle.For(WorldCatalog.Permit).Classify(run, world), run.Ticks, Measures.LiesCaught(run), false, "barriers=all");
+var permit = WorldCatalog.Permit;
+var world  = permit.Create(BarrierSet.All(permit));
+var run    = await AgentCatalog.Make("bach", seat, permit.Task).RunAsync(world);
+var row    = Scoreboard.RowFor(DateTimeOffset.UtcNow, seat, "seat", "demo-worlds", "permit", "bach", 1,
+                 RegistryOracle.For(permit).Classify(run, world), run.Ticks, Measures.LiesCaught(run), false, "barriers=all");
 ```
 
 ## Hosts

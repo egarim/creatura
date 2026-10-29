@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Jose Ojeda",
+  "classifications": [
+    "Creatura",
+    "Agent",
+    "Console"
+  ],
+  "identity": "Creatura.Templates.Agent",
+  "name": "Creatura agent",
+  "shortName": "creatura-agent",
+  "description": "The loop with each design, then your own regulator, on the toy world with one tool that lies. Offline.",
+  "sourceName": "CreaturaApp",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "symbols": {
+    "creaturaVersion": {
+      "type": "parameter",
+      "datatype": "text",
+      "replaces": "CREATURA_VERSION",
+      "defaultValue": "__PACKAGE_VERSION__",
+      "description": "The version of the Creatura packages the project references."
+    }
+  }
+}

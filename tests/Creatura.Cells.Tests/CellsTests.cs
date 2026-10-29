@@ -283,7 +283,9 @@ public class CellsPurityTest
         Assert.NotEmpty(references);
         Assert.All(references, name => Assert.True(
             name.StartsWith("System", StringComparison.Ordinal) || name.StartsWith("Microsoft.Win32", StringComparison.Ordinal)
-            || name is "netstandard" or "Creatura" or "Creatura.Cells" || (project == "Creatura.Cli" && name is "Creatura.Cells.Sqlite" or "Creatura.Cells.Sync"),
+            || name is "netstandard" or "Creatura" or "Creatura.Cells" || (project == "Creatura.Cli" && name is "Creatura.Cells.Sqlite" or "Creatura.Cells.Sync"
+                // creatura run: the catalogs and the seats, Creatura projects that are package-free themselves (CorePurityTest)
+                or "Creatura.Worlds" or "Creatura.Seats" or "Creatura.Bench"),
             $"{project} references {name}"));
     }
 }

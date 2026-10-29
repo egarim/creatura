@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The control layer on Semantic Kernel; the OpenAI connector is only for a model in the seat. -->
+    <PackageReference Include="Creatura.Hosts.SemanticKernel" Version="CREATURA_VERSION" />
+    <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.81.0" />
+  </ItemGroup>
+
+</Project>

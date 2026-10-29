@@ -23,6 +23,8 @@
     <EmbeddedResource Include="stream.html" LogicalName="stream.html" />
     <EmbeddedResource Include="..\..\docs\assets\creatura-icon.svg" LogicalName="icon.svg" Link="icon.svg" />
     <EmbeddedResource Include="..\..\docs\assets\creatura-icon-light.svg" LogicalName="icon-light.svg" Link="icon-light.svg" />
+    <!-- The templates creatura new makes projects from: the same files Creatura.Templates packs for dotnet new. -->
+    <EmbeddedResource Include="..\..\templates\content\**\*" Exclude="..\..\templates\content\**\bin\**;..\..\templates\content\**\obj\**" LogicalName="templates/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,6 +32,9 @@
     <ProjectReference Include="..\Creatura.Cells\Creatura.Cells.csproj" />
     <ProjectReference Include="..\Creatura.Cells.Sqlite\Creatura.Cells.Sqlite.csproj" />
     <ProjectReference Include="..\Creatura.Cells.Sync\Creatura.Cells.Sync.csproj" />
+    <!-- creatura run: the agent and world catalogs, and the seats (the planner, a script or a catalogued model). -->
+    <ProjectReference Include="..\Creatura.Worlds\Creatura.Worlds.csproj" />
+    <ProjectReference Include="..\Creatura.Seats\Creatura.Seats.csproj" />
   </ItemGroup>
 
 </Project>

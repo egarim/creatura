@@ -142,14 +142,30 @@ runs are recorded only in the design note.
 
 ## Step offers
 
-1 entries; 0 touched the battery's seeds 0 to 49.
+2 entries; 0 touched the battery's seeds 0 to 49.
 
 | # | when | commit | kind | seeds | what | result | used for |
 |---|---|---|---|---|---|---|---|
 | 38 | 2026-10-29 21:42 | `ad2fd29`* | probe | — | Goal offer played end to end with headless Claude Code (tools/try-offer.sh) | Hook showed the person the one open offer; the model, asked from context, said no offer; a second session took it (claim cell-eff16c8157166090#258) and summarized the day, with one wrong fact (no release seen). Gap: the claim's path is Claim then HandOff after 0 turns, since the background Stop hook does not finish before a -p session exits. |  |
+| 39 | 2026-10-29 22:01 | `e9c20c6`* | test | — | SessionEnd reads missed turns from the transcript (headless Stop gap) | Two new hook tests pass; breaks (no catch-up; offset not moved at Stop) fail 2 and 1. Live rerun: claim #267 now has 'turn 1: Bash x2' before 'session ended (other) after 1 turn'. Also seen: hook.log has many 'lock stayed held; event dropped' lines from 2026-10-28 (500 ms lock wait), a separate loss. |  |
 
 <details><summary>Commands</summary>
 
 - #38: `tools/try-offer.sh of-bb5eddfb10`
+- #39: `dotnet test (749/749); tools/try-offer.sh of-bca412102a`
+
+</details>
+
+## Step onboarding
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 40 | 2026-10-29 22:22 | `e9c20c6`* | test | — | Getting started: creatura new/run/doctor, Creatura.Templates, package polish (O1-O5) | O1, O3, O4, O5 hold (12 tests); breaks: doctor shows a key value and run in the machine culture each fail; new leaving the version token passed until a default-version test was added. O2 holds: 3 templates, creatura new == dotnet new, built and ran offline from locally packed packages. Found: German culture prints '100 %' in the core's trace text; creatura run now formats under a fixed culture. |  |
+
+<details><summary>Commands</summary>
+
+- #40: `dotnet test (760/760); tools/try-onboarding.sh`
 
 </details>

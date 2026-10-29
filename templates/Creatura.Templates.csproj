@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The `dotnet new` templates (docs/design-onboarding.md): creatura-agent, creatura-world, creatura-sk. The files under
+       content/ are also embedded in the `creatura` tool, so `creatura new` makes the same projects. Packing writes this
+       package's version into each template's creaturaVersion default, so a made project references the packages of
+       the same release. Nothing here is compiled. -->
+  <PropertyGroup>
+    <PackageId>Creatura.Templates</PackageId>
+    <PackageType>Template</PackageType>
+    <Title>Creatura templates</Title>
+    <Description>dotnet new templates for Creatura: an agent on the toy world, your own world, and the control layer on Semantic Kernel.</Description>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IncludeSymbols>false</IncludeSymbols>
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);StampTemplates</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <Target Name="StampTemplates">
+    <ItemGroup>
+      <TemplateFile Include="content/**/*" Exclude="content/**/bin/**;content/**/obj/**" />
+    </ItemGroup>
+    <PropertyGroup>
+      <StampedRoot>$(IntermediateOutputPath)stamped/</StampedRoot>
+    </PropertyGroup>
+    <Copy SourceFiles="@(TemplateFile)" DestinationFiles="@(TemplateFile->'$(StampedRoot)%(RecursiveDir)%(Filename)%(Extension)')" />
+    <ItemGroup>
+      <TemplateJson Include="$(StampedRoot)**/.template.config/template.json" />
+    </ItemGroup>
+    <WriteLinesToFile File="%(TemplateJson.FullPath)" Lines="$([System.IO.File]::ReadAllText('%(TemplateJson.FullPath)').Replace('__PACKAGE_VERSION__', '$(PackageVersion)'))" Overwrite="true" />
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(StampedRoot)**/*" PackagePath="content/%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

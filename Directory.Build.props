@@ -1,5 +1,5 @@
 <Project>
-  <!-- Shared by every project under this folder. Version metadata only: each .csproj keeps its own
+  <!-- Shared by every project under this folder. Version and package metadata only: each .csproj keeps its own
        target framework, nullable and implicit-usings settings. CorePurityTest keeps the four package-free
        projects (Creatura, Worlds, Bench, Seats) free of packages. A release sets the version from its tag. -->
   <PropertyGroup>
@@ -12,5 +12,26 @@
     <Description>An agent framework: one loop, a control layer between the model and its tools, and worlds that can lie. Regulators, extensions and worlds plug in.</Description>
     <RepositoryUrl>https://github.com/egarim/creatura</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <!-- What nuget.org shows: the icon (docs/assets/creatura-icon.png, packed by Directory.Build.targets), the project
+       page, the tags, and the project's own PACKAGE.md as the readme when the project has one. -->
+  <PropertyGroup>
+    <PackageProjectUrl>https://github.com/egarim/creatura</PackageProjectUrl>
+    <PackageIcon>creatura-icon.png</PackageIcon>
+    <PackageTags>agents;ai;llm;agent-framework;control-layer;regulators;simulation;creatura</PackageTags>
+    <PackageReadmeFile Condition="Exists('$(MSBuildProjectDirectory)/PACKAGE.md')">PACKAGE.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <!-- Debugging into the packages: the SDK's own SourceLink (GitHub) maps the PDBs to this repository's commit, and
+       the symbols go to a .snupkg beside each .nupkg, which `dotnet nuget push` sends to the symbol server with it.
+       ContinuousIntegrationBuild (normalized paths) only on GitHub Actions, so a local build keeps local paths. -->
+  <PropertyGroup>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 </Project>

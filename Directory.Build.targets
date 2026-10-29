@@ -1,0 +1,32 @@
+<Project>
+  <!-- Shared by every project under this folder, after its .csproj: the files each package carries beside its
+       assemblies. Package metadata is in Directory.Build.props. Nothing here adds a package reference. -->
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <!-- The icon nuget.org shows (made from docs/assets/creatura-icon-light.svg on the navy ground). -->
+    <None Remove="$(MSBuildThisFileDirectory)docs/assets/creatura-icon.png" />
+    <None Include="$(MSBuildThisFileDirectory)docs/assets/creatura-icon.png" Pack="true" PackagePath="/" Visible="false" />
+    <!-- The project's PACKAGE.md is the package's readme (PackageReadmeFile). Removed first, so it is packed once whether
+         the SDK's default items already list it or the project lists it itself. -->
+    <None Remove="PACKAGE.md" Condition="'$(PackageReadmeFile)' == 'PACKAGE.md'" />
+    <None Include="PACKAGE.md" Pack="true" PackagePath="/" Condition="'$(PackageReadmeFile)' == 'PACKAGE.md'" />
+  </ItemGroup>
+
+  <!-- A package with no assemblies of its own (the templates) has no symbols to pack. -->
+  <PropertyGroup Condition="'$(PackageType)' == 'Template' or '$(IncludeBuildOutput)' == 'false'">
+    <IncludeSymbols>false</IncludeSymbols>
+  </PropertyGroup>
+
+  <!-- A few tags of each package's own, after the shared ones, so a search for the framework it rides finds it. -->
+  <PropertyGroup>
+    <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Hosts.AgentFramework'">$(PackageTags);microsoft-agent-framework;ichatclient;middleware</PackageTags>
+    <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Hosts.SemanticKernel'">$(PackageTags);semantic-kernel;ichatclient;filters</PackageTags>
+    <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Seats'">$(PackageTags);openai;ollama;deepseek;azure</PackageTags>
+    <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Bench'">$(PackageTags);benchmark;evaluation;training</PackageTags>
+    <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Cells' or '$(MSBuildProjectName)' == 'Creatura.Cells.Sqlite' or '$(MSBuildProjectName)' == 'Creatura.Cells.Sync'">$(PackageTags);identity;ledger;ecdsa;multi-agent</PackageTags>
+    <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Cells.Sqlite'">$(PackageTags);sqlite</PackageTags>
+    <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Cells.Sync'">$(PackageTags);sync;syncframework</PackageTags>
+    <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Scenarios'">$(PackageTags);multi-agent;convoy;scenarios</PackageTags>
+    <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Cli'">$(PackageTags);dotnet-tool;cli;claude-code</PackageTags>
+    <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Templates'">$(PackageTags);dotnet-new;templates</PackageTags>
+  </PropertyGroup>
+</Project>
