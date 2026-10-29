@@ -1,6 +1,6 @@
 # Design: trained models for a world
 
-Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held; step 3 (training by trial) built: the first attempt failed T3; the second held T7, T7b and T7c. Step 5 (the world model and the learned judge) built: T9 failed by three lies. Step 6 (a noisy world) built: T10 held; T10b failed, so the lie judge was not run; T10f failed, as predicted.
+Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held; step 3 (training by trial) built: the first attempt failed T3; the second held T7, T7b and T7c. Step 5 (the world model and the learned judge) built: T9 failed by three lies. Step 6 (a noisy world) built: T10 held; T10b failed, so the lie judge was not run; T10f failed, as predicted. Its second attempt (sealed noise, memory, loop data) registered, not built.
 
 ## The question, in the owner's words
 
@@ -882,7 +882,12 @@ teacher never went), here in a judge.
 as surprising as a lie, and the one feature that tells them apart, the gauge, barely moves a sum over 61 features.
 Its trucks took the lying road 1,036 more times; 94 units went undelivered in 17 runs.
 
-What step 6 shows: in a world where no exact check exists, a hand-written rule built on knowing the noise beat both
+**A flaw found afterwards** (while registering the second attempt): the roads a truck is offered come from where it
+really is, and each place has its own set of roads, so the offered roads give the true position away one tick late.
+No judge here used them, so the comparison between the judges stands; but an exact check could have been written, a
+tick late. The second attempt seals that leak first.
+
+What step 6 shows: in a world where the readings are the only evidence a judge looks at, a hand-written rule built on knowing the noise beat both
 learned judges, and the reason is not that the networks are too small. The world model scores what is surprising, not
 what is a lie; the lie judge scores how likely a lie is for one action, as its training data saw it, and the loop
 changes those odds. A second attempt, not registered, has three directions: give the judge memory (the tries on this
@@ -900,6 +905,74 @@ check instead of the truth. That last one passed at first (on the seed the test 
 now compares the judge's counts with the truth's over six more seeds. A slip in the break script also showed up and was
 fixed: it restored each file with its old timestamp, so the build kept the broken code, and two tests failed for a
 break they did not cover; every break was run again with the files touched.
+
+## Step 6, the lie judge's second attempt, registered before the code (2026-10-29)
+
+Written before any of it exists. Nothing below has been run.
+
+**What the first attempt pointed to.** The lie judge scored each action alone, from training data where lies were
+caught at once; in the loop a missed lie is tried again, and every try looked like the same even bet. Two changes
+answer that: **memory** (the judge is told whether this truck just took this same action) and **training on the
+loop's own driving** (the judge's own runs, labelled by the truth, added to its data, as DAgger does for policies).
+
+**A flaw in step 6's world, found while writing this.** The roads a truck is offered are the roads from where it
+really is, and in the flooded valley every place has its own set of roads (eight places, eight sets). So the offered
+roads give away the true position, one tick late. None of step 6's judges looked at them (the effect check, the fused
+check and both networks read only the position and fuel readings), so step 6's comparison between them stands. But
+its claim that no exact check could be written was wrong: one could, a tick late. A judge with memory would learn
+that leak and nothing else, so it has to be sealed first.
+
+**The world change: noise sealed.** A new setting, `SensorNoise.Sealed`, off for arms U, V, F and P so step 6 replays
+as it is. When it is on, the truck is offered the roads from where its position *reads* it is, and the depot's load
+and refuel when it reads the depot. A truck that misreads takes a road that does not start where it is, and the world
+answers "no such road from here", an honest failure. Nothing the truck is given then tells it its true place, except
+readings that are each wrong one time in ten and the world's own reports.
+
+**What is built.**
+1. The sealed noise, as above.
+2. **Two memory inputs** for the lie judge, computed by the judge from the truck's own history and nothing else:
+   `again`, 1 when the truck's previous action was this same action and was reported a success; and `tries`, the
+   earlier tries of this same action in the run, over 5, at most 1. The judge reads 160 inputs: the features before,
+   the action, the features after, and the two.
+3. **The fused check with memory** (arm V2's), the rule an engineer would add to the fused check after seeing step 6:
+   a drive is also a lie when the position reads the starting place and the truck's previous action was this same
+   drive, reported arrived. The rest of the fused check is as in arm V.
+4. **Loop data, in rounds.** Round 0: arm U2's driving and the policy network sampled at temperature 2, both sealed, on
+   seeds 50 to 599. Then two rounds: run arm P2 with the judge so far on seeds 50 to 599, add its recorded actions
+   labelled by the truth, and train again from the start on everything. Two rounds, fixed now, whatever they show.
+5. Thresholds by arm Y's recipe, on the driving the judge will judge: the last round's own runs, seeds ending in 9.
+   t1 at the 99.5th percentile of the score on landed checkable actions, t2 at the highest score of a landed drive.
+   Written here before the battery runs.
+
+**The arms**, all sealed, all with arm J's regulators and fixes:
+
+- **Arm U2:** the effect check.
+- **Arm V2:** the fused check with memory.
+- **Arm P2:** the lie judge with memory, trained on loop data, quarantining before it condemns (as arms Y and P).
+
+**The gate before the battery, and its bar.** This time the bar is one the noise allows. On the last round's held-out
+training actions, the judge at t1 makes fewer errors (false alarms plus misses, against the truth) than the fused check
+with memory makes on the same actions, computed from the recorded readings. If not, arm P2 is not run on the battery.
+
+Judged on seeds 0 to 49, against the world's truth:
+
+| id | claim | falsifier |
+|---|---|---|
+| T11 | sealed, the noise still breaks the effect check: arm U2's check gives false alarms on more than 1% of checked actions, and arm U2 serves the villages later than arm J | 1% or fewer, or no later. If it fails, the step stops |
+| T11b | the gate above, on training seeds | as stated. If it fails, arm P2 is not run |
+| T11c | arm P2 delivers at least as much as arm U2 and serves the villages no later on average | either |
+| T11d | arm P2's judge has a lower error rate (false alarms plus misses over checked actions) than arm V2's check, and arm P2 delivers at least as much as arm V2 | either |
+| T11e | memory ends the repeats: arm P2 takes a lying road again no more often than arm V2 does | more repeats than V2 |
+| T11f | arm P2's judge gives false alarms on fewer than 1% of checked actions | 1% or more |
+| T11g | arms U2, V2 and P2 replay byte for byte, and every earlier arm replays as before | any difference |
+
+**The predictions.** T11, T11c, T11f and T11g hold. T11e holds: with `again`, a lie met twice in a row is plain to
+both. **T11b and T11d are the open question**, for the same reason as before: on a first encounter the readings of a
+lie and of a misread are the same, so both judges are near the limit the noise sets, and the result should be narrow
+either way. If the judge only ties the hand-written rule, the finding is that memory and loop data cured what broke
+the first attempt, and that the bar was reached without the rule being written.
+
+**Cost.** Nothing paid; three rounds of recording and training on the laptop.
 
 ## What this note does not cover
 
