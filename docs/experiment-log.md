@@ -139,3 +139,17 @@ runs are recorded only in the design note.
 - #37: `creatura cell offer --to SURFACE ...; on the Surface (through an SSH tunnel via vpn-a): sync, offers, take, progress, release, sync`
 
 </details>
+
+## Step offers
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 38 | 2026-10-29 21:42 | `ad2fd29`* | probe | — | Goal offer played end to end with headless Claude Code (tools/try-offer.sh) | Hook showed the person the one open offer; the model, asked from context, said no offer; a second session took it (claim cell-eff16c8157166090#258) and summarized the day, with one wrong fact (no release seen). Gap: the claim's path is Claim then HandOff after 0 turns, since the background Stop hook does not finish before a -p session exits. |  |
+
+<details><summary>Commands</summary>
+
+- #38: `tools/try-offer.sh of-bb5eddfb10`
+
+</details>

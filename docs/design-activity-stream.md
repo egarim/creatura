@@ -208,9 +208,20 @@ discards only stderr; the other events stay silent and in the background; `insta
 SessionStart group instead of adding a second. The installed command, fed a SessionStart event, printed exactly the
 one JSON object.
 
-Not yet seen: the message in a real Claude Code session. The documentation says a SessionStart `systemMessage` is
-shown to the person and not added to the model's context; one session on the laptop, after an offer to its vessel,
-settles it.
+Played end to end with headless Claude Code (`claude -p`) by `tools/try-offer.sh`, on offer `of-bb5eddfb10`
+("Summarize what changed in egarim/creatura today and list anything left untested", to the laptop's vessel). A new
+session's SessionStart hook showed the person that one offer (an earlier test offer had lapsed and was left out),
+and that session's model, asked from its context alone whether anyone had offered it a goal, answered no: the message
+reaches the person and not the model, as the documentation says. A second session whose first prompt began
+`offer of-bb5eddfb10` took it, and did the goal with read-only tools; the offer stands taken by claim
+`cell-eff16c8157166090#258`, which cites the offer and carries its goal, session, repo and branch. Its summary got one
+fact wrong (it saw no release run, but `v0.2.0-preview.1` was released that day): the ledger records that a goal was
+taken, not whether the answer was right.
+
+Found: in a headless session the claim's path is only Claim then HandOff ("session ended (other) after 0 turns"). The
+Stop hook runs in the background and the process exits before it writes a step; only SessionEnd, which waits, made
+it in. So a `-p` session leaves no steps and no evidence in the ledger. Not yet seen: the message in the interactive
+Claude Code window; the headless run shows only that Claude Code receives it and the model does not.
 
 ## Decided (owner, 2026-10-29)
 
