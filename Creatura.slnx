@@ -11,16 +11,19 @@
     <Project Path="src/Creatura.Scenarios/Creatura.Scenarios.csproj" />
     <Project Path="src/Creatura.Cli/Creatura.Cli.csproj" />
     <Project Path="src/Creatura.Hosts.AgentFramework/Creatura.Hosts.AgentFramework.csproj" />
+    <Project Path="src/Creatura.Hosts.SemanticKernel/Creatura.Hosts.SemanticKernel.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/QuickStart/QuickStart.csproj" />
     <Project Path="samples/AgentFrameworkHost/AgentFrameworkHost.csproj" />
     <Project Path="samples/Convoy/Convoy.csproj" />
+    <Project Path="samples/SemanticKernelHost/SemanticKernelHost.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Creatura.Tests/Creatura.Tests.csproj" />
     <Project Path="tests/Creatura.Cells.Tests/Creatura.Cells.Tests.csproj" />
     <Project Path="tests/Creatura.Hosts.AgentFramework.Tests/Creatura.Hosts.AgentFramework.Tests.csproj" />
+    <Project Path="tests/Creatura.Hosts.SemanticKernel.Tests/Creatura.Hosts.SemanticKernel.Tests.csproj" />
     <Project Path="tests/Creatura.Scenarios.Tests/Creatura.Scenarios.Tests.csproj" />
   </Folder>
 </Solution>

@@ -629,7 +629,7 @@
           <tr><td>cell</td><td>a creatura's identity on one vessel: its key, endorsed by the owner</td><td><code>CreaturaId</code>, <code>CellKey</code>, <code>LocalCell</code>, <code>VesselEndorsement</code></td></tr>
           <tr><td>work ledger</td><td>the signed, append-only record of who is working on what, copied to every cell</td><td><code>WorkLedger</code>, <code>SignedEntry</code>, <code>EntryKind</code></td></tr>
           <tr><td>hub</td><td>a relay the cells sync through; it checks every request and cannot forge an entry</td><td><code>creatura-hub</code>, <code>LedgerSyncNode</code>, <code>HubRequest</code>, <code>Revocation</code></td></tr>
-          <tr><td>host</td><td>a runtime that owns the model call and hands the layer its hooks</td><td>Agent Framework middleware; Semantic Kernel reserved</td></tr>
+          <tr><td>host</td><td>a runtime that owns the model call and hands the layer its hooks</td><td>Agent Framework middleware; a Semantic Kernel filter</td></tr>
         </tbody>
       </table>
       </div>

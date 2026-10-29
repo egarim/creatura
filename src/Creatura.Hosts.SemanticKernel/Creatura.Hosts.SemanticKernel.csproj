@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Creatura.Hosts.SemanticKernel</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The second host: Semantic Kernel owns the function-calling loop (KernelFunctionInvokingChatClient) and its filters,
+         and the control layer rides them. Like the Agent Framework host it takes the model as an IChatClient; it does not
+         reference that host, and CorePurityTest keeps the package-free projects free of this package too. -->
+    <PackageReference Include="Microsoft.SemanticKernel.Core" Version="1.81.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Creatura/Creatura.csproj" />
+  </ItemGroup>
+
+</Project>

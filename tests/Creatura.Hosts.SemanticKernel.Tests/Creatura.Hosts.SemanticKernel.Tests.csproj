@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Apart from Creatura.Tests so that project never sees Semantic Kernel, and from the Agent Framework host's tests
+         so neither host's package reaches the other; the Agent Framework goldens are read here as files. -->
+    <ProjectReference Include="..\..\src\Creatura\Creatura.csproj" />
+    <ProjectReference Include="..\..\src\Creatura.Hosts.SemanticKernel\Creatura.Hosts.SemanticKernel.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -4,8 +4,8 @@ namespace Creatura.Tests;
 
 /// <summary>
 /// The four package-free projects stay package-free: no <c>PackageReference</c> in their project files, and no
-/// reference from their assemblies to an agent framework, a model abstraction or a provider SDK. The Agent Framework
-/// host (<c>Creatura.Hosts.AgentFramework</c>) is the one project in src/ allowed a package; nothing here may need it.
+/// reference from their assemblies to an agent framework, a model abstraction or a provider SDK. The two hosts
+/// (<c>Creatura.Hosts.AgentFramework</c> and <c>Creatura.Hosts.SemanticKernel</c>) bring their frameworks; nothing here may need either.
 /// </summary>
 public class CorePurityTest
 {

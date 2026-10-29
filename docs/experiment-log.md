@@ -103,3 +103,19 @@ runs are recorded only in the design note.
 - #31: `scratchpad breaks3.py`
 
 </details>
+
+## Step host-sk
+
+2 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 32 | 2026-10-29 16:25 | `7aa27e9`* | check | — | Semantic Kernel host against the Agent Framework host's four goldens, offline (planner in the seat) | 4 of 4 byte for byte once the host's name and framework note are swapped; 13 of 13 host tests pass; full suite 737 of 737 | the claim in the README that both hosts run the same layer row for row |
+| 33 | 2026-10-29 16:25 | `7aa27e9`* | build | — | Seven deliberate breaks of the Semantic Kernel host | first pass 6 of 7 caught; 'outcome not reported' got through, so AnHonestFailureIsNotCalledALieAndTheToolStaysOffered was added; second pass 7 of 7 | that the host tests catch what they claim to |
+
+<details><summary>Commands</summary>
+
+- #32: `dotnet test tests/Creatura.Hosts.SemanticKernel.Tests`
+- #33: `python3 skbreaks.py (scratch): claim not replaced, every function offered, terminate ignored, no tick per request, outcome not reported, plugin prefix not read back, refused function runs`
+
+</details>

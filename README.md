@@ -36,6 +36,10 @@ src/Creatura.Hosts.AgentFramework/
                               WorldTools, ControlledAgent, PlannerChatClient (the offline model) and ChatClientPolicy
                               (any IChatClient in the loop's seat); package: Microsoft.Agents.AI.OpenAI
                               (namespace Creatura.Hosts.AgentFramework)
+src/Creatura.Hosts.SemanticKernel/
+                              the Semantic Kernel host: ControlLayerFilter, OfferingChatClient, WorldPlugin,
+                              ControlledKernelAgent, PlannerChatClient (the offline model); package:
+                              Microsoft.SemanticKernel.Core (namespace Creatura.Hosts.SemanticKernel)
 src/Creatura.Cells/           the cells: CreaturaId, CellKey / OwnerKey (ECDSA P-256), VesselProbe and Hardware, Position,
                               CellIdentity, SignedEntry and the eight entry kinds, WorkLedger, JsonLedgerStore, signed hub
                               requests, revocations, shared files (CellCipher, SharedFiles), ICellNetwork; no packages
@@ -51,6 +55,7 @@ src/Creatura.Scenarios/       several creaturas in one shared world: the convoy 
 samples/QuickStart/           the quick start below, offline
 samples/AgentFrameworkHost/   the control layer on Agent Framework over the toy suite's four barriers, offline by
                               default; --compare runs it beside the designs, --seat <catalog name> puts a model in it
+samples/SemanticKernelHost/   the same on Semantic Kernel, with the same options
 samples/Convoy/               the convoy from the command line: one run, a battery, recordings, datasets, trial runs
 samples/models.json           the compiled model catalog written out, to copy beside an executable and edit
 models/                       trained policy networks (plain JSON weights), embedded in Creatura.Scenarios
@@ -62,6 +67,8 @@ tests/Creatura.Cells.Tests/   the cells' pre-registered tests, the hub, sync, sh
                               CellsPurityTest
 tests/Creatura.Hosts.AgentFramework.Tests/
                               the host's tests and its four goldens (golden/restore-*-controlled.jsonl)
+tests/Creatura.Hosts.SemanticKernel.Tests/
+                              the Semantic Kernel host's tests; it runs the Agent Framework host's goldens byte for byte
 tests/Creatura.Scenarios.Tests/
                               the convoy, the model seat, the recorder, the networks, shared distrust
 ```
@@ -264,17 +271,38 @@ schemas the model gets), `Admit` before a tool runs (refuse or terminate when it
 answer (its feedback is all the model sees; terminate when it says so), `Close` on the model's reply, `Sleep` at the
 end. **A tool wrapper that calls `ReportOutcome`** with what the world answered, so `Judge` can tell an honest failure
 from a lie; a host that cannot see the outcome passes none, and the layer reads the report as a claim of success.
-**A tick definition**: the reference loop's tick is one decision; `Creatura.Hosts.AgentFramework`'s is one model call,
-because that is the unit the framework exposes. `FakeHost` in the tests is the whole contract in one small class with
+**A tick definition**: the reference loop's tick is one decision; on both hosts it is one model request, because that
+is the unit the frameworks expose. `FakeHost` in the tests is the whole contract in one small class with
 no framework at all, and it reproduces the Agent Framework host's goldens byte for byte.
 
-`Hosts.SemanticKernel` is reserved, not built; its shape is decided. `Admit` and `Judge` go in an
-`IFunctionInvocationFilter` around `next` (admit before, judge after, `context.Terminate` when either says so, the
-feedback as the function's result); `Offer` goes in a prompt-render filter (`IPromptRenderFilter`), which removes the
-distrusted functions' schemas before the request leaves; termination of the automatic function-calling loop goes
-through `IAutoFunctionInvocationFilter`, where the layer's terminate ends the loop rather than the single call. Tick =
-one model request there too. OpenClaw, Hermes and the Copilot SDK stay documentation: their hooks are mapped onto the
-same verbs in the research notes, which are not published.
+`Creatura.Hosts.SemanticKernel` is the second host. Semantic Kernel owns the function-calling loop
+(`UseKernelFunctionInvocation`, which runs the kernel's filters) and the chat history; the model comes in as an
+`IChatClient`, as Semantic Kernel's own connectors now hand it out. `ControlLayerFilter`, an
+`IAutoFunctionInvocationFilter`, admits before `next` and judges after it; the layer's feedback replaces the function's
+result, so the model reads the verdict, never the tool's own claim; and a terminate from either verb sets
+`context.Terminate`, which ends the kernel's whole loop, not just the call. `OfferingChatClient` sits under that loop,
+sees every request, begins the tick and removes the functions the layer does not trust before the request leaves.
+`WorldPlugin` makes the world's tools kernel functions (`apply-patch` is `apply_patch`, since kernel function names
+allow only letters, digits and underscores) and hands each outcome to `ReportOutcome`. Offline, with the planner in the
+model's seat, it runs the Agent Framework host's four goldens byte for byte once the host's name and framework are
+swapped. Two places differ from the design that was reserved for it: the offer is on the chat client, not in a
+prompt-render filter (Semantic Kernel renders a prompt once per invocation, then makes several requests without
+rendering again, and its function-choice behaviours cannot be extended outside the package); and admit, judge and
+terminate are one filter, not two (`Terminate` exists only on the auto-invocation filter, and two filters would have to
+pass one call's verdict between them). A name that is no function at all is answered by Semantic Kernel itself and
+never reaches the layer, as on the other host. The classic `IChatCompletionService` connectors
+(`AddOpenAIChatCompletion`) run their loop inside the connector with no hook before each request, so they cannot give
+the layer its tick; any `IChatClient` can.
+
+```csharp
+using Creatura.Hosts.SemanticKernel;
+
+var agent = new ControlledKernelAgent((world, task) => openAi.GetChatClient(model).AsIChatClient(), model);
+var run   = await agent.RunAsync(world);            // or ControlledKernelAgent.Offline() for the planner in the seat
+```
+
+OpenClaw, Hermes and the Copilot SDK stay documentation: their hooks are mapped onto the same verbs in the research
+notes, which are not published.
 
 ## Anatomy
 
