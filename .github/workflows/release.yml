@@ -1,0 +1,129 @@
+# A release: push a tag like v0.2.0 (or v0.2.0-preview.1) and this tests the solution, builds each program for six
+# platforms with tools/release/build.sh, runs every binary on a machine of its own platform, and only then creates
+# the GitHub release with the archives, the NuGet packages and SHA256SUMS. The notes are the CHANGELOG's section for
+# that version. "Run workflow" by hand does everything but the release, as a dry run.
+#
+# NuGet: the packages are pushed to nuget.org only when the repository has a NUGET_API_KEY secret; without one they are
+# attached to the release and nothing else happens.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "version to build (dry run: nothing is released)"
+        required: true
+        default: "0.0.0-dryrun"
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet test Creatura.slnx -c Release
+
+  build:
+    needs: test
+    # macOS, because the SDK signs the macOS executables only there; it builds the Linux and Windows ones as well.
+    runs-on: macos-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - id: version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then v="${GITHUB_REF_NAME#v}"; else v="${{ inputs.version }}"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - run: tools/release/build.sh "${{ steps.version.outputs.version }}" artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: artifacts
+          if-no-files-found: error
+
+  smoke:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { rid: linux-x64, os: ubuntu-latest }
+          - { rid: linux-arm64, os: ubuntu-24.04-arm }
+          - { rid: win-x64, os: windows-latest }
+          - { rid: win-arm64, os: windows-11-arm }
+          - { rid: osx-arm64, os: macos-latest }
+          # osx-x64 is built but not run here: it has no stable hosted runner to run on.
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: artifacts
+      - name: Run each program on its own platform
+        env:
+          V: ${{ needs.build.outputs.version }}
+          RID: ${{ matrix.rid }}
+        run: |
+          set -euo pipefail
+          mkdir -p try home && cd try
+          for name in creatura creatura-hub creatura-convoy; do
+            if [[ "$RID" == win-* ]]; then unzip -q "../artifacts/$name-$V-$RID.zip"; else tar -xzf "../artifacts/$name-$V-$RID.tar.gz"; fi
+          done
+          ext=""; [[ "$RID" == win-* ]] && ext=".exe"
+          "./creatura-convoy-$V-$RID/creatura-convoy$ext" --arm J --seed 0 --quiet | tee convoy.txt
+          grep -q "the ledgers ended identical" convoy.txt
+          "./creatura-hub-$V-$RID/creatura-hub$ext" --help | grep -q "usage: creatura-hub"
+          HOME="$PWD/../home" USERPROFILE="$PWD/../home" "./creatura-$V-$RID/creatura$ext" cell whoami 2>&1 | tee whoami.txt || true
+          grep -q "creatura cell init" whoami.txt
+
+  release:
+    needs: [build, smoke]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: artifacts
+      - name: Release notes from the CHANGELOG
+        env:
+          V: ${{ needs.build.outputs.version }}
+        run: |
+          awk -v v="$V" '
+            $0 ~ "^## " { if (on) exit; if (index($0, "## " v " ") == 1 || $0 == "## " v) { on = 1; next } }
+            on { print }' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then echo "CHANGELOG.md has no section for $V; add one before tagging." >&2; exit 1; fi
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ needs.build.outputs.version }}
+        run: |
+          pre=""; [[ "$V" == *-* ]] && pre="--prerelease"
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "Creatura $V" --notes-file notes.md $pre \
+            artifacts/*.tar.gz artifacts/*.zip artifacts/nuget/*.nupkg artifacts/SHA256SUMS
+      - name: Push the packages to nuget.org (only with a NUGET_API_KEY secret)
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        if: env.NUGET_API_KEY != ''
+        run: dotnet nuget push "artifacts/nuget/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate

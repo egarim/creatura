@@ -48,6 +48,13 @@ The theory behind the designs, *Agents That Defend Goals*: [the introduction](ht
 
 Every post has a button to read it in English or Spanish and one to listen to it.
 
+## Download
+
+Each [release](https://github.com/egarim/creatura/releases) has the programs as single files for macOS, Linux and
+Windows (x64 and arm64); no .NET is needed to run them. `creatura-convoy` plays the convoy and writes a replay for
+`convoy-viewer.html`, which comes with it; `creatura` is the cell command; `creatura-hub` is the ledger hub. The
+framework itself is a library: build it from this repository, or take the NuGet packages attached to the release.
+
 ## About
 
 An agent framework for building agents out of regulation patterns taken from how living things and minds

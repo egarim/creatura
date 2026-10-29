@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Release builds** (`tools/release/build.sh`, `.github/workflows/release.yml`): a tag like `v0.2.0` tests the
+  solution, builds `creatura`, `creatura-hub` and `creatura-convoy` as self-contained single-file executables for
+  macOS, Linux and Windows (x64 and arm64), runs each one on a machine of its own platform, and publishes them with
+  the NuGet packages and SHA256SUMS as a GitHub release. No .NET is needed to run them.
+- **The Semantic Kernel host** (`Creatura.Hosts.SemanticKernel`, `samples/SemanticKernelHost`): the control layer as
+  an `IAutoFunctionInvocationFilter` on Semantic Kernel's own function-calling loop, with a chat client under it that
+  offers only trusted functions on every request. Offline it runs the Agent Framework host's four goldens byte for
+  byte. It takes the model as an `IChatClient`.
+- **The README** opens with the logo, the shorts and the articles; it maps each design to its thinker, its code and its
+  post, explains each constructor value, and lays the folders out as tables.
+
 - **The lie judge's third attempt** (arm P3): condemn a road at the first learned lie, and t1 fixed on the judge's own
   driving. It passed its in-loop gate on held-out training seeds and closed most of the gap to the fused check with
   memory (lies 73 against 69, repeats 13 against 10 on seeds 0 to 49), but its false alarms stayed about twice the
