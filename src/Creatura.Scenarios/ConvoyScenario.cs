@@ -110,6 +110,7 @@ internal sealed class LearnedJudgeExtension(ConvoyWorld world, TruckSpec spec, A
     private double[]? _before;
     private int _beforeTick = -1;
     private (string Tool, double Surprise) _last;
+    private readonly ActionMemory _memory = new();
 
     public string Name => "learned-judge";
 
@@ -136,7 +137,7 @@ internal sealed class LearnedJudgeExtension(ConvoyWorld world, TruckSpec spec, A
         var action = _vocabulary.IndexOf(tool.Id);
         if (action < 0 || _before is null || _beforeTick != context.Tick) return verdict;
         if (checkableOnly && !Checkable.Contains(tool.Id.Split(':')[0])) return verdict;
-        var surprise = scorer.Score(_before, action, Encode(context));
+        var surprise = scorer.Score(_before, action, Encode(context), _memory.For(tool.Id));
         _last = (tool.Id, surprise);
         Judged++;
         var learned = surprise > threshold ? ActionVerdict.Lied : ActionVerdict.Landed;
@@ -162,6 +163,8 @@ internal sealed class LearnedJudgeExtension(ConvoyWorld world, TruckSpec spec, A
         return learned;
     }
 
+    public void AfterAction(TickContext context, Tool tool, ActionOutcome outcome, ActionVerdict verdict) => _memory.Record(tool.Id, outcome.Succeeded);
+
     /// <summary>Whether the learned lie on <paramref name="tool"/> just judged condemns its road: always without a condemn threshold, else above it or at the road's second learned lie.</summary>
     public bool Condemns(Tool tool)
     {
@@ -176,8 +179,11 @@ internal sealed class LearnedJudgeExtension(ConvoyWorld world, TruckSpec spec, A
 /// a drive is a lie only when the position reads the starting place and the gauge did not fall; a refuel landed when
 /// the gauge reads at least one short of full. Loads and unloads keep the effect check, which the noise does not touch.
 /// </summary>
-internal sealed class FusedCheckExtension(ConvoyWorld world, TruckSpec spec) : IAgentExtension
+/// <para>With <paramref name="memory"/> (arm V2) a drive is also a lie when the truck's previous action was this same
+/// drive, reported arrived, and the position still reads the starting place.</para>
+internal sealed class FusedCheckExtension(ConvoyWorld world, TruckSpec spec, bool memory = false) : IAgentExtension
 {
+    private readonly ActionMemory _memory = new();
     private int? _gaugeBefore;
     private int _beforeTick = -1;
 
@@ -200,7 +206,8 @@ internal sealed class FusedCheckExtension(ConvoyWorld world, TruckSpec spec) : I
             case "drive" when parts.Length == 3 && _beforeTick == context.Tick && _gaugeBefore is { } before && gauge is { } after:
             {
                 var start = world.Map.Road(parts[1]).Other(parts[2]);
-                return facts.Contains($"at:{start}") && after >= before ? ActionVerdict.Lied : ActionVerdict.Landed;
+                var readsStart = facts.Contains($"at:{start}");
+                return readsStart && (after >= before || (memory && _memory.Again(tool.Id))) ? ActionVerdict.Lied : ActionVerdict.Landed;
             }
             case "refuel" when gauge is { } reading:
                 return reading >= spec.Machine.FuelCapacity - 1 ? ActionVerdict.Landed : ActionVerdict.Lied;
@@ -208,6 +215,8 @@ internal sealed class FusedCheckExtension(ConvoyWorld world, TruckSpec spec) : I
                 return verdict;
         }
     }
+
+    public void AfterAction(TickContext context, Tool tool, ActionOutcome outcome, ActionVerdict verdict) => _memory.Record(tool.Id, outcome.Succeeded);
 
     private static int? Gauge(IReadOnlySet<string> facts) =>
         facts.Select(f => f.StartsWith("fuel:", StringComparison.Ordinal) && int.TryParse(f["fuel:".Length..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : (int?)null)
@@ -406,7 +415,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         var observers = new List<IAgentExtension> { story };
         RoadDistrustExtension? distrust = Setup.DistrustRoads ? new RoadDistrustExtension(_world!, spec.Name, Setup.ShareDistrust ? view : null) : null;
         if (distrust is not null) observers.Add(distrust);
-        if (Setup.FusedCheck) observers.Add(new FusedCheckExtension(_world!, spec));
+        if (Setup.FusedCheck) observers.Add(new FusedCheckExtension(_world!, spec, Setup.FusedMemory));
         if (Setup.LearnedJudge is { } judgeModel)
         {
             // Counted against the world's truth only in the noisy world, so the clean arms' measures stay as they were.

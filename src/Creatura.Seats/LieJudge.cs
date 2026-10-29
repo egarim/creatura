@@ -20,6 +20,9 @@ public sealed class LieJudge
 
     public required IReadOnlyList<string> Actions { get; init; }
 
+    /// <summary>The memory inputs it reads after the features (step 6's second attempt: "again", "tries"); none for the first judge.</summary>
+    public IReadOnlyList<string> Memory { get; init; } = [];
+
     public required IReadOnlyList<NetworkLayer> Layers { get; init; }
 
     public JsonElement? Training { get; init; }
@@ -37,7 +40,8 @@ public sealed class LieJudge
             : throw new FormatException($"{source}: no \"{name}\"");
         if (Text("format") != PolicyNetwork.Format) throw new FormatException($"{source}: format is {Text("format")}, expected {PolicyNetwork.Format}");
         if (Text("kind") != "judge") throw new FormatException($"{source}: kind is {Text("kind")}, expected judge");
-        if (Text("inputs") != "features+action+features") throw new FormatException($"{source}: inputs \"{Text("inputs")}\" is not one this judge knows");
+        var inputs = Text("inputs");
+        if (inputs is not ("features+action+features" or "features+action+features+memory")) throw new FormatException($"{source}: inputs \"{inputs}\" is not one this judge knows");
         static List<string> Strings(JsonElement e) => e.EnumerateArray().Select(s => s.GetString()!).ToList();
         static double[] Numbers(JsonElement e) => e.EnumerateArray().Select(n => n.GetDouble()).ToArray();
 
@@ -48,6 +52,7 @@ public sealed class LieJudge
             SchemaHash = Text("schemaHash"),
             Features = Strings(root.GetProperty("features")),
             Actions = Strings(root.GetProperty("actions")),
+            Memory = inputs.EndsWith("+memory", StringComparison.Ordinal) ? Strings(root.GetProperty("memory")) : [],
             Layers = root.GetProperty("layers").EnumerateArray().Select(l => new NetworkLayer(
                 l.GetProperty("weights").EnumerateArray().Select(Numbers).ToList(), Numbers(l.GetProperty("bias")), l.GetProperty("activation").GetString()!)).ToList(),
             Training = root.TryGetProperty("training", out var t) ? t.Clone() : null,
@@ -60,7 +65,7 @@ public sealed class LieJudge
     private void Check()
     {
         if (Layers.Count == 0) throw new FormatException($"{Source}: no layers");
-        var inputs = 2 * Features.Count + Actions.Count;
+        var inputs = 2 * Features.Count + Actions.Count + Memory.Count;
         if (Layers[0].Inputs != inputs) throw new FormatException($"{Source}: the first layer takes {Layers[0].Inputs} inputs, the judge names {inputs}");
         if (Layers[^1].Outputs != 1) throw new FormatException($"{Source}: the last layer gives {Layers[^1].Outputs} values, not one probability");
         for (var i = 0; i < Layers.Count; i++)
@@ -74,15 +79,17 @@ public sealed class LieJudge
         }
     }
 
-    /// <summary>The probability that <paramref name="action"/> (an index into <see cref="Actions"/>) lied, from what was seen before and after it.</summary>
-    public double Score(IReadOnlyList<double> before, int action, IReadOnlyList<double> after)
+    /// <summary>The probability that <paramref name="action"/> (an index into <see cref="Actions"/>) lied, from what was seen before and after it, and with memory inputs when the judge reads them.</summary>
+    public double Score(IReadOnlyList<double> before, int action, IReadOnlyList<double> after, IReadOnlyList<double>? memory = null)
     {
         if (before.Count != Features.Count || after.Count != Features.Count) throw new ArgumentException($"the judge takes {Features.Count} features before and after");
         if (action < 0 || action >= Actions.Count) throw new ArgumentOutOfRangeException(nameof(action));
-        var x = new double[2 * Features.Count + Actions.Count];
+        if ((memory?.Count ?? 0) != Memory.Count) throw new ArgumentException($"the judge reads {Memory.Count} memory inputs, not {memory?.Count ?? 0}", nameof(memory));
+        var x = new double[2 * Features.Count + Actions.Count + Memory.Count];
         for (var i = 0; i < before.Count; i++) x[i] = before[i];
         x[Features.Count + action] = 1;
         for (var i = 0; i < after.Count; i++) x[Features.Count + Actions.Count + i] = after[i];
+        for (var i = 0; i < Memory.Count; i++) x[2 * Features.Count + Actions.Count + i] = memory![i];
         foreach (var layer in Layers)
         {
             var y = new double[layer.Outputs];

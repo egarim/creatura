@@ -52,6 +52,7 @@ public sealed class TruckView : ITickedWorld
     private readonly HashSet<string> _transient = new(StringComparer.Ordinal);
     private HashSet<string> _facts = new(StringComparer.Ordinal);
     private readonly Random? _noise;
+    private string _readAt;
     private int _tick;
     private int _lastSaid;
     private bool _done;
@@ -70,6 +71,7 @@ public sealed class TruckView : ITickedWorld
         _others = setup.Trucks.Select(t => t.Name).Where(n => n != truck.Name).ToList();
         foreach (var village in world.Map.Villages) _believed[village.Id] = (village.Demand, 0);
         _all = AllToolsOf(world.Map, Radio);
+        _readAt = truck.At;
         // Its own stream per truck, from the run's seed, so a noisy run replays exactly; none without noise.
         if (setup.Noise is not null) _noise = new Random(unchecked(setup.Seed * 486_187_739 + setup.Trucks.ToList().FindIndex(t => t.Name == truck.Name) * 7_919 + 11));
         Refresh();
@@ -196,11 +198,13 @@ public sealed class TruckView : ITickedWorld
     private bool Offered(Tool tool)
     {
         var parts = tool.Id.Split(':');
+        // Sealed noise: the truck is offered what fits where its position reads it is, so the offer gives nothing away.
+        var at = _setup.Noise is { Sealed: true } ? _readAt : _truck.At;
         return parts[0] switch
         {
-            "drive" => _world.Map.Road(parts[1]).Touches(_truck.At) && _world.Map.Road(parts[1]).Other(_truck.At) == parts[2],
-            "load" or "refuel" => _truck.At == _world.Map.Depot,
-            "unload" => _truck.At == parts[1],
+            "drive" => _world.Map.Road(parts[1]).Touches(at) && _world.Map.Road(parts[1]).Other(at) == parts[2],
+            "load" or "refuel" => at == _world.Map.Depot,
+            "unload" => at == parts[1],
             "claim" => Radio,
             _ => true,
         };
@@ -386,6 +390,7 @@ public sealed class TruckView : ITickedWorld
     {
         TakeInReports();
         var (at, gauge) = Read();
+        _readAt = at;
         var facts = new HashSet<string>(StringComparer.Ordinal)
         {
             $"at:{at}",

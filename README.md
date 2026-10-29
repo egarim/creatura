@@ -369,7 +369,9 @@ seat. The trucks' planner keeps no state between ticks, so a small network can c
    is exact.
 5. **A noisy world.** With noisy position and fuel readings the exact check cries wolf (arm U). A check written knowing
    the noise does best (arm V); a world model misses lies (arm F), and a lie judge trained on the truth misses the
-   same lie again and again in the loop.
+   same lie again and again in the loop. Given memory and trained on its own loop driving, the judge stops repeating
+   and beats the effect check, but the hand-written rule still wins (arms U2, V2, P2). Every run behind these results
+   is in [docs/experiment-log.md](docs/experiment-log.md).
 
 ```bash
 dotnet run --project samples/Convoy -c Release -- --dataset datasets/convoy-j --arms J --seeds 100-599

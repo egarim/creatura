@@ -298,6 +298,49 @@ public static class ConvoyBattery
             verdicts.Add(new("T10g", $"the noisy arms replay byte for byte ({string.Join(", ", noisy)})", Held(same), same ? "six runs of seed 0 matched in each" : "a replay differed"));
         }
 
+        // The lie judge's second attempt, sealed (pre-registered as T11 to T11g; T11b is scored before the battery).
+        if (runs.ContainsKey(ConvoyArm.U2) && runs.ContainsKey(ConvoyArm.J))
+        {
+            var n = Common(ConvoyArm.U2, ConvoyArm.J);
+            var rate = Rate(Of(ConvoyArm.U2, n, m => m.CheckFalseAlarms), Of(ConvoyArm.U2, n, m => m.Checked));
+            verdicts.Add(new("T11", "sealed, the noise still breaks the effect check: arm U2's check gives false alarms on more than 1% of checked actions, and arm U2 serves the villages later than arm J",
+                Held(rate > 0.01 && ServedBy(ConvoyArm.U2, n) > ServedBy(ConvoyArm.J, n)),
+                $"{Errors(ConvoyArm.U2, n)}; served by tick U2 {ServedBy(ConvoyArm.U2, n):0.0}, J {ServedBy(ConvoyArm.J, n):0.0}; delivered U2 {Of(ConvoyArm.U2, n, m => m.Delivered)}, J {Of(ConvoyArm.J, n, m => m.Delivered)} over {n} seeds"));
+        }
+        if (runs.ContainsKey(ConvoyArm.P2) && runs.ContainsKey(ConvoyArm.U2))
+        {
+            var n = Common(ConvoyArm.P2, ConvoyArm.U2);
+            verdicts.Add(new("T11c", "arm P2 delivers at least as much as arm U2 and serves the villages no later on average",
+                Held(Of(ConvoyArm.P2, n, m => m.Delivered) >= Of(ConvoyArm.U2, n, m => m.Delivered) && ServedBy(ConvoyArm.P2, n) <= ServedBy(ConvoyArm.U2, n)),
+                $"delivered P2 {Of(ConvoyArm.P2, n, m => m.Delivered)}, U2 {Of(ConvoyArm.U2, n, m => m.Delivered)}; served by tick P2 {ServedBy(ConvoyArm.P2, n):0.0}, U2 {ServedBy(ConvoyArm.U2, n):0.0}; "
+                + $"lies P2 {Of(ConvoyArm.P2, n, m => m.LiesBelieved)}, U2 {Of(ConvoyArm.U2, n, m => m.LiesBelieved)} over {n} seeds"));
+        }
+        if (runs.ContainsKey(ConvoyArm.P2) && runs.ContainsKey(ConvoyArm.V2))
+        {
+            var n = Common(ConvoyArm.P2, ConvoyArm.V2);
+            verdicts.Add(new("T11d", "arm P2's judge has a lower error rate (false alarms plus misses over checked actions) than arm V2's check, and arm P2 delivers at least as much as arm V2",
+                Held(ErrorRate(ConvoyArm.P2, n) < ErrorRate(ConvoyArm.V2, n) && Of(ConvoyArm.P2, n, m => m.Delivered) >= Of(ConvoyArm.V2, n, m => m.Delivered)),
+                $"error rate P2 {ErrorRate(ConvoyArm.P2, n):P2}, V2 {ErrorRate(ConvoyArm.V2, n):P2}; {Errors(ConvoyArm.P2, n)}; {Errors(ConvoyArm.V2, n)}; "
+                + $"delivered P2 {Of(ConvoyArm.P2, n, m => m.Delivered)}, V2 {Of(ConvoyArm.V2, n, m => m.Delivered)}; served by tick P2 {ServedBy(ConvoyArm.P2, n):0.0}, V2 {ServedBy(ConvoyArm.V2, n):0.0}; "
+                + $"lies P2 {Of(ConvoyArm.P2, n, m => m.LiesBelieved)}, V2 {Of(ConvoyArm.V2, n, m => m.LiesBelieved)}"));
+            verdicts.Add(new("T11e", "memory ends the repeats: arm P2 takes a lying road again no more often than arm V2",
+                Held(Of(ConvoyArm.P2, n, m => m.LyingRoadRepeats) <= Of(ConvoyArm.V2, n, m => m.LyingRoadRepeats)),
+                $"repeats P2 {Of(ConvoyArm.P2, n, m => m.LyingRoadRepeats)}, V2 {Of(ConvoyArm.V2, n, m => m.LyingRoadRepeats)} over {n} seeds"));
+        }
+        if (runs.ContainsKey(ConvoyArm.P2))
+        {
+            var n = runs[ConvoyArm.P2].Count;
+            var rate = Rate(Of(ConvoyArm.P2, n, m => m.CheckFalseAlarms), Of(ConvoyArm.P2, n, m => m.Checked));
+            verdicts.Add(new("T11f", "arm P2's judge gives false alarms on fewer than 1% of checked actions",
+                Held(Of(ConvoyArm.P2, n, m => m.Checked) > 0 && rate < 0.01), Errors(ConvoyArm.P2, n)));
+        }
+        var sealedArms = new[] { ConvoyArm.U2, ConvoyArm.V2, ConvoyArm.P2 }.Where(runs.ContainsKey).ToList();
+        if (sealedArms.Count > 0)
+        {
+            var same = sealedArms.All(a => replays is not null && replays.TryGetValue(a, out var r) ? r : replaysMatch);
+            verdicts.Add(new("T11g", $"the sealed arms replay byte for byte ({string.Join(", ", sealedArms)})", Held(same), same ? "six runs of seed 0 matched in each" : "a replay differed"));
+        }
+
         // Shared distrust (pre-registered as W1 to W3), scored when arms W and J both ran.
         if (runs.ContainsKey(ConvoyArm.W) && runs.ContainsKey(ConvoyArm.J))
         {

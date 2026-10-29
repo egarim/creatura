@@ -64,6 +64,9 @@ public static class ConvoyNetwork
     /// <summary>The lie judge trained on the noisy world's truth (step 6), the one arm P's learned judge reads.</summary>
     public const string EmbeddedJudgeNoisy = "convoy-judge-noisy";
 
+    /// <summary>The lie judge's second attempt (sealed noise, memory, loop data), the one arm P2 reads.</summary>
+    public const string EmbeddedJudgeSealed = "convoy-judge-sealed";
+
     private static readonly ConcurrentDictionary<string, WorldModel> LoadedWorlds = new(StringComparer.Ordinal);
 
     /// <summary>An embedded world model by its name, or a weights file by its path, checked against the map's schema and vocabulary.</summary>
@@ -91,10 +94,10 @@ public static class ConvoyNetwork
         if (doc.RootElement.TryGetProperty("kind", out var kind) && kind.GetString() == "judge")
         {
             var judge = LoadJudge(nameOrPath, map);
-            return new ActionScorer("lie probability", judge.Score);
+            return new ActionScorer("lie probability", (b, a, f, m) => judge.Score(b, a, f, judge.Memory.Count == 0 ? null : m), judge.Memory.Count > 0);
         }
         var world = LoadWorld(nameOrPath, map);
-        return new ActionScorer("surprise", world.Surprise);
+        return new ActionScorer("surprise", (b, a, f, _) => world.Surprise(b, a, f));
     }
 
     /// <summary>An embedded lie judge by its name, or a weights file by its path, checked against the map's schema and vocabulary.</summary>
@@ -121,4 +124,33 @@ public static class ConvoyNetwork
 }
 
 /// <summary>How a learned judge scores an action from what was seen before it, the action and what was seen after: higher is more like a lie.</summary>
-internal sealed record ActionScorer(string Kind, Func<IReadOnlyList<double>, int, IReadOnlyList<double>, double> Score);
+/// <param name="Memory">Whether it reads the truck's memory of its own actions (step 6's second attempt): see <see cref="ActionMemory"/>.</param>
+internal sealed record ActionScorer(string Kind, Func<IReadOnlyList<double>, int, IReadOnlyList<double>, IReadOnlyList<double>, double> Score, bool Memory = false);
+
+/// <summary>
+/// A truck's memory of its own actions, the two inputs of step 6's second attempt: <c>again</c>, 1 when its previous
+/// action was this same action and was reported a success; <c>tries</c>, its earlier tries of this same action in the
+/// run, over 5, at most 1. Computed from what the truck did and was told, nothing else, the same way in the loop and in
+/// an exported set.
+/// </summary>
+public sealed class ActionMemory
+{
+    public static readonly string[] Names = ["again", "tries"];
+
+    private readonly Dictionary<string, int> _tries = new(StringComparer.Ordinal);
+    private (string Tool, bool Reported)? _previous;
+
+    /// <summary>The memory inputs for <paramref name="tool"/>, before it is recorded.</summary>
+    public double[] For(string tool) =>
+        [_previous is { } p && p.Tool == tool && p.Reported ? 1 : 0, Math.Min(_tries.GetValueOrDefault(tool) / 5.0, 1)];
+
+    /// <summary>Whether the truck's previous action was <paramref name="tool"/>, reported a success.</summary>
+    public bool Again(string tool) => _previous is { } p && p.Tool == tool && p.Reported;
+
+    /// <summary>After an action ran: what it was and whether it reported success.</summary>
+    public void Record(string tool, bool reported)
+    {
+        _tries[tool] = _tries.GetValueOrDefault(tool) + 1;
+        _previous = (tool, reported);
+    }
+}

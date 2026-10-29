@@ -10,6 +10,7 @@ using Creatura.Seats;
 // A model (arm S, or --model with any arm) is described in docs/convoy-models.md. Arm N's network is the embedded
 // convoy-policy-j unless --network names a weights file from tools/train/train_policy.py; arm R's is convoy-policy-j-trial.
 // dotnet run --project samples/Convoy -- --rollouts runs.jsonl [--seeds 1000-1063] [--network w.json] [--temperature 2] [--sample-seed k]
+// --judge <weights.json> [--judge-threshold t1] [--judge-condemn t2] puts another learned judge in the arms that have one.
 string? Option(string name) => Array.IndexOf(args, name) is var i and >= 0 && i + 1 < args.Length ? args[i + 1] : null;
 
 var catalog = Option("--models-file") is { } modelsFile ? ModelCatalog.Load(modelsFile) : null;
@@ -17,6 +18,9 @@ using var calls = Option("--calls") is { } callsFile ? new CallLog(callsFile) : 
 var model = Option("--model");
 var ticks = Option("--ticks") is { } t ? int.Parse(t) : (int?)null;
 var network = Option("--network");
+// For the lie judge's training rounds (step 6's second attempt): another judge file and its thresholds, for arms that have a learned judge.
+var judgeFile = Option("--judge");
+double? Number(string name) => Option(name) is { } v ? double.Parse(v, System.Globalization.CultureInfo.InvariantCulture) : null;
 
 // --model fills the seat of the arms that carry a model (arm S). It reaches another arm only when that arm is named
 // with --arm for a single run: in a battery, "--arms J,S --model x" must leave J's planner as the baseline.
@@ -25,6 +29,9 @@ ConvoySetup Adjust(ConvoySetup setup) => setup with
     SeatModel = model is not null && (setup.SeatModel is not null || Option("--arm") is not null) ? model : setup.SeatModel,
     SeatNetwork = network ?? setup.SeatNetwork,
     MaxTicks = ticks ?? setup.MaxTicks,
+    LearnedJudge = setup.LearnedJudge is null ? null : judgeFile ?? setup.LearnedJudge,
+    LearnedJudgeThreshold = setup.LearnedJudge is null ? setup.LearnedJudgeThreshold : Number("--judge-threshold") ?? setup.LearnedJudgeThreshold,
+    LearnedJudgeCondemn = setup.LearnedJudge is null ? setup.LearnedJudgeCondemn : Number("--judge-condemn") ?? setup.LearnedJudgeCondemn,
 };
 
 if (Adjust(ConvoySetup.For(ConvoyArm.S, 0)).SeatModel is { } seatName && (args.Contains("--battery") ? Option("--arms")?.Contains('S') == true : Option("--arm") is "S" or "s" || model is not null))

@@ -1,6 +1,6 @@
 # Design: trained models for a world
 
-Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held; step 3 (training by trial) built: the first attempt failed T3; the second held T7, T7b and T7c. Step 5 (the world model and the learned judge) built: T9 failed by three lies. Step 6 (a noisy world) built: T10 held; T10b failed, so the lie judge was not run; T10f failed, as predicted. Its second attempt (sealed noise, memory, loop data) registered, not built.
+Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held; step 3 (training by trial) built: the first attempt failed T3; the second held T7, T7b and T7c. Step 5 (the world model and the learned judge) built: T9 failed by three lies. Step 6 (a noisy world) built: T10 held; T10b failed, so the lie judge was not run; T10f failed, as predicted. Its second attempt (sealed noise, memory, loop data) built: memory and loop data cured the repeats, but the hand-written rule still won (T11d and T11e failed).
 
 ## The question, in the owner's words
 
@@ -973,6 +973,67 @@ either way. If the judge only ties the hand-written rule, the finding is that me
 the first attempt, and that the bar was reached without the rule being written.
 
 **Cost.** Nothing paid; three rounds of recording and training on the laptop.
+
+**The judge and its thresholds, fixed before the gate and the battery (2026-10-29).** Every run that led here is in
+docs/experiment-log.md (step 6b), with its seeds and commit.
+
+| round | data added (training seeds 50 to 599) | the judge that drove | lies acted on | lies the judge missed |
+|---|---|---|---|---|
+| 0 | arm U2's driving (62,592 transitions) and the sampled network's (74,999) | (the effect check) | 879 (U2) | — |
+| 1 | arm P2's driving with the round 0 judge (60,123) | round 0: t1 0.615, t2 0.896 | 4,466 | 3,470 of 4,413 |
+| 2 | arm P2's driving with the round 1 judge (54,282) | round 1: t1 0.751, t2 0.986 | 1,252 | 282 of 1,187 |
+
+The round 0 judge had never seen a lie tried twice (arm U2 catches them at once), so in the loop it missed most of them;
+those repeats became round 1's data, and the round 1 judge cut the lies by more than two thirds. The training setting
+is step 6's chosen one (lies not weighted up, 128 by 128 units), not tuned again.
+
+- **Arm P2's judge** (`models/convoy-judge-sealed.json`, trained on all four sets: 110,231 actions, 160 inputs):
+  **t1 = 0.499305, t2 = 0.972585**, on round 2's held-out seeds (2,787 landed, 125 lies): 82% of the lies above t1,
+  35% above t2.
+
+## Step 6, the lie judge's second attempt, built (2026-10-29)
+
+**T11, T11b, T11c, T11f and T11g held; T11d and T11e failed.** Every run behind these figures, the test runs and the
+rest, is in docs/experiment-log.md (step 6b: 11 entries; 3 touched the battery's seeds: the check that earlier arms replay
+as before, the test run, and one that only reads the test run's recording). On seeds 0 to 49, sealed:
+
+| | arm J (clean world) | arm U2 (effect check) | arm V2 (fused check, memory) | arm P2 (lie judge, memory, loop data) |
+|---|---|---|---|---|
+| delivered | 1500/1500 | 1466/1500 | **1500/1500** | **1500/1500** |
+| lies acted on | 54 | 83 | **69** | 105 |
+| a lying road taken again | 0 | 1 | **10** | 43 |
+| trucks stranded | 6 | 10 | 7 | 5 |
+| villages served by tick (unserved counts 61) | 25.5 | 36.2 | **29.2** | 31.1 |
+| false alarms, of checked actions | 0 | 210 of 2,873 (7.31%) | **10 of 2,520 (0.40%)** | 25 of 2,636 (0.95%) |
+| lies missed | 0 | 1 of 74 | 10 of 62 | 16 of 100 |
+
+Sealing changed nothing for the earlier arms: all 1,050 of their runs replay as before (T11g). The sealed noise
+breaks the effect check as the open one did (T11: 7.31% false alarms, served 10.7 ticks later than in the clean world).
+
+**Memory and loop data cured what broke the first attempt.** On seed 77 the first judge let a truck take the lying
+road 76 times; the second takes it a handful of times. Across training seeds the loop rounds cut the lies from 4,466
+(round 1) to 1,252 (round 2). In the battery arm P2 delivered everything and served the villages five ticks sooner
+than the effect check (T11c), with false alarms under 1% (T11f, at 0.95%, narrowly).
+
+**The hand-written rule still won (T11d failed).** Arm V2's error rate was half arm P2's (0.79% against 1.56%), it
+acted on fewer lies (69 against 105) and served the villages two ticks sooner. Both missed lies at the same rate (16%):
+that is the limit the noise sets on a first encounter. The difference is the false alarms, 0.95% against 0.40%. The
+gate had gone the other way (36 errors against 47 on training seeds), for two reasons the log makes plain: the gate
+compared both rules on arm P2's own driving, while in the battery each judge meets the driving it makes; and the
+thresholds were fixed on driving made by the round 1 judge, while the battery's is made by the final one, so the
+judge's false alarms came out at 0.95% where the recipe aimed at 0.5%. The same kind of shift that broke the first
+attempt, much smaller.
+
+**T11e failed, and the prediction missed why.** Of arm P2's 43 repeats, 16 followed a lie it missed and 27 followed a
+lie it caught: a learned lie below t2 only quarantines the road for three ticks (the rule carried over from arms Y and
+P), and the planner comes back. Arm V2 condemns a road at its first caught lie, so none of its repeats follow a catch.
+Memory did end the run of misses; patience made repeats of its own, the same price step 5 paid.
+
+What step 6 shows, both attempts together: a learned judge trained per action takes on the odds of its training data,
+and a loop that repeats its mistakes breaks those odds; trained on the loop's own driving and given memory, it learns
+to see the repeat, and nearly reaches a hand-written rule built on knowing the noise, without being told the noise. It
+did not beat that rule here. Two changes are suggested by the figures, neither registered nor run: condemn at the first
+learned lie as arm V2 does, and fix the thresholds on driving made by the final judge itself.
 
 ## What this note does not cover
 

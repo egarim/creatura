@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **The lie judge's second attempt** (step 6, sealed noise): the truck is offered what fits where its position reads
+  it is (`SensorNoise.Sealed`), closing a leak in step 6's world, where the offered roads gave the true position away
+  a tick late. The judge reads two memory inputs (`ActionMemory`: the same action again, and its tries) and was trained
+  over two rounds on its own loop driving. It cured the first attempt's repeats and beat the effect check (T11c), but
+  the fused check with one memory rule (arm V2) still won: half the error rate, fewer lies (T11d and T11e failed).
+- **An experiment log** (`tools/xlog.py`, `experiments/log.jsonl`, docs/experiment-log.md): every run that shaped a
+  result, failures and exploration included, with its commit and seeds; runs on the battery's seeds are marked.
+
 - **A noisy world** (docs/design-trained-models.md, step 6): `ConvoySetup.Noise` makes position and fuel readings
   noisy (off by default; the clean battery is unchanged, decision for decision). Every action's truth is recorded
   beside its verdict, and every arm now reports its check's false alarms and misses against it. Arm U (the effect

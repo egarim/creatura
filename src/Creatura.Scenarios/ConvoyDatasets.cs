@@ -64,8 +64,13 @@ public static class ConvoyDatasets
         using var output = new StreamWriter(path);
         foreach (var run in runs)
         {
+            // Each truck's memory of its own actions (step 6's second attempt), built in the order they ran, as in the loop.
+            var memories = new Dictionary<string, ActionMemory>(StringComparer.Ordinal);
             foreach (var d in run.Decisions.Where(d => d.Verdict is not null && d.ActionIndex is not null))
             {
+                if (!memories.TryGetValue(d.Truck, out var memory)) memories[d.Truck] = memory = new ActionMemory();
+                var remembered = memory.For(d.Chosen!);
+                memory.Record(d.Chosen!, d.Reported == true);
                 var machine = run.Setup.Trucks.Single(t => t.Name == d.Truck).Machine;
                 var after = ConvoyFeatures.Encode(run.Setup.Map, machine, d.FactsAfter.ToHashSet(StringComparer.Ordinal), d.Seat.Notes, d.Tick, d.Seat.MaxTicks);
                 var line = new JsonObject
@@ -74,6 +79,7 @@ public static class ConvoyDatasets
                     ["action"] = d.ActionIndex, ["actionId"] = d.Chosen, ["verdict"] = d.Verdict, ["truth"] = d.Truth, ["evaluation"] = evaluation,
                     ["before"] = new JsonArray(d.Features.Select(x => (JsonNode)JsonValue.Create(Math.Round(x, 6))!).ToArray()),
                     ["after"] = new JsonArray(after.Select(x => (JsonNode)JsonValue.Create(Math.Round(x, 6))!).ToArray()),
+                    ["memory"] = new JsonArray(remembered.Select(x => (JsonNode)JsonValue.Create(x)!).ToArray()),
                 };
                 output.WriteLine(line.ToJsonString(json));
                 count++;

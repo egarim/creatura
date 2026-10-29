@@ -33,7 +33,7 @@ from train_policy import FORMAT, forward, rounded  # noqa: E402
 CHECKABLE = ("drive", "load", "unload", "refuel")
 
 
-def load(paths, actions_count):
+def load(paths, actions_count, memory=False):
     rows = []
     for path in paths:
         rows += [r for r in (json.loads(line) for line in open(path))
@@ -43,7 +43,10 @@ def load(paths, actions_count):
     action = np.zeros((len(rows), actions_count))
     action[np.arange(len(rows)), [r["action"] for r in rows]] = 1.0
     lied = np.asarray([r["truth"] == "Lied" for r in rows], dtype=float)
-    return rows, np.concatenate([before, action, after], axis=1), lied
+    parts = [before, action, after]
+    if memory:
+        parts.append(np.asarray([r["memory"] for r in rows], dtype=float))
+    return rows, np.concatenate(parts, axis=1), lied
 
 
 def score(layers, x):
@@ -98,6 +101,7 @@ def train(x, y, xv, yv, hidden, epochs, patience, rate, batch, seed, balance=Tru
 
 
 def thresholds(layers, rows, x, y, digit):
+    """Arm Y's recipe on the held-out seeds: t1 at the 99.5th percentile of landed actions' scores, t2 at the highest landed drive's."""
     held = np.asarray([r["seed"] % 10 == digit for r in rows])
     s = score(layers, x[held])
     landed = y[held] == 0
@@ -110,11 +114,16 @@ def thresholds(layers, rows, x, y, digit):
             "liesAboveT2": round(float((lies > t2).mean()), 4) if len(lies) else None}
 
 
-def fused(runs_path):
-    """The fused check's verdict on every recorded checkable action, from the raw readings: (run, truck, tick, action) -> lied."""
+def fused(runs_path, memory=False):
+    """
+    The fused check's verdict on every recorded checkable action, from the raw readings: (run, truck, tick, action) -> lied.
+    With memory (arm V2's rule), a drive is also a lie when the truck's previous action was this same drive, reported
+    arrived, and the position still reads the start.
+    """
     capacity = {"Truck 1": 10, "Truck 2": 8, "Truck 3": 12}
     out = {}
     run = None
+    previous = {}
     for line in open(runs_path):
         d = json.loads(line)
         if d["type"] == "run":
@@ -123,7 +132,11 @@ def fused(runs_path):
         dec = d["decision"]
         chosen = dec.get("chosen") or ""
         kind = chosen.split(":")[0]
-        if kind not in ("drive", "refuel") or dec.get("verdict") is None:
+        if dec.get("verdict") is None:
+            continue
+        again = previous.get((run, dec["truck"])) == (chosen, True)
+        previous[(run, dec["truck"])] = (chosen, dec.get("reported") is True)
+        if kind not in ("drive", "refuel"):
             continue
         before = dec["seat"]["facts"]
         after = dec.get("factsAfter") or []
@@ -135,7 +148,7 @@ def fused(runs_path):
             _, road, to = chosen.split(":")
             start = ROADS[road][0] if ROADS[road][1] == to else ROADS[road][1]
             g0, g1 = gauge(before), gauge(after)
-            lied = f"at:{start}" in after and g0 is not None and g1 is not None and g1 >= g0
+            lied = f"at:{start}" in after and ((g0 is not None and g1 is not None and g1 >= g0) or (memory and again))
         else:
             lied = (gauge(after) or 0) < capacity[dec["truck"]] - 1
         out[(run, dec["truck"], dec["tick"], chosen)] = lied
@@ -145,8 +158,8 @@ def fused(runs_path):
 ROADS = {}
 
 
-def judge(layers, path, t1, runs_path, actions):
-    rows, x, y = load([path], len(actions))
+def judge(layers, path, t1, runs_path, actions, memory=False):
+    rows, x, y = load([path], len(actions), memory)
     s = score(layers, x)
     lied, landed = y == 1, y == 0
     ours = s > t1
@@ -155,7 +168,7 @@ def judge(layers, path, t1, runs_path, actions):
               "landedAboveT1": round(float(ours[landed].mean()), 5),
               "judgeFalseAlarms": int((ours & landed).sum()), "judgeMisses": int((~ours & lied).sum())}
     if runs_path:
-        check = fused(runs_path)
+        check = fused(runs_path, memory)
         theirs = []
         for r in rows:
             key = (r["run"], r["truck"], r["tick"], r["actionId"])
@@ -184,6 +197,7 @@ def main():
     parser.add_argument("--batch", type=int, default=256)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--unbalanced", action="store_true", help="do not weight the lies up to the landed actions' count")
+    parser.add_argument("--memory", action="store_true", help="read the truck's memory of its own actions (step 6's second attempt)")
     parser.add_argument("--judge", type=pathlib.Path)
     parser.add_argument("--runs", type=pathlib.Path)
     parser.add_argument("--results", type=pathlib.Path, default=pathlib.Path("datasets/noisy/results-judge.json"))
@@ -193,7 +207,7 @@ def main():
     card = json.loads(args.actions.read_text())
     actions = card["actions"]
     started = time.time()
-    rows, x, y = load(args.train, len(actions))
+    rows, x, y = load(args.train, len(actions), args.memory)
     if any(r["evaluation"] for r in rows):
         raise SystemExit("an evaluation set was given to train on: the battery's seeds are never trained on")
     seeds = np.asarray([r["seed"] for r in rows])
@@ -203,17 +217,18 @@ def main():
     layers = rounded(layers)
     print(f"kept epoch {epoch}: held-out loss {best:.4f}, {time.time() - started:.0f} s")
 
-    crows, cx, cy = load([args.calibrate], len(actions))
+    crows, cx, cy = load([args.calibrate], len(actions), args.memory)
     fixed = thresholds(layers, crows, cx, cy, args.held_out_digit)
     print(json.dumps(fixed))
-    verdicts = [judge(layers, args.judge, fixed["t1"], args.runs, actions)] if args.judge else []
+    verdicts = [judge(layers, args.judge, fixed["t1"], args.runs, actions, args.memory)] if args.judge else []
     for v in verdicts:
         print(json.dumps(v))
 
     trained = sorted({int(s) for s in seeds[~held]})
     out = {
         "format": FORMAT, "kind": "judge", "world": card["world"], "map": card["map"], "schemaHash": card["schemaHash"],
-        "inputs": "features+action+features", "outputs": "the probability the action lied", "features": card["features"], "actions": actions,
+        "inputs": "features+action+features" + ("+memory" if args.memory else ""), "outputs": "the probability the action lied",
+        "features": card["features"], "actions": actions, **({"memory": ["again", "tries"]} if args.memory else {}),
         "layers": [{"activation": "relu" if i < len(layers) - 1 else "sigmoid", "weights": w.tolist(), "bias": b.tolist()}
                    for i, (w, b) in enumerate(layers)],
         "training": {"by": "example, on the simulator's truth", "sets": [str(p) for p in args.train], "seeds": [trained[0], trained[-1]],
