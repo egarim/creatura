@@ -19,6 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The goldens are recorded in en-US formatting; this pins the tests to it on any machine. -->
+    <Compile Include="..\TestCulture.cs" Link="TestCulture.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Apart from Creatura.Tests so that project never sees Semantic Kernel, and from the Agent Framework host's tests
          so neither host's package reaches the other; the Agent Framework goldens are read here as files. -->
     <ProjectReference Include="..\..\src\Creatura\Creatura.csproj" />

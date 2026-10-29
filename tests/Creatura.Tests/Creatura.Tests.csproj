@@ -19,6 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The goldens are recorded in en-US formatting; this pins the tests to it on any machine. -->
+    <Compile Include="..\TestCulture.cs" Link="TestCulture.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Creatura\Creatura.csproj" />
     <ProjectReference Include="..\..\src\Creatura.Worlds\Creatura.Worlds.csproj" />
     <ProjectReference Include="..\..\src\Creatura.Bench\Creatura.Bench.csproj" />
