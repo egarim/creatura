@@ -1,9 +1,9 @@
 <Project>
   <!-- Shared by every project under this folder. Version metadata only: each .csproj keeps its own
-       target framework, nullable and implicit-usings settings, and the purity rule (no package references
-       outside Creatura.Hosts.AgentFramework and the test projects) is enforced by CorePurityTest. -->
+       target framework, nullable and implicit-usings settings. CorePurityTest keeps the four package-free
+       projects (Creatura, Worlds, Bench, Seats) free of packages. A release sets the version from its tag. -->
   <PropertyGroup>
-    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionPrefix>0.2.0</VersionPrefix>
     <Product>Creatura</Product>
     <Authors>Jose Ojeda</Authors>
     <Copyright>Copyright (c) 2026 Jose Ojeda</Copyright>

@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.2.0-preview.1 (2026-10-29)
 
+- **Tests run in en-US on any machine** (`tests/TestCulture.cs`): the goldens are recorded in en-US number formatting,
+  and a CI runner's invariant culture ("100 %") or a German machine ("0,65") failed them. Creatura's own texts
+  still follow the machine's culture.
 - **Release builds** (`tools/release/build.sh`, `.github/workflows/release.yml`): a tag like `v0.2.0` tests the
   solution, builds `creatura`, `creatura-hub` and `creatura-convoy` as self-contained single-file executables for
   macOS, Linux and Windows (x64 and arm64), runs each one on a machine of its own platform, and publishes them with
