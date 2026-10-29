@@ -1,6 +1,6 @@
 # Design: trained models for a world
 
-Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held; step 3 (training by trial) built: the first attempt failed T3; the second held T7, T7b and T7c. Step 5 (the world model and the learned judge) built: T9 failed by three lies. Step 6 (a noisy world) built: T10 held; T10b failed, so the lie judge was not run; T10f failed, as predicted. Its second attempt (sealed noise, memory, loop data) built: memory and loop data cured the repeats, but the hand-written rule still won (T11d and T11e failed).
+Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held; step 3 (training by trial) built: the first attempt failed T3; the second held T7, T7b and T7c. Step 5 (the world model and the learned judge) built: T9 failed by three lies. Step 6 (a noisy world) built: T10 held; T10b failed, so the lie judge was not run; T10f failed, as predicted. Its second attempt (sealed noise, memory, loop data) built: memory and loop data cured the repeats, but the hand-written rule still won (T11d and T11e failed). Its third attempt (condemn at once, thresholds on its own driving) registered, not built.
 
 ## The question, in the owner's words
 
@@ -1034,6 +1034,45 @@ and a loop that repeats its mistakes breaks those odds; trained on the loop's ow
 to see the repeat, and nearly reaches a hand-written rule built on knowing the noise, without being told the noise. It
 did not beat that rule here. Two changes are suggested by the figures, neither registered nor run: condemn at the first
 learned lie as arm V2 does, and fix the thresholds on driving made by the final judge itself.
+
+## Step 6, the lie judge's third attempt, registered before the code (2026-10-29)
+
+Written before any of it exists. Nothing below has been run.
+
+The second attempt lost to the fused check with memory (arm V2) on false alarms and repeats, and the figures pointed
+at two causes. This attempt changes those two and nothing else: the same judge (`models/convoy-judge-sealed.json`,
+not retrained), the same sealed world, the same arms to beat.
+
+1. **Condemn at the first learned lie**, as arm V2 does. 27 of arm P2's 43 repeats followed a lie it had caught and
+   only quarantined.
+2. **Thresholds fixed on the final judge's own driving.** One calibration run: arm P3 with the judge and change 1, at
+   arm P2's t1, on seeds 50 to 599; then t1 by the same recipe (the 99.5th percentile of the score on landed checkable
+   actions) on that run's seeds ending in 9. No second calibration run, whatever the first shows. (With change 1 there
+   is no t2.)
+
+- **Arm P3:** sealed, arm J's regulators and fixes, the judge with memory, condemning at the first learned lie, at
+  the calibrated t1.
+
+**The gate, in the loop this time.** The second attempt's gate compared both judges on arm P2's own driving and went
+the wrong way in the battery. This one lets each judge drive: arms P3 and V2 on the held-out training seeds (the 55
+seeds ending in 9 between 59 and 599, never trained on). Arm P3 must have the lower error rate and deliver at least as
+much. If not, arm P3 is not run on the battery.
+
+**Fresh seeds.** Seeds 0 to 49 have now been used for one test of this judge, so the claims are also checked on seeds
+2000 to 2049, never recorded, trained on or looked at.
+
+| id | claim | falsifier |
+|---|---|---|
+| T12 | on seeds 0 to 49, arm P3's error rate (false alarms plus misses over checked actions, against the truth) is lower than arm V2's, and arm P3 delivers at least as much | either |
+| T12b | on seeds 0 to 49, arm P3 takes a lying road again no more often than arm V2 | more repeats |
+| T12c | on seeds 0 to 49, arm P3 acts on no more lies than arm V2 and serves the villages no later on average | either |
+| T12d | on seeds 2000 to 2049, T12's claim holds too | it fails there |
+| T12e | arm P3 replays byte for byte, and every earlier arm as before | any difference |
+
+**The predictions.** T12e holds. T12, T12c and T12d are a coin toss: condemning at once makes each false alarm cost a
+road, as it does for arm V2, and both judges miss about one lie in six on a first encounter. **T12b more likely fails
+than holds:** with nothing quarantined, a repeat comes only from a missed lie, and arm P2 missed more lies (16) than
+arm V2 (10).
 
 ## What this note does not cover
 
