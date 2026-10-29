@@ -399,11 +399,13 @@ only.
 
 ## Anatomy
 
-[docs/anatomy.html](docs/anatomy.html) draws Creatura in four plates: the project's icon, a winged lion, with each
+[docs/anatomy.html](docs/anatomy.html) draws Creatura in five plates: the project's icon, a winged lion, with each
 part named for the part of the framework it stands for (plate I); the parts and who talks to whom, the cells
 included (plate II); one tick of the loop (plate III); and the mesh, across vessels through the hub and inside the
-convoy's world (plate IV). Read it at [egarim.github.io/creatura/anatomy.html](https://egarim.github.io/creatura/anatomy.html),
-or open the file in a browser; it needs nothing else.
+convoy's world (plate IV); and how it works with the agent tools around it, as a host inside a tool's loop (Agent
+Framework and Semantic Kernel) or as a cell beside it (Claude Code), with what is built and what is not (plate V).
+Read it at [egarim.github.io/creatura/anatomy.html](https://egarim.github.io/creatura/anatomy.html), or open the file
+in a browser; it needs nothing else.
 
 <p align="center">
   <a href="https://egarim.github.io/creatura/anatomy.html"><img src="docs/assets/anatomy-plate-i.webp" width="520"

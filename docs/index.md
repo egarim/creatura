@@ -5,8 +5,9 @@ full README are at [github.com/egarim/creatura](https://github.com/egarim/creatu
 
 ## Anatomy
 
-**[The anatomy plates](anatomy.html)** draw Creatura in four plates: the project's icon with each part named for
-the part of the framework it stands for; the parts and who talks to whom; one tick of the loop; and the mesh.
+**[The anatomy plates](anatomy.html)** draw Creatura in five plates: the project's icon with each part named for
+the part of the framework it stands for; the parts and who talks to whom; one tick of the loop; the mesh; and the
+agent tools around it, as hosts and as cells.
 
 ## Design notes
 

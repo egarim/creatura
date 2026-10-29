@@ -127,10 +127,10 @@
 
 <main>
   <header class="prose">
-    <div class="eyebrow">Creatura · plates I to IV · 2026-10-28</div>
+    <div class="eyebrow">Creatura · plates I to V · 2026-10-29</div>
     <h1>The anatomy of a creatura</h1>
     <p class="lede">Creatura is an agent framework for building agents out of regulation patterns taken from how living things and minds keep themselves on course. The core is one generic agent: a loop, a control layer between the model and its tools, and a contract for worlds that can lie. Everything else plugs in. A design is a <b>regulator</b> that fills the loop's slots, a behaviour is an <b>extension</b> that hooks into its verbs, and a <b>world</b> is where both are trained and tested.</p>
-    <p>Four plates: the creature itself with each part named, what the parts are and which of them talk, what happens in one tick, and how creaturas on different vessels share their work. Names in monospace are the types in the code.</p>
+    <p>Five plates: the creature itself with each part named, what the parts are and which of them talk, what happens in one tick, how creaturas on different vessels share their work, and how Creatura works with the agent tools around it. Names in monospace are the types in the code.</p>
   </header>
 
   <!-- ====================== PLATE I: THE CREATURE ====================== -->
@@ -598,6 +598,136 @@
       </div>
     </div>
     <figcaption><b>A relay, not a master.</b> The hub stores and forwards; it cannot write in any cell's name. The owner's key decides which cells belong, and a revocation from the owner shuts a lost vessel out everywhere it reaches.</figcaption>
+  </figure>
+
+  <!-- ====================== PLATE V: THE TOOLS AROUND IT ====================== -->
+  <figure id="tools">
+    <div class="eyebrow">Plate V</div>
+    <h2>The tools around it: inside the loop, or beside it</h2>
+    <p class="prose">Creatura meets other agent tools in two ways. <b>As a host</b>, its control layer rides the tool's own function-calling loop: it decides what the model sees, admits or refuses each call, and judges every result by the facts. <b>As a cell</b>, the tool keeps its own loop and its own memory, and joins the signed work ledger through its hooks, so every vessel can see who is working on what, and the owner can offer it a goal. The tags say what exists today.</p>
+    <div class="plate">
+    <svg viewBox="0 0 1200 640" role="img" aria-label="Left, inside the tool's loop, a host: the framework's own loop runs model request, model, tool call and tool, and returns the result to the model; the control layer rides it at three points, offering only trusted tools before each request, admitting or refusing each call, and judging each result by the facts, so the model reads the verdict and never the tool's claim. Microsoft Agent Framework and Semantic Kernel are built; OpenClaw, Hermes and the Copilot SDK are mapped on paper. Right, beside the tool, a cell: a Claude Code session fires five hook events into creatura cell hook, which writes one signed entry each time into the cell's ledger, synced to every vessel; an offer from the owner comes back and is shown to the person at session start. Claude Code is built, Codex is designed, any shell and Creatura's own loops are built, OpenClaw and other tools are not yet joined. Along the bottom: a host makes Creatura the membrane; a cell makes it the record.">
+      <defs>
+        <marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--fg-2)"/></marker>
+        <marker id="ar5a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>
+        <marker id="ar5c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--cells)"/></marker>
+        <marker id="ar5g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/></marker>
+      </defs>
+
+      <!-- ===== left: a host ===== -->
+      <text x="30" y="34" class="k">INSIDE THE TOOL'S LOOP · A HOST</text>
+      <rect x="30" y="50" width="540" height="262" rx="10" fill="var(--world-soft)" stroke="var(--world)" stroke-width="1.5"/>
+      <text x="48" y="76" class="h">The framework's own loop</text>
+      <text x="48" y="94" class="s">the host owns the model call and the tool calls; Creatura rides them</text>
+      <!-- the result returns to the model as the layer's verdict -->
+      <path d="M499,132 V118 H235 V130" fill="none" stroke="var(--accent)" stroke-width="1.4" marker-end="url(#ar5a)"/>
+      <text x="367" y="113" class="a acc" text-anchor="middle">what the model reads: the verdict, never the tool's claim</text>
+      <!-- the four steps -->
+      <rect x="48" y="132" width="110" height="44" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="103" y="152" class="t" text-anchor="middle" style="font-weight:600">request</text>
+      <text x="103" y="168" class="s" text-anchor="middle">one tick</text>
+      <rect x="180" y="132" width="110" height="44" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="235" y="152" class="t" text-anchor="middle" style="font-weight:600">the model</text>
+      <text x="235" y="168" class="s" text-anchor="middle">any IChatClient</text>
+      <rect x="312" y="132" width="110" height="44" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="367" y="152" class="t" text-anchor="middle" style="font-weight:600">a tool call</text>
+      <text x="367" y="168" class="s" text-anchor="middle">it names one</text>
+      <rect x="444" y="132" width="110" height="44" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="499" y="152" class="t" text-anchor="middle" style="font-weight:600">the tool</text>
+      <text x="499" y="168" class="s" text-anchor="middle">acts in the world</text>
+      <path d="M158,154 H178" fill="none" stroke="var(--fg-2)" stroke-width="1.4" marker-end="url(#ar5)"/>
+      <path d="M290,154 H310" fill="none" stroke="var(--fg-2)" stroke-width="1.4" marker-end="url(#ar5)"/>
+      <path d="M422,154 H442" fill="none" stroke="var(--fg-2)" stroke-width="1.4" marker-end="url(#ar5)"/>
+      <!-- the control layer and its three taps -->
+      <rect x="48" y="210" width="506" height="86" rx="6" fill="var(--accent-soft)" stroke="var(--accent)"/>
+      <line x1="169" y1="210" x2="169" y2="158" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="4 3"/>
+      <line x1="433" y1="210" x2="433" y2="158" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="4 3"/>
+      <line x1="499" y1="210" x2="499" y2="178" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="4 3"/>
+      <text x="169" y="228" class="m acc" text-anchor="middle">offer</text>
+      <text x="420" y="228" class="m acc" text-anchor="end">admit</text>
+      <text x="512" y="228" class="m acc">judge</text>
+      <text x="60" y="252" class="t" style="font-weight:600">The control layer</text>
+      <text x="60" y="270" class="s">offers only trusted tools, refuses the rest, judges each call by the facts,</text>
+      <text x="60" y="285" class="s">and ends the host's loop when the failure budget is spent</text>
+
+      <!-- hosts and their status -->
+      <text x="30" y="342" class="k">WHERE IT RIDES</text>
+      <g>
+        <rect x="30" y="354" width="78" height="20" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/><text x="69" y="368" class="k acc" text-anchor="middle">BUILT</text>
+        <text x="120" y="368" class="t" style="font-weight:600">Microsoft Agent Framework</text><text x="310" y="368" class="s">middleware around each call, tools filtered</text>
+        <rect x="30" y="386" width="78" height="20" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/><text x="69" y="400" class="k acc" text-anchor="middle">BUILT</text>
+        <text x="120" y="400" class="t" style="font-weight:600">Semantic Kernel</text><text x="310" y="400" class="s">an auto-invocation filter, tools filtered</text>
+        <rect x="30" y="418" width="78" height="20" rx="10" fill="none" stroke="var(--fg-2)" stroke-dasharray="3 3"/><text x="69" y="432" class="k" text-anchor="middle">ON PAPER</text>
+        <text x="120" y="432" class="t" style="font-weight:600">OpenClaw</text><text x="310" y="432" class="s">its hooks mapped onto the same steps</text>
+        <rect x="30" y="450" width="78" height="20" rx="10" fill="none" stroke="var(--fg-2)" stroke-dasharray="3 3"/><text x="69" y="464" class="k" text-anchor="middle">ON PAPER</text>
+        <text x="120" y="464" class="t" style="font-weight:600">Hermes</text><text x="310" y="464" class="s">mapped the same way, not built</text>
+        <rect x="30" y="482" width="78" height="20" rx="10" fill="none" stroke="var(--fg-2)" stroke-dasharray="3 3"/><text x="69" y="496" class="k" text-anchor="middle">ON PAPER</text>
+        <text x="120" y="496" class="t" style="font-weight:600">Copilot SDK</text><text x="310" y="496" class="s">mapped the same way, not built</text>
+      </g>
+
+      <!-- divider -->
+      <line x1="600" y1="30" x2="600" y2="510" stroke="var(--line)"/>
+
+      <!-- ===== right: a cell ===== -->
+      <text x="630" y="34" class="k">BESIDE THE TOOL · A CELL</text>
+      <rect x="630" y="50" width="540" height="262" rx="10" fill="var(--cells-soft)" stroke="var(--cells)" stroke-width="1.5"/>
+      <text x="648" y="76" class="h">The tool keeps its own loop</text>
+      <text x="648" y="94" class="s">and its own memory; it joins the signed ledger through its hooks</text>
+      <!-- the tool and its events -->
+      <rect x="648" y="112" width="160" height="134" rx="4" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="660" y="132" class="t" style="font-weight:600">A Claude Code session</text>
+      <text x="660" y="152" class="m" style="font-size:10.5px">SessionStart</text>
+      <text x="660" y="170" class="m" style="font-size:10.5px">UserPromptSubmit</text>
+      <text x="660" y="188" class="m" style="font-size:10.5px">PostToolUse</text>
+      <text x="660" y="206" class="m" style="font-size:10.5px">Stop</text>
+      <text x="660" y="224" class="m" style="font-size:10.5px">SessionEnd</text>
+      <text x="660" y="239" class="a">its hook events</text>
+      <!-- the hook command -->
+      <rect x="848" y="152" width="118" height="44" rx="4" fill="var(--bg)" stroke="var(--cells)"/>
+      <text x="907" y="172" class="m" text-anchor="middle" style="font-size:10.5px">creatura cell</text>
+      <text x="907" y="187" class="m" text-anchor="middle" style="font-size:10.5px">hook</text>
+      <path d="M808,174 H846" fill="none" stroke="var(--cells)" stroke-width="1.4" marker-end="url(#ar5c)"/>
+      <text x="827" y="166" class="a cel" text-anchor="middle">each</text>
+      <!-- the ledger -->
+      <rect x="1004" y="112" width="148" height="134" rx="4" fill="var(--bg)" stroke="var(--cells)" stroke-width="1.5"/>
+      <text x="1016" y="132" class="t" style="font-weight:600">The cell's ledger</text>
+      <text x="1016" y="152" class="s">a claim at the first prompt</text>
+      <text x="1016" y="168" class="s">a step after each turn</text>
+      <text x="1016" y="184" class="s">a hand-off at the end</text>
+      <text x="1016" y="206" class="s">signed, and synced</text>
+      <text x="1016" y="221" class="s">to every vessel</text>
+      <path d="M966,174 H1002" fill="none" stroke="var(--cells)" stroke-width="1.4" marker-end="url(#ar5c)"/>
+      <text x="984" y="166" class="a cel" text-anchor="middle">entry</text>
+      <!-- an offer comes back -->
+      <path d="M1078,246 V272 H728 V248" fill="none" stroke="var(--gold)" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#ar5g)"/>
+      <text x="903" y="292" class="a" text-anchor="middle" style="fill:var(--gold)">an offer from the owner, shown to the person at session start; taken by naming it</text>
+
+      <!-- tools and their status -->
+      <text x="630" y="342" class="k">WHO JOINS</text>
+      <g>
+        <rect x="630" y="354" width="78" height="20" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/><text x="669" y="368" class="k acc" text-anchor="middle">BUILT</text>
+        <text x="720" y="368" class="t" style="font-weight:600">Claude Code</text><text x="880" y="368" class="s">hooks write claims and steps; offers at start</text>
+        <rect x="630" y="386" width="78" height="20" rx="10" fill="none" stroke="var(--cells)"/><text x="669" y="400" class="k cel" text-anchor="middle">DESIGNED</text>
+        <text x="720" y="400" class="t" style="font-weight:600">Codex</text><text x="880" y="400" class="s">notify after each turn; offers from a terminal</text>
+        <rect x="630" y="418" width="78" height="20" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/><text x="669" y="432" class="k acc" text-anchor="middle">BUILT</text>
+        <text x="720" y="432" class="t" style="font-weight:600">Any shell</text><text x="880" y="432" class="s">claim, progress, release, take, by hand</text>
+        <rect x="630" y="450" width="78" height="20" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/><text x="669" y="464" class="k acc" text-anchor="middle">BUILT</text>
+        <text x="720" y="464" class="t" style="font-weight:600">Creatura's loops</text><text x="880" y="464" class="s">the convoy's trucks, a cell each</text>
+        <rect x="630" y="482" width="78" height="20" rx="10" fill="none" stroke="var(--fg-2)" stroke-dasharray="3 3"/><text x="669" y="496" class="k" text-anchor="middle">NOT YET</text>
+        <text x="720" y="496" class="t" style="font-weight:600">OpenClaw, others</text><text x="880" y="496" class="s">any tool that runs a command on its events</text>
+      </g>
+
+      <!-- the difference -->
+      <rect x="30" y="530" width="1140" height="86" rx="8" fill="var(--bg)" stroke="var(--line)"/>
+      <text x="46" y="556" class="t" style="font-weight:600">A host makes Creatura the membrane.</text>
+      <text x="46" y="575" class="s">It decides what the model may see, refuses what it may not do, and judges every call by the facts;</text>
+      <text x="46" y="590" class="s">the run stops when the budget is spent. One tick is one model request.</text>
+      <text x="630" y="556" class="t" style="font-weight:600">A cell makes Creatura the record.</text>
+      <text x="630" y="575" class="s">It says who is working on what, on which vessel, and how it ended, and it carries the owner's</text>
+      <text x="630" y="590" class="s">offers. It does not touch the tool's own calls.</text>
+    </svg>
+    </div>
+    <figcaption><b>Two ways in, and a tool can use both.</b> A Claude Code session joins as a cell today; a Semantic Kernel or Agent Framework agent can be a host for the control layer and write to a cell as well. <b>Built</b> means code and tests in this repository; <b>designed</b> means a design note says how; <b>on paper</b> means the tool's hooks are mapped onto the layer's steps and nothing more; <b>not yet</b> means neither. The hosts: <a href="https://github.com/egarim/creatura#hosts">README, Hosts</a>; the cells and offers: <a href="https://github.com/egarim/creatura/blob/main/docs/design-cells.md">design-cells.md</a> and <a href="https://github.com/egarim/creatura/blob/main/docs/design-activity-stream.md">design-activity-stream.md</a>.</figcaption>
   </figure>
 
   <!-- ====================== GLOSSARY ====================== -->
