@@ -59,6 +59,27 @@ into its verbs, and a world is where both are trained and tested.
 This repository is the framework's home. The designs are the author's readings of other people's public work;
 [docs/sources.md](docs/sources.md) says whose, and where each idea comes from.
 
+## The thinkers behind the designs
+
+Each design is the author's reading of one person's public work, written as a regulator that fills the same loop's
+slots. The people named did not take part in Creatura and do not endorse it; [docs/sources.md](docs/sources.md) names
+the episodes and the book the code's comments cite.
+
+| thinker | read from | the design | code | catalog name | read more |
+|---|---|---|---|---|---|
+| Michael Levin | Lex Fridman Podcast #486 | the colony: nested homeostatic controllers (cell, tissue, organism) with one leaky stress bus between them; error buys freedom, and the top level can only widen the budget or hand the goal to a human | [ColonyRegulator](src/Creatura/Core/Regulators/ColonyRegulator.cs), [Control](src/Creatura/Core/Control.cs) | `levin` | [Part 1: the Levin colony](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-01-the-levin-colony/) |
+| Joscha Bach | Lex Fridman Podcast #392 | the self-model: read before acting, coherence gates what it believes, stages gate what it may do, a contradiction quarantines the belief | [SelfModelRegulator](src/Creatura/Core/Regulators/SelfModelRegulator.cs), [SelfModel](src/Creatura/Core/SelfModel.cs), [Coherence](src/Creatura/Core/Coherence.cs), [Stages](src/Creatura/Core/Stages.cs), [PredictionTracker](src/Creatura/Core/PredictionTracker.cs) | `bach` | [Part 2: the Bach agent](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-02-the-bach-agent/) |
+| Jordan Peterson | *Maps of Meaning* (1999) | the map-keeper: acts from a nested stack of stories, reads every surprise as an anomaly sized by how much of the stack it breaks, approaches it once before revising the map, and never acts as if the map held after seeing it does not | [MapKeeperRegulator](src/Creatura/Core/Regulators/MapKeeperRegulator.cs), [Story and TerritoryMap](src/Creatura/Core/Regulators/Story.cs), [Distrust](src/Creatura/Core/Distrust.cs) | `peterson` | [One Loop, Three Minds](https://jocheojeda.com/2026/10/28/one-loop-three-minds/) |
+
+Three more build on them. The hybrid is Levin's colony with Bach's self-model, sharing one error channel
+([HybridRegulator](src/Creatura/Core/Regulators/HybridRegulator.cs), `hybrid`; [Part 3](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-03-the-hybrid/)). The orienting agent is Evgeny
+Sokolov's orienting reflex and habituation, read through Peterson ([OrientingRegulator](src/Creatura/Core/Regulators/OrientingRegulator.cs) and
+[src/Creatura/Orienting](src/Creatura/Orienting), `orienting`). George Hotz's critic with no hands watches a route and
+judges claims without acting ([src/Creatura/Hotz](src/Creatura/Hotz); [Part 7: the citizen's agent](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-07-the-citizens-agent/)).
+A catalog name builds the design around any seat, with the bench's settings:
+`AgentCatalog.Make("peterson", seat, task)`. The [Quick start](#quick-start) builds each one with its constructor,
+Hotz's critic included, and [samples/QuickStart](samples/QuickStart/Program.cs) runs them all offline.
+
 ## Layout
 
 ```
