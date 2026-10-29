@@ -1,4 +1,54 @@
-# Creatura
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/creatura-icon-light.svg">
+    <img src="docs/assets/creatura-icon.svg" width="160" alt="Creatura logo, a winged lion with a halo">
+  </picture>
+</p>
+
+<h1 align="center">Creatura</h1>
+
+<p align="center">Creatura is a C# framework for building AI agents, training them, and testing them in emulated worlds before they touch the real one.</p>
+
+## Watch
+
+Short videos, each under 75 seconds, narrated by the author.
+
+<table>
+  <tr>
+    <td align="center" width="25%"><a href="https://youtube.com/shorts/gN3rfaTQmWA"><img src="https://img.youtube.com/vi/gN3rfaTQmWA/hqdefault.jpg" width="180" alt="Short, Part 1: The birth of Creatura"></a><br><sub><b>Part 1</b> · The birth of Creatura</sub></td>
+    <td align="center" width="25%"><a href="https://youtube.com/shorts/vtzaEQal5Dc"><img src="https://img.youtube.com/vi/vtzaEQal5Dc/hqdefault.jpg" width="180" alt="Short, Part 2: One loop, three minds"></a><br><sub><b>Part 2</b> · One loop, three minds</sub></td>
+    <td align="center" width="25%"><a href="https://youtube.com/shorts/3GQn2JsgT1w"><img src="https://img.youtube.com/vi/3GQn2JsgT1w/hqdefault.jpg" width="180" alt="Short, Part 3: Four hypotheses that failed"></a><br><sub><b>Part 3</b> · Four hypotheses that failed</sub></td>
+    <td align="center" width="25%"><a href="https://youtube.com/shorts/eMN5Cty2hls"><img src="https://img.youtube.com/vi/eMN5Cty2hls/hqdefault.jpg" width="180" alt="Short, Part 4: Three trucks after a flood"></a><br><sub><b>Part 4</b> · Three trucks after a flood</sub></td>
+  </tr>
+</table>
+
+<!-- Next shorts: Part 5 (Who is working on what) and "Retry, penalize, or stop?"; add a cell for each above. -->
+More are coming: Part 5 and *Retry, penalize, or stop?*
+
+## Read
+
+The Creatura series, in reading order: what was built and what the experiments showed.
+
+1. [The Birth of Creatura](https://jocheojeda.com/2026/10/28/the-birth-of-creatura/)
+2. [One Loop, Three Minds](https://jocheojeda.com/2026/10/28/one-loop-three-minds/): the architecture
+3. [Four Hypotheses That Failed](https://jocheojeda.com/2026/10/28/four-hypotheses-that-failed/): the bench
+4. [Three Trucks After a Flood](https://jocheojeda.com/2026/10/28/three-trucks-after-a-flood/): the convoy
+5. [Who Is Working on What](https://jocheojeda.com/2026/10/29/who-is-working-on-what/): the cells and the ledger
+6. Answer to a reader: [Retry, Penalize, or Stop?](https://jocheojeda.com/2026/10/29/retry-penalize-or-stop/): the
+   control layer and the Semantic Kernel host
+
+The theory behind the designs, *Agents That Defend Goals*: [the introduction](https://jocheojeda.com/2026/10/23/agents-that-defend-goals/), then
+[1. The Levin colony](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-01-the-levin-colony/) ·
+[2. The Bach agent](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-02-the-bach-agent/) ·
+[3. The hybrid](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-03-the-hybrid/) ·
+[4. The careless agent](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-04-the-careless-agent/) ·
+[5. The control layer on Agent Framework](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-05-the-control-layer-on-agent-framework/) ·
+[6. Worlds that lie](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-06-worlds-that-lie/) ·
+[7. The citizen's agent](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-07-the-citizens-agent/)
+
+Every post has a button to read it in English or Spanish and one to listen to it.
+
+## About
 
 An agent framework for building agents out of regulation patterns taken from how living things and minds
 keep themselves on course, as described by the people who studied them. The core is one generic agent: a
@@ -6,10 +56,8 @@ loop, a control layer between the model and its tools, and a contract for worlds
 else plugs in: a design is a regulator that fills the loop's slots, a behaviour is an extension that hooks
 into its verbs, and a world is where both are trained and tested.
 
-This repository is the framework's home. Its designs were first worked out in a private research repository, and
-the code moved here step by step, with golden traces as the gate for every step. The designs are the author's
-readings of other people's public work; [docs/sources.md](docs/sources.md) says whose, and where each idea comes
-from.
+This repository is the framework's home. The designs are the author's readings of other people's public work;
+[docs/sources.md](docs/sources.md) says whose, and where each idea comes from.
 
 ## Layout
 
@@ -81,9 +129,6 @@ dotnet test tests/Creatura.Scenarios.Tests
 ```
 
 ## Where it came from
-
-The private research repository builds against this one as a sibling checkout, and its golden traces were the gate
-that the Core here behaves exactly as it did there. Nothing in this repository depends on it.
 
 *Creatura*, Late Latin: that which has been made; first the whole created order, then each made thing.
 
@@ -301,8 +346,8 @@ var agent = new ControlledKernelAgent((world, task) => openAi.GetChatClient(mode
 var run   = await agent.RunAsync(world);            // or ControlledKernelAgent.Offline() for the planner in the seat
 ```
 
-OpenClaw, Hermes and the Copilot SDK stay documentation: their hooks are mapped onto the same verbs in the research
-notes, which are not published.
+OpenClaw, Hermes and the Copilot SDK are not built as hosts; their hooks have been mapped onto the same verbs on paper
+only.
 
 ## Anatomy
 
@@ -311,6 +356,11 @@ part named for the part of the framework it stands for (plate I); the parts and 
 included (plate II); one tick of the loop (plate III); and the mesh, across vessels through the hub and inside the
 convoy's world (plate IV). Read it at [egarim.github.io/creatura/anatomy.html](https://egarim.github.io/creatura/anatomy.html),
 or open the file in a browser; it needs nothing else.
+
+<p align="center">
+  <a href="https://egarim.github.io/creatura/anatomy.html"><img src="docs/assets/anatomy-plate-i.webp" width="520"
+    alt="Plate I, the creature part by part: the winged lion with a halo, eleven parts numbered and each named for the part of the framework it stands for, among them the head as the seat, the halo as the control layer, the body as the loop, the wings as the cells and the ground as the bench"></a>
+</p>
 
 ## Cells
 
@@ -353,6 +403,11 @@ identifier is never written or printed. A hub must run a version that knows ever
 a creatura with its own cell and ledger, deliver 30 units of supplies to four villages after a flood, coordinating
 over an in-memory mesh. The world lies: one flooded road keeps reporting itself open, and one truck's fuel gauge reads
 high. A judge reads only the world. Everything runs offline and a seed replays byte for byte.
+
+<p align="center">
+  <img src="docs/assets/convoy-tick-19.webp" width="720"
+    alt="The convoy viewer at tick 19 of 60, arm J, seed 0: the flooded road from East crossing to Ceiba is marked sensor: open, and Truck 1 is stranded at South crossing, its gauge reading 3 on an empty tank, while Trucks 2 and 3 keep delivering">
+</p>
 
 ```bash
 dotnet run --project samples/Convoy -- --arm J --seed 0
