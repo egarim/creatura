@@ -70,12 +70,12 @@ the episodes and the book the code's comments cite.
 | Michael Levin | Lex Fridman Podcast #486 | the colony: nested homeostatic controllers (cell, tissue, organism) with one leaky stress bus between them; error buys freedom, and the top level can only widen the budget or hand the goal to a human | [ColonyRegulator](src/Creatura/Core/Regulators/ColonyRegulator.cs), [Control](src/Creatura/Core/Control.cs) | `levin` | [Part 1: the Levin colony](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-01-the-levin-colony/) |
 | Joscha Bach | Lex Fridman Podcast #392 | the self-model: read before acting, coherence gates what it believes, stages gate what it may do, a contradiction quarantines the belief | [SelfModelRegulator](src/Creatura/Core/Regulators/SelfModelRegulator.cs), [SelfModel](src/Creatura/Core/SelfModel.cs), [Coherence](src/Creatura/Core/Coherence.cs), [Stages](src/Creatura/Core/Stages.cs), [PredictionTracker](src/Creatura/Core/PredictionTracker.cs) | `bach` | [Part 2: the Bach agent](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-02-the-bach-agent/) |
 | Jordan Peterson | *Maps of Meaning* (1999) | the map-keeper: acts from a nested stack of stories, reads every surprise as an anomaly sized by how much of the stack it breaks, approaches it once before revising the map, and never acts as if the map held after seeing it does not | [MapKeeperRegulator](src/Creatura/Core/Regulators/MapKeeperRegulator.cs), [Story and TerritoryMap](src/Creatura/Core/Regulators/Story.cs), [Distrust](src/Creatura/Core/Distrust.cs) | `peterson` | [One Loop, Three Minds](https://jocheojeda.com/2026/10/28/one-loop-three-minds/) |
+| George Hotz | Lex Fridman Podcast #387 | the critic with no hands: it watches another agent work for a person, judges each claim against the facts and speaks only with a citation, interrupts only while its precision has earned it, and can be stopped by one owner token; it never acts on the case | [HotzAgent](src/Creatura/Hotz/HotzAgent.cs), [Claims](src/Creatura/Hotz/Claims.cs), [InterruptBudget](src/Creatura/Hotz/InterruptBudget.cs), [CriticExtension](src/Creatura/Hotz/CriticExtension.cs) | none: it rides any design as an extension | [Part 7: the citizen's agent](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-07-the-citizens-agent/) |
 
-Three more build on them. The hybrid is Levin's colony with Bach's self-model, sharing one error channel
+Two more build on them. The hybrid is Levin's colony with Bach's self-model, sharing one error channel
 ([HybridRegulator](src/Creatura/Core/Regulators/HybridRegulator.cs), `hybrid`; [Part 3](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-03-the-hybrid/)). The orienting agent is Evgeny
 Sokolov's orienting reflex and habituation, read through Peterson ([OrientingRegulator](src/Creatura/Core/Regulators/OrientingRegulator.cs) and
-[src/Creatura/Orienting](src/Creatura/Orienting), `orienting`). George Hotz's critic with no hands watches a route and
-judges claims without acting ([src/Creatura/Hotz](src/Creatura/Hotz); [Part 7: the citizen's agent](https://jocheojeda.com/2026/10/23/agents-that-defend-goals-07-the-citizens-agent/)).
+[src/Creatura/Orienting](src/Creatura/Orienting), `orienting`).
 A catalog name builds the design around any seat, with the bench's settings:
 `AgentCatalog.Make("peterson", seat, task)`. The [Quick start](#quick-start) builds each one with its constructor,
 Hotz's critic included, and [samples/QuickStart](samples/QuickStart/Program.cs) runs them all offline.
@@ -192,6 +192,23 @@ IAgent sokolov  = new ReferenceLoop(new OrientingRegulator(), name: "Sokolov");
 IAgent hybrid   = new ReferenceLoop(new HybridRegulator(), name: "Hybrid");
 ```
 
+What the values mean:
+
+| value | what it does |
+|---|---|
+| `Identity.Bach`, `Identity.Levin` | who the agent is (a role and the person it serves) to the layer's ledger. Bach's also seeds its self-model with its commitment, "restore the service to health"; the colony, the map-keeper and the orienting agent keep no self-model, so theirs only names them. |
+| `stage: 3` | where Bach's self-model starts on five stages (after Kegan, as Bach describes them): 1 reactive survival, 2 personal self, 3 social self, 4 rational agency, 5 self-authoring. Below stage 4 the agent may not run a release action (the toy world's `deploy`) on its own. It earns stage 4 by its record, never by a claim: at least four recent predictions about its tools, three in four of them right. Each stage also carries a freedom ceiling (0.35, 0.50, 0.65, 0.80, 1.00), which the hybrid and the hosts apply. |
+| `leak: 0.5` | how much stress passes between the colony's levels (cell: my tool's effect landed; tissue: the plan is closing; organism: the contract). A level feels its own stress or half of its worst neighbour's, whichever is higher. Stress buys freedom (0.2 + 0.8 × stress), and freedom sets how many failed calls it tolerates before handing off (1 to 4). Say the plan is 80% done (tissue stress 0.2) but the service is still down (organism stress 1.0): with `leak: 0` the colony tolerates 2 failures, with `0.5` it tolerates 3, with `1.0` it tolerates 4. |
+| `layer:` | the control layer's rules. Without one a design gets `ControlLayerOptions.Design`: a tool whose effect did not land is a lie, an honest failure is hidden for 3 ticks and costs nothing, and failures add up across rounds until an effect lands. |
+| `ClearQuarantineOnNoRoute = true` | the colony's rule: when no trusted tool can make progress, distrusted tools come back at once instead of after their 3 ticks. |
+| `JudgeRule.ReportFirst` | the map-keeper's rule: a tool that reports failure is an honest failure, whatever the facts; only a tool that reports success with no effect is a lie. |
+| `new MapKeeperRegulator()` | the defaults: the map-keeper posture (the other posture, `Adversary`, is the control that believes reports), sub-problems nested at most 4 deep before it counts as no route, and a tool found to be unknown territory (a second lie) kept out of sight for 6 ticks. |
+| `new OrientingRegulator()` | the defaults: inhibition rests at 0.2; a tool that lies on approach stays hidden 6 ticks, an honest failure 3; three ticks with no action whose promise beats its threat count as a profound punishment, and it proposes rethinking its ends and hands off. |
+| `new HybridRegulator()` | the defaults: the colony owner's identity for the organism, an effect cell under it, and stage 3, so its freedom stays at or under 0.65. |
+
+A catalog name sets some of these for the bench: `levin` reads the tissue level's stress (`ErrorChannel.Tissue`, also
+the default), `peterson` passes the map-keeper's defaults explicitly, `orienting` uses the three-way judge.
+
 **Extensions** add behaviour without touching the regulator:
 
 ```csharp
@@ -259,6 +276,10 @@ ExtensionCatalog.Register("critic", _ => new CriticExtension(citizen));   // thr
 run   = await new ReferenceLoop(regulator, options: ExtensionCatalog.Parse(["critic"])).RunAsync(world);
 route = citizen.Close(run, world);
 ```
+
+`owner` is the one token that can stop the critic; nothing else is accepted. `goalEvidence` is the facts that must hold
+for a "goal reached" claim to count as supported, here `alert.resolved`. Its `InterruptBudget` defaults to staying
+quiet unless at least 95% of its flags have been right, after a warm-up of 4 flags in which it is always heard.
 
 What a run of the sample prints: every regulator reaches the goal in 7 to 9 ticks, every one catches the
 same lie at tick 3 in its own vocabulary (`effect missing`, `contradiction`, `anomaly, approaching next
