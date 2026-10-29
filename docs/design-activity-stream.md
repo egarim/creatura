@@ -218,9 +218,15 @@ reaches the person and not the model, as the documentation says. A second sessio
 fact wrong (it saw no release run, but `v0.2.0-preview.1` was released that day): the ledger records that a goal was
 taken, not whether the answer was right.
 
-Found: in a headless session the claim's path is only Claim then HandOff ("session ended (other) after 0 turns"). The
-Stop hook runs in the background and the process exits before it writes a step; only SessionEnd, which waits, made
-it in. So a `-p` session leaves no steps and no evidence in the ledger. Not yet seen: the message in the interactive
+Found: in a headless session the claim's path was only Claim then HandOff ("session ended (other) after 0 turns").
+The transcript shows the Stop hook was started, but it runs in the background and the process exits before it writes
+a step; only SessionEnd, which waits, made it in. Fixed the same day: the hook keeps how far into the transcript the
+ledger has recorded (its length at the claim and at each recorded Stop), and SessionEnd reads on from there, writing
+a step for each answered turn it finds (tool names and files only, never what was said) before the HandOff; a Stop
+that arrives after SessionEnd finds no session and writes nothing. Two tests hold it, and two deliberate breaks (no
+catch-up; the offset not moved at Stop, which doubles a turn) each fail one. Rerun on `of-bca412102a` ("Count the
+commits on main today and name the newest one"): claim `#267`, then "turn 1: Bash x2", then "session ended (other)
+after 1 turn". Not yet seen: the message in the interactive
 Claude Code window; the headless run shows only that Claude Code receives it and the model does not.
 
 ## Decided (owner, 2026-10-29)

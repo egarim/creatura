@@ -34,6 +34,12 @@ public sealed class HookSession
     /// <summary>The offers shown to the person at this session's start; the first prompt may take one by its id.</summary>
     public List<string> Offered { get; set; } = [];
 
+    /// <summary>
+    /// How far into the session's transcript the ledger has recorded: its length at the claim and at each recorded Stop.
+    /// SessionEnd reads on from here for turns whose Stop never landed (<see cref="HookTranscript"/>).
+    /// </summary>
+    public long TranscriptOffset { get; set; }
+
     public DateTimeOffset Started { get; set; }
 }
 
@@ -66,8 +72,10 @@ public sealed record HookEnvironment
 /// <para>
 /// The mapping (docs/design-cells.md, "How host tools join"): SessionStart records the session; the first
 /// UserPromptSubmit writes the Claim; PostToolUse counts tool calls; Stop writes one Progress per finished turn;
-/// SessionEnd writes a HandOff (a session ending is not the goal being done; Release stays explicit). Events from
-/// subagents and any other event write nothing.
+/// SessionEnd writes a Progress for each turn after the last recorded Stop, read from the transcript (Stop runs in the
+/// background, and a session that exits at once, as <c>claude -p</c> does, ends before its last Stop lands), then a
+/// HandOff (a session ending is not the goal being done; Release stays explicit). Events from subagents and any other
+/// event write nothing.
 /// </para>
 /// </summary>
 public static class HookCommand
@@ -126,7 +134,10 @@ public static class HookCommand
             }
 
             if (eventName == "SessionStart") SavePosition(home, mesh ?? Offline);
-            var session = LoadSession(home, sessionId) ?? NewSession(input, sessionId, env);
+            var loaded = LoadSession(home, sessionId);
+            if (loaded is null && eventName is "Stop" or "SessionEnd") return null;  // ended already, or began before the hooks: nothing to record against
+            var session = loaded ?? NewSession(input, sessionId, env);
+            var transcript = Str(input, "transcript_path");
             SignedEntry? written = null;
 
             switch (eventName)
@@ -157,7 +168,11 @@ public static class HookCommand
                         Session = sessionId,
                         Offer = taken?.Id,
                     });
-                    if (written is not null) session.ClaimId = written.Id;
+                    if (written is not null)
+                    {
+                        session.ClaimId = written.Id;
+                        session.TranscriptOffset = HookTranscript.Length(transcript);
+                    }
                     break;
 
                 case "PostToolUse":
@@ -177,6 +192,7 @@ public static class HookCommand
                     {
                         session.Turns++;
                         written = Write(home, creatura, env, new ProgressPayload(session.ClaimId, TurnRow(session)));
+                        session.TranscriptOffset = HookTranscript.Length(transcript);
                     }
                     session.Tools.Clear();
                     session.Files.Clear();
@@ -185,8 +201,14 @@ public static class HookCommand
                 case "SessionEnd":
                     if (session.ClaimId is not null)
                     {
+                        var rows = new List<ProgressPayload>();
+                        foreach (var turn in HookTranscript.TurnsAfter(transcript, session.TranscriptOffset))
+                        {
+                            session.Turns++;
+                            rows.Add(new ProgressPayload(session.ClaimId, TurnRow(session.Turns, turn.Tools, turn.Files)));
+                        }
                         var reason = Str(input, "reason") ?? "other";
-                        written = Write(home, creatura, env, new HandOffPayload(session.ClaimId,
+                        written = Write(home, creatura, env, rows, new HandOffPayload(session.ClaimId,
                             $"session ended ({reason}) after {session.Turns} turn{(session.Turns == 1 ? "" : "s")}"));
                     }
                     DeleteSession(home, sessionId);
@@ -235,13 +257,15 @@ public static class HookCommand
     }
 
     /// <summary>"turn 3: Bash x5, Edit x2; 2 files touched" from the turn's counters, never their content.</summary>
-    public static string TurnRow(HookSession session)
+    public static string TurnRow(HookSession session) => TurnRow(session.Turns, session.Tools, session.Files);
+
+    public static string TurnRow(int turn, IReadOnlyDictionary<string, int> toolCalls, IReadOnlyCollection<string> touched)
     {
-        var tools = session.Tools.Count == 0
+        var tools = toolCalls.Count == 0
             ? "no tool calls"
-            : string.Join(", ", session.Tools.OrderByDescending(t => t.Value).ThenBy(t => t.Key, StringComparer.Ordinal).Select(t => $"{t.Key} x{t.Value}"));
-        var files = session.Files.Count == 0 ? "" : $"; {session.Files.Count} file{(session.Files.Count == 1 ? "" : "s")} touched";
-        return $"turn {session.Turns}: {tools}{files}";
+            : string.Join(", ", toolCalls.OrderByDescending(t => t.Value).ThenBy(t => t.Key, StringComparer.Ordinal).Select(t => $"{t.Key} x{t.Value}"));
+        var files = touched.Count == 0 ? "" : $"; {touched.Count} file{(touched.Count == 1 ? "" : "s")} touched";
+        return $"turn {turn}: {tools}{files}";
     }
 
     public static string FolderGoal(HookSession session)
@@ -281,7 +305,11 @@ public static class HookCommand
         }
     }
 
-    private static SignedEntry? Write<T>(CellHome home, string creatura, HookEnvironment env, T payload) where T : IEntryPayload
+    private static SignedEntry? Write<T>(CellHome home, string creatura, HookEnvironment env, T payload) where T : IEntryPayload =>
+        Write(home, creatura, env, [], payload);
+
+    /// <summary>Appends <paramref name="first"/> and then <paramref name="payload"/> in one load and one save of the ledger; returns the last.</summary>
+    private static SignedEntry? Write<T>(CellHome home, string creatura, HookEnvironment env, IReadOnlyList<ProgressPayload> first, T payload) where T : IEntryPayload
     {
         using var cell = home.OpenCell(env.Vessel, LoadPosition(home), creatura);
         if (!cell.Identity.IsEndorsed)
@@ -296,6 +324,7 @@ public static class HookCommand
         var store = home.Ledger;
         LedgerStores.LoadInto(home, store, ledger);
         CellCommand.SayHelloIfNeeded(ledger, cell);
+        foreach (var row in first) ledger.Append(cell, row, env.Now());
         var entry = ledger.Append(cell, payload, env.Now());
         store.Save(ledger);
         return entry;
@@ -400,4 +429,102 @@ public static class HookCommand
             // A hook must never fail the session it watches: a log that cannot be written is dropped.
         }
     }
+}
+
+/// <summary>
+/// The turns of a Claude Code transcript (one JSON object per line) after a byte offset, read for tool names and the
+/// files they named, never for what was said. A prompt from the person starts a turn, and a turn counts once the
+/// assistant answered it; activity before the first prompt after the offset is a turn too (its prompt landed just
+/// before the offset). Subagents' lines (<c>isSidechain</c>) and Claude Code's own (<c>isMeta</c>) are not turns.
+/// </summary>
+public static class HookTranscript
+{
+    public sealed record Turn(Dictionary<string, int> Tools, List<string> Files);
+
+    /// <summary>The transcript's length in bytes, or 0 when there is none to read.</summary>
+    public static long Length(string? path)
+    {
+        try
+        {
+            return path is not null && File.Exists(path) ? new FileInfo(path).Length : 0;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>The answered turns after <paramref name="offset"/>, oldest first; none when the transcript cannot be read or is shorter than the offset.</summary>
+    public static IReadOnlyList<Turn> TurnsAfter(string? path, long offset)
+    {
+        var turns = new List<Turn>();
+        try
+        {
+            if (path is null || !File.Exists(path)) return turns;
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            if (offset > stream.Length) return turns;                              // not the transcript the offset was taken from
+            stream.Seek(offset, SeekOrigin.Begin);
+            using var reader = new StreamReader(stream);
+            Turn? current = null;
+            var answered = false;
+            while (reader.ReadLine() is { } line)
+            {
+                JsonDocument document;
+                try
+                {
+                    document = JsonDocument.Parse(line);
+                }
+                catch (JsonException)
+                {
+                    continue;                                                      // a line cut by the offset, or one being written
+                }
+                using (document)
+                {
+                    var o = document.RootElement;
+                    if (o.ValueKind != JsonValueKind.Object || True(o, "isSidechain") || True(o, "isMeta")) continue;
+                    var content = o.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.Object && message.TryGetProperty("content", out var c) ? c : default;
+                    var type = o.TryGetProperty("type", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() : null;
+                    if (type == "user" && IsPrompt(content))
+                    {
+                        if (current is not null && answered) turns.Add(current);
+                        current = new Turn(new(StringComparer.Ordinal), []);
+                        answered = false;
+                    }
+                    else if (type == "assistant")
+                    {
+                        current ??= new Turn(new(StringComparer.Ordinal), []);
+                        answered = true;
+                        if (content.ValueKind != JsonValueKind.Array) continue;
+                        foreach (var block in content.EnumerateArray())
+                        {
+                            if (block.ValueKind != JsonValueKind.Object || !block.TryGetProperty("type", out var kind) || kind.GetString() != "tool_use") continue;
+                            var name = block.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString()! : "tool";
+                            current.Tools[name] = current.Tools.GetValueOrDefault(name) + 1;
+                            if (!block.TryGetProperty("input", out var input) || input.ValueKind != JsonValueKind.Object) continue;
+                            foreach (var field in new[] { "file_path", "notebook_path" })
+                            {
+                                if (input.TryGetProperty(field, out var f) && f.ValueKind == JsonValueKind.String && f.GetString() is { Length: > 0 } file && !current.Files.Contains(file)) current.Files.Add(file);
+                            }
+                        }
+                    }
+                }
+            }
+            if (current is not null && answered) turns.Add(current);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // An unreadable transcript adds no turns; the HandOff is still written.
+        }
+        return turns;
+    }
+
+    private static bool True(JsonElement o, string name) => o.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
+
+    /// <summary>Text from the person: a string, or blocks none of which is a tool's result.</summary>
+    private static bool IsPrompt(JsonElement content) => content.ValueKind switch
+    {
+        JsonValueKind.String => true,
+        JsonValueKind.Array => content.EnumerateArray().All(b => b.ValueKind != JsonValueKind.Object || !b.TryGetProperty("type", out var k) || k.GetString() != "tool_result"),
+        _ => false,
+    };
 }

@@ -105,6 +105,105 @@ public sealed class HookTests
         foreach (var said in new[] { "build slice 2", "now the tests", "thanks", "dotnet test", "/a.cs", "/b.cs", "done" }) Assert.DoesNotContain(said, text);
     }
 
+    private static void Say(string transcript, params JsonObject[] lines) =>
+        File.AppendAllLines(transcript, lines.Select(l => l.ToJsonString()));
+
+    private static JsonObject Prompt(string text) => new() { ["type"] = "user", ["isSidechain"] = false, ["message"] = new JsonObject { ["role"] = "user", ["content"] = text } };
+
+    private static JsonObject Answer(params (string Tool, string? File)[] calls) => new()
+    {
+        ["type"] = "assistant",
+        ["isSidechain"] = false,
+        ["message"] = new JsonObject
+        {
+            ["role"] = "assistant",
+            ["content"] = calls.Length == 0
+                ? new JsonArray(new JsonObject { ["type"] = "text", ["text"] = "done" })
+                : new JsonArray(calls.Select(c => (JsonNode)new JsonObject
+                {
+                    ["type"] = "tool_use",
+                    ["name"] = c.Tool,
+                    ["input"] = c.File is null ? new JsonObject { ["command"] = "git log" } : new JsonObject { ["file_path"] = c.File },
+                }).ToArray()),
+        },
+    };
+
+    private static JsonObject ToolResult() => new() { ["type"] = "user", ["message"] = new JsonObject { ["role"] = "user", ["content"] = new JsonArray(new JsonObject { ["type"] = "tool_result", ["content"] = "ok" }) } };
+
+    [Fact]
+    public void TurnsWhoseStopNeverLandedAreReadFromTheTranscriptAtSessionEnd()
+    {
+        // A headless session (claude -p) exits before its background Stop hook lands: SessionEnd, which Claude Code
+        // waits for, reads the turns after the last recorded Stop from the transcript, for tool names and files only.
+        using var home = new TempHome();
+        Init(home);
+        var env = Env();
+        var transcript = Path.Combine(home.Path, "headless.jsonl");
+        const string s = "headless-session";
+        (string, object?) at = ("transcript_path", transcript);
+
+        HookCommand.Handle(Event("SessionStart", s, ("source", "startup"), at), new CellHome(home.Path), "folder", Creatura, env);
+        Say(transcript, Prompt("summarize today"));
+        HookCommand.Handle(Event("UserPromptSubmit", s, ("prompt", "summarize today"), at), new CellHome(home.Path), "folder", Creatura, env);
+        Say(transcript, Answer(("Bash", null)), ToolResult(), Answer(("Bash", null), ("Read", "/a.cs")), ToolResult(),
+            new JsonObject { ["type"] = "assistant", ["isSidechain"] = true, ["message"] = new JsonObject { ["content"] = new JsonArray(new JsonObject { ["type"] = "tool_use", ["name"] = "Grep", ["input"] = new JsonObject() }) } },
+            new JsonObject { ["type"] = "user", ["isMeta"] = true, ["message"] = new JsonObject { ["content"] = "a caveat" } },
+            Answer());
+        var end = HookCommand.Handle(Event("SessionEnd", s, ("reason", "other"), at), new CellHome(home.Path), "folder", Creatura, env);
+
+        // The late Stop finds the session gone: it writes nothing and leaves no session file behind.
+        Assert.Null(HookCommand.Handle(Event("Stop", s, ("stop_hook_active", false), at), new CellHome(home.Path), "folder", Creatura, env));
+        Assert.False(File.Exists(Path.Combine(home.Path, "sessions", s + ".json")));
+
+        var ledger = Ledger(home);
+        Assert.Equal([EntryKind.Hello, EntryKind.Claim, EntryKind.Progress, EntryKind.HandOff], ledger.Entries.Select(e => e.Kind));
+        Assert.Equal("turn 1: Bash x2, Read x1; 1 file touched", ledger.Entries[2].Body<ProgressPayload>().Row);
+        Assert.Equal("session ended (other) after 1 turn", ledger.Entries[3].Body<HandOffPayload>().Reason);
+        Assert.Equal(ledger.Entries[3].Id, end!.Id);
+        var text = File.ReadAllText(new CellHome(home.Path).LedgerPath);
+        foreach (var said in new[] { "summarize today", "git log", "/a.cs", "a caveat", "done" }) Assert.DoesNotContain(said, text);
+    }
+
+    [Fact]
+    public void SessionEndAddsOnlyTheTurnsAfterTheLastRecordedStop()
+    {
+        using var home = new TempHome();
+        Init(home);
+        var env = Env();
+        var transcript = Path.Combine(home.Path, "mixed.jsonl");
+        const string s = "mixed-session";
+        (string, object?) at = ("transcript_path", transcript);
+
+        HookCommand.Handle(Event("SessionStart", s, ("source", "startup"), at), new CellHome(home.Path), "folder", Creatura, env);
+        HookCommand.Handle(Event("UserPromptSubmit", s, ("prompt", "one"), at), new CellHome(home.Path), "folder", Creatura, env);
+        Say(transcript, Prompt("one"), Answer(("Edit", "/a.cs")), ToolResult(), Answer());
+        HookCommand.Handle(Event("PostToolUse", s, ("tool_name", "Edit"), ("tool_input", new JsonObject { ["file_path"] = "/a.cs" }), at), new CellHome(home.Path), "folder", Creatura, env);
+        HookCommand.Handle(Event("Stop", s, ("stop_hook_active", false), at), new CellHome(home.Path), "folder", Creatura, env);
+        Say(transcript, Prompt("two"), Answer(("Write", "/b.cs"), ("Write", "/c.cs")), ToolResult(), Answer());   // its Stop never lands
+        Say(transcript, Prompt("three, unanswered"));
+        HookCommand.Handle(Event("SessionEnd", s, ("reason", "prompt_input_exit"), at), new CellHome(home.Path), "folder", Creatura, env);
+
+        var ledger = Ledger(home);
+        Assert.Equal([EntryKind.Hello, EntryKind.Claim, EntryKind.Progress, EntryKind.Progress, EntryKind.HandOff], ledger.Entries.Select(e => e.Kind));
+        Assert.Equal("turn 1: Edit x1; 1 file touched", ledger.Entries[2].Body<ProgressPayload>().Row);
+        Assert.Equal("turn 2: Write x2; 2 files touched", ledger.Entries[3].Body<ProgressPayload>().Row);
+        Assert.Equal("session ended (prompt_input_exit) after 2 turns", ledger.Entries[4].Body<HandOffPayload>().Reason);
+    }
+
+    [Fact]
+    public void AMissingOrForeignTranscriptAddsNoTurns()
+    {
+        Assert.Empty(HookTranscript.TurnsAfter(null, 0));
+        Assert.Empty(HookTranscript.TurnsAfter("/no/such/transcript.jsonl", 0));
+        using var home = new TempHome();
+        var transcript = Path.Combine(home.Path, "short.jsonl");
+        Say(transcript, Prompt("hi"), Answer());
+        Assert.Single(HookTranscript.TurnsAfter(transcript, 0));
+        Assert.Empty(HookTranscript.TurnsAfter(transcript, HookTranscript.Length(transcript) + 10));   // shorter than the offset: not the one it was taken from
+        File.AppendAllText(transcript, "{\"type\":\"assistant\",\"mess");                          // a line still being written
+        Assert.Single(HookTranscript.TurnsAfter(transcript, 0));
+    }
+
     [Fact]
     public void WithGoalPromptTheClaimIsTheFirstLineScrubbedAndTruncated()
     {
