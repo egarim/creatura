@@ -70,6 +70,20 @@
   .single.bad { background: var(--red-soft); border-color: transparent; }
   .single .t { font-family: var(--mono); font-size: 12px; color: var(--muted); }
   .empty { color: var(--muted); padding: 40px 0; text-align: center; }
+  .mode { display: inline-flex; border: 1px solid var(--hair); border-radius: 99px; padding: 2px; margin-bottom: 6px; background: var(--card); }
+  .mode button { font: 600 11px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: none; border: 0; border-radius: 99px; padding: 6px 12px; cursor: pointer; }
+  .mode button[aria-pressed=true] { background: var(--navy); color: #fff; }
+  @media (prefers-color-scheme: dark) { .mode button[aria-pressed=true] { background: var(--gold); color: var(--navy); } }
+  .story { padding: 0 16px 14px 56px; font-size: 15px; }
+  .story .ending { color: var(--muted); }
+  .story .ending.done { color: var(--green); }
+  .story .ending.bad { color: var(--red); }
+  .simple .hw { display: none; }
+  .badge { font: 600 10px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; padding: 4px 7px; border-radius: 99px; border: 1px solid var(--hair); color: var(--muted); white-space: nowrap; }
+  .badge.open { background: var(--gold-soft); color: var(--gold); border-color: transparent; }
+  .badge.taken { color: var(--green); border-color: currentColor; }
+  .badge.conflict { color: var(--red); border-color: currentColor; }
+  .single.offer { grid-template-columns: 28px 74px minmax(0, 1fr) auto; border-color: var(--gold); }
   footer { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--hair); color: var(--muted); font-size: 12px; }
 </style>
 </head>
@@ -82,7 +96,10 @@
       <h1>Who is working on what</h1>
       <div class="sub" id="summary">reading the ledger…</div>
     </div>
-    <div class="live" id="live"><b></b><span id="updated">connecting</span><br><span>refreshes every 15 s</span></div>
+    <div class="live" id="live">
+      <div class="mode" role="group" aria-label="View"><button id="simple" aria-pressed="false">Simple</button><button id="full" aria-pressed="true">Full</button></div><br>
+      <b></b><span id="updated">connecting</span><br><span>refreshes every 15 s</span>
+    </div>
   </header>
 
   <div class="grid">
@@ -106,7 +123,16 @@
 
 <script>
 "use strict";
-const state = { actors: [], items: [], cell: "", vessel: "", search: "", open: false, expanded: new Set() };
+const state = { actors: [], items: [], cell: "", vessel: "", search: "", open: false, expanded: new Set(), mode: "full" };
+try { state.mode = localStorage.getItem("creatura.stream.mode") === "simple" ? "simple" : "full"; } catch (e) { }
+function setMode(mode) {
+  state.mode = mode;
+  try { localStorage.setItem("creatura.stream.mode", mode); } catch (e) { }
+  document.body.classList.toggle("simple", mode === "simple");
+  document.getElementById("simple").setAttribute("aria-pressed", String(mode === "simple"));
+  document.getElementById("full").setAttribute("aria-pressed", String(mode === "full"));
+  render();
+}
 const QUIET_MINUTES = 15;
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
@@ -134,7 +160,9 @@ function face(actor, small) {
 
 async function load() {
   try {
-    const head = await (await fetch("activity", { cache: "no-store" })).json();
+    const answer = await fetch("activity", { cache: "no-store" });
+    if (!answer.ok) throw new Error(await answer.text());
+    const head = await answer.json();
     const last = Number((head.last || "page=1").split("page=")[1]) || 1;
     const items = [];
     for (let n = 1; n <= last; n++) items.push(...(await (await fetch("activity?page=" + n, { cache: "no-store" })).json()).orderedItems);
@@ -147,6 +175,7 @@ async function load() {
   } catch (e) {
     document.getElementById("live").classList.add("stale");
     document.getElementById("updated").textContent = "cannot read the ledger";
+    document.getElementById("summary").textContent = String(e.message || e).split("\n")[0];
   }
 }
 
@@ -166,7 +195,7 @@ function render() {
   // Cells, with when each was last seen.
   const actors = document.getElementById("actors");
   actors.replaceChildren();
-  for (const a of state.actors) {
+  for (const a of state.actors.filter(x => x.type === "Service")) {
     const row = el("div", "actor" + (state.cell === a.id ? " on" : ""));
     const quiet = (Date.now() - Date.parse(a["creatura:lastSeen"])) / 60000 > QUIET_MINUTES;
     const info = el("div");
@@ -175,7 +204,7 @@ function render() {
     if (quiet) seen.append(el("span", "quiet", "quiet · "));
     seen.append(document.createTextNode("last seen " + ago(a["creatura:lastSeen"]) + (a["creatura:load"] != null ? " · load " + a["creatura:load"] : "")));
     info.append(seen);
-    if (a["creatura:hardware"]) info.append(el("div", "meta", a["creatura:hardware"]));
+    if (a["creatura:hardware"]) info.append(el("div", "meta hw", a["creatura:hardware"]));
     row.append(face(a), info);
     row.onclick = () => { state.cell = state.cell === a.id ? "" : a.id; render(); };
     actors.append(row);
@@ -188,7 +217,7 @@ function render() {
       if (!threads.has(item.context)) threads.set(item.context, { id: item.context, steps: [], claim: null });
       const t = threads.get(item.context);
       if (item.type === "Create" && item.object && item.object.id === item.context) t.claim = item; else t.steps.push(item);
-    } else singles.push(item);
+    } else if (!(state.mode === "simple" && (item.type === "Join" || item.type === "Undo"))) singles.push(item);
   }
   const cards = [];
   for (const t of threads.values()) {
@@ -230,11 +259,15 @@ function threadCard(t) {
   body.append(el("div", "goal", goal));
   const o = t.claim ? t.claim.object : {};
   const where = [o["creatura:repo"] && (o["creatura:repo"] + (o["creatura:branch"] ? " · " + o["creatura:branch"] : "")), o["creatura:folder"], o["creatura:tool"] && (o["creatura:tool"] + (o["creatura:session"] ? " " + o["creatura:session"].slice(0, 8) : ""))].filter(Boolean).join("  ·  ");
-  body.append(el("div", "where", (t.actor ? t.actor.name + "  ·  " : "") + (t.claim ? "started " + clock(t.claim.published) : "") + (where ? "  ·  " + where : "")));
+  if (state.mode === "full") body.append(el("div", "where", (t.actor ? t.actor.name + "  ·  " : "") + (t.claim ? "started " + clock(t.claim.published) : "") + (where ? "  ·  " + where : "")));
   const badge = el("span", "state " + t.state, t.state === "HandedOff" ? "handed off" : t.state.toLowerCase());
   top.append(face(t.actor, true), body, badge);
   card.append(top);
 
+  if (state.mode === "simple") {
+    card.append(story(t));
+    return card;
+  }
   const steps = el("ol", "steps");
   const open = state.expanded.has(t.id);
   const list = open ? t.steps : t.steps.slice(0, 5);
@@ -259,13 +292,41 @@ function threadCard(t) {
   return card;
 }
 
+// The narrative of a claim: who started it, when, and how it stands, in a sentence or two; no steps, no metadata.
+function story(t) {
+  const p = el("div", "story");
+  const who = t.actor ? t.actor.name : "a cell";
+  const steps = t.steps.filter(s => s.type === "Update").length;
+  let opening = who + " started this " + clock(t.claim ? t.claim.published : t.latest);
+  if (t.claim && t.claim["creatura:offer"]) opening += ", taking the owner's offer";
+  if (t.claim && t.claim["creatura:conflict"]) opening += " (another cell took it too)";
+  p.append(document.createTextNode(opening + ". "));
+  const release = t.steps.find(s => s.type === "creatura:Release");
+  const leave = t.steps.find(s => s.type === "Leave");
+  const blocked = t.steps.find(s => s.type === "Update" && s["creatura:blocked"] === true);
+  if (release) p.append(el("span", "ending done", "Finished " + clock(release.published) + ": " + ((release.result && release.result.content) || "") + "."));
+  else if (leave) p.append(el("span", "ending", "Stopped " + clock(leave.published) + ": " + (leave.content || "") + "."));
+  else if (blocked && t.steps[0] === blocked) p.append(el("span", "ending bad", "Blocked: " + blocked.content + "."));
+  else p.append(el("span", "ending", "Still at it" + (steps ? ": " + steps + (steps === 1 ? " step" : " steps") + " so far, the latest " + ago(t.latest) : "") + "."));
+  return p;
+}
+
 function singleRow(s, actor) {
-  const row = el("div", "single" + (s.type === "Flag" ? " bad" : ""));
+  const offer = s.type === "Offer";
+  const row = el("div", "single" + (s.type === "Flag" ? " bad" : "") + (offer ? " offer" : ""));
   row.title = s.published + "  ·  " + s.id;
-  row.append(face(actor, true), el("span", "t", clock(s.published)), el("span", "x", s.summary));
+  const lapsed = offer && s["creatura:state"] === "open" && s.endTime && Date.parse(s.endTime) < Date.now();
+  const text = offer && state.mode === "simple" ? s.summary.replace(/^the owner/, "You") : s.summary;
+  row.append(face(actor, true), el("span", "t", clock(s.published)), el("span", "x", text));
+  if (offer) row.append(el("span", "badge " + (lapsed ? "lapsed" : s["creatura:state"]), lapsed ? "lapsed" : s["creatura:state"]));
   return row;
 }
 
+document.getElementById("simple").onclick = () => setMode("simple");
+document.getElementById("full").onclick = () => setMode("full");
+document.body.classList.toggle("simple", state.mode === "simple");
+document.getElementById("simple").setAttribute("aria-pressed", String(state.mode === "simple"));
+document.getElementById("full").setAttribute("aria-pressed", String(state.mode === "full"));
 document.getElementById("vessel").onchange = e => { state.vessel = e.target.value; render(); };
 document.getElementById("search").oninput = e => { state.search = e.target.value; render(); };
 document.getElementById("open").onchange = e => { state.open = e.target.checked; render(); };

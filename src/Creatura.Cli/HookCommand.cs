@@ -31,6 +31,9 @@ public sealed class HookSession
     /// <summary>Distinct files the current turn's tool calls named.</summary>
     public List<string> Files { get; set; } = [];
 
+    /// <summary>The offers shown to the person at this session's start; the first prompt may take one by its id.</summary>
+    public List<string> Offered { get; set; } = [];
+
     public DateTimeOffset Started { get; set; }
 }
 
@@ -52,10 +55,14 @@ public sealed record HookEnvironment
 }
 
 /// <summary>
-/// <c>creatura cell hook</c>: one Claude Code hook event on stdin, at most one ledger entry out. It prints nothing and
-/// always exits 0, whatever happens: on <c>SessionStart</c> and <c>UserPromptSubmit</c> anything printed would be added
-/// to the model's context, and exit code 2 would block a prompt or a stop. Failures go to <c>&lt;home&gt;/hook.log</c>
-/// (owner-only), one line each, without prompt text or tool data.
+/// <c>creatura cell hook</c>: one Claude Code hook event on stdin, at most one ledger entry out. It always exits 0,
+/// whatever happens, and prints nothing, with one exception: at the start of a new session with a goal offered to this
+/// cell or its vessel, it prints one JSON object whose only field is <c>systemMessage</c>, which Claude Code shows to
+/// the person and does not add to the model's context (plain text would be: on <c>SessionStart</c> and
+/// <c>UserPromptSubmit</c> anything else printed becomes context, and exit code 2 would block a prompt or a stop). The
+/// person takes the offer by naming it in the first prompt (<c>offer of-…</c>); the claim then cites it
+/// (docs/design-activity-stream.md, C29). Failures go to <c>&lt;home&gt;/hook.log</c> (owner-only), one line each,
+/// without prompt text or tool data.
 /// <para>
 /// The mapping (docs/design-cells.md, "How host tools join"): SessionStart records the session; the first
 /// UserPromptSubmit writes the Claim; PostToolUse counts tool calls; Stop writes one Progress per finished turn;
@@ -72,7 +79,7 @@ public static class HookCommand
     /// <summary>The position used when the mesh is not read: the same one <c>creatura cell</c> commands use, so no new hello is written for it.</summary>
     public static readonly Position Offline = new(PositionKind.InProcess) { Channel = "creatura cell" };
 
-    /// <summary>Entry point for <c>creatura cell hook ...</c>: never throws, never prints, returns 0.</summary>
+    /// <summary>Entry point for <c>creatura cell hook ...</c>: never throws, returns 0, prints only an offer's message at a session's start.</summary>
     public static int Run(string[] args, TextReader stdin)
     {
         string? root = null;
@@ -81,7 +88,7 @@ public static class HookCommand
             var options = Options(args);
             root = options.GetValueOrDefault("--home") ?? Environment.GetEnvironmentVariable("CREATURA_HOME");
             var json = stdin.ReadToEnd();
-            Handle(json, new CellHome(root, LedgerStores.Factory(options.GetValueOrDefault("--store"))), options.GetValueOrDefault("--goal") ?? "folder", options.GetValueOrDefault("--creatura") ?? DefaultCreatura, new HookEnvironment());
+            Handle(json, new CellHome(root, LedgerStores.Factory(options.GetValueOrDefault("--store"))), options.GetValueOrDefault("--goal") ?? "folder", options.GetValueOrDefault("--creatura") ?? DefaultCreatura, new HookEnvironment(), Console.Out.Write);
         }
         catch (Exception e)
         {
@@ -90,8 +97,11 @@ public static class HookCommand
         return 0;
     }
 
-    /// <summary>Handles one event. Returns what it wrote to the ledger (for tests), never throws.</summary>
-    public static SignedEntry? Handle(string json, CellHome home, string goalMode, string creatura, HookEnvironment env)
+    /// <summary>
+    /// Handles one event. Returns what it wrote to the ledger (for tests), never throws. <paramref name="say"/> gets the
+    /// only thing the hook ever prints: an offer's message for the person, at a new session's start.
+    /// </summary>
+    public static SignedEntry? Handle(string json, CellHome home, string goalMode, string creatura, HookEnvironment env, Action<string>? say = null)
     {
         string eventName = "?", sessionId = "?";
         try
@@ -125,19 +135,27 @@ public static class HookCommand
                     session.Source = Str(input, "source") ?? session.Source;
                     session.Model = Str(input, "model") ?? session.Model;
                     if (Str(input, "cwd") is { } cwd && cwd != session.Cwd) Locate(session, cwd, env);
+                    // A new conversation, not a resumed or compacted one, is told what the owner has offered here.
+                    if (say is not null && session.Source is not ("resume" or "compact") && Pending(home, creatura, env) is { Count: > 0 } offers)
+                    {
+                        session.Offered = offers.Select(o => o.Id).ToList();
+                        say(JsonSerializer.Serialize(new Dictionary<string, string> { ["systemMessage"] = OfferMessage(offers) }));
+                    }
                     break;
 
                 case "UserPromptSubmit":
                     if (session.ClaimId is not null) break;
-                    var goal = goalMode == "prompt" ? Scrubber.GoalFromPrompt(Str(input, "prompt")) : null;
+                    var taken = TakenOffer(Str(input, "prompt"), session, Pending(home, creatura, env));
+                    var goal = taken?.Goal ?? (goalMode == "prompt" ? Scrubber.GoalFromPrompt(Str(input, "prompt")) : null);
                     goal ??= FolderGoal(session);
                     written = Write(home, creatura, env, new ClaimPayload(goal)
                     {
-                        Repo = session.Repo,
-                        Branch = session.Branch,
-                        Folder = session.Cwd,
+                        Repo = taken?.Repo ?? session.Repo,
+                        Branch = taken?.Branch ?? session.Branch,
+                        Folder = taken?.Folder ?? session.Cwd,
                         Tool = ToolName,
                         Session = sessionId,
+                        Offer = taken?.Id,
                     });
                     if (written is not null) session.ClaimId = written.Id;
                     break;
@@ -186,6 +204,34 @@ public static class HookCommand
             Log(home.Root, eventName, sessionId, e);
             return null;
         }
+    }
+
+    /// <summary>The message the person sees: each offer's goal and id, and how to take it. Nothing else of the ledger.</summary>
+    public static string OfferMessage(IReadOnlyList<GoalOffer> offers)
+    {
+        var lines = offers.Select(o => $"- \"{o.Goal}\" (offer {o.Id}, open until {o.ExpiresAt.UtcDateTime.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture)} UTC)");
+        var noun = offers.Count == 1 ? "a goal" : $"{offers.Count} goals";
+        return $"Creatura: the owner offered this vessel {noun}:\n{string.Join("\n", lines)}\nTo take one, name it in your first message, e.g. \"offer {offers[0].Id}\". Nothing is started unless you do.";
+    }
+
+    /// <summary>The offer the first prompt names (<c>offer of-…</c>), when it is one shown at this session's start and still waiting for this cell.</summary>
+    private static GoalOffer? TakenOffer(string? prompt, HookSession session, IReadOnlyList<GoalOffer> pending)
+    {
+        if (string.IsNullOrEmpty(prompt) || session.Offered.Count == 0) return null;
+        return pending.FirstOrDefault(o => session.Offered.Contains(o.Id)
+            && System.Text.RegularExpressions.Regex.IsMatch(prompt, $@"\boffer\s+{System.Text.RegularExpressions.Regex.Escape(o.Id)}\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+    }
+
+    /// <summary>The offers waiting for this home's cell of <paramref name="creatura"/>; none when it is not endorsed.</summary>
+    private static IReadOnlyList<GoalOffer> Pending(CellHome home, string creatura, HookEnvironment env)
+    {
+        using var cell = home.OpenCell(env.Vessel, LoadPosition(home), creatura);
+        if (!cell.Identity.IsEndorsed) return [];
+        using var owner = home.LoadOwner();
+        var ledger = new WorkLedger(new[] { owner?.PublicKey, cell.Identity.Endorsement?.OwnerPublicKey }.OfType<string>().Distinct());
+        home.ApplyRevocations(ledger);
+        LedgerStores.LoadInto(home, home.Ledger, ledger);
+        return ledger.PendingOffers(cell.Id, cell.Identity.Hardware.VesselId, env.Now());
     }
 
     /// <summary>"turn 3: Bash x5, Edit x2; 2 files touched" from the turn's counters, never their content.</summary>

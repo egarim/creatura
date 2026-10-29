@@ -17,7 +17,7 @@ public static class HooksSetup
     /// <summary>The events the cell listens to, and whether each runs in the background.</summary>
     public static readonly (string Event, bool Async)[] Events =
     [
-        ("SessionStart", true),
+        ("SessionStart", false),     // synchronous: its one possible output, an offer's message, is only read when Claude Code waits for it
         ("UserPromptSubmit", true),
         ("PostToolUse", true),
         ("Stop", true),
@@ -29,24 +29,40 @@ public static class HooksSetup
     /// <summary>Indented, and with '&gt;' and '&amp;' left as they are, so a settings file reads as a person would write it.</summary>
     public static readonly JsonSerializerOptions Pretty = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
-    public static string HookCommandLine(string command, string home, string creatura, string goal, string? store = null) =>
+    /// <summary>
+    /// The hook's command line. It can never fail (<c>|| true</c>) and never shows an error (stderr discarded). Its
+    /// stdout is discarded too, except at <c>SessionStart</c> (<paramref name="speaks"/>), where the hook's one possible
+    /// output, an offer's <c>systemMessage</c> JSON for the person, must reach Claude Code.
+    /// </summary>
+    public static string HookCommandLine(string command, string home, string creatura, string goal, string? store = null, bool speaks = false) =>
         $"{ShellQuote(command)} cell hook --home {ShellQuote(home)} --creatura {ShellQuote(creatura)} --goal {goal}"
-        + (store is "sqlite" ? " --store sqlite" : "") + " >/dev/null 2>&1 || true";
+        + (store is "sqlite" ? " --store sqlite" : "") + (speaks ? " 2>/dev/null || true" : " >/dev/null 2>&1 || true");
 
     /// <summary>The <c>hooks</c> object: one group per event, each with one command hook.</summary>
     public static JsonObject HooksBlock(string command, string home, string creatura = HookCommand.DefaultCreatura, string goal = "folder", string? store = null)
     {
-        var line = HookCommandLine(command, home, creatura, goal, store);
         var hooks = new JsonObject();
         foreach (var (name, isAsync) in Events)
         {
-            var hook = new JsonObject { ["type"] = "command", ["command"] = line };
+            var hook = new JsonObject { ["type"] = "command", ["command"] = HookCommandLine(command, home, creatura, goal, store, speaks: name == "SessionStart") };
             if (isAsync) hook["async"] = true;
             else hook["timeout"] = SessionEndTimeoutSeconds;
             hooks[name] = new JsonArray(new JsonObject { ["hooks"] = new JsonArray(hook) });
         }
         return hooks;
     }
+
+    /// <summary>
+    /// The SessionStart group as versions before offers wrote it: silent and in the background. Installing removes it, so
+    /// an upgrade leaves one SessionStart hook, not two; uninstalling removes it as well.
+    /// </summary>
+    public static JsonObject LegacyBlock(string command, string home, string creatura = HookCommand.DefaultCreatura, string goal = "folder", string? store = null) => new()
+    {
+        ["SessionStart"] = new JsonArray(new JsonObject
+        {
+            ["hooks"] = new JsonArray(new JsonObject { ["type"] = "command", ["command"] = HookCommandLine(command, home, creatura, goal, store), ["async"] = true }),
+        }),
+    };
 
     /// <summary>The settings merged with the block: existing keys and hooks kept, each event's group added once.</summary>
     public static (JsonObject Merged, IReadOnlyList<string> Added) Merge(JsonObject settings, JsonObject block)
@@ -110,21 +126,25 @@ public static class HooksSetup
     }
 
     /// <summary>Installs into the settings file (backup first), or with <paramref name="dryRun"/> only reports. Returns the report.</summary>
-    public static string Install(string settingsPath, JsonObject block, bool dryRun, DateTimeOffset now)
+    public static string Install(string settingsPath, JsonObject block, bool dryRun, DateTimeOffset now, JsonObject? legacy = null)
     {
         var before = Read(settingsPath);
-        var (after, added) = Merge(before, block);
-        var report = Diff(before, after, added, block);
-        if (dryRun || added.Count == 0) return report + (dryRun ? "\n(dry run: nothing written)" : "");
+        var (upgraded, replaced) = legacy is null ? (before, []) : Remove(before, legacy);
+        var (after, added) = Merge(upgraded, block);
+        var report = Diff(before, after, added, block)
+            + (replaced.Count > 0 ? $"\nreplaced: the older hooks.{string.Join(", hooks.", replaced)} (silent, in the background)" : "");
+        if (dryRun || (added.Count == 0 && replaced.Count == 0)) return report + (dryRun ? "\n(dry run: nothing written)" : "");
         var backup = Backup(settingsPath, now);
         Write(settingsPath, after);
         return report + $"\nbacked up to {backup}\nwritten {settingsPath}";
     }
 
-    public static string Uninstall(string settingsPath, JsonObject block, bool dryRun, DateTimeOffset now)
+    public static string Uninstall(string settingsPath, JsonObject block, bool dryRun, DateTimeOffset now, JsonObject? legacy = null)
     {
         var before = Read(settingsPath);
-        var (after, removed) = Remove(before, block);
+        var (current, removedNow) = Remove(before, block);
+        var (after, removedOld) = legacy is null ? (current, []) : Remove(current, legacy);
+        var removed = removedNow.Concat(removedOld).Distinct().ToList();
         var report = removed.Count == 0 ? "removed: nothing (not installed)" : $"removed: hooks.{string.Join(", hooks.", removed)}";
         if (dryRun || removed.Count == 0) return report + (dryRun ? "\n(dry run: nothing written)" : "");
         var backup = Backup(settingsPath, now);

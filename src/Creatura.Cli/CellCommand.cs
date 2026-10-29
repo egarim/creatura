@@ -26,6 +26,15 @@ public static class CellCommand
           stream [--port <n>] [--no-open]
                                        serve the activity stream as a page on 127.0.0.1 only, read-only, and open it
 
+        goals offered to cells (docs/design-activity-stream.md):
+          offer --to <cell, vessel or host name> --goal <text> [--repo --branch --folder] [--expires <24h|3d>]
+                                       on the owner's vessel: offer a goal, signed with the owner key
+          withdraw --offer <id>        on the owner's vessel: take an offer back
+          offers [--all]               the offers waiting for this cell; --all: every offer and where it stands
+          take --offer <id>            claim an offer waiting for this cell
+          decline --offer <id> --reason <text>
+                                       say no to an offer waiting for this cell
+
         joining Claude Code (docs/design-cells.md, "How host tools join"):
           hook                         one hook event on stdin; prints nothing, always exits 0 (--goal folder|prompt)
           hooks-config                 the "hooks" block for ~/.claude/settings.json (--command <path to creatura>)
@@ -63,7 +72,7 @@ public static class CellCommand
                                        which imports ledger.json on its first run and is the ledger from then on)
         """;
 
-    private static readonly HashSet<string> Flags = new(StringComparer.Ordinal) { "--open", "--blocked", "--no-mesh", "--help", "--dry-run", "--quiet", "--no-load", "--no-open" };
+    private static readonly HashSet<string> Flags = new(StringComparer.Ordinal) { "--open", "--blocked", "--no-mesh", "--help", "--dry-run", "--quiet", "--no-load", "--no-open", "--all" };
 
     private static readonly TimeSpan InteractiveLockWait = TimeSpan.FromSeconds(10);
 
@@ -109,6 +118,11 @@ public static class CellCommand
                 "ledger" => Ledger(context),
                 "activity" => Activity(context),
                 "stream" => Stream(context),
+                "offer" => Offer(context),
+                "withdraw" => Withdraw(context),
+                "offers" => Offers(context),
+                "take" => Take(context),
+                "decline" => Decline(context),
                 "hooks-config" => HooksConfig(context),
                 "install-hooks" => InstallHooks(context, install: true),
                 "uninstall-hooks" => InstallHooks(context, install: false),
@@ -203,6 +217,138 @@ public static class CellCommand
         store.Save(ledger);
         c.Out.WriteLine($"claimed {claim.Id}: {goal}");
         return 0;
+    }
+
+    /// <summary>A goal offered by the owner to a cell or a vessel, written as an entry of this home's cell with the owner's signature inside.</summary>
+    private static int Offer(Context c)
+    {
+        var goal = Required(c, "--goal");
+        var to = Required(c, "--to");
+        var lifetime = Lifetime(c.Options.GetValueOrDefault("--expires") ?? "24h");
+        using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
+        using var owner = c.Home.LoadOwner() ?? throw new InvalidOperationException("only the owner's vessel can offer a goal: this home has no owner key");
+        using var cell = OpenEndorsed(c);
+        var (ledger, store) = OpenLedger(c, cell);
+        SayHelloIfNeeded(ledger, cell);
+        var (target, name) = Addressee(ledger, to);
+        var offer = owner.Offer(target, goal, DateTimeOffset.UtcNow, lifetime,
+            c.Options.GetValueOrDefault("--repo"), c.Options.GetValueOrDefault("--branch"), c.Options.GetValueOrDefault("--folder"));
+        ledger.Append(cell, new OfferPayload(offer));
+        store.Save(ledger);
+        c.Out.WriteLine($"offered      {offer.Id} to {name}: {goal}");
+        c.Out.WriteLine($"open until   {CellJson.Stamp(offer.ExpiresAt)[..16]}Z; it reaches the other vessels with the next sync");
+        return 0;
+    }
+
+    private static int Withdraw(Context c)
+    {
+        var id = Required(c, "--offer");
+        using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
+        using var owner = c.Home.LoadOwner() ?? throw new InvalidOperationException("only the owner's vessel can withdraw an offer: this home has no owner key");
+        using var cell = OpenEndorsed(c);
+        var (ledger, store) = OpenLedger(c, cell);
+        var state = ledger.OfferState(id) ?? throw new InvalidOperationException($"no offer {id} in the ledger");
+        if (state.Offer.OwnerPublicKey != owner.PublicKey) throw new InvalidOperationException($"{id} was offered by another owner");
+        ledger.Append(cell, new WithdrawPayload(owner.Withdraw(id, DateTimeOffset.UtcNow)));
+        store.Save(ledger);
+        c.Out.WriteLine($"withdrew     {id}: {state.Offer.Goal}{(state.Status is OfferStatus.Taken or OfferStatus.Conflict ? " (already taken; the claim stands)" : "")}");
+        return 0;
+    }
+
+    private static int Offers(Context c)
+    {
+        using var cell = OpenEndorsed(c);
+        WorkLedger ledger;
+        using (LedgerLock.Acquire(c.Home.Root, InteractiveLockWait)) ledger = OpenLedger(c, cell).Ledger;
+        var now = DateTimeOffset.UtcNow;
+        if (c.Options.ContainsKey("--all"))
+        {
+            var all = ledger.OfferStates();
+            c.Out.WriteLine($"{all.Count} offer{(all.Count == 1 ? "" : "s")}");
+            foreach (var s in all)
+            {
+                var status = s.Status == OfferStatus.Open && s.Offer.ExpiresAt <= now ? "lapsed" : s.Status.ToString().ToLowerInvariant();
+                c.Out.WriteLine($"{s.Offer.Id}  {status,-9}  to {s.Offer.To}: {s.Offer.Goal}{(s.Claims.Count > 0 ? $"  (claim{(s.Claims.Count == 1 ? "" : "s")} {string.Join(", ", s.Claims.Select(x => x.Id))})" : "")}");
+            }
+            return 0;
+        }
+
+        var pending = ledger.PendingOffers(cell.Id, cell.Identity.Hardware.VesselId, now);
+        c.Out.WriteLine($"{pending.Count} offer{(pending.Count == 1 ? "" : "s")} waiting for {cell.Id}");
+        foreach (var o in pending) c.Out.WriteLine($"{o.Id}  until {CellJson.Stamp(o.ExpiresAt)[..16]}Z  {o.Goal}");
+        return 0;
+    }
+
+    /// <summary>A claim that takes an offer waiting for this cell: the offer's goal and place, citing it.</summary>
+    private static int Take(Context c)
+    {
+        var id = Required(c, "--offer");
+        using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
+        using var cell = OpenEndorsed(c);
+        var (ledger, store) = OpenLedger(c, cell);
+        var offer = ledger.PendingOffers(cell.Id, cell.Identity.Hardware.VesselId, DateTimeOffset.UtcNow).FirstOrDefault(o => o.Id == id)
+            ?? throw new InvalidOperationException($"{id} is not waiting for {cell.Id} (`creatura cell offers` lists what is)");
+        SayHelloIfNeeded(ledger, cell);
+        var claim = ledger.Append(cell, new ClaimPayload(offer.Goal)
+        {
+            Repo = offer.Repo,
+            Branch = offer.Branch,
+            Folder = offer.Folder,
+            Tool = c.Options.GetValueOrDefault("--tool"),
+            Session = c.Options.GetValueOrDefault("--session"),
+            Offer = offer.Id,
+        });
+        store.Save(ledger);
+        c.Out.WriteLine($"claimed {claim.Id}: {offer.Goal} (offer {offer.Id})");
+        return 0;
+    }
+
+    private static int Decline(Context c)
+    {
+        var id = Required(c, "--offer");
+        var reason = Required(c, "--reason");
+        using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
+        using var cell = OpenEndorsed(c);
+        var (ledger, store) = OpenLedger(c, cell);
+        if (ledger.PendingOffers(cell.Id, cell.Identity.Hardware.VesselId, DateTimeOffset.UtcNow).All(o => o.Id != id))
+            throw new InvalidOperationException($"{id} is not waiting for {cell.Id} (`creatura cell offers` lists what is)");
+        var state = ledger.OfferState(id)!;
+        SayHelloIfNeeded(ledger, cell);
+        ledger.Append(cell, new HandOffPayload(state.Entry.Id, reason) { Offer = id });
+        store.Save(ledger);
+        c.Out.WriteLine($"declined     {id}: {reason}");
+        return 0;
+    }
+
+    /// <summary>Whom an offer goes to: a cell id, a vessel id, or a host name a hello gave (the vessel it names).</summary>
+    private static (string Target, string Name) Addressee(WorkLedger ledger, string to)
+    {
+        var hellos = ledger.Entries.Where(e => e.Kind == EntryKind.Hello).Select(e => e.Body<HelloPayload>().Cell).ToList();
+        if (hellos.Any(h => CellKey.CellIdOf(h.PublicKey) == to)) return (to, $"cell {to}");
+        if (hellos.Any(h => h.Hardware.VesselId == to)) return (to, $"vessel {to}");
+        var named = hellos.Where(h => string.Equals(h.Hardware.HostName, to, StringComparison.OrdinalIgnoreCase) || string.Equals(h.Position.Node, to, StringComparison.OrdinalIgnoreCase))
+            .Select(h => h.Hardware.VesselId).Distinct().ToList();
+        return named.Count switch
+        {
+            1 => (named[0], $"any cell on {to} (vessel {named[0]})"),
+            0 => throw new ArgumentException($"no cell, vessel or host named {to} in the ledger"),
+            _ => throw new ArgumentException($"{to} names {named.Count} vessels; use a vessel id"),
+        };
+    }
+
+    /// <summary>"24h", "3d" or "90m".</summary>
+    private static TimeSpan Lifetime(string text)
+    {
+        var unit = text[^1];
+        if (text.Length < 2 || !double.TryParse(text[..^1], NumberStyles.Float, CultureInfo.InvariantCulture, out var n) || n <= 0)
+            throw new ArgumentException($"--expires takes a number and m, h or d, e.g. 24h; not {text}");
+        return unit switch
+        {
+            'm' => TimeSpan.FromMinutes(n),
+            'h' => TimeSpan.FromHours(n),
+            'd' => TimeSpan.FromDays(n),
+            _ => throw new ArgumentException($"--expires takes a number and m, h or d, e.g. 24h; not {text}"),
+        };
     }
 
     private static int OnClaim<T>(Context c, string field, Func<string, string, T> payload) where T : IEntryPayload
@@ -449,6 +595,10 @@ public static class CellCommand
         HooksSetup.HooksBlock(HookCommandPath(c), c.Home.Root, c.Options.GetValueOrDefault("--creatura") ?? HookCommand.DefaultCreatura,
             c.Options.GetValueOrDefault("--goal") is "prompt" ? "prompt" : "folder", c.Options.GetValueOrDefault("--store"));
 
+    private static System.Text.Json.Nodes.JsonObject Legacy(Context c) =>
+        HooksSetup.LegacyBlock(HookCommandPath(c), c.Home.Root, c.Options.GetValueOrDefault("--creatura") ?? HookCommand.DefaultCreatura,
+            c.Options.GetValueOrDefault("--goal") is "prompt" ? "prompt" : "folder", c.Options.GetValueOrDefault("--store"));
+
     private static int HooksConfig(Context c)
     {
         var wrapper = new System.Text.Json.Nodes.JsonObject { ["hooks"] = Block(c) };
@@ -461,8 +611,8 @@ public static class CellCommand
         var settings = Required(c, "--settings");
         var dryRun = c.Options.ContainsKey("--dry-run");
         c.Out.WriteLine(install
-            ? HooksSetup.Install(settings, Block(c), dryRun, DateTimeOffset.UtcNow)
-            : HooksSetup.Uninstall(settings, Block(c), dryRun, DateTimeOffset.UtcNow));
+            ? HooksSetup.Install(settings, Block(c), dryRun, DateTimeOffset.UtcNow, Legacy(c))
+            : HooksSetup.Uninstall(settings, Block(c), dryRun, DateTimeOffset.UtcNow, Legacy(c)));
         return 0;
     }
 

@@ -294,6 +294,41 @@ public sealed class HookTests
         var line = HooksSetup.HookCommandLine("/Users/owner/.creatura/bin/creatura", "/Users/owner/.creatura", Creatura, "folder");
         Assert.Equal("/Users/owner/.creatura/bin/creatura cell hook --home /Users/owner/.creatura --creatura claude-code --goal folder >/dev/null 2>&1 || true", line);
         Assert.Equal("'/tmp/a b/creatura'", HooksSetup.ShellQuote("/tmp/a b/creatura"));
+
+        // SessionStart alone lets stdout through (an offer's message for the person), still never failing or showing
+        // an error; and it runs synchronously, since Claude Code reads a hook's output only when it waits for it.
+        var block = HooksSetup.HooksBlock("/Users/owner/.creatura/bin/creatura", "/Users/owner/.creatura");
+        var start = block["SessionStart"]![0]!["hooks"]![0]!;
+        Assert.EndsWith("--goal folder 2>/dev/null || true", (string)start["command"]!, StringComparison.Ordinal);
+        Assert.Null(start["async"]);
+        foreach (var name in new[] { "UserPromptSubmit", "PostToolUse", "Stop", "SessionEnd" })
+        {
+            Assert.EndsWith(">/dev/null 2>&1 || true", (string)block[name]![0]!["hooks"]![0]!["command"]!, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void InstallingOverAnOlderHooksBlockLeavesOneSessionStartHook()
+    {
+        using var dir = new TempHome();
+        var settings = Path.Combine(dir.Path, "settings.json");
+        File.WriteAllText(settings, "{}");
+        const string command = "/Users/owner/.creatura/bin/creatura";
+        var legacy = HooksSetup.LegacyBlock(command, "/Users/owner/.creatura");
+        var old = HooksSetup.HooksBlock(command, "/Users/owner/.creatura");
+        old["SessionStart"] = legacy["SessionStart"]!.DeepClone();
+        HooksSetup.Install(settings, old, dryRun: false, DateTimeOffset.UtcNow);
+
+        var report = HooksSetup.Install(settings, HooksSetup.HooksBlock(command, "/Users/owner/.creatura"), dryRun: false, DateTimeOffset.UtcNow.AddMinutes(1), legacy);
+        Assert.Contains("replaced: the older hooks.SessionStart", report, StringComparison.Ordinal);
+        var hooks = JsonNode.Parse(File.ReadAllText(settings))!["hooks"]!;
+        var starts = hooks["SessionStart"]!.AsArray();
+        Assert.Single(starts);
+        Assert.EndsWith("2>/dev/null || true", (string)starts[0]!["hooks"]![0]!["command"]!, StringComparison.Ordinal);
+        Assert.All(new[] { "UserPromptSubmit", "PostToolUse", "Stop", "SessionEnd" }, name => Assert.Single(hooks[name]!.AsArray()));
+
+        HooksSetup.Uninstall(settings, HooksSetup.HooksBlock(command, "/Users/owner/.creatura"), dryRun: false, DateTimeOffset.UtcNow.AddMinutes(2), legacy);
+        Assert.Null(JsonNode.Parse(File.ReadAllText(settings))!["hooks"]);
     }
 
     private static (int Code, string Stdout, string Stderr) RunCli(string stdin, params string[] args)

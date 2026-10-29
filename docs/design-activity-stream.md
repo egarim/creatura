@@ -1,7 +1,7 @@
 # Design: the activity stream, and goals offered to cells
 
-Status: decided (owner, 2026-10-29: every recommendation below taken). The first slice, the read-only stream, is
-being built; offers come after the owner has used it. The tests below were written before the code.
+Status: decided (owner, 2026-10-29: every recommendation below taken). Both slices are built: the read-only stream
+and goals offered to cells. The tests below were written before the code.
 
 ## The problem
 
@@ -178,6 +178,39 @@ and the breaks and the machine showed it:
 Live on the owner's laptop, against its real ledger: 239 activities from 2 cells (Claude Code on the laptop and on the
 Surface), one thread per claim, the Surface marked quiet after a day without an entry, and a POST refused with 405.
 The page's figures are all the project's icon until the owner picks the versions; the rings already differ by vessel.
+
+### Results (2026-10-29): offers
+
+Built: `GoalOffer` and `GoalWithdrawal`, signed by the owner key; the `Offer` and `Withdraw` entry kinds, which a
+ledger takes only when the owner signature inside verifies by an owner it trusts; `ClaimPayload.Offer` (taking) and
+`HandOffPayload.Offer` (declining); `PendingOffers` and `OfferStates`; the commands `offer` (to a cell id, a vessel id
+or a host name), `withdraw`, `offers [--all]`, `take` and `decline`; offers in the stream as `Offer` by the owner,
+with a state (open, taken, conflict, withdrawn), `Undo` and `Reject`. At a new session's start (not a resume or a
+compaction) the hook prints one JSON object whose only field is `systemMessage`; the first prompt takes an offer by
+naming it (`offer of-…`). The page gained a Simple view, at the owner's request: each claim as a sentence or two,
+offers and flags in words, no steps or metadata; Full is the view as it was.
+
+C27, C28 and C29 pass, with C23 to C26 still holding; seven deliberate breaks each fail one, on the first pass: an
+offer trusted on its cell signature alone, another owner's offer accepted, a lapsed offer shown, a withdrawal ignored,
+two claims not marked as a conflict, the hook printing plain text, and the offer shown again on resume.
+
+Live, across two vessels. Old binaries fail on an unknown entry kind while reading it, so the laptop's CLI, the hub
+and the Surface were upgraded first (each backed up beside itself). The mesh could not carry traffic from the laptop
+that day (another VPN was up, and Tailscale had no network map), so the Surface synced through an SSH tunnel through
+`vpn-a`, signed as always. The laptop offered "report the Surface's ledger: how many entries it holds and its digest"
+to any cell on SURFACE (`of-ae68d3755d`); the Surface synced, listed it as waiting, took it, recorded a step, and
+released it with "249 entries from 2 cells, digest 893ef955842bde15"; after both synced, both ledgers held 251
+entries with the digest `bf8aab185b47fb4e`, and the stream showed the offer taken and the claim finished.
+
+Found live, on the laptop: the installed hooks discarded every hook's stdout (`>/dev/null 2>&1`) and ran SessionStart
+in the background, so no message could reach the person. SessionStart now runs synchronously (a 5 s timeout) and
+discards only stderr; the other events stay silent and in the background; `install-hooks` replaces the older
+SessionStart group instead of adding a second. The installed command, fed a SessionStart event, printed exactly the
+one JSON object.
+
+Not yet seen: the message in a real Claude Code session. The documentation says a SessionStart `systemMessage` is
+shown to the person and not added to the model's context; one session on the laptop, after an offer to its vessel,
+settles it.
 
 ## Decided (owner, 2026-10-29)
 

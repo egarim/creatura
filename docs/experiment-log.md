@@ -122,16 +122,20 @@ runs are recorded only in the design note.
 
 ## Step activity-stream
 
-2 entries; 0 touched the battery's seeds 0 to 49.
+4 entries; 0 touched the battery's seeds 0 to 49.
 
 | # | when | commit | kind | seeds | what | result | used for |
 |---|---|---|---|---|---|---|---|
 | 34 | 2026-10-29 18:18 | `1702d86`* | build | — | Six deliberate breaks of the activity stream (C23 to C26) | first pass 5 of 6: the sealed name got through because C25 searched raw JSON (base64 '+' escaped); C25 now searches decoded strings; second pass 6 of 6. C26's first version was fooled by a VPN tunnel accepting any TCP connect; it now checks for the stream's answer | that C23 to C26 catch what they claim |
 | 35 | 2026-10-29 18:18 | `1702d86`* | check | — | The stream on this laptop's real ledger, and the full suite | 239 activities from 2 cells, the Surface marked quiet, POST 405; 741 of 741 tests pass | the results section of docs/design-activity-stream.md |
+| 36 | 2026-10-29 18:42 | `b1a7f9f`* | build | — | Seven deliberate breaks of offers (C27 to C29) | 7 of 7 caught on the first pass | that C27 to C29 catch what they claim |
+| 37 | 2026-10-29 18:42 | `b1a7f9f`* | check | — | An offer across two vessels: the laptop offers, the Surface takes and releases | of-ae68d3755d taken and released; both ledgers 251 entries, digest bf8aab185b47fb4e; 744 of 744 tests pass | the offers results in docs/design-activity-stream.md |
 
 <details><summary>Commands</summary>
 
 - #34: `python3 streambreaks.py (scratch): a build time in the document, heartbeats in the timeline, progress outside its thread, an artifact's sealed name copied in, the server on every interface, every method answered`
 - #35: `creatura cell stream --creatura claude-code --no-open; dotnet test Creatura.slnx`
+- #36: `python3 offerbreaks.py (scratch)`
+- #37: `creatura cell offer --to SURFACE ...; on the Surface (through an SSH tunnel via vpn-a): sync, offers, take, progress, release, sync`
 
 </details>

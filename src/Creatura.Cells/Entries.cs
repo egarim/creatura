@@ -31,6 +31,12 @@ public enum EntryKind
 
     /// <summary>Something this cell saw in the world that the others may act on: a subject and the evidence. Refers to no claim.</summary>
     Warning,
+
+    /// <summary>A goal the owner offers a cell or a vessel, signed by the owner inside the entry (docs/design-activity-stream.md).</summary>
+    Offer,
+
+    /// <summary>The owner taking an offer back, signed by the owner inside the entry.</summary>
+    Withdraw,
 }
 
 /// <summary>A payload of one entry kind. The kind is the type's, so a payload cannot be filed under another.</summary>
@@ -60,6 +66,9 @@ public sealed record ClaimPayload(string Goal) : IEntryPayload
 
     /// <summary>The host tool's own session id, so its history can be found.</summary>
     public string? Session { get; init; }
+
+    /// <summary>The offer this claim takes (<see cref="GoalOffer.Id"/>), when it takes one.</summary>
+    public string? Offer { get; init; }
 }
 
 /// <summary>A step of a claim's work. <see cref="Claim"/> is the claim entry's id (<see cref="SignedEntry.Id"/>).</summary>
@@ -73,9 +82,13 @@ public sealed record ProgressPayload(string Claim, string Row) : IEntryPayload
     public bool? Blocked { get; init; }
 }
 
+/// <summary>Stopping work on a claim. A decline is a hand-off of an offer never started: <see cref="Claim"/> is the offer's entry id and <see cref="Offer"/> its id.</summary>
 public sealed record HandOffPayload(string Claim, string Reason) : IEntryPayload
 {
     public static EntryKind Kind => EntryKind.HandOff;
+
+    /// <summary>The offer this hand-off declines, when it declines one.</summary>
+    public string? Offer { get; init; }
 }
 
 public sealed record ReleasePayload(string Claim, string Evidence) : IEntryPayload

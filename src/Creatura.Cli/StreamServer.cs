@@ -85,7 +85,7 @@ public sealed class StreamServer : IAsyncDisposable
                 var request = await ReadHead(stream).ConfigureAwait(false);
                 if (request is null) return;
                 var (method, target) = request.Value;
-                var (status, type, body) = method == "GET" ? Answer(target) : (405, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("read-only: GET only\n"));
+                var (status, type, body) = method == "GET" ? SafeAnswer(target) : (405, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("read-only: GET only\n"));
                 var head = new StringBuilder()
                     .Append($"HTTP/1.1 {status} {Reason(status)}\r\n")
                     .Append($"Content-Type: {type}\r\n")
@@ -122,6 +122,20 @@ public sealed class StreamServer : IAsyncDisposable
         return line.Length < 2 ? null : (line[0], line[1]);
     }
 
+    /// <summary>The answer, or a 500 that says why: a ledger this build cannot read (an entry kind from a newer version) is reported, not a dropped connection.</summary>
+    private (int Status, string Type, byte[] Body) SafeAnswer(string target)
+    {
+        try
+        {
+            return Answer(target);
+        }
+        catch (Exception e) when (e is System.Text.Json.JsonException or InvalidOperationException or IOException or FormatException or NotSupportedException or TimeoutException)
+        {
+            return (500, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes(
+                $"this creatura cannot read the ledger: {e.Message}\nif the ledger has entries from a newer version, update this tool and start the stream again\n"));
+        }
+    }
+
     private (int Status, string Type, byte[] Body) Answer(string target)
     {
         var path = target.Split('?', 2)[0];
@@ -152,6 +166,7 @@ public sealed class StreamServer : IAsyncDisposable
         200 => "OK",
         400 => "Bad Request",
         404 => "Not Found",
+        500 => "Internal Server Error",
         405 => "Method Not Allowed",
         _ => "Error",
     };

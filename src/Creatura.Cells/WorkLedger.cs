@@ -188,6 +188,18 @@ public sealed class WorkLedger
                 case EntryKind.Warning:
                     if (string.IsNullOrWhiteSpace(entry.Body<WarningPayload>().Subject)) return "a warning about nothing";
                     break;
+                case EntryKind.Offer:
+                    // The cell signature around it is not enough: the owner's own signature inside must verify, by an owner this ledger trusts.
+                    var offer = entry.Body<OfferPayload>().Offer;
+                    if (!_owners.Contains(offer.OwnerPublicKey)) return "an offer from an owner this ledger does not trust";
+                    if (checkSignatures && !offer.Verify()) return "an offer whose owner signature does not verify";
+                    if (string.IsNullOrWhiteSpace(offer.Goal) || offer.ExpiresAt <= offer.IssuedAt) return "an offer with no goal or no time to take it";
+                    break;
+                case EntryKind.Withdraw:
+                    var withdrawal = entry.Body<WithdrawPayload>().Withdrawal;
+                    if (!_owners.Contains(withdrawal.OwnerPublicKey)) return "a withdrawal from an owner this ledger does not trust";
+                    if (checkSignatures && !withdrawal.Verify()) return "a withdrawal whose owner signature does not verify";
+                    break;
                 default: return "an unknown kind";
             }
         }

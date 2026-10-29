@@ -68,7 +68,9 @@ public static class ActivityStream
     public static IReadOnlyList<JsonObject> Activities(WorkLedger ledger)
     {
         var names = ActorNames(ledger);
-        return ledger.Entries.Where(e => e.Kind != EntryKind.Heartbeat).Reverse().Select(e => Activity(e, names)).ToList();
+        var offers = ledger.OfferStates().ToDictionary(o => o.Offer.Id, StringComparer.Ordinal);
+        var vessels = VesselNames(ledger);
+        return ledger.Entries.Where(e => e.Kind != EntryKind.Heartbeat).Reverse().Select(e => Activity(e, names, offers, vessels)).ToList();
     }
 
     /// <summary>One actor per cell in the ledger, in id order: a <c>Service</c> with its name, kind, vessel, ring colour, last-seen time and load.</summary>
@@ -98,6 +100,21 @@ public static class ActivityStream
             actors.Add(actor);
         }
 
+        // The owners who offered goals, as people.
+        foreach (var owner in ledger.OfferStates().Select(o => o.Offer).GroupBy(o => o.OwnerPublicKey).OrderBy(g => g.First().OwnerFingerprint, StringComparer.Ordinal))
+        {
+            var fingerprint = owner.First().OwnerFingerprint;
+            actors.Add(new JsonObject
+            {
+                ["id"] = OwnerId(fingerprint),
+                ["type"] = "Person",
+                ["name"] = "the owner",
+                ["icon"] = new JsonObject { ["type"] = "Image", ["mediaType"] = "image/svg+xml", ["url"] = "icon.svg" },
+                ["creatura:kind"] = "owner",
+                ["creatura:fingerprint"] = fingerprint,
+            });
+        }
+
         return actors;
     }
 
@@ -123,6 +140,15 @@ public static class ActivityStream
 
     private static string ClaimId(string claimEntryId) => $"urn:creatura:claim:{claimEntryId}";
 
+    private static string OfferId(string offerId) => $"urn:creatura:offer:{offerId}";
+
+    private static string OwnerId(string fingerprint) => $"urn:creatura:owner:{fingerprint}";
+
+    /// <summary>Each vessel's name, from the hellos of the cells on it.</summary>
+    private static Dictionary<string, string> VesselNames(WorkLedger ledger) => ledger.Entries.Where(e => e.Kind == EntryKind.Hello)
+        .GroupBy(e => e.Endorsement.VesselId)
+        .ToDictionary(g => g.Key, g => VesselName(g.Last().Body<HelloPayload>().Cell, g.Key), StringComparer.Ordinal);
+
     private static string Stamp(DateTimeOffset at) => at.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'", CultureInfo.InvariantCulture);
 
     /// <summary>What kind of actor a cell is, from the tool its claims name: the face it wears (claude-code, codex, ...), or <c>cell</c>.</summary>
@@ -142,7 +168,7 @@ public static class ActivityStream
         g => $"{KindOf(g)} on {VesselName(g.LastOrDefault(e => e.Kind == EntryKind.Hello)?.Body<HelloPayload>().Cell, g.Last().Endorsement.VesselId)}",
         StringComparer.Ordinal);
 
-    private static JsonObject Activity(SignedEntry e, IReadOnlyDictionary<string, string> names)
+    private static JsonObject Activity(SignedEntry e, IReadOnlyDictionary<string, string> names, IReadOnlyDictionary<string, OfferState> offers, IReadOnlyDictionary<string, string> vessels)
     {
         var who = names[e.Cell];
         var activity = new JsonObject
@@ -175,9 +201,14 @@ public static class ActivityStream
                 if (claim.Tool is not null) thing["creatura:tool"] = claim.Tool;
                 if (claim.Session is not null) thing["creatura:session"] = claim.Session;
                 activity["type"] = "Create";
-                activity["summary"] = $"{who} started '{claim.Goal}'{(where.Length > 0 ? $" in {where}" : "")}";
+                activity["summary"] = $"{who} {(claim.Offer is null ? "" : "took the owner's offer and ")}started '{claim.Goal}'{(where.Length > 0 ? $" in {where}" : "")}";
                 activity["object"] = thing;
                 activity["context"] = ClaimId(e.Id);
+                if (claim.Offer is not null)
+                {
+                    activity["creatura:offer"] = OfferId(claim.Offer);
+                    if (offers.TryGetValue(claim.Offer, out var taken) && taken.Status == OfferStatus.Conflict) activity["creatura:conflict"] = true;
+                }
                 break;
 
             case EntryKind.Progress:
@@ -189,6 +220,13 @@ public static class ActivityStream
                 activity["context"] = ClaimId(progress.Claim);
                 if (progress.Stress is { } stress) activity["creatura:stress"] = stress;
                 if (progress.Blocked is { } blocked) activity["creatura:blocked"] = blocked;
+                break;
+
+            case EntryKind.HandOff when e.Body<HandOffPayload>().Offer is { } declined:
+                activity["type"] = "Reject";
+                activity["summary"] = $"{who} declined the offer: {e.Body<HandOffPayload>().Reason}";
+                activity["object"] = OfferId(declined);
+                activity["content"] = e.Body<HandOffPayload>().Reason;
                 break;
 
             case EntryKind.HandOff:
@@ -225,6 +263,32 @@ public static class ActivityStream
                 activity["summary"] = $"{who} shared a file of {Size(artifact.Size)} with {recipients} cell{(recipients == 1 ? "" : "s")}";
                 activity["object"] = new JsonObject { ["type"] = "Document", ["creatura:size"] = artifact.Size, ["creatura:recipients"] = recipients };
                 if (artifact.Claim is not null) activity["context"] = ClaimId(artifact.Claim);
+                break;
+
+            case EntryKind.Offer:
+                // Made by the owner: the owner is the actor; the cell that carried it is in the entry block below.
+                var offer = e.Body<OfferPayload>().Offer;
+                var target = offer.To == e.Cell || names.ContainsKey(offer.To) ? names.GetValueOrDefault(offer.To, offer.To)
+                    : vessels.TryGetValue(offer.To, out var vesselName) ? $"any cell on {vesselName}" : offer.To;
+                var goal = new JsonObject { ["id"] = OfferId(offer.Id), ["type"] = "creatura:Goal", ["name"] = offer.Goal };
+                if (offer.Repo is not null) goal["creatura:repo"] = offer.Repo;
+                if (offer.Branch is not null) goal["creatura:branch"] = offer.Branch;
+                if (offer.Folder is not null) goal["creatura:folder"] = offer.Folder;
+                activity["type"] = "Offer";
+                activity["actor"] = OwnerId(offer.OwnerFingerprint);
+                activity["summary"] = $"the owner offered '{offer.Goal}' to {target}";
+                activity["object"] = goal;
+                activity["target"] = names.ContainsKey(offer.To) ? ActorId(offer.To) : $"urn:creatura:vessel:{offer.To}";
+                activity["endTime"] = Stamp(offer.ExpiresAt);
+                activity["creatura:state"] = (offers.TryGetValue(offer.Id, out var state) ? state.Status : OfferStatus.Open).ToString().ToLowerInvariant();
+                break;
+
+            case EntryKind.Withdraw:
+                var withdrawal = e.Body<WithdrawPayload>().Withdrawal;
+                activity["type"] = "Undo";
+                activity["actor"] = OwnerId(CellKey.FingerprintOf(withdrawal.OwnerPublicKey));
+                activity["summary"] = $"the owner withdrew '{(offers.TryGetValue(withdrawal.Offer, out var gone) ? gone.Offer.Goal : withdrawal.Offer)}'";
+                activity["object"] = OfferId(withdrawal.Offer);
                 break;
 
             default:

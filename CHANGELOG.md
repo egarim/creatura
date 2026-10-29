@@ -5,7 +5,14 @@
 - **The activity stream** (docs/design-activity-stream.md, the first slice): `ActivityStream` in `Creatura.Cells`
   presents the ledger in Activity Streams 2.0, a pure function of the verified ledger with nothing sealed in it;
   `creatura cell activity` writes it, and `creatura cell stream` serves it with a page on 127.0.0.1 only, read-only.
-  C23 to C26 hold; six deliberate breaks each fail one. Offers to cells come next.
+  C23 to C26 hold; six deliberate breaks each fail one.
+- **Goals offered to cells**: the owner signs an offer (`creatura cell offer`), a cell takes it (`take`, or the
+  session's first prompt after the hook shows it) or declines it; offers and their state are in the stream, and the
+  page has a Simple view. C27 to C29 hold; seven deliberate breaks each fail one. Live between the laptop and the
+  Surface. Entry kinds `Offer` and `Withdraw` are new: a hub and every cell must be upgraded before the first offer.
+- **The SessionStart hook speaks**: it runs synchronously and lets stdout through (stderr still discarded), so an
+  offer's message reaches the person; run `creatura cell install-hooks` again to upgrade (it replaces the old group).
+- **The stream reports an unreadable ledger** with a 500 and the reason, instead of dropping the connection.
 
 ## 0.2.0-preview.1 (2026-10-29)
 

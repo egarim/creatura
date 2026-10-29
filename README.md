@@ -428,7 +428,10 @@ signed, append-only work ledger that says who is working on what. What is built:
 - **Automatic sync on macOS.** launchd agents for the sync, and for the hub on the vessel that serves it.
 - **The activity stream** ([docs/design-activity-stream.md](docs/design-activity-stream.md)). The ledger as an
   Activity Streams 2.0 collection, and `creatura cell stream`: a read-only page of who is working on what, served on
-  127.0.0.1 only from this vessel's copy of the ledger, one thread per claim, quiet vessels marked.
+  127.0.0.1 only from this vessel's copy of the ledger, one thread per claim, quiet vessels marked; Simple or Full.
+- **Goals offered to cells.** `offer --to <host> --goal <text>` on the owner's vessel signs an offer with the owner
+  key; a cell there sees it (`offers`, or a message at the start of a Claude Code session) and takes it (`take`, or by
+  naming it in the session's first prompt) or declines it. The stream shows each offer and who took it.
 
 ```bash
 dotnet run --project src/Creatura.Cli -- cell init
@@ -439,6 +442,7 @@ dotnet run --project src/Creatura.Cli -- cell --help
 |---|---|
 | this cell | `init`, `whoami`, `owner-key` |
 | work | `claim`, `progress`, `release`, `handoff`, `heartbeat`, `ledger`, `activity`, `stream` |
+| goals | `offer`, `withdraw`, `offers`, `take`, `decline` |
 | more vessels | `request`, `endorse`, `accept`, `revoke` |
 | the hub | `sync`, `publish-hub`, `launchd-config`, `install-launchd`, `uninstall-launchd` |
 | shared files | `share`, `files`, `fetch` |

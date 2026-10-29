@@ -123,6 +123,21 @@ public sealed class OwnerKey : IDisposable
         return unsigned with { Signature = _key.Sign(unsigned.SignedBytes()) };
     }
 
+    /// <summary>Signs a goal offered to a cell or a vessel (<paramref name="to"/>), open for <paramref name="lifetime"/>.</summary>
+    public GoalOffer Offer(string to, string goal, DateTimeOffset at, TimeSpan lifetime, string? repo = null, string? branch = null, string? folder = null)
+    {
+        var issued = at.ToUniversalTime();
+        var unsigned = new GoalOffer(GoalOffer.NewId(), to, goal, issued, issued + lifetime, PublicKey, "") { Repo = repo, Branch = branch, Folder = folder };
+        return unsigned with { Signature = _key.Sign(unsigned.SignedBytes()) };
+    }
+
+    /// <summary>Signs taking an offer back.</summary>
+    public GoalWithdrawal Withdraw(string offerId, DateTimeOffset at)
+    {
+        var unsigned = new GoalWithdrawal(offerId, at.ToUniversalTime(), PublicKey, "");
+        return unsigned with { Signature = _key.Sign(unsigned.SignedBytes()) };
+    }
+
     public void Dispose() => _key.Dispose();
 }
 
