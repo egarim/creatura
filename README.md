@@ -82,71 +82,70 @@ Hotz's critic included, and [samples/QuickStart](samples/QuickStart/Program.cs) 
 
 ## Layout
 
-```
-Creatura.slnx
-src/Creatura/                 the framework Core: no package references, no project references
-  Core/                       the loop, the control layer, worlds, tasks, trace, identity (namespace Creatura)
-  Core/Regulators/            SelfModelRegulator, ColonyRegulator, HybridRegulator, MapKeeperRegulator (+ Story,
-                              TerritoryMap, Posture), OrientingRegulator; Regulators.Join (namespace Creatura)
-  Hotz/                       the critic: claims, routes, the interrupt budget (namespace Creatura.Hotz)
-  Orienting/                  habituation by match, valence, affect, the behaviourist control, the Sokolov
-                              hypotheses as rows (namespace Creatura.Orienting)
-src/Creatura.Worlds/          the bench's worlds: sample worlds, manifests, barrier sets, controls, the agent and
-                              extension catalogs, the ingenuity series; no packages, no file IO (namespace Creatura.Worlds)
-src/Creatura.Bench/           the bench's protocols: oracle and outcome class, hypotheses, batteries, arms and rows,
-                              the trainer and the exam over the record store, the legacy CSV writers, the fine-tune
-                              seam; may do file IO (namespace Creatura.Bench)
-src/Creatura.Seats/           the model seats: IModelTransport (Ollama, OpenAI-compatible, Azure Foundry) over an
-                              injected HttpClient, ModelClient, ModelPolicy, ModelJudge, ModelCatalog from models.json,
-                              the seat's biology, SeatResolver, the call log and the scoreboard; no packages; may do
-                              file IO (namespace Creatura.Seats)
-src/Creatura.Hosts.AgentFramework/
-                              the Microsoft Agent Framework host: ControlLayerMiddleware, ToolFilteringChatClient,
-                              WorldTools, ControlledAgent, PlannerChatClient (the offline model) and ChatClientPolicy
-                              (any IChatClient in the loop's seat); package: Microsoft.Agents.AI.OpenAI
-                              (namespace Creatura.Hosts.AgentFramework)
-src/Creatura.Hosts.SemanticKernel/
-                              the Semantic Kernel host: ControlLayerFilter, OfferingChatClient, WorldPlugin,
-                              ControlledKernelAgent, PlannerChatClient (the offline model); package:
-                              Microsoft.SemanticKernel.Core (namespace Creatura.Hosts.SemanticKernel)
-src/Creatura.Cells/           the cells: CreaturaId, CellKey / OwnerKey (ECDSA P-256), VesselProbe and Hardware, Position,
-                              CellIdentity, SignedEntry and the eight entry kinds, WorkLedger, JsonLedgerStore, signed hub
-                              requests, revocations, shared files (CellCipher, SharedFiles), ICellNetwork; no packages
-                              (namespace Creatura.Cells)
-src/Creatura.Cells.Sqlite/    SqliteLedgerStore, the ledger in SQLite; package: Microsoft.Data.Sqlite
-src/Creatura.Cells.Sync/      the ledger over SyncFramework (LedgerSync); package: BIT.Data.Sync
-src/Creatura.Cells.Hub/       the ledger hub, `creatura-hub`: an ASP.NET host for the sync endpoint and the shared files'
-                              bytes; packages: BIT.Data.Sync.AspNetCore, Microsoft.Data.Sqlite
-src/Creatura.Cli/             the `creatura cell` command over the cells, the hub client and the Claude Code hooks
-src/Creatura.Scenarios/       several creaturas in one shared world: the convoy (ConvoyWorld, TruckView, ConvoyPolicy,
-                              ScenarioMesh, ConvoyBattery), the replay writer, the recorder and dataset exporter, and the
-                              trained networks' seats (ConvoyNetwork); no packages (namespace Creatura.Scenarios)
-samples/QuickStart/           the quick start below, offline
-samples/AgentFrameworkHost/   the control layer on Agent Framework over the toy suite's four barriers, offline by
-                              default; --compare runs it beside the designs, --seat <catalog name> puts a model in it
-samples/SemanticKernelHost/   the same on Semantic Kernel, with the same options
-samples/Convoy/               the convoy from the command line: one run, a battery, recordings, datasets, trial runs
-samples/models.json           the compiled model catalog written out, to copy beside an executable and edit
-models/                       trained policy networks (plain JSON weights), embedded in Creatura.Scenarios
-tools/convoy-viewer/          a three.js page that plays a convoy replay back as a story
-tools/train/                  the trainers, Python and numpy run with `uv`: by example (train_policy.py), by trial (train_trial.py)
-tests/Creatura.Tests/         xunit; the tests that need nothing but the Core and its toy domain, plus the golden traces,
-                              FakeHost and CorePurityTest; no Agent Framework package
-tests/Creatura.Cells.Tests/   the cells' pre-registered tests, the hub, sync, shared files, hooks, the command and
-                              CellsPurityTest
-tests/Creatura.Hosts.AgentFramework.Tests/
-                              the host's tests and its four goldens (golden/restore-*-controlled.jsonl)
-tests/Creatura.Hosts.SemanticKernel.Tests/
-                              the Semantic Kernel host's tests; it runs the Agent Framework host's goldens byte for byte
-tests/Creatura.Scenarios.Tests/
-                              the convoy, the model seat, the recorder, the networks, shared distrust
-```
+Everything builds from `Creatura.slnx`. A project's namespace is its name, with three exceptions: under
+`src/Creatura/` it is `Creatura` except `Hotz/` (`Creatura.Hotz`) and `Orienting/` (`Creatura.Orienting`); the
+sample worlds are `Creatura.Worlds.Samples`; and `Creatura.Cli` is in `Creatura.Cells`.
+
+**The framework** (`src/`)
+
+| folder | what it holds | packages |
+|---|---|---|
+| [Creatura/](src/Creatura) | the framework Core | none, and no project references |
+| [Creatura/Core/](src/Creatura/Core) | the loop, the control layer, worlds, tasks, trace, identity | |
+| [Creatura/Core/Regulators/](src/Creatura/Core/Regulators) | the designs: SelfModelRegulator, ColonyRegulator, HybridRegulator, MapKeeperRegulator (+ Story, TerritoryMap, Posture), OrientingRegulator; Regulators.Join | |
+| [Creatura/Hotz/](src/Creatura/Hotz) | the critic: claims, routes, the interrupt budget | |
+| [Creatura/Orienting/](src/Creatura/Orienting) | habituation by match, valence, affect, the behaviourist control, the Sokolov hypotheses as rows | |
+| [Creatura.Worlds/](src/Creatura.Worlds) | the bench's worlds: sample worlds, manifests, barrier sets, controls, the agent and extension catalogs, the ingenuity series | none; no file IO |
+| [Creatura.Bench/](src/Creatura.Bench) | the bench's protocols: oracle and outcome class, hypotheses, batteries, arms and rows, the trainer and the exam over the record store, the legacy CSV writers, the fine-tune seam | none; may do file IO |
+| [Creatura.Seats/](src/Creatura.Seats) | the model seats: IModelTransport (Ollama, OpenAI-compatible, Azure Foundry) over an injected HttpClient, ModelClient, ModelPolicy, ModelJudge, ModelCatalog from models.json, the seat's biology, SeatResolver, the call log and the scoreboard | none; may do file IO |
+
+**The hosts** (`src/`)
+
+| folder | what it holds | packages |
+|---|---|---|
+| [Creatura.Hosts.AgentFramework/](src/Creatura.Hosts.AgentFramework) | the Microsoft Agent Framework host: ControlLayerMiddleware, ToolFilteringChatClient, WorldTools, ControlledAgent, PlannerChatClient (the offline model) and ChatClientPolicy (any IChatClient in the loop's seat) | Microsoft.Agents.AI.OpenAI |
+| [Creatura.Hosts.SemanticKernel/](src/Creatura.Hosts.SemanticKernel) | the Semantic Kernel host: ControlLayerFilter, OfferingChatClient, WorldPlugin, ControlledKernelAgent, PlannerChatClient (the offline model) | Microsoft.SemanticKernel.Core |
+
+**Cells and scenarios** (`src/`)
+
+| folder | what it holds | packages |
+|---|---|---|
+| [Creatura.Cells/](src/Creatura.Cells) | the cells: CreaturaId, CellKey / OwnerKey (ECDSA P-256), VesselProbe and Hardware, Position, CellIdentity, SignedEntry and the eight entry kinds, WorkLedger, JsonLedgerStore, signed hub requests, revocations, shared files (CellCipher, SharedFiles), ICellNetwork | none |
+| [Creatura.Cells.Sqlite/](src/Creatura.Cells.Sqlite) | SqliteLedgerStore, the ledger in SQLite | Microsoft.Data.Sqlite |
+| [Creatura.Cells.Sync/](src/Creatura.Cells.Sync) | the ledger over SyncFramework (LedgerSync) | BIT.Data.Sync |
+| [Creatura.Cells.Hub/](src/Creatura.Cells.Hub) | the ledger hub, `creatura-hub`: an ASP.NET host for the sync endpoint and the shared files' bytes | BIT.Data.Sync.AspNetCore, Microsoft.Data.Sqlite |
+| [Creatura.Cli/](src/Creatura.Cli) | the `creatura cell` command over the cells, the hub client and the Claude Code hooks | none |
+| [Creatura.Scenarios/](src/Creatura.Scenarios) | several creaturas in one shared world: the convoy (ConvoyWorld, TruckView, ConvoyPolicy, ScenarioMesh, ConvoyBattery), the replay writer, the recorder and dataset exporter, and the trained networks' seats (ConvoyNetwork) | none |
+
+**Samples, models and tools**
+
+| folder | what it holds |
+|---|---|
+| [samples/QuickStart/](samples/QuickStart) | the quick start below, offline |
+| [samples/AgentFrameworkHost/](samples/AgentFrameworkHost) | the control layer on Agent Framework over the toy suite's four barriers, offline by default; `--compare` runs it beside the designs, `--seat <catalog name>` puts a model in it |
+| [samples/SemanticKernelHost/](samples/SemanticKernelHost) | the same on Semantic Kernel, with the same options |
+| [samples/Convoy/](samples/Convoy) | the convoy from the command line: one run, a battery, recordings, datasets, trial runs |
+| [samples/models.json](samples/models.json) | the compiled model catalog written out, to copy beside an executable and edit |
+| [models/](models) | trained policy networks (plain JSON weights), embedded in Creatura.Scenarios |
+| [tools/convoy-viewer/](tools/convoy-viewer) | a three.js page that plays a convoy replay back as a story |
+| [tools/train/](tools/train) | the trainers, Python and numpy run with `uv`: by example (train_policy.py), by trial (train_trial.py) |
+
+**Tests** (xunit, `tests/`)
+
+| folder | what it holds |
+|---|---|
+| [Creatura.Tests/](tests/Creatura.Tests) | the tests that need nothing but the Core and its toy domain, plus the golden traces, FakeHost and CorePurityTest; no Agent Framework package |
+| [Creatura.Cells.Tests/](tests/Creatura.Cells.Tests) | the cells' pre-registered tests, the hub, sync, shared files, hooks, the command and CellsPurityTest |
+| [Creatura.Hosts.AgentFramework.Tests/](tests/Creatura.Hosts.AgentFramework.Tests) | the host's tests and its four goldens (golden/restore-*-controlled.jsonl) |
+| [Creatura.Hosts.SemanticKernel.Tests/](tests/Creatura.Hosts.SemanticKernel.Tests) | the Semantic Kernel host's tests; it runs the Agent Framework host's goldens byte for byte |
+| [Creatura.Scenarios.Tests/](tests/Creatura.Scenarios.Tests) | the convoy, the model seat, the recorder, the networks, shared distrust |
 
 ```sh
 dotnet build Creatura.slnx
 dotnet test tests/Creatura.Tests
 dotnet test tests/Creatura.Cells.Tests
 dotnet test tests/Creatura.Scenarios.Tests
+dotnet test Creatura.slnx          # every test project, the two hosts' included
 ```
 
 ## Where it came from
