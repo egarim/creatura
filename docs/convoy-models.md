@@ -43,7 +43,7 @@ the offline planner delivered 15, and half its answers were refused; see "Result
 
 Models are chosen by name from Creatura's catalog. It is read from `models.json` beside the program when that file
 exists, from the file given with `--models-file`, and otherwise from the table compiled into `Creatura.Seats`.
-[`samples/models.json`](../samples/models.json) is that table written out: copy it and edit it.
+[`samples/models.json`](https://github.com/egarim/creatura/blob/main/samples/models.json) is that table written out: copy it and edit it.
 
 A row:
 
@@ -150,7 +150,7 @@ tokens the provider reported.
 
 ## Watching it
 
-Open the replay in [`tools/convoy-viewer/index.html`](../tools/convoy-viewer/index.html). Each truck's agent popup
+Open the replay in [`tools/convoy-viewer/index.html`](https://github.com/egarim/creatura/blob/main/tools/convoy-viewer/index.html). Each truck's agent popup
 shows the model, where it runs, its price, and the C# that builds the seat, `new ConvoyModelSeat(SeatFactory.Model("…"), …)`.
 
 ## Recording training data
