@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **The lie judge's third attempt** (arm P3): condemn a road at the first learned lie, and t1 fixed on the judge's own
+  driving. It passed its in-loop gate on held-out training seeds and closed most of the gap to the fused check with
+  memory (lies 73 against 69, repeats 13 against 10 on seeds 0 to 49), but its false alarms stayed about twice the
+  rule's, so T12 to T12d failed, on seeds 0 to 49 and on fresh seeds 2000 to 2049. `--first-seed` runs a battery on
+  other seeds.
+
 - **The lie judge's second attempt** (step 6, sealed noise): the truck is offered what fits where its position reads
   it is (`SensorNoise.Sealed`), closing a leak in step 6's world, where the offered roads gave the true position away
   a tick late. The judge reads two memory inputs (`ActionMemory`: the same action again, and its tries) and was trained

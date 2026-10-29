@@ -134,6 +134,66 @@ public sealed class SealedWorldTests
     public async Task T11g_ArmP2ReplaysByteForByte(ConvoyArm arm) => Assert.True(await ConvoyBattery.ReplaysMatchAsync(arm, 0));
 
     [Fact]
+    public void ArmP3CondemnsAtOnceAtItsCalibratedThreshold()
+    {
+        var p3 = ConvoySetup.For(ConvoyArm.P3, 1);
+        Assert.Equal((ConvoyNetwork.EmbeddedJudgeSealed, 0.421863, (double?)null, true), (p3.LearnedJudge, p3.LearnedJudgeThreshold, p3.LearnedJudgeCondemn, p3.LearnedJudgeCheckableOnly));
+        Assert.Equal(SensorNoise.SealedRegistered, p3.Noise);
+    }
+
+    /// <summary>In arm P3 a lie the judge caught condemns its road: no truck takes a road again after its judge caught a lie there (training seeds 60 to 79).</summary>
+    [Fact]
+    public async Task InArmP3ACaughtLieCondemnsItsRoad()
+    {
+        var after = 0;
+        for (var seed = 60; seed < 80; seed++)
+        {
+            var recorder = new ConvoyRecorder();
+            await new ConvoyScenario(ConvoySetup.For(ConvoyArm.P3, seed), recorder: recorder).RunAsync();
+            var caught = new HashSet<(string, string)>();
+            foreach (var d in recorder.Runs.Single().Decisions.Where(d => d.Verdict is not null && d.Chosen!.StartsWith("drive:", StringComparison.Ordinal)))
+            {
+                var road = (d.Truck, d.Chosen!.Split(':')[1]);
+                if (caught.Contains(road)) after++;
+                if (d.Truth == "Lied" && d.Verdict == "Lied") caught.Add(road);
+            }
+        }
+        Assert.Equal(0, after);
+    }
+
+    /// <summary>A battery can start at another seed (the fresh seeds of T12d): its runs are those seeds' runs.</summary>
+    [Fact]
+    public async Task ABatteryCanRunOnFreshSeeds()
+    {
+        var report = await ConvoyBattery.RunAsync(1, [ConvoyArm.J], null, firstSeed: 2000);
+        var direct = await new ConvoyScenario(ConvoySetup.For(ConvoyArm.J, 2000)).RunAsync();
+        Assert.Equal(direct.Measures, report.Runs[ConvoyArm.J].Single());
+    }
+
+    [Fact]
+    public void TheThirdAttemptIsScoredAsRegistered()
+    {
+        static ConvoyMeasures M(int delivered, int served, int lies, int repeats, int fa, int misses) =>
+            new(delivered, 30, 0, 0, lies, repeats, served, true, 0, 10, 0) { Checked = 200, CheckFalseAlarms = fa, CheckMisses = misses, CheckedLies = 4 };
+        var runs = new Dictionary<ConvoyArm, IReadOnlyList<ConvoyMeasures>>
+        {
+            [ConvoyArm.V2] = [M(30, 24, 3, 1, 2, 1)],
+            [ConvoyArm.P3] = [M(30, 24, 3, 1, 1, 1)],
+        };
+        var verdicts = ConvoyBattery.Score(runs, true).ToDictionary(v => v.Id);
+        Assert.Equal(HypothesisVerdict.Held, verdicts["T12"].Verdict);
+        Assert.Equal(HypothesisVerdict.Held, verdicts["T12b"].Verdict); // ties hold
+        Assert.Equal(HypothesisVerdict.Held, verdicts["T12c"].Verdict);
+        Assert.Equal(HypothesisVerdict.Held, verdicts["T12e"].Verdict);
+        runs[ConvoyArm.P3] = [M(30, 25, 4, 2, 2, 1)];
+        verdicts = ConvoyBattery.Score(runs, false).ToDictionary(v => v.Id);
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["T12"].Verdict); // a tie is not lower
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["T12b"].Verdict);
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["T12c"].Verdict);
+        Assert.Equal(HypothesisVerdict.Failed, verdicts["T12e"].Verdict);
+    }
+
+    [Fact]
     public void TheSecondAttemptIsScoredAsRegistered()
     {
         static ConvoyMeasures M(int delivered, int served, int repeats = 0, int @checked = 0, int fa = 0, int misses = 0, int checkedLies = 0) =>

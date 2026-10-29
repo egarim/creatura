@@ -54,8 +54,9 @@ public static class ConvoyBattery
 
     /// <param name="arms">The arms to run; M6 is checked on those among them that are repeatable.</param>
     /// <param name="scenario">How a run is made from its setup (arm S's model, catalog and call log); the plain scenario when null.</param>
+    /// <param name="firstSeed">The first seed: 0 for the battery's own seeds, another for a confirmation on fresh seeds (step 6's third attempt uses 2000).</param>
     public static async Task<ConvoyBatteryReport> RunAsync(int seeds, IReadOnlyList<ConvoyArm> arms, Func<ConvoySetup, ConvoyScenario>? scenario,
-        Action<string>? progress = null, CancellationToken cancellationToken = default)
+        Action<string>? progress = null, CancellationToken cancellationToken = default, int firstSeed = 0)
     {
         var runs = new Dictionary<ConvoyArm, IReadOnlyList<ConvoyMeasures>>();
         var errors = new List<string>();
@@ -63,7 +64,7 @@ public static class ConvoyBattery
         foreach (var arm in arms)
         {
             var measures = new List<ConvoyMeasures>();
-            for (var seed = 0; seed < seeds; seed++)
+            for (var seed = firstSeed; seed < firstSeed + seeds; seed++)
             {
                 var setup = ConvoySetup.For(arm, seed);
                 var run = await (scenario?.Invoke(setup) ?? new ConvoyScenario(setup)).RunAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -333,6 +334,27 @@ public static class ConvoyBattery
             var rate = Rate(Of(ConvoyArm.P2, n, m => m.CheckFalseAlarms), Of(ConvoyArm.P2, n, m => m.Checked));
             verdicts.Add(new("T11f", "arm P2's judge gives false alarms on fewer than 1% of checked actions",
                 Held(Of(ConvoyArm.P2, n, m => m.Checked) > 0 && rate < 0.01), Errors(ConvoyArm.P2, n)));
+        }
+        // The third attempt (pre-registered as T12 to T12e; T12d is T12's claim scored on a battery over seeds 2000 to 2049).
+        if (runs.ContainsKey(ConvoyArm.P3) && runs.ContainsKey(ConvoyArm.V2))
+        {
+            var n = Common(ConvoyArm.P3, ConvoyArm.V2);
+            verdicts.Add(new("T12", "arm P3's error rate (false alarms plus misses over checked actions) is lower than arm V2's, and arm P3 delivers at least as much",
+                Held(ErrorRate(ConvoyArm.P3, n) < ErrorRate(ConvoyArm.V2, n) && Of(ConvoyArm.P3, n, m => m.Delivered) >= Of(ConvoyArm.V2, n, m => m.Delivered)),
+                $"error rate P3 {ErrorRate(ConvoyArm.P3, n):P2}, V2 {ErrorRate(ConvoyArm.V2, n):P2}; {Errors(ConvoyArm.P3, n)}; {Errors(ConvoyArm.V2, n)}; "
+                + $"delivered P3 {Of(ConvoyArm.P3, n, m => m.Delivered)}, V2 {Of(ConvoyArm.V2, n, m => m.Delivered)} over {n} seeds"));
+            verdicts.Add(new("T12b", "arm P3 takes a lying road again no more often than arm V2",
+                Held(Of(ConvoyArm.P3, n, m => m.LyingRoadRepeats) <= Of(ConvoyArm.V2, n, m => m.LyingRoadRepeats)),
+                $"repeats P3 {Of(ConvoyArm.P3, n, m => m.LyingRoadRepeats)}, V2 {Of(ConvoyArm.V2, n, m => m.LyingRoadRepeats)}"));
+            verdicts.Add(new("T12c", "arm P3 acts on no more lies than arm V2 and serves the villages no later on average",
+                Held(Of(ConvoyArm.P3, n, m => m.LiesBelieved) <= Of(ConvoyArm.V2, n, m => m.LiesBelieved) && ServedBy(ConvoyArm.P3, n) <= ServedBy(ConvoyArm.V2, n)),
+                $"lies P3 {Of(ConvoyArm.P3, n, m => m.LiesBelieved)}, V2 {Of(ConvoyArm.V2, n, m => m.LiesBelieved)}; served by tick P3 {ServedBy(ConvoyArm.P3, n):0.0}, V2 {ServedBy(ConvoyArm.V2, n):0.0}; "
+                + $"stranded P3 {Of(ConvoyArm.P3, n, m => m.Stranded)}, V2 {Of(ConvoyArm.V2, n, m => m.Stranded)}"));
+        }
+        if (runs.ContainsKey(ConvoyArm.P3))
+        {
+            var same = replays is not null && replays.TryGetValue(ConvoyArm.P3, out var r) ? r : replaysMatch;
+            verdicts.Add(new("T12e", "arm P3 replays byte for byte", Held(same), same ? "six runs of seed 0 matched" : "a replay differed"));
         }
         var sealedArms = new[] { ConvoyArm.U2, ConvoyArm.V2, ConvoyArm.P2 }.Where(runs.ContainsKey).ToList();
         if (sealedArms.Count > 0)

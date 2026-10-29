@@ -81,3 +81,25 @@ runs are recorded only in the design note.
 - #26: `scratchpad breaks2.py`
 
 </details>
+
+## Step 6c
+
+5 entries; 1 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 27 | 2026-10-29 14:10 | `d97287f`* | data | 50-599 | Calibration run (registered, one only): arm P3 at P2's t1 0.499305, condemning at once | 16,498/16,500 delivered, 774 lies; on its seeds ending 9 (2,768 landed, 77 lies) the old t1 flags 0.36% of landed actions; the recipe gives t1 = 0.421863, with 83.1% of the lies above it | t1 by the recipe on its seeds ending 9 |
+| 28 | 2026-10-29 14:13 | `d97287f`* | test | 59-599 | Gate (registered, in the loop): arms P3 and V2 each drive on the 55 held-out training seeds ending in 9 | error rate P3 0.948% (14 false alarms of 2,847, 13 misses of 75), V2 1.143% (10 of 2,800, 22 of 82); delivered 1,650 each; lies P3 85, V2 92; repeats 13 vs 22; served 32.4 vs 32.1: held | arm P3 runs on the battery |
+| 29 | 2026-10-29 14:13 | `d97287f`* | test | 0-49 **battery** | Battery, arms J, U2, V2, P2, P3 (the third attempt's test run) | T12 failed (error rate P3 1.26%, V2 0.79%; delivered P3 1,492, V2 1,500); T12b failed (repeats 13 vs 10); T12c failed (lies 73 vs 69, served 29.9 vs 29.2); T12e held. P2 1.56%, 105 lies, 43 repeats for comparison | T12, T12b, T12c, T12e |
+| 30 | 2026-10-29 14:14 | `d97287f`* | test | 2000-2049 | Fresh seeds, never used: arms J, U2, V2, P3 (registered confirmation, T12d) | T12d (T12 on fresh seeds) failed: error rate P3 1.04%, V2 0.93% (false alarms 19 vs 9, misses 8 vs 15); delivered 1,499 vs 1,500. Not registered for these seeds, seen in the same run: lies P3 70, V2 75; repeats 8 vs 15; served 31.4 vs 31.7. Earlier arms in battery #29 replayed unchanged (200 runs) | T12d |
+| 31 | 2026-10-29 14:17 | `d97287f`* | build | — | Three deliberate breaks on the third attempt's code | 3 of 3 caught: P3 only quarantining, the battery ignoring the first seed, T12 accepting a tie | the build record |
+
+<details><summary>Commands</summary>
+
+- #27: `--rollouts datasets/sealed/c3-p3.jsonl --arms P3 --seeds 50-599; --world`
+- #28: `--rollouts gate-P3.jsonl --arms P3 --seeds 50-599 (and V2); score the seeds ending 9`
+- #29: `--battery --arms J,U2,V2,P2,P3 --record datasets/sealed/battery3.jsonl`
+- #30: `--battery --arms J,U2,V2,P3 --first-seed 2000 --record datasets/sealed/battery3-fresh.jsonl`
+- #31: `scratchpad breaks3.py`
+
+</details>

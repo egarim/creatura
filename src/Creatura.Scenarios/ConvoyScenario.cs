@@ -605,6 +605,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         ConvoyArm.W => "Tests W1 and W2: all three fixes, and a truck that catches a road lying warns the others through the ledger.",
         ConvoyArm.Y => "Tests T9 and T9b: the learned judge's second attempt with the planner's world model: it judges only what the world can contradict, and a learned lie quarantines before it condemns.",
         ConvoyArm.Z => "Tests T9c and T9d: as Y, with the world model trained on varied driving and calibrated on it.",
+        ConvoyArm.P3 => "Tests T12 to T12e: as P2, condemning a road at the first learned lie, with its threshold fixed on its own driving.",
         ConvoyArm.U => "Tests T10: arm J in a world whose position and fuel readings are noisy, so the effect check is no longer exact.",
         ConvoyArm.V => "The bar for T10d: as U, with a check fused from the position and the gauge, written knowing the noise.",
         ConvoyArm.F => "Tests T10f: as U, with a learned judge by surprise, the world model retrained on noisy driving.",

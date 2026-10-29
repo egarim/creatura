@@ -1,6 +1,6 @@
 # Design: trained models for a world
 
-Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held; step 3 (training by trial) built: the first attempt failed T3; the second held T7, T7b and T7c. Step 5 (the world model and the learned judge) built: T9 failed by three lies. Step 6 (a noisy world) built: T10 held; T10b failed, so the lie judge was not run; T10f failed, as predicted. Its second attempt (sealed noise, memory, loop data) built: memory and loop data cured the repeats, but the hand-written rule still won (T11d and T11e failed). Its third attempt (condemn at once, thresholds on its own driving) registered, not built.
+Status: decided 2026-10-28; step 1 (the recorder) built; step 2 (the policy network) built: T2 and T4 held; step 3 (training by trial) built: the first attempt failed T3; the second held T7, T7b and T7c. Step 5 (the world model and the learned judge) built: T9 failed by three lies. Step 6 (a noisy world) built: T10 held; T10b failed, so the lie judge was not run; T10f failed, as predicted. Its second attempt (sealed noise, memory, loop data) built: memory and loop data cured the repeats, but the hand-written rule still won (T11d and T11e failed). Its third attempt (condemn at once, thresholds on its own driving) closed most of the gap but not the registered claims (T12 to T12d failed).
 
 ## The question, in the owner's words
 
@@ -1073,6 +1073,53 @@ much. If not, arm P3 is not run on the battery.
 road, as it does for arm V2, and both judges miss about one lie in six on a first encounter. **T12b more likely fails
 than holds:** with nothing quarantined, a repeat comes only from a missed lie, and arm P2 missed more lies (16) than
 arm V2 (10).
+
+**The calibrated threshold, fixed before the gate (2026-10-29).** The calibration run (arm P3 at arm P2's t1, seeds 50
+to 599) delivered 16,498 of 16,500 and acted on 774 lies. On its seeds ending in 9 (2,768 landed, 77 lies) arm P2's t1
+flagged only 0.36% of landed actions, so the recipe lowers it: **t1 = 0.421863**, with 83% of those lies above it.
+
+## Step 6, the lie judge's third attempt, built (2026-10-29)
+
+**The gate held; T12, T12b and T12c failed on seeds 0 to 49; T12d failed on fresh seeds 2000 to 2049; T12e held.**
+The registered claims did not hold, but most of the gap closed. Every run is in docs/experiment-log.md (step 6c).
+
+| | seeds 0 to 49: arm V2 | arm P2 | **arm P3** | seeds 2000 to 2049: arm V2 | **arm P3** |
+|---|---|---|---|---|---|
+| delivered | 1500 | 1500 | 1492 | 1500 | 1499 |
+| lies acted on | 69 | 105 | 73 | 75 | 70 |
+| a lying road taken again | 10 | 43 | 13 | 15 | 8 |
+| villages served by tick (unserved counts 61) | 29.2 | 31.1 | 29.9 | 31.7 | 31.4 |
+| false alarms, of checked actions | 0.40% | 0.95% | 0.75% | 0.35% | 0.73% |
+| lies missed | 10 of 62 | 16 of 100 | 13 of 68 | 15 of 69 | 8 of 63 |
+| error rate | **0.79%** | 1.56% | 1.26% | **0.93%** | 1.04% |
+
+The calibrated threshold and the gate came first, both on training seeds: t1 = 0.421863 from the one calibration run,
+then each judge driving on the 55 held-out seeds, where arm P3 had the lower error rate (0.95% against 1.14%), equal
+deliveries, fewer lies (85 against 92) and fewer repeats (13 against 22). So it ran on the battery.
+
+**What the two changes did.** Condemning at once ended the repeats that followed a caught lie: arm P2 had 27, arm P3
+has none (a test now checks it). Against arm P2 on the same seeds, arm P3 acted on 32 fewer lies, took the lying road
+again 30 fewer times, and served the villages 1.2 ticks sooner. Against arm V2 it came to within 4 lies, 3 repeats and
+0.7 ticks on seeds 0 to 49, and one run left 8 units short.
+
+**What it did not do.** On both sets of seeds arm P3's error rate stayed above arm V2's (T12, T12d). The misses are
+level or better (13 of 68 against 10 of 62; 8 of 63 against 15 of 69 on the fresh seeds); the false alarms are not:
+about 0.74% against about 0.38%, on both sets. Each costs a good road, so this is the gap that is left. The calibration
+aimed t1 at 0.5% of landed actions on training seeds; the battery's seeds came out half again higher.
+
+**On the fresh seeds, outside the registered claims** (T12d was T12's claim only; these figures came from the same
+run): arm P3 acted on fewer lies than arm V2 (70 against 75), took the lying road again about half as often (8 against
+15) and served the villages a little sooner (31.4 against 31.7). On seeds 0 to 49 the same three went to arm V2. Taken
+over both sets of seeds, which nothing registered, the two arms are level on lies (143 against 144) and arm P3 has
+fewer repeats (21 against 25), with the lower false alarms and the full deliveries on arm V2's side.
+
+What the three attempts show, read with the log: a judge learned from examples, without being told the noise, can be
+brought level with a hand-written rule built by someone who knows the noise, on the outcomes the convoy cares about.
+Each step there came from a diagnosis on training seeds or on a recording, written down before the next run: memory
+and loop data for the repeats, condemning at once for the quarantine, calibration on its own driving for the
+threshold. It is not ahead. Its false alarms are about twice the rule's, and the registered claims, which asked it to
+be strictly better, failed on both sets of seeds. Seeds 0 to 49 have now been used by two tests of this judge;
+seeds 2000 to 2049 by one.
 
 ## What this note does not cover
 

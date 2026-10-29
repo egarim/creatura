@@ -4,7 +4,7 @@ using Creatura.Seats;
 
 // dotnet run --project samples/Convoy -- [--arm A..L|S|N] [--seed n] [--replay run.jsonl] [--quiet]
 //     [--model <catalog name>] [--models-file models.json] [--calls calls.jsonl] [--ticks n] [--network <weights.json>]
-// dotnet run --project samples/Convoy -- --battery [--seeds 50] [--arms J,S] [--model <name>] ...
+// dotnet run --project samples/Convoy -- --battery [--seeds 50] [--first-seed 0] [--arms J,S] [--model <name>] ...
 // dotnet run --project samples/Convoy -- --dataset <dir> [--arms J] [--seeds 100-599] [--all-runs] [--only-landed]
 // --record <file.jsonl> keeps every decision of a run (or a battery) for training (docs/design-trained-models.md).
 // A model (arm S, or --model with any arm) is described in docs/convoy-models.md. Arm N's network is the embedded
@@ -119,7 +119,8 @@ if (args.Contains("--battery"))
 {
     var seeds = int.Parse(Option("--seeds") ?? "50");
     var arms = Arms(ConvoyBattery.DefaultArms);
-    var report = await ConvoyBattery.RunAsync(seeds, arms, setup => new ConvoyScenario(Adjust(setup), calls: calls, catalog: catalog, recorder: recorderForRun), line => Console.Error.WriteLine(line));
+    var report = await ConvoyBattery.RunAsync(seeds, arms, setup => new ConvoyScenario(Adjust(setup), calls: calls, catalog: catalog, recorder: recorderForRun), line => Console.Error.WriteLine(line),
+        firstSeed: int.Parse(Option("--first-seed") ?? "0"));
     Console.WriteLine(report.Render());
     if (recordTo is not null) { using var recordFile = new StreamWriter(recordTo); recorderForRun!.WriteJsonl(recordFile); }
     return 0;

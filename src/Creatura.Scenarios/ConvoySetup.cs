@@ -80,6 +80,9 @@ public enum ConvoyArm
 
     /// <summary>As U2, with the lie judge's second attempt: memory of the truck's last action, trained on the loop's own driving.</summary>
     P2,
+
+    /// <summary>As P2, condemning a road at the first learned lie, with t1 fixed on its own driving (the third attempt).</summary>
+    P3,
 }
 
 /// <summary>A truck: its name, its machine, and the design that drives it ("plain", "levin", "bach", "peterson").</summary>
@@ -203,6 +206,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
         ConvoyArm.V => "plain loop, shared ledger, all three fixes, noisy sensors, a check fused from position and gauge",
         ConvoyArm.U2 => "plain loop, shared ledger, all three fixes, noisy sensors, sealed",
         ConvoyArm.V2 => "plain loop, shared ledger, all three fixes, noisy sensors, sealed, a fused check with memory",
+        ConvoyArm.P3 => $"plain loop, shared ledger, all three fixes, noisy sensors, sealed, a lie judge with memory ({LearnedJudge}) on checkable actions that condemns at the first lie",
         ConvoyArm.P2 => $"plain loop, shared ledger, all three fixes, noisy sensors, sealed, a lie judge with memory ({LearnedJudge}) on checkable actions that quarantines before it condemns",
         ConvoyArm.F or ConvoyArm.P => $"plain loop, shared ledger, all three fixes, noisy sensors, a learned judge ({LearnedJudge}) on checkable actions that quarantines before it condemns",
         ConvoyArm.Q => $"a policy network trained by trial on W's setup ({SeatNetwork}) in every truck's seat, all three fixes, distrust shared",
@@ -276,6 +280,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
             ConvoyArm.U2 => AllFixes(setup) with { Noise = SensorNoise.SealedRegistered },
             ConvoyArm.V2 => AllFixes(setup) with { Noise = SensorNoise.SealedRegistered, FusedCheck = true, FusedMemory = true },
             ConvoyArm.P2 => AllFixes(setup) with { Noise = SensorNoise.SealedRegistered, LearnedJudge = ConvoyNetwork.EmbeddedJudgeSealed, LearnedJudgeThreshold = 0.499305, LearnedJudgeCondemn = 0.972585, LearnedJudgeCheckableOnly = true },
+            ConvoyArm.P3 => AllFixes(setup) with { Noise = SensorNoise.SealedRegistered, LearnedJudge = ConvoyNetwork.EmbeddedJudgeSealed, LearnedJudgeThreshold = 0.421863, LearnedJudgeCondemn = null, LearnedJudgeCheckableOnly = true },
             _ => setup,
         };
     }
