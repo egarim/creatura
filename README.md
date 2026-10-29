@@ -538,8 +538,13 @@ seat. The trucks' planner keeps no state between ticks, so a small network can c
    the noise does best (arm V); a world model misses lies (arm F), and a lie judge trained on the truth misses the
    same lie again and again in the loop. Given memory and trained on its own loop driving, the judge stops repeating
    and beats the effect check; condemning at once and calibrating on its own driving brings it level with the
-   hand-written rule on lies and repeats, but its false alarms stay about twice the rule's (arms U2, V2, P2, P3). Every run behind these results
-   is in [docs/experiment-log.md](docs/experiment-log.md).
+   hand-written rule on lies and repeats, but its false alarms stay about twice the rule's (arms U2, V2, P2, P3).
+6. **A world model in a learned representation (JEPA).** An encoder, a target encoder kept as its moving average,
+   and a predictor of the next embedding (`tools/train/train_jepa.py`, `JepaModel`). It sees the lying road more
+   clearly than the forward model on a driver it never saw (DeepSeek), and is level elsewhere. But it learns that a
+   lie seen often is normal, and forgets it the longer it trains. Nothing in the loop reads it yet.
+
+Every run behind these results is in [docs/experiment-log.md](docs/experiment-log.md).
 
 ```bash
 dotnet run --project samples/Convoy -c Release -- --dataset datasets/convoy-j --arms J --seeds 100-599
