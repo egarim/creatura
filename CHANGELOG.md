@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0-preview.3 (2026-10-30)
 
 - **One culture for every text** (the owner's decision, issue #5): traces, notes, self-descriptions and model prompts
   are written in `TraceText.Culture` (invariant numbers, "100%") whatever the machine's culture, so a run reads the
