@@ -67,7 +67,9 @@ creatura new agent                                               # a project: ag
 creatura doctor                                                  # what is set up and what is missing, with the fix
 ```
 
-Or with `dotnet new`: `dotnet new install Creatura.Templates`, then `dotnet new creatura-agent -n MyAgent`.
+Or with `dotnet new`: `dotnet new install Creatura.Templates::0.2.0-preview.3`, then `dotnet new creatura-agent -n MyAgent`.
+While Creatura is in preview, `dotnet new install` needs the version: without one it looks only for a stable release
+and says the package does not exist. The latest is on [nuget.org](https://www.nuget.org/packages/Creatura.Templates).
 
 | Template | What you get |
 |---|---|

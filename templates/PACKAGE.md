@@ -4,7 +4,7 @@
 and its tools, and worlds that can lie.
 
 ```bash
-dotnet new install Creatura.Templates
+dotnet new install Creatura.Templates::<version>   # while in preview, name the version shown on this page
 dotnet new creatura-agent -n MyAgent      # the designs, then your own regulator, on the toy world; offline
 dotnet new creatura-world -n MyWorld      # your own world: facts, tools, one that lies; offline
 dotnet new creatura-sk -n MyKernel        # the control layer on Semantic Kernel; offline until a key is set
