@@ -352,12 +352,13 @@ public sealed class HookTests
         await Task.WhenAll(Enumerable.Range(0, sessions).Select(i => Task.Run(() =>
         {
             var env = Env(new DateTimeOffset(2026, 10, 28, 10, i, 0, TimeSpan.Zero));
-            for (var t = 0; t < turns; t++)
-            {
-                Assert.NotNull(HookCommand.Handle(Event("Stop", $"par-{i}", ("stop_hook_active", false)), new CellHome(home.Path), "folder", Creatura, env));
-            }
+            // On a loaded machine a hook may wait past its lock wait and leave its event for the next hook: none is lost.
+            for (var t = 0; t < turns; t++) HookCommand.Handle(Event("Stop", $"par-{i}", ("stop_hook_active", false)), new CellHome(home.Path), "folder", Creatura, env);
         })));
+        Fire(home, Event("PostToolUse", "par-0", ("tool_name", "Read")));                 // records any event still waiting
 
+        var waiting = Path.Combine(home.Path, "hooks-waiting");
+        Assert.False(Directory.Exists(waiting) && Directory.EnumerateFiles(waiting, "*.json").Any());
         var ledger = Ledger(home);
         Assert.Equal(1 + sessions + sessions * turns, ledger.Count);
         var sequences = ledger.Entries.Select(e => e.Sequence).OrderBy(n => n).ToList();
