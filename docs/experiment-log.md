@@ -289,3 +289,17 @@ runs are recorded only in the design note.
 - #64: `cd js/creatura-js && npm ci && npm test; dotnet test Creatura.slnx -c Release; .NET 10 probe of P0-P2/F0-F3 on 71,146 values compared with formatPercent/formatFixed; the patchlies golden replayed once in Chromium from dist/`
 
 </details>
+
+## Step T0 (mobile)
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 65 | 2026-10-30 16:35 | `5cc3bbd` | test | — | T0: the maths tutor's emulated world (creatura-tutor): the scripted driver finishes every test request in the clean world, and the control layer catches each of three barriers | Passed, first full run. Tutor seeds 0-99 (the tutor's own family, not the convoy's battery), split by a hash of the seed: 67 train, 9 valid, 24 test; 300 requests, 72 test. Clean world: 72 of 72 test goals met (and 228 of 228 train and valid), every action Landed, the answer never shown. checker-lies: the 24 wrong attempts' checks judged lies (48 Lied verdicts, retried after the cooldown), attempt-right never holds, 0 students told a wrong answer is right (24 unguarded). hint-leaks: 96 leaky hints refused, 0 answers shown (48 unguarded). read-grants-nothing: 72 of 72 reads judged lies, nothing ran without the problem, every turn handed off by stuck regulation. Each barrier's test has a twin that fails when the barrier is off. 31 tutor tests pass; creatura-js's 31 (M1 goldens) still pass, untouched. Eleven deliberate breaks: all caught (four first showed as compile errors and were rerun compile-clean). No model called | slice T0 of docs/design-mobile.md |
+
+<details><summary>Commands</summary>
+
+- #65: `cd js/creatura-js && npm ci && npm run build && npm test; cd ../creatura-tutor && npm ci && npm test && npm run summary; eleven deliberate breaks of src/ (world checks, retract rule, payload rule, goal, decimal parsing, hint index, generator soundness), each run with npm test`
+
+</details>
