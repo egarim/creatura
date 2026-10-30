@@ -229,6 +229,18 @@ commits on main today and name the newest one"): claim `#267`, then "turn 1: Bas
 after 1 turn". Not yet seen: the message in the interactive
 Claude Code window; the headless run shows only that Claude Code receives it and the model does not.
 
+Found on 2026-10-30: the owner's `hook.log` held 25 events dropped because the home's lock stayed held past the hook's
+500 ms wait (12 PostToolUse, 7 SessionEnd, 6 UserPromptSubmit). A dropped SessionEnd loses the HandOff, and a dropped
+first prompt loses the claim. The holders are the other writers of the same home: parallel tool calls in one session,
+other sessions, the minute's `cell sync`, the stream's reads. Fixed: a hook that cannot get the lock no longer drops
+its event. It writes the parts the ledger needs to `<home>/hooks-waiting/`, owner-only: the event, the session, the
+folder, a tool's name and the files it named, the offers a prompt names and, with `--goal prompt`, its scrubbed goal;
+never the prompt text or a tool's input. The next hook to get the lock, of any session, records the waiting events
+oldest first, each at its own time, before and after its own event. Two tests hold it (a prompt, a tool call and a
+Stop that waited, recorded by another session's prompt; a SessionEnd that waited still hands off); with the replay
+turned off both fail. Left: an event waits until the next hook fires on the machine, and a race between one hook
+giving up and another finishing can still put two events of one session out of order.
+
 ## Decided (owner, 2026-10-29)
 
 Every recommendation below: the stream on a local page first; offers as entries of the owner's cell; the person

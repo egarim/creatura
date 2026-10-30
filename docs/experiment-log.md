@@ -221,3 +221,17 @@ runs are recorded only in the design note.
 - #54: `dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --first-seed 600 --arms K,MK; --arm K\|MK --seed 605`
 
 </details>
+
+## Step hooks
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 55 | 2026-10-30 09:53 | `4e4e8db`* | build | — | Hook events wait instead of dropping: two tests, one deliberate break | 28 of 28 hook tests pass; with the replay off both new tests fail (an event recorded later at its own time; a SessionEnd that waited still hands off). Full suite 769 of 769. Found from the owner's hook.log: 25 events dropped on a held lock (12 PostToolUse, 7 SessionEnd, 6 UserPromptSubmit) | docs/design-activity-stream.md, the 2026-10-30 paragraph |
+
+<details><summary>Commands</summary>
+
+- #55: `dotnet test tests/Creatura.Cells.Tests --filter HookTests; break: both Drain calls commented out`
+
+</details>

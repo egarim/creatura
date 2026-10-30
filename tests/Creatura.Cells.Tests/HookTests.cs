@@ -290,6 +290,58 @@ public sealed class HookTests
     }
 
     [Fact]
+    public void AnEventThatCannotGetTheLockWaitsAndTheNextHookRecordsItAtItsOwnTime()
+    {
+        using var home = new TempHome();
+        Init(home);
+        var waiting = Path.Combine(home.Path, "hooks-waiting");
+        var early = new DateTimeOffset(2026, 10, 30, 9, 0, 0, TimeSpan.Zero);
+        Fire(home, Event("UserPromptSubmit", "s-held", ("prompt", "first")));
+
+        using (LedgerLock.Acquire(home.Path, TimeSpan.FromSeconds(5)))                  // a sync or another session holds the home
+        {
+            var held = Env(early, TimeSpan.FromMilliseconds(50));
+            Assert.Null(Fire(home, Event("UserPromptSubmit", "s-late", ("prompt", "the secret plan, offer of-0123456789ab")), env: held));
+            Assert.Null(Fire(home, Event("PostToolUse", "s-held", ("tool_name", "Edit"), ("tool_input", new JsonObject { ["file_path"] = "/x/a.cs", ["old_string"] = "hidden" })), env: held));
+            Assert.Null(Fire(home, Event("Stop", "s-held", ("stop_hook_active", false)), env: held));
+        }
+
+        var files = Directory.GetFiles(waiting, "*.json");
+        Assert.Equal(3, files.Length);
+        var left = string.Concat(files.Select(File.ReadAllText));
+        Assert.DoesNotContain("secret plan", left);                                      // the prompt is never written down
+        Assert.DoesNotContain("hidden", left);                                           // nor a tool's input beyond the file it named
+        Assert.Contains("of-0123456789ab", left);
+        Assert.True(OwnerOnly.IsOwnerOnly(files[0]));
+        Assert.Contains("event left for the next hook to record", File.ReadAllText(Path.Combine(home.Path, "hook.log")));
+
+        Fire(home, Event("UserPromptSubmit", "s-other", ("prompt", "unrelated")));       // any later hook, any session
+        Assert.Empty(Directory.GetFiles(waiting));
+        var ledger = Ledger(home);
+        var late = ledger.WhoIsWorkingOn(activeOnly: false).Single(w => w.Goal.Session == "s-late");
+        Assert.Equal("creatura on main", late.Goal.Goal);
+        var progress = ledger.Entries.Single(e => e.Kind == EntryKind.Progress);
+        Assert.Equal("turn 1: Edit x1; 1 file touched", progress.Body<ProgressPayload>().Row);
+        Assert.True(late.Claim.Timestamp < early.AddMinutes(1));  // at the time it happened, not when it was recorded
+    }
+
+    [Fact]
+    public void ASessionEndThatWaitedStillHandsOff()
+    {
+        using var home = new TempHome();
+        Init(home);
+        Fire(home, Event("UserPromptSubmit", "s-end", ("prompt", "go")));
+        using (LedgerLock.Acquire(home.Path, TimeSpan.FromSeconds(5)))
+        {
+            Assert.Null(Fire(home, Event("SessionEnd", "s-end", ("reason", "prompt_input_exit")), env: Env(lockWait: TimeSpan.FromMilliseconds(50))));
+        }
+        Fire(home, Event("SessionStart", "s-next", ("source", "startup")));
+        var handOff = Assert.Single(Ledger(home).Entries, e => e.Kind == EntryKind.HandOff);
+        Assert.StartsWith("session ended (prompt_input_exit)", handOff.Body<HandOffPayload>().Reason);
+        Assert.False(File.Exists(Path.Combine(home.Path, "sessions", "s-end.json")));
+    }
+
+    [Fact]
     public async Task ParallelSessionsLoseNoEntryAndShareOneSequence()
     {
         using var home = new TempHome();

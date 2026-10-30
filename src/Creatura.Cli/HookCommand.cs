@@ -43,6 +43,45 @@ public sealed class HookSession
     public DateTimeOffset Started { get; set; }
 }
 
+/// <summary>
+/// The parts of one hook event the ledger needs, and no more: no prompt text (only the offers it names and, with
+/// <c>--goal prompt</c>, its scrubbed goal) and of a tool call only its name and the files it named. A hook that cannot
+/// get the home's lock leaves one in <c>&lt;home&gt;/hooks-waiting/</c>; the next hook to get the lock records it at
+/// <see cref="At"/>.
+/// </summary>
+public sealed record HookEvent
+{
+    public string Event { get; init; } = "";
+
+    public string Session { get; init; } = "";
+
+    public string Creatura { get; init; } = HookCommand.DefaultCreatura;
+
+    /// <summary>When the event happened; set only on an event left waiting.</summary>
+    public DateTimeOffset At { get; init; }
+
+    public string? Cwd { get; init; }
+
+    public string? Source { get; init; }
+
+    public string? Model { get; init; }
+
+    public string? Transcript { get; init; }
+
+    public string? Reason { get; init; }
+
+    public string? Tool { get; init; }
+
+    public List<string> Files { get; init; } = [];
+
+    public List<string> OffersNamed { get; init; } = [];
+
+    public string? PromptGoal { get; init; }
+
+    /// <summary>The mesh position, read at a session's start.</summary>
+    public Position? Mesh { get; init; }
+}
+
 /// <summary>Everything a hook reads from the outside world, so tests can replace it.</summary>
 public sealed record HookEnvironment
 {
@@ -56,7 +95,7 @@ public sealed record HookEnvironment
 
     public Func<DateTimeOffset> Now { get; init; } = () => DateTimeOffset.UtcNow;
 
-    /// <summary>How long a hook waits for the home's lock before it drops its event (it never blocks the session).</summary>
+    /// <summary>How long a hook waits for the home's lock before it leaves its event for the next hook (it never blocks the session).</summary>
     public TimeSpan LockWait { get; init; } = TimeSpan.FromMilliseconds(500);
 }
 
@@ -78,7 +117,7 @@ public sealed record HookEnvironment
 /// event write nothing.
 /// </para>
 /// </summary>
-public static class HookCommand
+public static partial class HookCommand
 {
     public const string DefaultCreatura = "claude-code";
 
@@ -107,7 +146,9 @@ public static class HookCommand
 
     /// <summary>
     /// Handles one event. Returns what it wrote to the ledger (for tests), never throws. <paramref name="say"/> gets the
-    /// only thing the hook ever prints: an offer's message for the person, at a new session's start.
+    /// only thing the hook ever prints: an offer's message for the person, at a new session's start. When the home's
+    /// lock stays held past <see cref="HookEnvironment.LockWait"/>, the event is left in <c>&lt;home&gt;/hooks-waiting/</c>
+    /// as a <see cref="HookEvent"/> and recorded, at its own time, by the next hook that gets the lock.
     /// </summary>
     public static SignedEntry? Handle(string json, CellHome home, string goalMode, string creatura, HookEnvironment env, Action<string>? say = null)
     {
@@ -122,109 +163,175 @@ public static class HookCommand
             if (input.TryGetProperty("agent_id", out _)) return null;                 // a subagent: its parent's turn covers it
             if (sessionId == "?" || !home.IsInitialized) return null;                  // nothing to file under, or no cell yet
             if (eventName == "Stop" && input.TryGetProperty("stop_hook_active", out var active) && active.ValueKind == JsonValueKind.True) return null;
+            if (eventName is not ("SessionStart" or "UserPromptSubmit" or "PostToolUse" or "Stop" or "SessionEnd")) return null;
 
-            Position? mesh = null;
-            if (eventName == "SessionStart") mesh = env.Mesh();                       // outside the lock: it may take a moment
+            var hook = Read(input, eventName, sessionId, goalMode, creatura);
+            if (eventName == "SessionStart") hook = hook with { Mesh = env.Mesh() };  // outside the lock: it may take a moment
 
             using var held = LedgerLock.TryAcquire(home.Root, env.LockWait);
             if (held is null)
             {
-                Log(home.Root, eventName, sessionId, new TimeoutException("the home's lock stayed held; event dropped"));
+                LeaveWaiting(home, hook with { At = env.Now() });
+                Log(home.Root, eventName, sessionId, new TimeoutException("the home's lock stayed held; event left for the next hook to record"));
                 return null;
             }
 
-            if (eventName == "SessionStart") SavePosition(home, mesh ?? Offline);
-            var loaded = LoadSession(home, sessionId);
-            if (loaded is null && eventName is "Stop" or "SessionEnd") return null;  // ended already, or began before the hooks: nothing to record against
-            var session = loaded ?? NewSession(input, sessionId, env);
-            var transcript = Str(input, "transcript_path");
-            SignedEntry? written = null;
-
-            switch (eventName)
-            {
-                case "SessionStart":
-                    session.Source = Str(input, "source") ?? session.Source;
-                    session.Model = Str(input, "model") ?? session.Model;
-                    if (Str(input, "cwd") is { } cwd && cwd != session.Cwd) Locate(session, cwd, env);
-                    // A new conversation, not a resumed or compacted one, is told what the owner has offered here.
-                    if (say is not null && session.Source is not ("resume" or "compact") && Pending(home, creatura, env) is { Count: > 0 } offers)
-                    {
-                        session.Offered = offers.Select(o => o.Id).ToList();
-                        say(JsonSerializer.Serialize(new Dictionary<string, string> { ["systemMessage"] = OfferMessage(offers) }));
-                    }
-                    break;
-
-                case "UserPromptSubmit":
-                    if (session.ClaimId is not null) break;
-                    var taken = TakenOffer(Str(input, "prompt"), session, Pending(home, creatura, env));
-                    var goal = taken?.Goal ?? (goalMode == "prompt" ? Scrubber.GoalFromPrompt(Str(input, "prompt")) : null);
-                    goal ??= FolderGoal(session);
-                    written = Write(home, creatura, env, new ClaimPayload(goal)
-                    {
-                        Repo = taken?.Repo ?? session.Repo,
-                        Branch = taken?.Branch ?? session.Branch,
-                        Folder = taken?.Folder ?? session.Cwd,
-                        Tool = ToolName,
-                        Session = sessionId,
-                        Offer = taken?.Id,
-                    });
-                    if (written is not null)
-                    {
-                        session.ClaimId = written.Id;
-                        session.TranscriptOffset = HookTranscript.Length(transcript);
-                    }
-                    break;
-
-                case "PostToolUse":
-                    var tool = Str(input, "tool_name") ?? "tool";
-                    session.Tools[tool] = session.Tools.GetValueOrDefault(tool) + 1;
-                    if (input.TryGetProperty("tool_input", out var toolInput) && toolInput.ValueKind == JsonValueKind.Object)
-                    {
-                        foreach (var name in new[] { "file_path", "notebook_path" })
-                        {
-                            if (Str(toolInput, name) is { Length: > 0 } file && !session.Files.Contains(file)) session.Files.Add(file);
-                        }
-                    }
-                    break;
-
-                case "Stop":
-                    if (session.ClaimId is not null)
-                    {
-                        session.Turns++;
-                        written = Write(home, creatura, env, new ProgressPayload(session.ClaimId, TurnRow(session)));
-                        session.TranscriptOffset = HookTranscript.Length(transcript);
-                    }
-                    session.Tools.Clear();
-                    session.Files.Clear();
-                    break;
-
-                case "SessionEnd":
-                    if (session.ClaimId is not null)
-                    {
-                        var rows = new List<ProgressPayload>();
-                        foreach (var turn in HookTranscript.TurnsAfter(transcript, session.TranscriptOffset))
-                        {
-                            session.Turns++;
-                            rows.Add(new ProgressPayload(session.ClaimId, TurnRow(session.Turns, turn.Tools, turn.Files)));
-                        }
-                        var reason = Str(input, "reason") ?? "other";
-                        written = Write(home, creatura, env, rows, new HandOffPayload(session.ClaimId,
-                            $"session ended ({reason}) after {session.Turns} turn{(session.Turns == 1 ? "" : "s")}"));
-                    }
-                    DeleteSession(home, sessionId);
-                    return written;
-
-                default:
-                    return null;
-            }
-
-            SaveSession(home, session);
+            Drain(home, env);
+            var written = Apply(hook, home, env, say);
+            Drain(home, env);                                                          // one left while this one held the lock
             return written;
         }
         catch (Exception e)
         {
             Log(home.Root, eventName, sessionId, e);
             return null;
+        }
+    }
+
+    /// <summary>What an event means for the session and the ledger; the caller holds the home's lock.</summary>
+    private static SignedEntry? Apply(HookEvent hook, CellHome home, HookEnvironment env, Action<string>? say)
+    {
+        if (hook.Event == "SessionStart") SavePosition(home, hook.Mesh ?? Offline);
+        var loaded = LoadSession(home, hook.Session);
+        if (loaded is null && hook.Event is "Stop" or "SessionEnd") return null;     // ended already, or began before the hooks: nothing to record against
+        var session = loaded ?? NewSession(hook, env);
+        var creatura = hook.Creatura;
+        SignedEntry? written = null;
+
+        switch (hook.Event)
+        {
+            case "SessionStart":
+                session.Source = hook.Source ?? session.Source;
+                session.Model = hook.Model ?? session.Model;
+                if (hook.Cwd is { } cwd && cwd != session.Cwd) Locate(session, cwd, env);
+                // A new conversation, not a resumed or compacted one, is told what the owner has offered here.
+                if (say is not null && session.Source is not ("resume" or "compact") && Pending(home, creatura, env) is { Count: > 0 } offers)
+                {
+                    session.Offered = offers.Select(o => o.Id).ToList();
+                    say(JsonSerializer.Serialize(new Dictionary<string, string> { ["systemMessage"] = OfferMessage(offers) }));
+                }
+                break;
+
+            case "UserPromptSubmit":
+                if (session.ClaimId is not null) break;
+                var taken = TakenOffer(hook.OffersNamed, session, Pending(home, creatura, env));
+                var goal = taken?.Goal ?? hook.PromptGoal ?? FolderGoal(session);
+                written = Write(home, creatura, env, new ClaimPayload(goal)
+                {
+                    Repo = taken?.Repo ?? session.Repo,
+                    Branch = taken?.Branch ?? session.Branch,
+                    Folder = taken?.Folder ?? session.Cwd,
+                    Tool = ToolName,
+                    Session = hook.Session,
+                    Offer = taken?.Id,
+                });
+                if (written is not null)
+                {
+                    session.ClaimId = written.Id;
+                    session.TranscriptOffset = HookTranscript.Length(hook.Transcript);
+                }
+                break;
+
+            case "PostToolUse":
+                var tool = hook.Tool ?? "tool";
+                session.Tools[tool] = session.Tools.GetValueOrDefault(tool) + 1;
+                foreach (var file in hook.Files.Where(f => !session.Files.Contains(f))) session.Files.Add(file);
+                break;
+
+            case "Stop":
+                if (session.ClaimId is not null)
+                {
+                    session.Turns++;
+                    written = Write(home, creatura, env, new ProgressPayload(session.ClaimId, TurnRow(session)));
+                    session.TranscriptOffset = HookTranscript.Length(hook.Transcript);
+                }
+                session.Tools.Clear();
+                session.Files.Clear();
+                break;
+
+            case "SessionEnd":
+                if (session.ClaimId is not null)
+                {
+                    var rows = new List<ProgressPayload>();
+                    foreach (var turn in HookTranscript.TurnsAfter(hook.Transcript, session.TranscriptOffset))
+                    {
+                        session.Turns++;
+                        rows.Add(new ProgressPayload(session.ClaimId, TurnRow(session.Turns, turn.Tools, turn.Files)));
+                    }
+                    var reason = hook.Reason ?? "other";
+                    written = Write(home, creatura, env, rows, new HandOffPayload(session.ClaimId,
+                        $"session ended ({reason}) after {session.Turns} turn{(session.Turns == 1 ? "" : "s")}"));
+                }
+                DeleteSession(home, hook.Session);
+                return written;
+
+            default:
+                return null;
+        }
+
+        SaveSession(home, session);
+        return written;
+    }
+
+    /// <summary>The fields of an event that <see cref="Apply"/> uses: the prompt only as the offers it names and, with <c>--goal prompt</c>, its scrubbed goal.</summary>
+    private static HookEvent Read(JsonElement input, string eventName, string sessionId, string goalMode, string creatura)
+    {
+        var files = new List<string>();
+        if (input.TryGetProperty("tool_input", out var toolInput) && toolInput.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var name in new[] { "file_path", "notebook_path" })
+            {
+                if (Str(toolInput, name) is { Length: > 0 } file && !files.Contains(file)) files.Add(file);
+            }
+        }
+        var prompt = Str(input, "prompt");
+        return new HookEvent
+        {
+            Event = eventName,
+            Session = sessionId,
+            Creatura = creatura,
+            Cwd = Str(input, "cwd"),
+            Source = Str(input, "source"),
+            Model = Str(input, "model"),
+            Transcript = Str(input, "transcript_path"),
+            Reason = Str(input, "reason"),
+            Tool = Str(input, "tool_name"),
+            Files = files,
+            OffersNamed = string.IsNullOrEmpty(prompt) ? [] : OfferNamed().Matches(prompt).Select(m => m.Groups[1].Value).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            PromptGoal = goalMode == "prompt" ? Scrubber.GoalFromPrompt(prompt) : null,
+        };
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"\boffer\s+([A-Za-z0-9][A-Za-z0-9_-]*)", System.Text.RegularExpressions.RegexOptions.IgnoreCase)]
+    private static partial System.Text.RegularExpressions.Regex OfferNamed();
+
+    private static string WaitingFolder(CellHome home) => Path.Combine(home.Root, "hooks-waiting");
+
+    /// <summary>One event for a later hook: a file named by its time, written whole and then renamed, so a reader never sees half of it.</summary>
+    private static void LeaveWaiting(CellHome home, HookEvent hook)
+    {
+        var name = $"{hook.At.UtcTicks.ToString("D19", CultureInfo.InvariantCulture)}-{Guid.NewGuid():N}.json";
+        OwnerOnly.Replace(Path.Combine(WaitingFolder(home), name), JsonSerializer.SerializeToUtf8Bytes(hook, CellJson.Options));
+    }
+
+    /// <summary>Records the events left waiting, oldest first, each at its own time; the caller holds the home's lock.</summary>
+    private static void Drain(CellHome home, HookEnvironment env)
+    {
+        var folder = WaitingFolder(home);
+        if (!Directory.Exists(folder)) return;
+        foreach (var path in Directory.EnumerateFiles(folder, "*.json").Order(StringComparer.Ordinal).ToList())
+        {
+            HookEvent? waiting = null;
+            try
+            {
+                waiting = JsonSerializer.Deserialize<HookEvent>(File.ReadAllBytes(path), CellJson.Options);
+                if (waiting is not null) Apply(waiting, home, env with { Now = () => waiting.At }, say: null);
+            }
+            catch (Exception e)
+            {
+                Log(home.Root, waiting?.Event ?? "?", waiting?.Session ?? "?", e);              // recorded once or never, not retried forever
+            }
+            File.Delete(path);
         }
     }
 
@@ -237,11 +344,10 @@ public static class HookCommand
     }
 
     /// <summary>The offer the first prompt names (<c>offer of-…</c>), when it is one shown at this session's start and still waiting for this cell.</summary>
-    private static GoalOffer? TakenOffer(string? prompt, HookSession session, IReadOnlyList<GoalOffer> pending)
+    private static GoalOffer? TakenOffer(IReadOnlyList<string> named, HookSession session, IReadOnlyList<GoalOffer> pending)
     {
-        if (string.IsNullOrEmpty(prompt) || session.Offered.Count == 0) return null;
-        return pending.FirstOrDefault(o => session.Offered.Contains(o.Id)
-            && System.Text.RegularExpressions.Regex.IsMatch(prompt, $@"\boffer\s+{System.Text.RegularExpressions.Regex.Escape(o.Id)}\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+        if (named.Count == 0 || session.Offered.Count == 0) return null;
+        return pending.FirstOrDefault(o => session.Offered.Contains(o.Id) && named.Contains(o.Id, StringComparer.OrdinalIgnoreCase));
     }
 
     /// <summary>The offers waiting for this home's cell of <paramref name="creatura"/>; none when it is not endorsed.</summary>
@@ -330,10 +436,10 @@ public static class HookCommand
         return entry;
     }
 
-    private static HookSession NewSession(JsonElement input, string sessionId, HookEnvironment env)
+    private static HookSession NewSession(HookEvent hook, HookEnvironment env)
     {
-        var session = new HookSession { SessionId = sessionId, Started = env.Now() };
-        if (Str(input, "cwd") is { } cwd) Locate(session, cwd, env);
+        var session = new HookSession { SessionId = hook.Session, Started = env.Now() };
+        if (hook.Cwd is { } cwd) Locate(session, cwd, env);
         return session;
     }
 

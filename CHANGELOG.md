@@ -21,6 +21,9 @@
 - **The packages** carry a README, the icon, SourceLink and symbol packages (`.snupkg`).
 - **Headless sessions leave their steps**: SessionEnd reads the turns whose Stop never landed from the transcript
   (tool names and files only) and writes them before the HandOff, so a `claude -p` session's claim has its steps.
+- **No hook event is dropped on a busy home**: a hook that cannot get the home's lock leaves the event in
+  `<home>/hooks-waiting/` (no prompt text, no tool input), and the next hook records it at its own time.
+- **Each package has its own description** on nuget.org.
 
 ## 0.2.0-preview.1 (2026-10-29)
 

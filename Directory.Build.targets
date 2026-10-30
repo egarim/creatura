@@ -16,6 +16,21 @@
     <IncludeSymbols>false</IncludeSymbols>
   </PropertyGroup>
 
+  <!-- What each package is, in a sentence or two (nuget.org shows it in search results); its PACKAGE.md says more.
+       Creatura itself keeps the shared description in Directory.Build.props. -->
+  <PropertyGroup>
+    <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Bench'">Where a Creatura design is trained and tested: oracles that judge a run by evidence the agent cannot author, pre-registered batteries of hypotheses, the trainer and the exam over the record store. No package dependencies.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Cells'">Identity and a shared, signed work ledger for Creatura agents: each agent gets a key bound to its machine and endorsed by an owner, and every entry is verified on merge. No package dependencies.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Cells.Sqlite'">The Creatura work ledger in SQLite, in place of the default JSON file. A save writes only the entries that are new.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Cells.Sync'">The Creatura work ledger over SyncFramework: push to and pull from a ledger hub, with every request signed by its cell and every entry verified before it is merged.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Cli'">The creatura command as a .NET tool: start a Creatura project, try a design with no code, check your setup, and run this machine's cell (claims, the signed work ledger, offers, sync and the Claude Code hooks).</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Hosts.AgentFramework'">Creatura's control layer on Microsoft Agent Framework, as middleware: the model is offered only the tools the layer trusts, every tool's effect is checked against the world, and a tool that lies is quarantined.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Hosts.SemanticKernel'">Creatura's control layer on Semantic Kernel, through its filters: the model sees only the tools the layer trusts and reads the layer's verdict instead of a tool's own claim, and a lying tool is quarantined.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Scenarios'">Several Creatura agents in one shared world: the convoy, three trucks with their own cells and ledgers delivering supplies after a flood, in a world whose roads and gauges lie. Offline, and a seed replays byte for byte.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Seats'">A language model in a Creatura agent's decision seat or the critic's judge seat, with no SDK: Ollama, OpenAI-compatible APIs (OpenAI, DeepSeek, Azure OpenAI) and Azure AI Foundry over an HttpClient, a model catalog, a call log and a scoreboard.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Worlds'">Worlds for testing Creatura agents: sample worlds with barriers you switch on (tools that fail, lie or change the rules), their manifests, and the catalogs that build agents by name. No package dependencies and no file IO.</Description>
+  </PropertyGroup>
+
   <!-- A few tags of each package's own, after the shared ones, so a search for the framework it rides finds it. -->
   <PropertyGroup>
     <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Hosts.AgentFramework'">$(PackageTags);microsoft-agent-framework;ichatclient;middleware</PackageTags>
