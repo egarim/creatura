@@ -16,12 +16,12 @@ public sealed record ConvoyBatteryReport(int Seeds, IReadOnlyDictionary<ConvoyAr
     public string Render()
     {
         var text = new StringBuilder();
-        text.AppendLine(CultureInfo.InvariantCulture, $"convoy battery, {Seeds} seeds per arm");
+        text.AppendLine(TraceText.Culture, $"convoy battery, {Seeds} seeds per arm");
         text.AppendLine("arm  delivered  wasted  lies  repeats  stranded  served-by  ledgers");
         foreach (var (arm, runs) in Runs)
         {
             var served = runs.Where(r => r.AllServed).Select(r => (double)r.TicksToServe).DefaultIfEmpty(double.NaN).Average();
-            text.AppendLine(CultureInfo.InvariantCulture,
+            text.AppendLine(TraceText.Culture,
                 $"{arm,-4} {runs.Sum(r => r.Delivered),5}/{runs.Sum(r => r.Demand),-5} {runs.Sum(r => r.WastedTrips),6} {runs.Sum(r => r.LiesBelieved),5} {runs.Sum(r => r.LyingRoadRepeats),8} {runs.Sum(r => r.Stranded),9} {served,9:0.0} {runs.Count(r => r.LedgersIdentical),5}/{runs.Count}");
         }
         if (Runs.Values.Any(runs => runs.Any(r => r.SeatCalls < r.Decisions)))
@@ -31,15 +31,15 @@ public sealed record ConvoyBatteryReport(int Seeds, IReadOnlyDictionary<ConvoyAr
             foreach (var (arm, runs) in Runs)
             {
                 int calls = runs.Sum(r => r.SeatCalls), decisions = runs.Sum(r => r.Decisions);
-                text.AppendLine(CultureInfo.InvariantCulture,
+                text.AppendLine(TraceText.Culture,
                     $"{arm,-4} {calls,10} {decisions,10} {(decisions == 0 ? 0 : calls / (double)decisions),6:P1} {runs.Sum(r => r.GuideSurpriseCalls),15} {runs.Sum(r => r.GuideDisagreements),10}");
             }
         }
-        foreach (var v in Verdicts) text.AppendLine(CultureInfo.InvariantCulture, $"{v.Id} {v.Verdict}: {v.Statement} ({v.Evidence})");
+        foreach (var v in Verdicts) text.AppendLine(TraceText.Culture, $"{v.Id} {v.Verdict}: {v.Statement} ({v.Evidence})");
         if (Seats.Count > 0)
         {
-            var cost = Seats.All(x => x.Cost is not null) ? $"${Seats.Sum(x => x.Cost!.Value):0.0000}" : "unknown";
-            text.AppendLine(CultureInfo.InvariantCulture,
+            var cost = Seats.All(x => x.Cost is not null) ? string.Create(TraceText.Culture, $"${Seats.Sum(x => x.Cost!.Value):0.0000}") : "unknown";
+            text.AppendLine(TraceText.Culture,
                 $"model seat {Seats[0].Name} ({Seats[0].Model}): {Seats.Sum(x => x.Calls)} calls, {Seats.Sum(x => x.Failed)} failed, {Seats.Sum(x => x.Invalid)} invalid, {Seats.Sum(x => x.PromptTokens):N0} prompt and {Seats.Sum(x => x.CompletionTokens):N0} completion tokens, cost {cost}, {Seats.Sum(x => x.Seconds):0} s");
         }
         foreach (var e in Errors) text.AppendLine("error: " + e);
@@ -54,11 +54,14 @@ public sealed record ConvoyBatteryReport(int Seeds, IReadOnlyDictionary<ConvoyAr
 public static class ConvoyBattery
 {
     /// <summary>
-    /// The arms the battery runs by default: every arm with the offline planner. Arm S (a model in the seat) costs money
-    /// and is not repeatable, so it runs only when asked for. Arm P runs only when asked for too: its gate before the
-    /// loop (T10b) failed, so by step 6's registration it is not scored.
+    /// The arms the battery runs by default: every arm with the offline planner. Arms S and MS (a model in the seat) cost
+    /// money and are not repeatable, so they run only when asked for. Arm P runs only when asked for too: its gate before
+    /// the loop (T10b) failed, so by step 6's registration it is not scored.
     /// </summary>
-    public static IReadOnlyList<ConvoyArm> DefaultArms => Enum.GetValues<ConvoyArm>().Where(a => a is not ConvoyArm.S and not ConvoyArm.P).ToList();
+    public static IReadOnlyList<ConvoyArm> DefaultArms => Enum.GetValues<ConvoyArm>().Where(a => !Paid(a) && a is not ConvoyArm.P).ToList();
+
+    /// <summary>The arms with a language model in the seat: they cost money and do not replay byte for byte.</summary>
+    public static bool Paid(ConvoyArm arm) => arm is ConvoyArm.S or ConvoyArm.MS;
 
     public static Task<ConvoyBatteryReport> RunAsync(int seeds, Action<string>? progress = null, CancellationToken cancellationToken = default) =>
         RunAsync(seeds, DefaultArms, null, progress, cancellationToken);
@@ -66,8 +69,9 @@ public static class ConvoyBattery
     /// <param name="arms">The arms to run; M6 is checked on those among them that are repeatable.</param>
     /// <param name="scenario">How a run is made from its setup (arm S's model, catalog and call log); the plain scenario when null.</param>
     /// <param name="firstSeed">The first seed: 0 for the battery's own seeds, another for a confirmation on fresh seeds (step 6's third attempt uses 2000).</param>
+    /// <param name="maxCost">A spending cap in dollars for the model seats (step 10): no run starts when the runs so far, plus one more at their average cost, would pass it.</param>
     public static async Task<ConvoyBatteryReport> RunAsync(int seeds, IReadOnlyList<ConvoyArm> arms, Func<ConvoySetup, ConvoyScenario>? scenario,
-        Action<string>? progress = null, CancellationToken cancellationToken = default, int firstSeed = 0)
+        Action<string>? progress = null, CancellationToken cancellationToken = default, int firstSeed = 0, decimal? maxCost = null)
     {
         var runs = new Dictionary<ConvoyArm, IReadOnlyList<ConvoyMeasures>>();
         var errors = new List<string>();
@@ -77,6 +81,13 @@ public static class ConvoyBattery
             var measures = new List<ConvoyMeasures>();
             for (var seed = firstSeed; seed < firstSeed + seeds; seed++)
             {
+                var spent = seats.Sum(s => s.Cost ?? 0);
+                var next = seats.Count == 0 ? 0 : spent / seats.Count;
+                if (maxCost is { } cap && (spent >= cap || spent + next > cap))
+                {
+                    errors.Add(string.Create(TraceText.Culture, $"{arm} seed {seed}: not run, the cost cap of ${cap} would be passed (${spent:0.0000} spent, about ${next:0.0000} a run)"));
+                    break;
+                }
                 var setup = ConvoySetup.For(arm, seed);
                 var run = await (scenario?.Invoke(setup) ?? new ConvoyScenario(setup)).RunAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
                 if (run.Summary.Seat is { } used) seats.Add(used);
@@ -88,7 +99,7 @@ public static class ConvoyBattery
         }
 
         var same = new Dictionary<ConvoyArm, bool>();
-        foreach (var arm in arms.Where(a => a != ConvoyArm.S)) same[arm] = await ReplaysMatchAsync(arm, 0, cancellationToken).ConfigureAwait(false);
+        foreach (var arm in arms.Where(a => !Paid(a))) same[arm] = await ReplaysMatchAsync(arm, 0, cancellationToken).ConfigureAwait(false);
         return new ConvoyBatteryReport(seeds, runs, Score(runs, same.Values.All(s => s), same), errors) { Seats = seats };
     }
 
@@ -169,7 +180,7 @@ public static class ConvoyBattery
             var (network, planner) = (Over(ConvoyArm.N, m => m.Delivered), Over(ConvoyArm.J, m => m.Delivered));
             verdicts.Add(new("T2", "the network trained by example delivers at least 95% of what arm J's planner delivers (N against J)",
                 Held(network >= 0.95 * planner),
-                $"delivered N {network}, J {planner} ({(planner == 0 ? 0 : network / (double)planner):P1}) over {n} seeds; wasted N {Over(ConvoyArm.N, m => m.WastedTrips)}, J {Over(ConvoyArm.J, m => m.WastedTrips)}; "
+                string.Create(TraceText.Culture, $"delivered N {network}, J {planner} ({(planner == 0 ? 0 : network / (double)planner):P1}) over {n} seeds; wasted N {Over(ConvoyArm.N, m => m.WastedTrips)}, J {Over(ConvoyArm.J, m => m.WastedTrips)}; ")
                 + $"lies N {Over(ConvoyArm.N, m => m.LiesBelieved)}, J {Over(ConvoyArm.J, m => m.LiesBelieved)}; stranded N {Over(ConvoyArm.N, m => m.Stranded)}, J {Over(ConvoyArm.J, m => m.Stranded)}"));
             var same = replays is not null && replays.TryGetValue(ConvoyArm.N, out var s) ? s : replaysMatch;
             verdicts.Add(new("T4", "the network replays byte for byte for the same seed (N)", Held(same), same ? "six runs of seed 0 matched" : "a replay differed"));
@@ -188,7 +199,7 @@ public static class ConvoyBattery
             verdicts.Add(new("T3b", "trained by trial, the network strands fewer trucks than arm J (R against J)",
                 Held(Over(ConvoyArm.R, m => m.Stranded) < Over(ConvoyArm.J, m => m.Stranded)),
                 $"stranded R {Over(ConvoyArm.R, m => m.Stranded)}, J {Over(ConvoyArm.J, m => m.Stranded)}; wasted R {Over(ConvoyArm.R, m => m.WastedTrips)}, J {Over(ConvoyArm.J, m => m.WastedTrips)}; "
-                + $"served by tick {runs[ConvoyArm.R].Take(n).Average(m => m.TicksToServe):0.0} against {runs[ConvoyArm.J].Take(n).Average(m => m.TicksToServe):0.0}"));
+                + string.Create(TraceText.Culture, $"served by tick {runs[ConvoyArm.R].Take(n).Average(m => m.TicksToServe):0.0} against {runs[ConvoyArm.J].Take(n).Average(m => m.TicksToServe):0.0}")));
             var same = replays is not null && replays.TryGetValue(ConvoyArm.R, out var s) ? s : replaysMatch;
             verdicts.Add(new("T4R", "the network trained by trial replays byte for byte for the same seed (R)", Held(same), same ? "six runs of seed 0 matched" : "a replay differed"));
         }
@@ -206,7 +217,7 @@ public static class ConvoyBattery
             verdicts.Add(new("T7b", "trained by trial on W's setup, the network strands fewer trucks than arm W (Q against W)",
                 Held(Over(ConvoyArm.Q, m => m.Stranded) < Over(ConvoyArm.W, m => m.Stranded)),
                 $"stranded Q {Over(ConvoyArm.Q, m => m.Stranded)}, W {Over(ConvoyArm.W, m => m.Stranded)}; wasted Q {Over(ConvoyArm.Q, m => m.WastedTrips)}, W {Over(ConvoyArm.W, m => m.WastedTrips)}; "
-                + $"served by tick {runs[ConvoyArm.Q].Take(n).Average(m => m.TicksToServe):0.0} against {runs[ConvoyArm.W].Take(n).Average(m => m.TicksToServe):0.0}"));
+                + string.Create(TraceText.Culture, $"served by tick {runs[ConvoyArm.Q].Take(n).Average(m => m.TicksToServe):0.0} against {runs[ConvoyArm.W].Take(n).Average(m => m.TicksToServe):0.0}")));
             var same = replays is not null && replays.TryGetValue(ConvoyArm.Q, out var s) ? s : replaysMatch;
             verdicts.Add(new("T7c", "the network trained by trial on W's setup replays byte for byte for the same seed (Q)", Held(same), same ? "six runs of seed 0 matched" : "a replay differed"));
         }
@@ -219,12 +230,12 @@ public static class ConvoyBattery
             verdicts.Add(new("T8", "with the learned judge in place of the hand-coded check, the trucks deliver at least as much as arm J and act on no more lies (X against J)",
                 Held(Over(ConvoyArm.X, m => m.Delivered) >= Over(ConvoyArm.J, m => m.Delivered) && Over(ConvoyArm.X, m => m.LiesBelieved) <= Over(ConvoyArm.J, m => m.LiesBelieved)),
                 $"delivered X {Over(ConvoyArm.X, m => m.Delivered)}, J {Over(ConvoyArm.J, m => m.Delivered)}; lies X {Over(ConvoyArm.X, m => m.LiesBelieved)}, J {Over(ConvoyArm.J, m => m.LiesBelieved)}; "
-                + $"stranded X {Over(ConvoyArm.X, m => m.Stranded)}, J {Over(ConvoyArm.J, m => m.Stranded)}; served by tick {runs[ConvoyArm.X].Take(n).Average(m => m.TicksToServe):0.0} against {runs[ConvoyArm.J].Take(n).Average(m => m.TicksToServe):0.0} over {n} seeds"));
+                + string.Create(TraceText.Culture, $"stranded X {Over(ConvoyArm.X, m => m.Stranded)}, J {Over(ConvoyArm.J, m => m.Stranded)}; served by tick {runs[ConvoyArm.X].Take(n).Average(m => m.TicksToServe):0.0} against {runs[ConvoyArm.J].Take(n).Average(m => m.TicksToServe):0.0} over {n} seeds")));
             var judged = Over(ConvoyArm.X, m => m.Judged);
             var alarms = Over(ConvoyArm.X, m => m.JudgeFalseAlarms);
             verdicts.Add(new("T8b", "the learned judge gives false alarms on fewer than 1% of the actions it judges (X)",
                 Held(judged > 0 && alarms < 0.01 * judged),
-                $"false alarms {alarms} of {judged} judged ({(judged == 0 ? 0 : alarms / (double)judged):P2}); misses {Over(ConvoyArm.X, m => m.JudgeMisses)}"));
+                string.Create(TraceText.Culture, $"false alarms {alarms} of {judged} judged ({(judged == 0 ? 0 : alarms / (double)judged):P2}); misses {Over(ConvoyArm.X, m => m.JudgeMisses)}")));
             var same = replays is not null && replays.TryGetValue(ConvoyArm.X, out var s) ? s : replaysMatch;
             verdicts.Add(new("T8c", "with the learned judge, a seed replays byte for byte (X)", Held(same), same ? "six runs of seed 0 matched" : "a replay differed"));
         }
@@ -239,12 +250,12 @@ public static class ConvoyBattery
                 Held(Over(arm, m => m.Delivered) >= Over(ConvoyArm.J, m => m.Delivered) && Over(arm, m => m.LiesBelieved) <= Over(ConvoyArm.J, m => m.LiesBelieved)),
                 $"delivered {arm} {Over(arm, m => m.Delivered)}, J {Over(ConvoyArm.J, m => m.Delivered)}; lies {arm} {Over(arm, m => m.LiesBelieved)}, J {Over(ConvoyArm.J, m => m.LiesBelieved)}; "
                 + $"repeats {arm} {Over(arm, m => m.LyingRoadRepeats)}; stranded {arm} {Over(arm, m => m.Stranded)}, J {Over(ConvoyArm.J, m => m.Stranded)}; "
-                + $"served by tick {runs[arm].Take(n).Average(m => m.TicksToServe):0.0} against {runs[ConvoyArm.J].Take(n).Average(m => m.TicksToServe):0.0} over {n} seeds"));
+                + string.Create(TraceText.Culture, $"served by tick {runs[arm].Take(n).Average(m => m.TicksToServe):0.0} against {runs[ConvoyArm.J].Take(n).Average(m => m.TicksToServe):0.0} over {n} seeds")));
             var judged = Over(arm, m => m.Judged);
             var alarms = Over(arm, m => m.JudgeFalseAlarms);
             verdicts.Add(new(alarm, $"arm {arm}'s learned judge gives false alarms on fewer than 1% of the actions it judges",
                 Held(judged > 0 && alarms < 0.01 * judged),
-                $"false alarms {alarms} of {judged} judged ({(judged == 0 ? 0 : alarms / (double)judged):P2}); misses {Over(arm, m => m.JudgeMisses)}"));
+                string.Create(TraceText.Culture, $"false alarms {alarms} of {judged} judged ({(judged == 0 ? 0 : alarms / (double)judged):P2}); misses {Over(arm, m => m.JudgeMisses)}")));
         }
         if (runs.ContainsKey(ConvoyArm.Y) || runs.ContainsKey(ConvoyArm.Z))
         {
@@ -258,7 +269,7 @@ public static class ConvoyBattery
         int Of(ConvoyArm a, int n, Func<ConvoyMeasures, int> f) => runs[a].Take(n).Sum(f);
         double ServedBy(ConvoyArm a, int n) => runs[a].Take(n).Average(m => m.TicksToServe);
         string Errors(ConvoyArm a, int n) =>
-            $"arm {a}: false alarms {Of(a, n, m => m.CheckFalseAlarms)} of {Of(a, n, m => m.Checked)} checked ({Rate(Of(a, n, m => m.CheckFalseAlarms), Of(a, n, m => m.Checked)):P2}), "
+            string.Create(TraceText.Culture, $"arm {a}: false alarms {Of(a, n, m => m.CheckFalseAlarms)} of {Of(a, n, m => m.Checked)} checked ({Rate(Of(a, n, m => m.CheckFalseAlarms), Of(a, n, m => m.Checked)):P2}), ")
             + $"misses {Of(a, n, m => m.CheckMisses)} of {Of(a, n, m => m.CheckedLies)} lies";
         double ErrorRate(ConvoyArm a, int n) => Rate(Of(a, n, m => m.CheckFalseAlarms + m.CheckMisses), Of(a, n, m => m.Checked));
         int Common(params ConvoyArm[] arms) => arms.Min(a => runs[a].Count);
@@ -268,7 +279,7 @@ public static class ConvoyBattery
             var rate = Rate(Of(ConvoyArm.U, n, m => m.CheckFalseAlarms), Of(ConvoyArm.U, n, m => m.Checked));
             verdicts.Add(new("T10", "the noise breaks the exact check: arm U's check gives false alarms on more than 1% of checked actions, and arm U serves the villages later than arm J",
                 Held(rate > 0.01 && ServedBy(ConvoyArm.U, n) > ServedBy(ConvoyArm.J, n)),
-                $"{Errors(ConvoyArm.U, n)}; served by tick U {ServedBy(ConvoyArm.U, n):0.0}, J {ServedBy(ConvoyArm.J, n):0.0}; delivered U {Of(ConvoyArm.U, n, m => m.Delivered)}, J {Of(ConvoyArm.J, n, m => m.Delivered)} over {n} seeds"));
+                string.Create(TraceText.Culture, $"{Errors(ConvoyArm.U, n)}; served by tick U {ServedBy(ConvoyArm.U, n):0.0}, J {ServedBy(ConvoyArm.J, n):0.0}; delivered U {Of(ConvoyArm.U, n, m => m.Delivered)}, J {Of(ConvoyArm.J, n, m => m.Delivered)} over {n} seeds")));
         }
         if (runs.ContainsKey(ConvoyArm.P) && runs.ContainsKey(ConvoyArm.U))
         {
@@ -276,7 +287,7 @@ public static class ConvoyBattery
             verdicts.Add(new("T10c", "arm P (the lie judge) delivers at least as much as arm U, serves the villages no later on average, and acts on no more lies",
                 Held(Of(ConvoyArm.P, n, m => m.Delivered) >= Of(ConvoyArm.U, n, m => m.Delivered) && ServedBy(ConvoyArm.P, n) <= ServedBy(ConvoyArm.U, n)
                     && Of(ConvoyArm.P, n, m => m.LiesBelieved) <= Of(ConvoyArm.U, n, m => m.LiesBelieved)),
-                $"delivered P {Of(ConvoyArm.P, n, m => m.Delivered)}, U {Of(ConvoyArm.U, n, m => m.Delivered)}; served by tick P {ServedBy(ConvoyArm.P, n):0.0}, U {ServedBy(ConvoyArm.U, n):0.0}; "
+                string.Create(TraceText.Culture, $"delivered P {Of(ConvoyArm.P, n, m => m.Delivered)}, U {Of(ConvoyArm.U, n, m => m.Delivered)}; served by tick P {ServedBy(ConvoyArm.P, n):0.0}, U {ServedBy(ConvoyArm.U, n):0.0}; ")
                 + $"lies P {Of(ConvoyArm.P, n, m => m.LiesBelieved)}, U {Of(ConvoyArm.U, n, m => m.LiesBelieved)}; stranded P {Of(ConvoyArm.P, n, m => m.Stranded)}, U {Of(ConvoyArm.U, n, m => m.Stranded)} over {n} seeds"));
         }
         if (runs.ContainsKey(ConvoyArm.P) && runs.ContainsKey(ConvoyArm.V))
@@ -284,8 +295,8 @@ public static class ConvoyBattery
             var n = Common(ConvoyArm.P, ConvoyArm.V);
             verdicts.Add(new("T10d", "arm P's judge has a lower error rate (false alarms plus misses over checked actions) than arm V's fused check, and arm P delivers at least as much as arm V",
                 Held(ErrorRate(ConvoyArm.P, n) < ErrorRate(ConvoyArm.V, n) && Of(ConvoyArm.P, n, m => m.Delivered) >= Of(ConvoyArm.V, n, m => m.Delivered)),
-                $"error rate P {ErrorRate(ConvoyArm.P, n):P2}, V {ErrorRate(ConvoyArm.V, n):P2}; {Errors(ConvoyArm.P, n)}; {Errors(ConvoyArm.V, n)}; "
-                + $"delivered P {Of(ConvoyArm.P, n, m => m.Delivered)}, V {Of(ConvoyArm.V, n, m => m.Delivered)}; served by tick P {ServedBy(ConvoyArm.P, n):0.0}, V {ServedBy(ConvoyArm.V, n):0.0}; "
+                string.Create(TraceText.Culture, $"error rate P {ErrorRate(ConvoyArm.P, n):P2}, V {ErrorRate(ConvoyArm.V, n):P2}; {Errors(ConvoyArm.P, n)}; {Errors(ConvoyArm.V, n)}; ")
+                + string.Create(TraceText.Culture, $"delivered P {Of(ConvoyArm.P, n, m => m.Delivered)}, V {Of(ConvoyArm.V, n, m => m.Delivered)}; served by tick P {ServedBy(ConvoyArm.P, n):0.0}, V {ServedBy(ConvoyArm.V, n):0.0}; ")
                 + $"lies P {Of(ConvoyArm.P, n, m => m.LiesBelieved)}, V {Of(ConvoyArm.V, n, m => m.LiesBelieved)}"));
         }
         if (runs.ContainsKey(ConvoyArm.P))
@@ -301,7 +312,7 @@ public static class ConvoyBattery
             var misses = Rate(Of(ConvoyArm.F, n, m => m.CheckMisses), Of(ConvoyArm.F, n, m => m.CheckedLies));
             var alarms = Rate(Of(ConvoyArm.F, n, m => m.CheckFalseAlarms), Of(ConvoyArm.F, n, m => m.Checked));
             verdicts.Add(new("T10f", "arm F's judge (surprise) misses fewer than 10% of lies with false alarms under 1%",
-                Held(Of(ConvoyArm.F, n, m => m.CheckedLies) > 0 && misses < 0.10 && alarms < 0.01), $"{Errors(ConvoyArm.F, n)} ({misses:P1} missed); lies acted on {Of(ConvoyArm.F, n, m => m.LiesBelieved)}"));
+                Held(Of(ConvoyArm.F, n, m => m.CheckedLies) > 0 && misses < 0.10 && alarms < 0.01), string.Create(TraceText.Culture, $"{Errors(ConvoyArm.F, n)} ({misses:P1} missed); lies acted on {Of(ConvoyArm.F, n, m => m.LiesBelieved)}")));
         }
         var noisy = new[] { ConvoyArm.U, ConvoyArm.V, ConvoyArm.F, ConvoyArm.P }.Where(runs.ContainsKey).ToList();
         if (noisy.Count > 0)
@@ -317,14 +328,14 @@ public static class ConvoyBattery
             var rate = Rate(Of(ConvoyArm.U2, n, m => m.CheckFalseAlarms), Of(ConvoyArm.U2, n, m => m.Checked));
             verdicts.Add(new("T11", "sealed, the noise still breaks the effect check: arm U2's check gives false alarms on more than 1% of checked actions, and arm U2 serves the villages later than arm J",
                 Held(rate > 0.01 && ServedBy(ConvoyArm.U2, n) > ServedBy(ConvoyArm.J, n)),
-                $"{Errors(ConvoyArm.U2, n)}; served by tick U2 {ServedBy(ConvoyArm.U2, n):0.0}, J {ServedBy(ConvoyArm.J, n):0.0}; delivered U2 {Of(ConvoyArm.U2, n, m => m.Delivered)}, J {Of(ConvoyArm.J, n, m => m.Delivered)} over {n} seeds"));
+                string.Create(TraceText.Culture, $"{Errors(ConvoyArm.U2, n)}; served by tick U2 {ServedBy(ConvoyArm.U2, n):0.0}, J {ServedBy(ConvoyArm.J, n):0.0}; delivered U2 {Of(ConvoyArm.U2, n, m => m.Delivered)}, J {Of(ConvoyArm.J, n, m => m.Delivered)} over {n} seeds")));
         }
         if (runs.ContainsKey(ConvoyArm.P2) && runs.ContainsKey(ConvoyArm.U2))
         {
             var n = Common(ConvoyArm.P2, ConvoyArm.U2);
             verdicts.Add(new("T11c", "arm P2 delivers at least as much as arm U2 and serves the villages no later on average",
                 Held(Of(ConvoyArm.P2, n, m => m.Delivered) >= Of(ConvoyArm.U2, n, m => m.Delivered) && ServedBy(ConvoyArm.P2, n) <= ServedBy(ConvoyArm.U2, n)),
-                $"delivered P2 {Of(ConvoyArm.P2, n, m => m.Delivered)}, U2 {Of(ConvoyArm.U2, n, m => m.Delivered)}; served by tick P2 {ServedBy(ConvoyArm.P2, n):0.0}, U2 {ServedBy(ConvoyArm.U2, n):0.0}; "
+                string.Create(TraceText.Culture, $"delivered P2 {Of(ConvoyArm.P2, n, m => m.Delivered)}, U2 {Of(ConvoyArm.U2, n, m => m.Delivered)}; served by tick P2 {ServedBy(ConvoyArm.P2, n):0.0}, U2 {ServedBy(ConvoyArm.U2, n):0.0}; ")
                 + $"lies P2 {Of(ConvoyArm.P2, n, m => m.LiesBelieved)}, U2 {Of(ConvoyArm.U2, n, m => m.LiesBelieved)} over {n} seeds"));
         }
         if (runs.ContainsKey(ConvoyArm.P2) && runs.ContainsKey(ConvoyArm.V2))
@@ -332,8 +343,8 @@ public static class ConvoyBattery
             var n = Common(ConvoyArm.P2, ConvoyArm.V2);
             verdicts.Add(new("T11d", "arm P2's judge has a lower error rate (false alarms plus misses over checked actions) than arm V2's check, and arm P2 delivers at least as much as arm V2",
                 Held(ErrorRate(ConvoyArm.P2, n) < ErrorRate(ConvoyArm.V2, n) && Of(ConvoyArm.P2, n, m => m.Delivered) >= Of(ConvoyArm.V2, n, m => m.Delivered)),
-                $"error rate P2 {ErrorRate(ConvoyArm.P2, n):P2}, V2 {ErrorRate(ConvoyArm.V2, n):P2}; {Errors(ConvoyArm.P2, n)}; {Errors(ConvoyArm.V2, n)}; "
-                + $"delivered P2 {Of(ConvoyArm.P2, n, m => m.Delivered)}, V2 {Of(ConvoyArm.V2, n, m => m.Delivered)}; served by tick P2 {ServedBy(ConvoyArm.P2, n):0.0}, V2 {ServedBy(ConvoyArm.V2, n):0.0}; "
+                string.Create(TraceText.Culture, $"error rate P2 {ErrorRate(ConvoyArm.P2, n):P2}, V2 {ErrorRate(ConvoyArm.V2, n):P2}; {Errors(ConvoyArm.P2, n)}; {Errors(ConvoyArm.V2, n)}; ")
+                + string.Create(TraceText.Culture, $"delivered P2 {Of(ConvoyArm.P2, n, m => m.Delivered)}, V2 {Of(ConvoyArm.V2, n, m => m.Delivered)}; served by tick P2 {ServedBy(ConvoyArm.P2, n):0.0}, V2 {ServedBy(ConvoyArm.V2, n):0.0}; ")
                 + $"lies P2 {Of(ConvoyArm.P2, n, m => m.LiesBelieved)}, V2 {Of(ConvoyArm.V2, n, m => m.LiesBelieved)}"));
             verdicts.Add(new("T11e", "memory ends the repeats: arm P2 takes a lying road again no more often than arm V2",
                 Held(Of(ConvoyArm.P2, n, m => m.LyingRoadRepeats) <= Of(ConvoyArm.V2, n, m => m.LyingRoadRepeats)),
@@ -352,14 +363,14 @@ public static class ConvoyBattery
             var n = Common(ConvoyArm.P3, ConvoyArm.V2);
             verdicts.Add(new("T12", "arm P3's error rate (false alarms plus misses over checked actions) is lower than arm V2's, and arm P3 delivers at least as much",
                 Held(ErrorRate(ConvoyArm.P3, n) < ErrorRate(ConvoyArm.V2, n) && Of(ConvoyArm.P3, n, m => m.Delivered) >= Of(ConvoyArm.V2, n, m => m.Delivered)),
-                $"error rate P3 {ErrorRate(ConvoyArm.P3, n):P2}, V2 {ErrorRate(ConvoyArm.V2, n):P2}; {Errors(ConvoyArm.P3, n)}; {Errors(ConvoyArm.V2, n)}; "
+                string.Create(TraceText.Culture, $"error rate P3 {ErrorRate(ConvoyArm.P3, n):P2}, V2 {ErrorRate(ConvoyArm.V2, n):P2}; {Errors(ConvoyArm.P3, n)}; {Errors(ConvoyArm.V2, n)}; ")
                 + $"delivered P3 {Of(ConvoyArm.P3, n, m => m.Delivered)}, V2 {Of(ConvoyArm.V2, n, m => m.Delivered)} over {n} seeds"));
             verdicts.Add(new("T12b", "arm P3 takes a lying road again no more often than arm V2",
                 Held(Of(ConvoyArm.P3, n, m => m.LyingRoadRepeats) <= Of(ConvoyArm.V2, n, m => m.LyingRoadRepeats)),
                 $"repeats P3 {Of(ConvoyArm.P3, n, m => m.LyingRoadRepeats)}, V2 {Of(ConvoyArm.V2, n, m => m.LyingRoadRepeats)}"));
             verdicts.Add(new("T12c", "arm P3 acts on no more lies than arm V2 and serves the villages no later on average",
                 Held(Of(ConvoyArm.P3, n, m => m.LiesBelieved) <= Of(ConvoyArm.V2, n, m => m.LiesBelieved) && ServedBy(ConvoyArm.P3, n) <= ServedBy(ConvoyArm.V2, n)),
-                $"lies P3 {Of(ConvoyArm.P3, n, m => m.LiesBelieved)}, V2 {Of(ConvoyArm.V2, n, m => m.LiesBelieved)}; served by tick P3 {ServedBy(ConvoyArm.P3, n):0.0}, V2 {ServedBy(ConvoyArm.V2, n):0.0}; "
+                string.Create(TraceText.Culture, $"lies P3 {Of(ConvoyArm.P3, n, m => m.LiesBelieved)}, V2 {Of(ConvoyArm.V2, n, m => m.LiesBelieved)}; served by tick P3 {ServedBy(ConvoyArm.P3, n):0.0}, V2 {ServedBy(ConvoyArm.V2, n):0.0}; ")
                 + $"stranded P3 {Of(ConvoyArm.P3, n, m => m.Stranded)}, V2 {Of(ConvoyArm.V2, n, m => m.Stranded)}"));
         }
         if (runs.ContainsKey(ConvoyArm.P3))
@@ -377,9 +388,9 @@ public static class ConvoyBattery
         // The guide that calls the seat less (pre-registered as T14 to T14g, step 8): each guided arm against its arm with the planner every tick.
         int Pair(ConvoyArm a, ConvoyArm b) => Math.Min(runs[a].Count, runs[b].Count);
         string Calls(ConvoyArm a, int n) =>
-            $"arm {a}: {Of(a, n, m => m.SeatCalls)} calls of {Of(a, n, m => m.Decisions)} decisions ({Rate(Of(a, n, m => m.SeatCalls), Of(a, n, m => m.Decisions)):P1})";
+            string.Create(TraceText.Culture, $"arm {a}: {Of(a, n, m => m.SeatCalls)} calls of {Of(a, n, m => m.Decisions)} decisions ({Rate(Of(a, n, m => m.SeatCalls), Of(a, n, m => m.Decisions)):P1})");
         string Outcomes(ConvoyArm a, int n) =>
-            $"arm {a}: delivered {Of(a, n, m => m.Delivered)}, all served in {runs[a].Take(n).Count(m => m.AllServed)}, lies {Of(a, n, m => m.LiesBelieved)}, repeats {Of(a, n, m => m.LyingRoadRepeats)}, served by tick {ServedBy(a, n):0.0}";
+            string.Create(TraceText.Culture, $"arm {a}: delivered {Of(a, n, m => m.Delivered)}, all served in {runs[a].Take(n).Count(m => m.AllServed)}, lies {Of(a, n, m => m.LiesBelieved)}, repeats {Of(a, n, m => m.LyingRoadRepeats)}, served by tick {ServedBy(a, n):0.0}");
         if (runs.ContainsKey(ConvoyArm.M) && runs.ContainsKey(ConvoyArm.J))
         {
             var n = Pair(ConvoyArm.M, ConvoyArm.J);
@@ -392,7 +403,7 @@ public static class ConvoyBattery
                 Held(Of(ConvoyArm.M, n, m => m.LiesBelieved) <= Of(ConvoyArm.J, n, m => m.LiesBelieved) && Of(ConvoyArm.M, n, m => m.LyingRoadRepeats) <= Of(ConvoyArm.J, n, m => m.LyingRoadRepeats)),
                 $"lies M {Of(ConvoyArm.M, n, m => m.LiesBelieved)}, J {Of(ConvoyArm.J, n, m => m.LiesBelieved)}; repeats M {Of(ConvoyArm.M, n, m => m.LyingRoadRepeats)}, J {Of(ConvoyArm.J, n, m => m.LyingRoadRepeats)}"));
             verdicts.Add(new("T14d", "arm M serves the villages no more than one tick later than arm J on average",
-                Held(ServedBy(ConvoyArm.M, n) <= ServedBy(ConvoyArm.J, n) + 1), $"served by tick M {ServedBy(ConvoyArm.M, n):0.00}, J {ServedBy(ConvoyArm.J, n):0.00}"));
+                Held(ServedBy(ConvoyArm.M, n) <= ServedBy(ConvoyArm.J, n) + 1), string.Create(TraceText.Culture, $"served by tick M {ServedBy(ConvoyArm.M, n):0.00}, J {ServedBy(ConvoyArm.J, n):0.00}")));
         }
         if (runs.ContainsKey(ConvoyArm.MU) && runs.ContainsKey(ConvoyArm.U))
         {
@@ -429,7 +440,7 @@ public static class ConvoyBattery
                 Held(Over(ConvoyArm.W, m => m.Delivered) >= Over(ConvoyArm.J, m => m.Delivered) && Over(ConvoyArm.W, RoadLies) < Over(ConvoyArm.J, RoadLies)),
                 $"delivered W {Over(ConvoyArm.W, m => m.Delivered)}, J {Over(ConvoyArm.J, m => m.Delivered)}; road lies W {Over(ConvoyArm.W, RoadLies)}, J {Over(ConvoyArm.J, RoadLies)}; "
                 + $"wasted W {Over(ConvoyArm.W, m => m.WastedTrips)}, J {Over(ConvoyArm.J, m => m.WastedTrips)}; "
-                + $"served by tick {runs[ConvoyArm.W].Take(n).Average(m => m.TicksToServe):0.0} against {runs[ConvoyArm.J].Take(n).Average(m => m.TicksToServe):0.0}"));
+                + string.Create(TraceText.Culture, $"served by tick {runs[ConvoyArm.W].Take(n).Average(m => m.TicksToServe):0.0} against {runs[ConvoyArm.J].Take(n).Average(m => m.TicksToServe):0.0}")));
             var same = replays is not null && replays.TryGetValue(ConvoyArm.W, out var s) ? s : replaysMatch;
             verdicts.Add(new("W3", "with warnings shared, a seed replays byte for byte (W)", Held(same), same ? "six runs of seed 0 matched" : "a replay differed"));
         }

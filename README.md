@@ -553,6 +553,10 @@ seat. The trucks' planner keeps no state between ticks, so a small network can c
    (`tools/train/train_copy.py`). It predicts DeepSeek better than the planner's copy does (63% against 52%), but
    is right only 73% of the time when sure, and alone in the seat it delivers 73% of what the planner does. Ten runs
    are too few; a guide for a paid model needs more of its own decisions.
+9. **A guide for a paid model, live.** DeepSeek recorded on 50 runs ($4.25), a copy trained on them, then DeepSeek
+   every tick against DeepSeek behind its copy on 44 fresh seeds (arms S and MS, $6.76). The guide saved 15% of the
+   calls and the cost, at no loss: the same deliveries, fewer lies, fewer stranded trucks. A copy of a model that varies
+   is sure of itself only where the model is: 14% of decisions here.
 
 Every run behind these results is in [docs/experiment-log.md](docs/experiment-log.md).
 

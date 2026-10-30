@@ -78,6 +78,19 @@ public sealed class GuidedSeatTests
         Assert.Contains(ConvoyArm.M, ConvoyBattery.DefaultArms);
     }
 
+    /// <summary>Step 10's arm MS: a paid model behind the DeepSeek copy at the margin chosen on held-out seeds, never in the default battery.</summary>
+    [Fact]
+    public void ArmMSIsAPaidModelBehindTheCopy()
+    {
+        var setup = ConvoySetup.For(ConvoyArm.MS, 2000);
+        Assert.Equal(ConvoyNetwork.EmbeddedCopyDeepSeek, setup.SeatGuide);
+        Assert.Equal(0.99, setup.GuideMargin);
+        Assert.NotNull(setup.SeatModel);
+        Assert.True(ConvoyBattery.Paid(ConvoyArm.MS));
+        Assert.DoesNotContain(ConvoyArm.MS, ConvoyBattery.DefaultArms);
+        Assert.IsType<NetworkGuide>(ConvoyNetwork.LoadGuide(ConvoyNetwork.EmbeddedCopyDeepSeek, RoadMap.FloodedValley()));
+    }
+
     /// <summary>Step 9's DeepSeek copy was trained on the battery's seeds 0 to 4 by the owner's exception, so it never runs on seeds 0 to 49.</summary>
     [Fact]
     public async Task TheDeepSeekCopyNeverRunsOnTheBatterysSeeds()

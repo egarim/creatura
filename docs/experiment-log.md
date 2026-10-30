@@ -251,3 +251,27 @@ runs are recorded only in the design note.
 - #57: `dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --first-seed 3000 --arms J; the same with --arms N --network models/convoy-copy-deepseek.json`
 
 </details>
+
+## Step 10
+
+6 entries; 1 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 58 | 2026-10-30 10:38 | `c830e12`* | check | 100 | Arm MS plumbing with the free local model (qwen2.5:7b), 4 ticks | 12 decisions, 7 calls to the model, the guide played 5; counter calls equal the seat's own count (7); $0 | the code path for arm MS |
+| 59 | 2026-10-30 10:39 | `c830e12`* | check | 50 | Cost cap check with DeepSeek: --max-cost 0.0005, 2 ticks | One run (seed 50, 2 ticks, 6 calls, $0.0035), then 'seed 51: not run, the cost cap was reached'. Spend so far $0.0035 | the cap works; nothing recorded |
+| 60 | 2026-10-30 11:38 | `cc07d63`* | data | 50-99 | DeepSeek recorded in the seat (arm S) on training seeds 50-99, 5 batches of 10 (paid) | 50 runs, 7,010 calls (9 failed, 231 invalid), $4.2483 at list price ($0.085 a run); spend so far $4.2518 with the cap check. DeepSeek alone: delivered 1422/1500, lies 109, stranded 56, served by tick 37.8 | the copy's training data; the test's cost projection |
+| 61 | 2026-10-30 11:39 | `cc07d63`* | test | 0-4,50-99 **battery** | The DeepSeek copy from seeds 50-99; margin chosen on seeds ending in 9; T16e offline on recorded seeds 0-4 | 6,395 decisions to train, 615 held out; kept epoch 46, held-out agreement 0.6911. Margin rule: only m 0.99 reaches 90% (held out: asks 86.8%, unasked agreement 95.1%), so m = 0.99. T16e held: on seeds 0-4 the copy matches DeepSeek 0.7061 (step 9's copy 0.6345; planner copy 0.5242; JEPA guide 0.3937); at m 0.99 it would ask on 85.7%, unasked agreement 94.4% | models/convoy-copy-deepseek-50.json, arm MS margin 0.99 |
+| 62 | 2026-10-30 11:46 | `cc07d63`* | build | — | Cost guard made strict before the test; arm MS set to m 0.99; MS plumbing checked free | MS loads the embedded convoy-copy-deepseek-50 and runs (6 calls in 2 ticks, $0). Test plan by the cap rule: 45 seeds (2000-2044) per arm; caps S $0.85 and MS $0.699 per batch of 9, $7.745 in all, so at most $11.997 with the $4.2518 spent | the live test |
+| 63 | 2026-10-30 12:29 | `ee71768`* | test | 2000-2044 | T16 to T16d: DeepSeek every tick (S) against DeepSeek behind its copy (MS, m 0.99), live (paid) | Both arms stopped one seed short in batch 2018 (seed 2026 not run, by the cap), so 44 common seeds. T16 failed: MS called DeepSeek 5,092 times (5,092 of 5,901 decisions, 86.3%) against S's 5,999 calls (84.9% of S). T16b held: delivered 1272 vs 1272 (of 1320). T16c held: lies 81 vs 94, stranded 36 vs 40. T16d failed: MS $3.1057 vs S $3.6500 (85.1%). Served by tick MS 36.9 vs S 38.4. When asked, DeepSeek chose other than the copy's best 1,645 times of 5,092 (32%). Spend: test $6.7557; step 10 in all $11.0075 at list price (cap $12) | design note step 10 |
+
+<details><summary>Commands</summary>
+
+- #58: `dotnet run --project samples/Convoy -c Release -- --battery --arms MS --seeds 1 --first-seed 100 --ticks 4 --guide models/convoy-copy-deepseek.json`
+- #59: `dotnet run --project samples/Convoy -c Release -- --battery --arms S --model deepseek-chat --seeds 3 --first-seed 50 --ticks 2 --max-cost 0.0005`
+- #60: `dotnet run --project samples/Convoy -c Release -- --battery --arms S --model deepseek-chat --seeds 10 --first-seed 50\|60\|70\|80\|90 --max-cost 1.00 --record datasets/deepseek-50/record-*.jsonl --calls datasets/deepseek-50/calls-*.jsonl`
+- #61: `uv run tools/train/train_copy.py datasets/deepseek-50/record-*.jsonl models/convoy-copy-deepseek-50.json --held-out-digit 9 --evaluate datasets/deepseek-s/record-s-deepseek.jsonl`
+- #62: `ConvoyBattery: no run starts if spent + the average run would pass --max-cost; dotnet run ... --battery --arms MS --seeds 1 --first-seed 2100 --ticks 2 (qwen2.5:7b)`
+- #63: `10 batches: dotnet run --project samples/Convoy -c Release -- --battery --arms S\|MS --model deepseek-chat --seeds 9 --first-seed 2000\|2009\|2018\|2027\|2036 --max-cost 0.85\|0.699 --record ... --calls ...; python3 tools/battery_sum.py; python3 tools/spend.py`
+
+</details>

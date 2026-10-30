@@ -1,3 +1,4 @@
+using Creatura;
 using Creatura.Scenarios;
 
 using Creatura.Seats;
@@ -12,6 +13,7 @@ using Creatura.Seats;
 // dotnet run --project samples/Convoy -- --rollouts runs.jsonl [--seeds 1000-1063] [--network w.json] [--temperature 2] [--sample-seed k]
 // --judge <weights.json> [--judge-threshold t1] [--judge-condemn t2] puts another learned judge in the arms that have one.
 // --guide <goal.json> [--guide-margin m] [--guide-surprise p99|p999|none] sets the guide of the arms that have one (step 8).
+// --max-cost <dollars> stops a battery from starting new runs once its model seats have cost that much (step 10).
 string? Option(string name) => Array.IndexOf(args, name) is var i and >= 0 && i + 1 < args.Length ? args[i + 1] : null;
 
 var catalog = Option("--models-file") is { } modelsFile ? ModelCatalog.Load(modelsFile) : null;
@@ -57,7 +59,7 @@ IReadOnlyList<ConvoyArm> Arms(IReadOnlyList<ConvoyArm> fallback) => Option("--ar
 if (Array.IndexOf(args, "--world") is var worldAt and >= 0 && worldAt + 2 < args.Length)
 {
     var written = ConvoyDatasets.ExportWorld(ConvoyRecorder.ReadJsonl(args[worldAt + 1]), args[worldAt + 2], args.Contains("--evaluation"));
-    Console.WriteLine($"{written:N0} transitions written to {args[worldAt + 2]}{(args.Contains("--evaluation") ? " (evaluation only)" : "")}");
+    Console.WriteLine(string.Create(TraceText.Culture, $"{written:N0} transitions written to {args[worldAt + 2]}{(args.Contains("--evaluation") ? " (evaluation only)" : "")}"));
     return 0;
 }
 
@@ -111,7 +113,7 @@ if (Option("--dataset") is { } datasetDir)
     Directory.CreateDirectory(datasetDir);
     using (var runsFile = new StreamWriter(Path.Combine(datasetDir, "runs.jsonl"))) recorder.WriteJsonl(runsFile);
     var card = ConvoyDatasets.Export(recorder.Runs, new DatasetOptions { OnlyServed = !args.Contains("--all-runs"), OnlyLanded = args.Contains("--only-landed") }, datasetDir);
-    Console.WriteLine($"dataset {Path.GetFullPath(datasetDir)}: {card.Runs} of {recorder.Runs.Count} runs kept, {card.Decisions:N0} decisions, {card.Transitions:N0} transitions, "
+    Console.WriteLine(string.Create(TraceText.Culture, $"dataset {Path.GetFullPath(datasetDir)}: {card.Runs} of {recorder.Runs.Count} runs kept, {card.Decisions:N0} decisions, {card.Transitions:N0} transitions, ")
         + $"{card.Features.Count} features (schema {card.SchemaHash}), {card.Actions.Count} actions");
     return 0;
 }
@@ -124,7 +126,7 @@ if (args.Contains("--battery"))
     var seeds = int.Parse(Option("--seeds") ?? "50");
     var arms = Arms(ConvoyBattery.DefaultArms);
     var report = await ConvoyBattery.RunAsync(seeds, arms, setup => new ConvoyScenario(Adjust(setup), calls: calls, catalog: catalog, recorder: recorderForRun), line => Console.Error.WriteLine(line),
-        firstSeed: int.Parse(Option("--first-seed") ?? "0"));
+        firstSeed: int.Parse(Option("--first-seed") ?? "0"), maxCost: Option("--max-cost") is { } capText ? decimal.Parse(capText, System.Globalization.CultureInfo.InvariantCulture) : null);
     Console.WriteLine(report.Render());
     if (recordTo is not null) { using var recordFile = new StreamWriter(recordTo); recorderForRun!.WriteJsonl(recordFile); }
     return 0;
@@ -143,8 +145,8 @@ if (recordTo is not null)
 }
 if (run.Summary.Seat is { } seat)
 {
-    Console.WriteLine($"The seat ({seat.Model}) made {seat.Calls} calls ({seat.Failed} failed, {seat.Invalid} invalid), {seat.PromptTokens:N0} prompt and {seat.CompletionTokens:N0} completion tokens, "
-        + $"cost {(seat.Cost is { } c ? $"${c:0.0000}" : "unknown")}, {seat.Seconds:0} s of model time.");
+    Console.WriteLine(string.Create(TraceText.Culture, $"The seat ({seat.Model}) made {seat.Calls} calls ({seat.Failed} failed, {seat.Invalid} invalid), {seat.PromptTokens:N0} prompt and {seat.CompletionTokens:N0} completion tokens, ")
+        + string.Create(TraceText.Culture, $"cost {(seat.Cost is { } c ? string.Create(TraceText.Culture, $"${c:0.0000}") : "unknown")}, {seat.Seconds:0} s of model time."));
 }
 foreach (var error in run.Errors) Console.Error.WriteLine(error);
 return run.Errors.Count == 0 ? 0 : 1;

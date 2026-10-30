@@ -95,6 +95,9 @@ public enum ConvoyArm
 
     /// <summary>As J, with arm N's policy network as the guide in place of the JEPA: step 8's control.</summary>
     MN,
+
+    /// <summary>As S (a language model in every truck's seat), behind a guide that copies that model and calls it only when unsure (step 10). Costs money and is not repeatable.</summary>
+    MS,
 }
 
 /// <summary>A truck: its name, its machine, and the design that drives it ("plain", "levin", "bach", "peterson").</summary>
@@ -234,6 +237,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
         ConvoyArm.P2 => $"plain loop, shared ledger, all three fixes, noisy sensors, sealed, a lie judge with memory ({LearnedJudge}) on checkable actions that quarantines before it condemns",
         ConvoyArm.F or ConvoyArm.P => $"plain loop, shared ledger, all three fixes, noisy sensors, a learned judge ({LearnedJudge}) on checkable actions that quarantines before it condemns",
         ConvoyArm.Q => $"a policy network trained by trial on W's setup ({SeatNetwork}) in every truck's seat, all three fixes, distrust shared",
+        ConvoyArm.MS => $"a language model ({SeatModel}) in every truck's seat behind a guide ({SeatGuide}) that calls it only when unsure, shared ledger, all three fixes",
         ConvoyArm.M or ConvoyArm.MN => $"plain loop, shared ledger, all three fixes, a guide ({SeatGuide}) that calls the planner only when unsure",
         ConvoyArm.MU => $"plain loop, shared ledger, all three fixes, noisy sensors, a guide ({SeatGuide}) that calls the planner only when unsure",
         ConvoyArm.MK => $"plain loop, shared ledger, a breakdown at tick 8, all three fixes, a guide ({SeatGuide}) that calls the planner only when unsure",
@@ -312,6 +316,7 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
             ConvoyArm.MU => AllFixes(setup) with { Noise = SensorNoise.Registered, SeatGuide = ConvoyNetwork.EmbeddedGuideNoisy, GuideMargin = 0.9 },
             ConvoyArm.MK => AllFixes(setup with { BreakdownTruck = "Truck 2", BreakdownTick = 8 }) with { SeatGuide = ConvoyNetwork.EmbeddedGuide, GuideMargin = 0.5 },
             ConvoyArm.MN => AllFixes(setup) with { SeatGuide = ConvoyNetwork.Embedded, GuideMargin = 0.75 },
+            ConvoyArm.MS => AllFixes(setup) with { SeatModel = DefaultSeatModel, SeatGuide = ConvoyNetwork.EmbeddedCopyDeepSeek, GuideMargin = 0.99 },
             _ => setup,
         };
     }

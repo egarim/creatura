@@ -1513,6 +1513,120 @@ uv run tools/train/train_copy.py datasets/deepseek-s/record-s-deepseek.jsonl mod
 dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --first-seed 3000 --arms N --network models/convoy-copy-deepseek.json
 ```
 
+## Step 10, a guide for a paid model, registered before the code (2026-10-30)
+
+Written before any of it was built or any money was spent. The owner approved about $10 for this step (issue
+egarim/creatura#4).
+
+**Why.** Step 9 showed that a guide for DeepSeek has to copy DeepSeek, and that 10 recorded runs are too few. This
+step records enough, trains the copy, and then asks the real question with real calls: behind a guide, how many calls
+to DeepSeek are saved, and what does it cost the convoy?
+
+**The money, and the cap.**
+- The model: `deepseek-chat` from the catalog, at its listed $0.28 per million tokens in and $0.42 out. The 10 runs of
+  step 5 cost $0.075 a run at those prices (1,242 calls, $0.0006 a call).
+- The hard cap: **$12 in all**, for every call this step makes. Spend is read from the call logs at the catalog's
+  prices. Each batch of runs is given a share of what is left (`--max-cost`), and stops starting new runs when it is
+  spent. Before the test, if what was spent plus the test's projection (both arms at the measured cost per run of
+  DeepSeek at every tick) would pass $12, both arms run on fewer seeds, the same for each, decided before they start.
+  If the cap is reached anyway, everything stops and the owner is asked.
+
+**1. Recording, on training seeds.** Arm S (arm J's setup, `deepseek-chat` in every truck's seat) on seeds 50 to 99,
+with `--record` and `--calls`. Never on seeds 0 to 49. About $3.75.
+
+**2. The copy, free.** Arm N's network shape, trained by `tools/train/train_copy.py` on those recordings only: seeds
+ending in 9 held out to choose the stopping point. The step 9 runs on seeds 0 to 4 stay out of training; they are
+used, offline only, as a test set (the exception allowed scoring on them, never training this copy on them). The
+margin *m* is chosen on the held-out seeds ending in 9, before any test run: the smallest of {0.1, 0.25, 0.5, 0.75,
+0.9, 0.95, 0.99} at which the copy's own choices match DeepSeek's at least 90% of the time; 0.99 if none does. The
+file: `models/convoy-copy-deepseek-50.json`.
+
+**3. The test, on fresh seeds 2000 to 2049.** Two arms, the same seeds:
+- **S:** DeepSeek in the seat at every tick.
+- **MS:** arm S with the copy as the guide (step 8's `GuidedSeat`, no surprise trigger): DeepSeek is called only when
+  the copy is unsure. MS and S cost money and are not repeatable, so neither is in the default battery, and neither
+  takes part in the byte-for-byte replay check.
+
+Judged on seeds 2000 to 2049 (or the fewer seeds the cap allows):
+
+| id | claim | falsifier |
+|---|---|---|
+| T16 | arm MS calls DeepSeek at most half as often as arm S | more than half |
+| T16b | arm MS delivers at least 98% of what arm S delivers | less |
+| T16c | arm MS acts on at most 10% more lies than arm S, and leaves at most 3 more trucks stranded over the runs | more of either |
+| T16d | arm MS costs at most 60% of what arm S costs, by the call logs | more |
+| T16e | offline, the copy matches DeepSeek's choices on the recorded seeds 0 to 4 more often than step 9's copy did on its left-out seeds (63.4%) | as often or less |
+
+The tolerances in T16b and T16c are there because DeepSeek is not repeatable: two passes over the same seed differ.
+
+Reported without a claim: the spend of each part and in all; calls, decisions and disagreements per arm; how often
+the copy's choice differed from what DeepSeek said when asked; when the villages were served; DeepSeek's invalid
+answers; and the agreement curve of the copy on seeds 0 to 4 against step 9's.
+
+The prediction: T16e should hold, with five times the data. T16 depends on *m*: if 90% agreement is reachable only at
+a high margin, the guide asks often and T16 fails. T16b and T16c are the risk: a copy that is wrong one time in ten
+when sure may strand trucks, as step 8's guide did after a breakdown.
+
+## Step 10, a guide for a paid model, built (2026-10-30)
+
+**T16b, T16c and T16e held. T16 and T16d failed.** Spent: **$11.01** of the $12 cap, at list price without the cache
+discount, so the bill is at most that. Every run is in docs/experiment-log.md (step 10).
+
+**The recording.** DeepSeek in the seat on seeds 50 to 99: 50 runs, 7,010 calls, $4.25 ($0.085 a run). On its own it
+delivered 1,422 of 1,500 units, acted on 109 lies and left 56 trucks stranded: it drives worse than the planner.
+
+**The copy.** Trained on 6,395 of those decisions, stopped on the 615 from seeds ending in 9, where it matched
+DeepSeek's choice 69.1% of the time. By the registered rule the margin is 0.99, the only one at which its own choices
+match DeepSeek at least 90% of the time there (95.1%, asking on 86.8% of decisions).
+
+**T16e held.** On the recorded seeds 0 to 4, offline, the copy matches DeepSeek 70.6% of the time, against step 9's
+63.4% from 10 runs. Five times the data bought seven points.
+
+**The live test**, on seeds 2000 to 2044. The cap stopped one batch of each arm one seed short (seed 2026, in both),
+so both arms ran the same 44 seeds:
+
+| arm | calls to DeepSeek | cost | delivered (of 1,320) | lies acted on | stranded | served by tick |
+|---|---|---|---|---|---|---|
+| S (DeepSeek every tick) | 5,999 | $3.65 | 1,272 | 94 | 40 | 38.4 |
+| MS (DeepSeek behind its copy) | **5,092** | **$3.11** | 1,272 | **81** | **36** | **36.9** |
+
+**T16 and T16d failed:** behind the guide DeepSeek was called 85% as often and cost 85% as much. The guide played
+809 of its 5,901 decisions itself (13.7%), close to the 13% the offline numbers foretold.
+
+**T16b and T16c held, with room:** the same 1,272 units delivered, fewer lies (81 against 94), fewer stranded trucks
+(36 against 40), served 1.5 ticks sooner. The copy's own choices did no harm; if anything they helped, perhaps because
+where the copy is sure it plays DeepSeek's most common choice, without the noise of one sampled answer. 44 seeds of
+a model that is not repeatable cannot tell that apart from chance.
+
+When the guide asked, DeepSeek chose something other than the copy's best 32% of the time (1,645 of 5,092): the copy
+is unsure exactly where DeepSeek varies.
+
+What steps 8 to 10 answer together. A cheap network in front of an expensive seat saves calls in proportion to how
+predictable that seat is. The planner is a fixed rule, so its copy stood in for it 99.7% of the time. DeepSeek is
+not: from 7,000 of its decisions, a copy can stand in for it only 14% of the time without dropping below 90%
+agreement, and so saves about 15% of the calls and the money. It costs nothing in outcome. To save more, the copy
+would need far more of DeepSeek's decisions, or a looser margin, which the live test did not try.
+
+The numbers on the way:
+- Spend by part: the cap check $0.0035; the recording $4.2483; the test $6.7557 (S $3.6500, MS $3.1057). Read from the
+  call logs with `tools/spend.py`; the batches summed with `tools/battery_sum.py`.
+- The cost guard: `--max-cost` per batch. It first stopped a batch only once the cap was passed; it was made strict
+  before the test (no run starts if the spend so far plus an average run would pass it), so no batch overshot.
+- DeepSeek's invalid answers: 231 of 7,010 calls in the recording, 302 in the test (the seat falls back to waiting).
+- `models/convoy-copy-deepseek-50.json` (124 KB) is embedded in `Creatura.Scenarios` as arm MS's guide. Arms S and
+  MS stay out of the default battery and the byte-for-byte replay check.
+- Also in this step: every number in the convoy's report and verdict texts is now written with `TraceText.Culture`
+  (issue #5), and the suite passes run as de-DE.
+
+```bash
+dotnet run --project samples/Convoy -c Release -- --battery --arms S --model deepseek-chat --seeds 10 --first-seed 50 \
+    --max-cost 1.00 --record datasets/deepseek-50/record-50-59.jsonl --calls datasets/deepseek-50/calls-50-59.jsonl
+uv run tools/train/train_copy.py datasets/deepseek-50/record-*.jsonl models/convoy-copy-deepseek-50.json --held-out-digit 9 \
+    --evaluate datasets/deepseek-s/record-s-deepseek.jsonl --results datasets/deepseek-50/results-copy.json
+dotnet run --project samples/Convoy -c Release -- --battery --arms MS --model deepseek-chat --seeds 9 --first-seed 2000 --max-cost 0.699
+python3 tools/spend.py datasets/deepseek-50/calls-*.jsonl datasets/deepseek-50/test-calls-*.jsonl
+```
+
 ## What this note does not cover
 
 - Training on data from real machines or real users. Every dataset here comes from simulated worlds.

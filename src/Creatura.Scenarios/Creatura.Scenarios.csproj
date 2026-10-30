@@ -23,6 +23,7 @@
     <EmbeddedResource Include="..\..\models\convoy-world-*.json" LogicalName="Creatura.Scenarios.%(Filename).json" />
     <EmbeddedResource Include="..\..\models\convoy-judge-*.json" LogicalName="Creatura.Scenarios.%(Filename).json" />
     <EmbeddedResource Include="..\..\models\convoy-jepa-*.json" LogicalName="Creatura.Scenarios.%(Filename).json" />
+    <EmbeddedResource Include="..\..\models\convoy-copy-deepseek-50.json" LogicalName="Creatura.Scenarios.%(Filename).json" Condition="Exists('..\..\models\convoy-copy-deepseek-50.json')" />
   </ItemGroup>
 
 </Project>

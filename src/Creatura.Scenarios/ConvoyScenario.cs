@@ -183,8 +183,8 @@ internal sealed class LearnedJudgeExtension(ConvoyWorld world, TruckSpec spec, A
             var road = tool.Id.StartsWith("drive:", StringComparison.Ordinal) ? tool.Id.Split(':')[1] : null;
             if (road is not null) _liesByRoad[road] = _liesByRoad.GetValueOrDefault(road) + 1;
             world.Record(new ReplayEvent("surprised", scorer.Kind == "surprise"
-                ? string.Create(CultureInfo.InvariantCulture, $"{spec.Name}'s world model did not expect what followed {tool.Id} (surprise {surprise:0.0} above {threshold:0.0}), so it is judged a lie.")
-                : string.Create(CultureInfo.InvariantCulture, $"{spec.Name}'s lie judge gives {tool.Id} a lie probability of {surprise:0.000}, above {threshold:0.000}, so it is judged a lie."))
+                ? string.Create(TraceText.Culture, $"{spec.Name}'s world model did not expect what followed {tool.Id} (surprise {surprise:0.0} above {threshold:0.0}), so it is judged a lie.")
+                : string.Create(TraceText.Culture, $"{spec.Name}'s lie judge gives {tool.Id} a lie probability of {surprise:0.000}, above {threshold:0.000}, so it is judged a lie."))
                 { Truck = spec.Name, Road = road, Verdict = learned.ToString() });
         }
         return learned;
@@ -580,11 +580,11 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         }
         faults.Add($"{Setup.Faults.GaugeLiar}'s fuel gauge reads {Setup.Faults.GaugeOffset} units high.");
         if (Setup.BreakdownTruck is { } broken) faults.Add($"{broken} breaks down at tick {Setup.BreakdownTick}.");
-        if (Setup.Loss > 0) faults.Add($"{Setup.Loss:P0} of messages are lost on the mesh, and {Setup.DelayChance:P0} of the rest arrive late.");
+        if (Setup.Loss > 0) faults.Add(string.Create(TraceText.Culture, $"{Setup.Loss:P0} of messages are lost on the mesh, and {Setup.DelayChance:P0} of the rest arrive late."));
         if (!Setup.Ledger) faults.Add("No ledger: each truck knows only what it sees.");
         if (Setup.StallAfter is { } stall) faults.Add($"Fix: a claim with no delivery for {stall} ticks may be taken over.");
         if (Setup.DistrustRoads) faults.Add("Fix: a road caught lying is distrusted both ways for the rest of the run.");
-        if (Setup.Noise is { } noise) faults.Add(string.Create(CultureInfo.InvariantCulture,
+        if (Setup.Noise is { } noise) faults.Add(string.Create(TraceText.Culture,
             $"Noisy sensors: at every reading a truck's position reads as a neighbouring place {noise.PositionMisread:P0} of the time, and its gauge reads one unit low or high {noise.GaugeJitter:P0} of the time each."));
         if (Setup.FusedCheck) faults.Add("Fused check: drives and refuels are judged from the position and the gauge together, written knowing the noise.");
         if (Setup.LearnedJudge is not null) faults.Add(Setup.LearnedJudge == ConvoyNetwork.EmbeddedJudgeNoisy
@@ -612,7 +612,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
     private static string Describe(PolicyNetwork n)
     {
         var shape = string.Join(" → ", new[] { n.InputCount }.Concat(n.Layers.Select(l => l.Outputs)));
-        var accuracy = n.Training is { } t && t.TryGetProperty("heldOutAccuracy", out var a) ? $", {a.GetDouble():P2} of held-out decisions copied" : "";
+        var accuracy = n.Training is { } t && t.TryGetProperty("heldOutAccuracy", out var a) ? string.Create(TraceText.Culture, $", {a.GetDouble():P2} of held-out decisions copied") : "";
         return $"{shape} ({n.Features.Count} features and {n.Actions.Count} visible bits in, one score per action out{accuracy})";
     }
 
@@ -620,7 +620,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
     {
         var where = e.IsLocal ? $"on Ollama at {e.BaseUrl}, on this machine" : $"through {e.ProviderName} at {e.BaseUrl}";
         var price = e.IsLocal ? "no cost" : e.InputPerMillion is { } input && e.OutputPerMillion is { } output
-            ? $"about ${input:0.00} in and ${output:0.00} out per million tokens"
+            ? string.Create(TraceText.Culture, $"about ${input:0.00} in and ${output:0.00} out per million tokens")
             : "price not in the catalog";
         return $"{e.Model}, {where} ({price}); protocol: {e.Protocol}";
     }

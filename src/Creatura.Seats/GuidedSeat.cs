@@ -183,6 +183,6 @@ public sealed class GuidedSeat(IPolicy inner, ISeatGuide guide, Func<PolicyConte
             if (suggestion.Tool != guide.Actions[best]) Disagreements++;
             return suggestion;
         }
-        return new PolicySuggestion(guide.Actions[best], string.Create(CultureInfo.InvariantCulture, $"guide: {guide.Actions[best]} (margin {sure:0.00})"));
+        return new PolicySuggestion(guide.Actions[best], string.Create(TraceText.Culture, $"guide: {guide.Actions[best]} (margin {sure:0.00})"));
     }
 }

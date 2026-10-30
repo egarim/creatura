@@ -111,6 +111,9 @@ public static class ConvoyNetwork
         return judge;
     });
 
+    /// <summary>The network that copies DeepSeek from its runs on seeds 50 to 99 (step 10), arm MS's guide.</summary>
+    public const string EmbeddedCopyDeepSeek = "convoy-copy-deepseek-50";
+
     /// <summary>Arm M's guide (step 8): the latent subgoal head over <c>convoy-jepa-varied</c>, embedded in this assembly.</summary>
     public const string EmbeddedGuide = "convoy-jepa-varied-goal";
 

@@ -14,7 +14,13 @@ On each left-out seed it scores the copy, arm N's network (the planner's copy) a
 their best visible action is the model's choice, and by the guide's rule: with two or more visible actions, below a
 margin m the guide asks the seat, otherwise it plays its best.
 
+With --held-out-digit (step 10) it trains instead on recordings from training seeds, holds out the seeds ending in that
+digit to choose the stopping point and the margin (the smallest at which the copy's own choices match the model's at
+least --agree of the time), and scores the copy offline on the --evaluate recordings.
+
     uv run tools/train/train_copy.py datasets/deepseek-s/record-s-deepseek.jsonl models/convoy-copy-deepseek.json
+    uv run tools/train/train_copy.py datasets/deepseek-50/record-*.jsonl models/convoy-copy-deepseek-50.json \\
+        --held-out-digit 9 --evaluate datasets/deepseek-s/record-s-deepseek.jsonl --results datasets/deepseek-50/results-copy.json
 """
 
 import argparse
@@ -32,14 +38,15 @@ from train_policy import FORMAT, accuracy, forward, rounded, train  # noqa: E402
 GRID = [0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99]
 
 
-def load(path, card):
+def load(paths, card):
     runs, rows = {}, []
-    for line in open(path):
-        r = json.loads(line)
-        if r["type"] == "run":
-            runs[f"{r['arm']}/{r['seed']}"] = r
-        else:
-            rows.append(r)
+    for path in paths:
+        for line in open(path):
+            r = json.loads(line)
+            if r["type"] == "run":
+                runs[f"{r['arm']}/{r['seed']}"] = r
+            else:
+                rows.append(r)
     actions = card["actions"]
     x, y, visible, seeds, kinds, lied = [], [], [], [], [], []
     for r in rows:
@@ -47,7 +54,7 @@ def load(path, card):
         if d.get("actionIndex") is None:
             continue
         if len(d["features"]) != len(card["features"]):
-            raise SystemExit(f"{path}: {len(d['features'])} features, the card names {len(card['features'])}")
+            raise SystemExit(f"{r['run']}: {len(d['features'])} features, the card names {len(card['features'])}")
         mask = np.zeros(len(actions))
         mask[d["mask"]] = 1.0
         x.append(np.concatenate([np.asarray(d["features"], dtype=float), mask]))
@@ -118,8 +125,10 @@ def layers_of(doc, key="layers"):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("recording", type=pathlib.Path)
-    parser.add_argument("output", type=pathlib.Path)
+    parser.add_argument("recordings", type=pathlib.Path, nargs="+", help="recordings, then the output file")
+    parser.add_argument("--held-out-digit", type=int, help="step 10: hold out the seeds ending in this digit instead of leaving one seed out")
+    parser.add_argument("--evaluate", type=pathlib.Path, nargs="*", default=[], help="step 10: recordings scored offline only")
+    parser.add_argument("--agree", type=float, default=0.9, help="step 10: the agreement the margin must reach on the held-out seeds")
     parser.add_argument("--actions", type=pathlib.Path, default=pathlib.Path("datasets/convoy-j/card.json"))
     parser.add_argument("--planner-copy", type=pathlib.Path, default=pathlib.Path("models/convoy-policy-j.json"))
     parser.add_argument("--jepa", type=pathlib.Path, default=pathlib.Path("models/convoy-jepa-varied.json"))
@@ -133,10 +142,15 @@ def main():
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--results", type=pathlib.Path, default=pathlib.Path("datasets/deepseek-s/results-copy.json"))
     args = parser.parse_args()
+    *recordings, args.output = args.recordings
+    if not recordings:
+        parser.error("name at least one recording before the output file")
+    if args.held_out_digit is not None:
+        return split(args, recordings)
 
     started = time.time()
     card = json.loads(args.actions.read_text())
-    x, y, visible, seeds, kinds, lied, models, run_ids = load(args.recording, card)
+    x, y, visible, seeds, kinds, lied, models, run_ids = load(recordings, card)
     folds = sorted(set(int(s) for s in seeds))
     if len(folds) < 3:
         raise SystemExit("leaving one seed out needs at least three seeds")
@@ -196,7 +210,7 @@ def main():
         "layers": [{"activation": "relu" if i < len(layers) - 1 else "none", "weights": w.tolist(), "bias": b.tolist()}
                    for i, (w, b) in enumerate(layers)],
         "training": {
-            "by": "example", "copies": models, "recording": args.recording.name, "runs": run_ids,
+            "by": "example", "copies": models, "recording": recordings[0].name, "runs": run_ids,
             "seeds": [folds[0], folds[-2]], "stopSeed": stop, "decisions": int(fit.sum()),
             "batteryException": True,
             "note": "trained on battery seeds by the owner's exception (docs/design-trained-models.md, step 9): never run on seeds 0 to 49",
@@ -209,6 +223,66 @@ def main():
     args.output.write_text(json.dumps(out, separators=(",", ":")) + "\n")
     args.results.parent.mkdir(parents=True, exist_ok=True)
     args.results.write_text(json.dumps({"verdicts": verdicts, "results": results, "folds": fold_notes}, indent=2) + "\n")
+    print(f"wrote {args.output} ({args.output.stat().st_size // 1024} KB) and {args.results}; {time.time() - started:.0f} s")
+
+
+def baselines(args, card):
+    jepa_doc = json.loads(args.jepa.read_text())
+    return (layers_of(json.loads(args.planner_copy.read_text())),
+            (layers_of(jepa_doc, "encoder"), layers_of(jepa_doc, "targetEncoder"), layers_of(jepa_doc, "predictor")),
+            layers_of(json.loads(args.goal.read_text())))
+
+
+def split(args, recordings):
+    """Step 10: train on recordings from training seeds, choose the stop and the margin on the held-out ones, score elsewhere."""
+    started = time.time()
+    card = json.loads(args.actions.read_text())
+    x, y, visible, seeds, kinds, lied, models, run_ids = load(recordings, card)
+    if (seeds < 50).any():
+        raise SystemExit(f"seeds {sorted(set(int(s) for s in seeds[seeds < 50]))} belong to the battery: never trained on here")
+    held = seeds % 10 == args.held_out_digit
+    print(f"{len(y)} decisions by {', '.join(models)} in {len(run_ids)} runs on seeds {int(seeds.min())} to {int(seeds.max())}; "
+          f"{int((~held).sum())} to train, {int(held.sum())} held out")
+    layers, epoch = train(x[~held], y[~held], visible[~held], x[held], y[held], visible[held],
+                          args.hidden, args.epochs, args.patience, args.rate, args.batch, args.seed)
+    layers = rounded(layers)
+    best, margin = network_rank(layers, x[held], visible[held])
+    held_curve = curve(best, margin, y[held], visible[held])
+    reached = [m for m in GRID if (held_curve[str(m)]["agreeUnasked"] or 0) >= args.agree]
+    chosen = reached[0] if reached else GRID[-1]
+    print(f"kept epoch {epoch}: held-out agreement {float((best == y[held]).mean()):.4f}; margin {chosen} "
+          f"({'reaches' if reached else 'none reaches'} {args.agree}): {held_curve[str(chosen)]}")
+
+    evaluated = {}
+    if args.evaluate:
+        planner, jepa, goal = baselines(args, card)
+        ex, ey, ev, _, ek, el, _, _ = load(args.evaluate, card)
+        features = len(card["features"])
+        for name, (b, m) in (("copy", network_rank(layers, ex, ev)), ("planner-copy", network_rank(planner, ex, ev)),
+                             ("jepa-guide", jepa_rank(jepa, goal, ex, ev, features))):
+            evaluated[name] = score(name, b, m, ey, ev, ek, el)
+            print(f"on {', '.join(p.name for p in args.evaluate)}, {name}: agreement {evaluated[name]['agreement']:.4f}; "
+                  f"at m {chosen}: {evaluated[name]['curve'][str(chosen)]}")
+
+    trained = sorted({int(s) for s in seeds[~held]})
+    out = {
+        "format": FORMAT, "kind": "policy", "world": card["world"], "map": card["map"], "schemaHash": card["schemaHash"],
+        "inputs": "features+visible", "features": card["features"], "actions": card["actions"],
+        "layers": [{"activation": "relu" if i < len(layers) - 1 else "none", "weights": w.tolist(), "bias": b.tolist()}
+                   for i, (w, b) in enumerate(layers)],
+        "training": {
+            "by": "example", "copies": models, "recordings": [p.name for p in recordings], "runs": len(run_ids),
+            "seeds": [trained[0], trained[-1]], "heldOutSeeds": f"ending in {args.held_out_digit}", "decisions": int((~held).sum()),
+            "hidden": args.hidden, "batch": args.batch, "epoch": epoch, "randomSeed": args.seed,
+            "heldOutAgreement": round(float((best == y[held]).mean()), 4),
+            "margin": chosen, "marginRule": f"the smallest of {GRID} at which unasked agreement on the held-out seeds reaches {args.agree}",
+            "heldOutCurve": held_curve,
+        },
+    }
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(out, separators=(",", ":")) + "\n")
+    args.results.parent.mkdir(parents=True, exist_ok=True)
+    args.results.write_text(json.dumps({"margin": chosen, "heldOutCurve": held_curve, "evaluated": evaluated}, indent=2) + "\n")
     print(f"wrote {args.output} ({args.output.stat().st_size // 1024} KB) and {args.results}; {time.time() - started:.0f} s")
 
 
