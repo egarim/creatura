@@ -38,7 +38,7 @@ public sealed class BehaviouristAgent : IAgent
         var table = _task.Valence ?? ValenceTable.Infer(world.AllTools, world.Facts);
         var notes = new List<string>
         {
-            $"one scalar per action; epsilon {_epsilon:F2}; habit prior {HabitPrior:F2}; valence table {(_task.Valence is null ? "inferred from the catalogue" : "from the task")}",
+            string.Create(TraceText.Culture, $"one scalar per action; epsilon {_epsilon:F2}; habit prior {HabitPrior:F2}; valence table {(_task.Valence is null ? "inferred from the catalogue" : "from the task")}"),
         };
         var values = new Dictionary<string, double>(StringComparer.Ordinal);
         foreach (var tool in world.AllTools) values[tool.Id] = _task.Habit.Contains(tool.Id, StringComparer.Ordinal) ? HabitPrior : 0.0;
@@ -75,7 +75,7 @@ public sealed class BehaviouristAgent : IAgent
             else
             {
                 choice = tools.OrderByDescending(t => values.GetValueOrDefault(t.Id)).ThenBy(t => t.Id, StringComparer.Ordinal).First();
-                why = $"greedy: value {values.GetValueOrDefault(choice.Id):+0.00;-0.00}";
+                why = string.Create(TraceText.Culture, $"greedy: value {values.GetValueOrDefault(choice.Id):+0.00;-0.00}");
             }
 
             trace.Add(new TraceEvent(tick, "tissue", "value", 0.0, 1.0, choice.Id, TraceKind.Acted, why));
@@ -87,7 +87,7 @@ public sealed class BehaviouristAgent : IAgent
             values[choice.Id] += (reward - values[choice.Id]) * Rate;
             if (rewarded) rewards++; else punishments++;
             trace.Add(new TraceEvent(tick, "cell", "reward", rewarded ? 0.0 : 1.0, 1.0, choice.Id, rewarded ? TraceKind.Acted : TraceKind.Blocked,
-                $"{(rewarded ? "+1" : "-1")}: {(gained.Count == 0 ? outcome.Succeeded ? "reported success, nothing gained" : outcome.Observation ?? "failed" : string.Join(",", gained))}; value now {values[choice.Id]:+0.00;-0.00}"));
+                string.Create(TraceText.Culture, $"{(rewarded ? "+1" : "-1")}: {(gained.Count == 0 ? outcome.Succeeded ? "reported success, nothing gained" : outcome.Observation ?? "failed" : string.Join(",", gained))}; value now {values[choice.Id]:+0.00;-0.00}")));
         }
 
         if (!goalReached && _task.Goal(world.Facts))
@@ -96,7 +96,7 @@ public sealed class BehaviouristAgent : IAgent
             trace.Add(new TraceEvent(lastTick, "organism", "contract", 0.0, 0.0, TraceText.ContractMet, TraceKind.Acted, TraceText.Complete(_task.Name)));
         }
 
-        notes.Add($"values: {string.Join(", ", values.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key} {kv.Value:+0.00;-0.00}"))}");
+        notes.Add($"values: {string.Join(", ", values.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => string.Create(TraceText.Culture, $"{kv.Key} {kv.Value:+0.00;-0.00}")))}");
         notes.Add($"rewards {rewards}, punishments {punishments}");
         return Task.FromResult(new AgentRun(Name, goalReached, lastTick, trace, notes));
     }

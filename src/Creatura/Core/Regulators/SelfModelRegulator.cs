@@ -90,11 +90,11 @@ public sealed class SelfModelRegulator : IRegulator
         // Consolidation: rewrite the self-model from the day's evidence (01:26:43).
         var skills = _self.Skills.Values
             .OrderByDescending(s => s.Reliability)
-            .Select(s => $"{s.Action} {s.Reliability:P0}");
+            .Select(s => string.Create(TraceText.Culture, $"{s.Action} {s.Reliability:P0}"));
         context.Trace.Add(new TraceEvent(context.LastTick, "self", "consolidation", 0, 0, TraceText.Sleep, TraceKind.Consolidated,
-            $"coherence {_audit.Score:P0}, predictions {_predictions.Accuracy:P0} over {_predictions.Total}, stage {_self.Stage.Level}"));
+            string.Create(TraceText.Culture, $"coherence {_audit.Score:P0}, predictions {_predictions.Accuracy:P0} over {_predictions.Total}, stage {_self.Stage.Level}")));
         context.Notes.Add(skills.Any() ? $"consolidated: {string.Join(", ", skills)}" : "consolidated: no evidence collected");
-        context.Notes.Add($"coherence {_audit.Score:P0} ({_audit.Contradictions.Count} contradictions)");
+        context.Notes.Add(string.Create(TraceText.Culture, $"coherence {_audit.Score:P0} ({_audit.Contradictions.Count} contradictions)"));
     }
 
     // ---- The frame: the Bach agent's words for the layer's decisions ----------------------------------------
@@ -125,7 +125,7 @@ public sealed class SelfModelRegulator : IRegulator
                 ctx.Row("cell", "effect", 0.0, ctx.Freedom, tool.Id, TraceKind.Blocked, TraceText.HonestFailure);
                 break;
             case ActionVerdict.Landed:
-                ctx.Row("cell", "effect", 0.0, ctx.Freedom, tool.Id, TraceKind.Acted, $"predicted correctly ({_predictions.RecentAccuracy:P0})");
+                ctx.Row("cell", "effect", 0.0, ctx.Freedom, tool.Id, TraceKind.Acted, string.Create(TraceText.Culture, $"predicted correctly ({_predictions.RecentAccuracy:P0})"));
                 break;
             default:
                 // Fast appraiser acted; the slow auditor disagrees, and the disagreement is logged, not smoothed.

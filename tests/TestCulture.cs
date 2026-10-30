@@ -11,7 +11,8 @@ internal static class TestCulture
     [ModuleInitializer]
     internal static void Pin()
     {
-        var culture = CultureInfo.GetCultureInfo("en-US");
+        // CREATURA_TEST_CULTURE runs the whole suite as another machine would (e.g. de-DE), to find texts that follow it.
+        var culture = CultureInfo.GetCultureInfo(Environment.GetEnvironmentVariable("CREATURA_TEST_CULTURE") ?? "en-US");
         CultureInfo.DefaultThreadCurrentCulture = culture;
         CultureInfo.DefaultThreadCurrentUICulture = culture;
         CultureInfo.CurrentCulture = culture;

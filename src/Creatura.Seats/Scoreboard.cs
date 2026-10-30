@@ -40,10 +40,10 @@ public sealed class Scoreboard
             var tps = g.Where(r => r.TokensPerSecond is not null).Select(r => r.TokensPerSecond!.Value).ToList();
             var cost = g.Any(r => r.CostUsd is null) ? "?" : g.Sum(r => r.CostUsd!.Value).ToString("0.000", CultureInfo.InvariantCulture);
             sb.AppendLine($"| {g.Key.Model} | {g.Key.Protocol} | {n} | {Pct(r => r.Outcome == OutcomeClass.Real)} | {Pct(r => r.Outcome == OutcomeClass.Claimed)} | {Pct(r => r.Outcome == OutcomeClass.HandedOff)} | {Pct(r => r.Outcome == OutcomeClass.Open)} " +
-                $"| {g.Average(r => r.Ticks):0.0} | {g.Average(r => r.Calls):0.0} | {g.Sum(r => r.Invalid)} | {g.Sum(r => r.Failed)} | {g.Sum(r => r.LiesCaught)} " +
+                string.Create(TraceText.Culture, $"| {g.Average(r => r.Ticks):0.0} | {g.Average(r => r.Calls):0.0} | {g.Sum(r => r.Invalid)} | {g.Sum(r => r.Failed)} | {g.Sum(r => r.LiesCaught)} ") +
                 $"| {(tokensKnown ? g.Average(r => r.PromptTokens).ToString("0", CultureInfo.InvariantCulture) : "?")} | {(tokensKnown ? g.Average(r => r.CompletionTokens).ToString("0", CultureInfo.InvariantCulture) : "?")} " +
                 $"| {(completion == 0 ? "-" : (100.0 * reasoning / completion).ToString("0", CultureInfo.InvariantCulture) + "%")} " +
-                $"| {g.Select(r => r.MedianCallSeconds).Order().ElementAt(n / 2):0.00} | {(tps.Count == 0 ? "?" : tps.Order().ElementAt(tps.Count / 2).ToString("0", CultureInfo.InvariantCulture))} | {cost} |");
+                string.Create(TraceText.Culture, $"| {g.Select(r => r.MedianCallSeconds).Order().ElementAt(n / 2):0.00} | {(tps.Count == 0 ? "?" : tps.Order().ElementAt(tps.Count / 2).ToString("0", CultureInfo.InvariantCulture))} | {cost} |"));
         }
 
         return sb.ToString();

@@ -338,7 +338,7 @@ public sealed class MapKeeperRegulator : IRegulator
     {
         context.Counters.Explorations = Explorations;
         context.Notes.Add("procedures: " + (_map.Procedures.Count == 0 ? "none closed" : string.Join("; ", _map.Procedures.Select(kv => $"{kv.Key} ← {string.Join(" > ", kv.Value)}"))));
-        context.Notes.Add("episodes: " + (_map.Episodes.Count == 0 ? "no anomaly met" : string.Join("; ", _map.Episodes.Select(e => $"t{e.Tick} {e.Tool} broke '{e.Story}' ({e.Magnitude:F2}), retry {(e.RetryLanded switch { true => "landed", false => "lied", null => "pending" })}"))));
+        context.Notes.Add("episodes: " + (_map.Episodes.Count == 0 ? "no anomaly met" : string.Join("; ", _map.Episodes.Select(e => string.Create(TraceText.Culture, $"t{e.Tick} {e.Tool} broke '{e.Story}' ({e.Magnitude:F2}), retry {(e.RetryLanded switch { true => "landed", false => "lied", null => "pending" })}")))));
         var rules = _map.Rules().ToList();
         context.Notes.Add("rules: " + (rules.Count == 0 ? "none earned yet" : string.Join("; ", rules)));
         context.Notes.Add($"unknown territory at end: {(_map.Unknown.Count == 0 ? "none" : string.Join(", ", _map.Unknown.Order(StringComparer.Ordinal)))}; unexplored territory entered {Explorations} time(s)");
@@ -421,7 +421,7 @@ public sealed class MapKeeperRegulator : IRegulator
                     var broken = _stack.Where(s => s.Used.Contains(tool.Id) && s.State != StoryState.Closed).ToList();
                     _magnitude = Math.Clamp((double)Math.Max(1, broken.Count) / (_stack.Count + 1), 0, 1);
                     _map.Episodes.Add(new Episode(ctx.Tick, tool.Id, story.Name, _magnitude, RetryLanded: false));
-                    ctx.Note($"{tool.Id} lied twice: unknown territory; {broken.Count} of {_stack.Count} stories ran through it (magnitude {_magnitude:F2}); their procedures are discarded");
+                    ctx.Note(string.Create(TraceText.Culture, $"{tool.Id} lied twice: unknown territory; {broken.Count} of {_stack.Count} stories ran through it (magnitude {_magnitude:F2}); their procedures are discarded"));
                     ctx.Row("cell", "anomaly", _magnitude, ctx.Freedom, tool.Id, TraceKind.Blocked, $"approached and lied again: unknown territory, {broken.Count} of {_stack.Count} procedures broken, rebuilding");
                     story.PendingAnomaly = null;
                     story.State = StoryState.Intact;
@@ -490,7 +490,7 @@ public sealed class MapKeeperRegulator : IRegulator
     private IEnumerable<string> StoryNotes()
     {
         yield return $"STORY STACK (where you are; act for the deepest): {Where()}";
-        if (_magnitude > 0) yield return $"ANOMALY MAGNITUDE {_magnitude:F2}: that share of your stories was broken recently; improvise accordingly";
+        if (_magnitude > 0) yield return string.Create(TraceText.Culture, $"ANOMALY MAGNITUDE {_magnitude:F2}: that share of your stories was broken recently; improvise accordingly");
         if (_map.Unknown.Count > 0) yield return $"UNKNOWN TERRITORY (lied twice, out of sight for now): {string.Join(", ", _map.Unknown.Order(StringComparer.Ordinal))}";
         if (_map.Unreachable.Count > 0) yield return $"OUT OF REACH (no story can enable them): {string.Join(", ", _map.Unreachable.Order(StringComparer.Ordinal))}";
         foreach (var rule in _map.Rules()) yield return $"RULE: {rule}";

@@ -104,7 +104,7 @@ public sealed class ControlledKernelAgent(Func<IWorld, AgentTask, IChatClient> c
             // The self-model is read before acting: it is part of the message, every round.
             var record = control.Assemble(round);
             var prompt =
-                $"""
+                string.Create(TraceText.Culture, $"""
                 Goal (checked by the system, not by you): {_task.GoalText}
                 Facts that hold now: {(world.Facts.Count == 0 ? "none" : string.Join(", ", world.Facts.Order()))}
                 Progress toward the goal: {control.Progress:P0}.
@@ -114,7 +114,7 @@ public sealed class ControlledKernelAgent(Func<IWorld, AgentTask, IChatClient> c
                 {record}
 
                 Make progress with the offered tools.
-                """;
+                """);
 
             // What the extensions want the seat to read this round, after the record; nothing when none says anything.
             var policyNotes = ext.PolicyNotes(Context());

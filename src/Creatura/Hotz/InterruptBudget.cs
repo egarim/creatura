@@ -55,7 +55,7 @@ public sealed class InterruptBudget
         Upheld = snapshot.Upheld;
     }
 
-    public override string ToString() => $"precision {Precision:P0} ({Upheld}/{Raised}), {(MayInterrupt ? "may interrupt" : "silenced")}";
+    public override string ToString() => string.Create(TraceText.Culture, $"precision {Precision:P0} ({Upheld}/{Raised}), {(MayInterrupt ? "may interrupt" : "silenced")}");
 }
 
 /// <summary>An <see cref="InterruptBudget"/>'s record as data: what an <see cref="AgentRecord"/> keeps of it. <c>Dismissed</c> is written for readers; <see cref="InterruptBudget.Restore"/> reads raised and upheld.</summary>

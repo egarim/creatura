@@ -211,7 +211,7 @@ public sealed class ModelPolicy : IPolicy
 
         var sb = new StringBuilder();
         sb.AppendLine($"GOAL: {context.GoalText}");
-        sb.AppendLine($"TICK: {context.Tick} of {context.MaxTicks}. Freedom: {context.Freedom:F2} (how much improvisation you are allowed).");
+        sb.AppendLine(string.Create(TraceText.Culture, $"TICK: {context.Tick} of {context.MaxTicks}. Freedom: {context.Freedom:F2} (how much improvisation you are allowed)."));
         if (!string.IsNullOrWhiteSpace(context.Stage)) sb.AppendLine($"STAGE: {context.Stage}");
         if (!string.IsNullOrWhiteSpace(selfModel))
         {

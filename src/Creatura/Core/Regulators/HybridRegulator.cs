@@ -124,11 +124,11 @@ public sealed class HybridRegulator : IRegulator
         var cellRecord = _cell.Skills.Count == 0
             ? ""
             : Environment.NewLine + "cell record, how often each tool's effect landed when it said so:" + Environment.NewLine +
-              string.Join(Environment.NewLine, _cell.Skills.Values.OrderBy(s => s.Action, StringComparer.Ordinal).Select(s => $"  {s.Action,-16} reliable {s.Reliability:P0} ({s.Supported}/{s.Attempted})"));
+              string.Join(Environment.NewLine, _cell.Skills.Values.OrderBy(s => s.Action, StringComparer.Ordinal).Select(s => string.Create(TraceText.Culture, $"  {s.Action,-16} reliable {s.Reliability:P0} ({s.Supported}/{s.Attempted})")));
         return new SeatView
         {
             SelfModel = _organism.Render() + cellRecord,
-            Stage = $"{_organism.Stage.Level} ({_organism.Stage.Name}), freedom cap {_organism.Stage.FreedomCap:F2}",
+            Stage = string.Create(TraceText.Culture, $"{_organism.Stage.Level} ({_organism.Stage.Name}), freedom cap {_organism.Stage.FreedomCap:F2}"),
         };
     }
 
@@ -185,10 +185,10 @@ public sealed class HybridRegulator : IRegulator
     public void Sleep(SleepContext context)
     {
         context.Trace.Add(new TraceEvent(context.LastTick, "organism", "consolidation", 0, 0, TraceText.Sleep, TraceKind.Consolidated,
-            $"coherence {_audit.Score:P0}, predictions {_predictions.Accuracy:P0}, stage {_organism.Stage.Level}"));
-        context.Notes.Add($"coherence {_audit.Score:P0}; cell reliabilities: " +
+            string.Create(TraceText.Culture, $"coherence {_audit.Score:P0}, predictions {_predictions.Accuracy:P0}, stage {_organism.Stage.Level}")));
+        context.Notes.Add(string.Create(TraceText.Culture, $"coherence {_audit.Score:P0}; cell reliabilities: ") +
                           string.Join(", ", _cell.Skills.Values.OrderBy(s => s.Action, StringComparer.Ordinal)
-                              .Select(s => $"{s.Action} {s.Reliability:P0}")));
+                              .Select(s => string.Create(TraceText.Culture, $"{s.Action} {s.Reliability:P0}"))));
         _sleep.Propose(context);
     }
 
@@ -221,7 +221,7 @@ public sealed class HybridRegulator : IRegulator
                 break;
             case ActionVerdict.Landed:
                 SeedCell();
-                ctx.Row("cell", "effect", 0.0, ctx.Freedom, tool.Id, TraceKind.Acted, $"coherence {_audit.Score:P0}");
+                ctx.Row("cell", "effect", 0.0, ctx.Freedom, tool.Id, TraceKind.Acted, string.Create(TraceText.Culture, $"coherence {_audit.Score:P0}"));
                 break;
             default:
                 SeedCell();

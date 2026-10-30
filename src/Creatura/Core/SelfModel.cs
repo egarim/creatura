@@ -80,7 +80,7 @@ public sealed class SelfModel
             ? "  (no evidence yet)"
             : string.Join(Environment.NewLine, Skills.Values
                 .OrderBy(s => s.Action, StringComparer.Ordinal)
-                .Select(s => $"  {s.Action,-16} reliable {s.Reliability:P0} ({s.Supported}/{s.Attempted})"));
+                .Select(s => string.Create(TraceText.Culture, $"  {s.Action,-16} reliable {s.Reliability:P0} ({s.Supported}/{s.Attempted})")));
         var errors = RecentErrors.Count == 0
             ? "  (none)"
             : string.Join(Environment.NewLine, RecentErrors.Select(e => $"  - {e}"));

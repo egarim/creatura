@@ -31,17 +31,6 @@ public static class RunCommand
 
     private const int ShownRows = 12;
 
-    /// <summary>The invariant culture with the percent sign against the number ("100%").</summary>
-    private static readonly CultureInfo Output = MakeOutput();
-
-    private static CultureInfo MakeOutput()
-    {
-        var culture = (CultureInfo)CultureInfo.InvariantCulture.Clone();
-        culture.NumberFormat.PercentPositivePattern = 1;
-        culture.NumberFormat.PercentNegativePattern = 1;
-        return CultureInfo.ReadOnly(culture);
-    }
-
     public static async Task<int> Run(string[] args, TextWriter output, TextWriter error, SeatResolver? seats = null)
     {
         if (args.Contains("--help") || args.Contains("-h"))
@@ -109,9 +98,9 @@ public static class RunCommand
         var culture = CultureInfo.CurrentCulture;
         try
         {
-            // The trace's text is formatted where it is written, in the machine's culture ("100 %" in German); this
-            // command shows it in one culture so it reads the same on every machine.
-            CultureInfo.CurrentCulture = Output;
+            // Creatura's own texts are written in TraceText.Culture; a design or world of someone else's may format in
+            // the current culture, so the run happens in the same one and reads the same on every machine.
+            CultureInfo.CurrentCulture = TraceText.Culture;
             run = await agent.RunAsync(manifest.NewWorld(barriers), ticks);
         }
         finally

@@ -44,7 +44,7 @@ public class HybridRegulatorTests
         Assert.Equal(6, run.Ticks);
         var alarm = Assert.Single(run.Trace, e => e.Action == TraceText.StuckRegulation);
         Assert.Equal(("organism", "contract", TraceKind.Blocked), (alarm.Level, alarm.SetPoint, alarm.Kind));
-        Assert.Equal($"5 ticks with no progress at {alarm.Freedom:P0} freedom", alarm.Detail);
+        Assert.Equal("5 ticks with no progress at 65% freedom", alarm.Detail);         // the same on every machine (TraceText.Culture)
         Assert.Equal(0.65, alarm.Freedom, 9); // stress 1 buys 1.0; the stage caps it at 0.65, and the alarm row carries that
         Assert.Contains("stuck-regulation alarm: acting without moving the gap, handed to a human", run.Notes);
         Assert.Equal(5, regulator.Alarm.StaleTicks);

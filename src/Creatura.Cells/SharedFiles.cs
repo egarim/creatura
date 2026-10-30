@@ -90,7 +90,7 @@ public static class SharedFiles
 
     public static SealedFile Seal(byte[] content, string name, string contentType, IReadOnlyList<Recipient> recipients)
     {
-        if (content.Length > MaxBytes) throw new SharedFileException(SharedFileProblem.TooLarge, $"{name} is {content.Length:N0} bytes; the limit is {MaxBytes:N0}");
+        if (content.Length > MaxBytes) throw new SharedFileException(SharedFileProblem.TooLarge, string.Create(TraceText.Culture, $"{name} is {content.Length:N0} bytes; the limit is {MaxBytes:N0}"));
         if (recipients.Count == 0) throw new SharedFileException(SharedFileProblem.NotARecipient, "a file needs at least one recipient");
 
         var fileKey = RandomNumberGenerator.GetBytes(32);

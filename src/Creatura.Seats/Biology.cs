@@ -36,11 +36,11 @@ public sealed record ModelBiology(
             $"protocol {Protocol}: {(Protocol == "tools" ? "you choose by calling exactly one function" : "you answer with one JSON object; prose is not an answer")}",
             $"reasoning {(Reasoning ? "yes: your thinking counts against your output cap" : "no: answer directly")}",
             $"context window {N(ContextWindow)} tokens{(ContextAsRun is not null && ContextAsRun != ContextWindow ? $", run here with {N(ContextAsRun)}" : "")}; max output {N(MaxOutput)} tokens",
-            $"price {(InputPerMillion is null ? "unknown" : $"${InputPerMillion:0.00} in / ${OutputPerMillion:0.00} out per million tokens")}",
+            $"price {(InputPerMillion is null ? "unknown" : string.Create(TraceText.Culture, $"${InputPerMillion:0.00} in / ${OutputPerMillion:0.00} out per million tokens"))}",
         };
         if (MeasuredRuns is > 0)
         {
-            lines.Add($"measured over {MeasuredRuns} runs here: median call {MedianCallSeconds:0.0} s, {TokensPerSecond:0} tokens/s, {InvalidRate:P0} of your answers were invalid");
+            lines.Add(string.Create(TraceText.Culture, $"measured over {MeasuredRuns} runs here: median call {MedianCallSeconds:0.0} s, {TokensPerSecond:0} tokens/s, {InvalidRate:P0} of your answers were invalid"));
         }
 
         if (KnowledgeCutoff is not null) lines.Add($"knowledge cutoff {KnowledgeCutoff}");
@@ -62,7 +62,7 @@ public sealed record ModelBiology(
         Network = Local ? "local, on this machine" : $"cloud via {Provider}",
     };
 
-    public string OneLine() => $"{Model} ({Protocol}{(Reasoning ? ", reasoning" : "")}, ctx {(ContextAsRun ?? ContextWindow)?.ToString("N0", CultureInfo.InvariantCulture) ?? "?"}, {(MedianCallSeconds is null ? "unmeasured" : $"{MedianCallSeconds:0.0}s/call")})";
+    public string OneLine() => $"{Model} ({Protocol}{(Reasoning ? ", reasoning" : "")}, ctx {(ContextAsRun ?? ContextWindow)?.ToString("N0", CultureInfo.InvariantCulture) ?? "?"}, {(MedianCallSeconds is null ? "unmeasured" : string.Create(TraceText.Culture, $"{MedianCallSeconds:0.0}s/call"))})";
 }
 
 /// <summary>The published facts of a catalogued model (its endpoint's sheet) joined with the measured ones read from scoreboard rows.</summary>

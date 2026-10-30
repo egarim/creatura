@@ -73,8 +73,8 @@ README, icon, SourceLink and `.snupkg`.
   break then failed it.
 - **Found by O3:** under a German culture the trace's own text read "100 %" where en-US reads "100%"; it is written
   by the core, not by the command. `creatura run` now runs under the invariant culture with the percent sign against
-  the number, so its output is the same on every machine. The core's own texts still follow the machine's culture
-  (the open culture decision).
+  the number, so its output is the same on every machine. The core's own texts still followed the machine's culture;
+  on 2026-10-30 the owner chose one fixed culture for every library's texts (`TraceText.Culture`, issue #5).
 - **O2 holds** (`tools/try-onboarding.sh`): every package packed at a throwaway version into a scratch folder; for
   each template `creatura new` and `dotnet new` (from the packed `Creatura.Templates`, in a throwaway hive) made the
   same files; each project restored from that folder with a fresh package cache, built, and ran offline to the goal.

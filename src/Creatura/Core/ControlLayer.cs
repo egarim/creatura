@@ -218,7 +218,7 @@ public sealed class ControlLayer
     public StopReason? Stop()
     {
         if (StaleRounds < 2) return null;
-        var detail = $"{StaleRounds} rounds without progress at {Freedom:P0} freedom";
+        var detail = string.Create(TraceText.Culture, $"{StaleRounds} rounds without progress at {Freedom:P0} freedom");
         Record("organism", "contract", 1.0 - Progress, TraceText.StuckRegulation, TraceKind.Escalated, detail);
         Note("stuck-regulation alarm: acting without moving the gap, handed to a human");
         return new StopReason(StopCause.StuckRegulation, detail, HandOff.StuckRegulation);
@@ -426,9 +426,9 @@ public sealed class ControlLayer
     public void Sleep()
     {
         var skills = Self.Skills.Values.OrderBy(s => s.Action, StringComparer.Ordinal)
-            .Select(s => $"{s.Action} {s.Reliability:P0}").ToList();
+            .Select(s => string.Create(TraceText.Culture, $"{s.Action} {s.Reliability:P0}")).ToList();
         Record("organism", "consolidation", 0.0, TraceText.Sleep, TraceKind.Consolidated,
-            $"coherence {Audit.Score:P0}, predictions {Predictions.Accuracy:P0} over {Predictions.Total}, stage {Self.Stage.Level}");
-        Note($"coherence {Audit.Score:P0}; reliabilities: {(skills.Count > 0 ? string.Join(", ", skills) : "none")}");
+            string.Create(TraceText.Culture, $"coherence {Audit.Score:P0}, predictions {Predictions.Accuracy:P0} over {Predictions.Total}, stage {Self.Stage.Level}"));
+        Note(string.Create(TraceText.Culture, $"coherence {Audit.Score:P0}; reliabilities: {(skills.Count > 0 ? string.Join(", ", skills) : "none")}"));
     }
 }

@@ -33,5 +33,5 @@ public sealed class StuckRegulationAlarm
     public void Reset() => StaleTicks = 0;
 
     /// <summary>The detail the hybrid's alarm row carries.</summary>
-    public string Detail(double freedom) => $"{StaleTicks} ticks with no progress at {freedom:P0} freedom";
+    public string Detail(double freedom) => string.Create(TraceText.Culture, $"{StaleTicks} ticks with no progress at {freedom:P0} freedom");
 }

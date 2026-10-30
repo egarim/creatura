@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **One culture for every text** (the owner's decision, issue #5): traces, notes, self-descriptions and model prompts
+  are written in `TraceText.Culture` (invariant numbers, "100%") whatever the machine's culture, so a run reads the
+  same everywhere. Before, a German machine wrote "0,40" and "100 %": 91 tests failed with the suite run as de-DE
+  (`CREATURA_TEST_CULTURE=de-DE`); now none do. The CLI's own console output (sizes like "1,024 bytes") still
+  follows the machine.
+- **The packages carry their license as a file** (`LICENSE.md`): nuget.org refuses a license expression that is not
+  OSI- or FSF-approved, which stopped 0.2.0-preview.2 from reaching it.
+
 ## 0.2.0-preview.2 (2026-10-30)
 
 - **The activity stream** (docs/design-activity-stream.md, the first slice): `ActivityStream` in `Creatura.Cells`

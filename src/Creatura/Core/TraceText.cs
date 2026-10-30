@@ -8,6 +8,20 @@ namespace Creatura;
 /// </summary>
 public static class TraceText
 {
+    /// <summary>
+    /// The culture every Creatura text is written in, whatever the machine's: invariant numbers ("0.65") with the percent
+    /// sign against the number ("100%"). Traces, notes and prompts are records compared across machines, not UI.
+    /// </summary>
+    public static readonly System.Globalization.CultureInfo Culture = MakeCulture();
+
+    private static System.Globalization.CultureInfo MakeCulture()
+    {
+        var culture = (System.Globalization.CultureInfo)System.Globalization.CultureInfo.InvariantCulture.Clone();
+        culture.NumberFormat.PercentPositivePattern = 1;
+        culture.NumberFormat.PercentNegativePattern = 1;
+        return System.Globalization.CultureInfo.ReadOnly(culture);
+    }
+
     // Action column.
     public const string ContractMet = "contract met";
 
@@ -72,14 +86,14 @@ public static class TraceText
 
     /// <summary>The Bach agent's "deploy blocked" detail.</summary>
     public static string StageForbidsRelease(Stage stage, double recentAccuracy) =>
-        $"stage {stage.Level} ({stage.Name}) forbids release; recent predictions {recentAccuracy:P0}";
+        string.Create(TraceText.Culture, $"stage {stage.Level} ({stage.Name}) forbids release; recent predictions {recentAccuracy:P0}");
 
     /// <summary>The hybrid's "deploy blocked" detail.</summary>
     public static string StageBlocksRelease(Stage stage, double recentAccuracy) =>
-        $"stage {stage.Level} ({stage.Name}); recent predictions {recentAccuracy:P0}";
+        string.Create(TraceText.Culture, $"stage {stage.Level} ({stage.Name}); recent predictions {recentAccuracy:P0}");
 
     /// <summary>The host's landed row.</summary>
-    public static string EffectVerified(double recentAccuracy) => $"effect verified ({recentAccuracy:P0} recent)";
+    public static string EffectVerified(double recentAccuracy) => string.Create(TraceText.Culture, $"effect verified ({recentAccuracy:P0} recent)");
 
     /// <summary>The host's honest-failure row.</summary>
     public static string FailedHonestly(string summary) => $"failed honestly: {summary}";
@@ -90,7 +104,7 @@ public static class TraceText
     // Notes.
     /// <summary>The Bach agent's and the host's stage note (the controlled tests look for "stage advance: 4").</summary>
     public static string StageAdvance(Stage stage, double recentAccuracy) =>
-        $"stage advance: {stage.Level} ({stage.Name}) after {recentAccuracy:P0} recent prediction accuracy";
+        string.Create(TraceText.Culture, $"stage advance: {stage.Level} ({stage.Name}) after {recentAccuracy:P0} recent prediction accuracy");
 
     /// <summary>The hybrid's stage note.</summary>
     public static string OrganismStageAdvance(Stage stage) => $"organism stage advance: {stage.Level} ({stage.Name})";
@@ -98,7 +112,7 @@ public static class TraceText
     /// <summary>The host's refusal of a release, note and row alike.</summary>
     public static string ReleaseRequiresApproval(Stage stage, PredictionTracker predictions) =>
         $"release requires human approval: stage {stage.Level} ({stage.Name}), " +
-        $"recent predictions {predictions.RecentAccuracy:P0} over {predictions.Total}";
+        string.Create(TraceText.Culture, $"recent predictions {predictions.RecentAccuracy:P0} over {predictions.Total}");
 
     /// <summary>The host's note when a tool lied.</summary>
     public static string Distrusted(string toolId, string summary, int cooldownTicks) =>

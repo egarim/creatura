@@ -5,6 +5,9 @@
     <!-- The icon nuget.org shows (made from docs/assets/creatura-icon-light.svg on the navy ground). -->
     <None Remove="$(MSBuildThisFileDirectory)docs/assets/creatura-icon.png" />
     <None Include="$(MSBuildThisFileDirectory)docs/assets/creatura-icon.png" Pack="true" PackagePath="/" Visible="false" />
+    <!-- The license (PackageLicenseFile). -->
+    <None Remove="$(MSBuildThisFileDirectory)LICENSE.md" />
+    <None Include="$(MSBuildThisFileDirectory)LICENSE.md" Pack="true" PackagePath="/" Visible="false" />
     <!-- The project's PACKAGE.md is the package's readme (PackageReadmeFile). Removed first, so it is packed once whether
          the SDK's default items already list it or the project lists it itself. -->
     <None Remove="PACKAGE.md" Condition="'$(PackageReadmeFile)' == 'PACKAGE.md'" />

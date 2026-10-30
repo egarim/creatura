@@ -57,7 +57,7 @@ public sealed class ChatClientPolicy(IChatClient client, string name = "chat-cli
         var prompt = new StringBuilder();
         prompt.AppendLine($"Goal (checked by the system, not by you): {context.GoalText}");
         prompt.AppendLine($"Facts that hold now: {(context.Facts.Count == 0 ? "none" : string.Join(", ", context.Facts.Order()))}");
-        prompt.AppendLine($"Tick {context.Tick} of {context.MaxTicks}; freedom {context.Freedom:F2}.");
+        prompt.AppendLine(string.Create(TraceText.Culture, $"Tick {context.Tick} of {context.MaxTicks}; freedom {context.Freedom:F2}."));
         if (context.SelfModel is { Length: > 0 } self) prompt.AppendLine().AppendLine("Your record:").AppendLine(self);
         if (context.Stage is { Length: > 0 } stage) prompt.AppendLine($"Stage: {stage}");
         if (context.History.Count > 0) prompt.AppendLine().AppendLine("So far:").AppendLine(string.Join(Environment.NewLine, context.History.Select(h => "- " + h)));

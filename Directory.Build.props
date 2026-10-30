@@ -7,8 +7,9 @@
     <Product>Creatura</Product>
     <Authors>Jose Ojeda</Authors>
     <Copyright>Copyright (c) 2026 Jose Ojeda</Copyright>
-    <!-- Free for noncommercial use; commercial use needs a separate license from the author (LICENSE.md). -->
-    <PackageLicenseExpression>PolyForm-Noncommercial-1.0.0</PackageLicenseExpression>
+    <!-- Free for noncommercial use; commercial use needs a separate license from the author (LICENSE.md). The license
+         travels as a file: nuget.org accepts only OSI- or FSF-approved licenses as an expression, and PolyForm is neither. -->
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <Description>An agent framework: one loop, a control layer between the model and its tools, and worlds that can lie. Regulators, extensions and worlds plug in.</Description>
     <RepositoryUrl>https://github.com/egarim/creatura</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

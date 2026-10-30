@@ -165,7 +165,7 @@ public sealed class OrientingRegulator : IRegulator
         if (tool.Kind != _task.ReleaseKind || tool.Id == _pendingLie) return null;
         if (_affect.I <= _affect.RestingI + ReleaseTolerance || _affect.I < _affect.A) return null;
         context.Row("tissue", "affect", _affect.I, context.Freedom, "hold release", TraceKind.Idle,
-            $"{tool.Id} is a release and inhibition {_affect.I:F2} is above rest {_affect.RestingI:F2} and above approach {_affect.A:F2}: waiting for the brake to come off");
+            string.Create(TraceText.Culture, $"{tool.Id} is a release and inhibition {_affect.I:F2} is above rest {_affect.RestingI:F2} and above approach {_affect.A:F2}: waiting for the brake to come off"));
         return HoldDecision.Wait;
     }
 
@@ -177,7 +177,7 @@ public sealed class OrientingRegulator : IRegulator
             _oriented = false;
             OrientingTicks++;
             context.Row("tissue", "affect", _affect.I, context.Freedom, "orient", TraceKind.Idle,
-                $"discrepancy: re-scoring {context.Visible.Count} actions; A {_affect.A:F2} I {_affect.I:F2}{(_pendingLie is null ? "" : $"; {_pendingLie} to be approached once")}");
+                string.Create(TraceText.Culture, $"discrepancy: re-scoring {context.Visible.Count} actions; A {_affect.A:F2} I {_affect.I:F2}{(_pendingLie is null ? "" : $"; {_pendingLie} to be approached once")}"));
             return PreDecision.Skip("orienting");
         }
 
@@ -196,9 +196,9 @@ public sealed class OrientingRegulator : IRegulator
         var breadth = Math.Max(1, (int)Math.Ceiling(_affect.A * scored.Count));
         var notes = new List<string>
         {
-            $"AFFECT: approach {_affect.A:F2} (hope), inhibition {_affect.I:F2} (anxiety), resting inhibition {_affect.RestingI:F2}{(_affect.Conflicted ? "; conflicted" : "")}",
+            string.Create(TraceText.Culture, $"AFFECT: approach {_affect.A:F2} (hope), inhibition {_affect.I:F2} (anxiety), resting inhibition {_affect.RestingI:F2}{(_affect.Conflicted ? "; conflicted" : "")}"),
             "ACTIONS BY VALENCE (promise − caution × threat; unclassified carries both at 1): " +
-            string.Join(", ", scored.Select(s => $"{s.Tool.Id} {s.Score:+0.00;-0.00} ({(s.Weight.Seen == 0 ? "unclassified" : $"p {s.Weight.Promise:F2} t {s.Weight.Threat:F2}")})")),
+            string.Join(", ", scored.Select(s => string.Create(TraceText.Culture, $"{s.Tool.Id} {s.Score:+0.00;-0.00} ({(s.Weight.Seen == 0 ? "unclassified" : string.Create(TraceText.Culture, $"p {s.Weight.Promise:F2} t {s.Weight.Threat:F2}"))})"))),
         };
         if (scored.Count > 0) notes.Add($"CHOOSE AMONG (hope sizes this list, {breadth} of {scored.Count}): {string.Join(", ", scored.Take(breadth).Select(s => s.Tool.Id))}");
         if (_satisfied.Count > 0) notes.Add($"SATISFIED (drives satiated): {Join(_satisfied)}");
@@ -254,12 +254,12 @@ public sealed class OrientingRegulator : IRegulator
     {
         var habituated = _habituation.Habituated.ToList();
         context.Trace.Add(new TraceEvent(context.LastTick, "organism", "consolidation", _affect.I, _affect.Freedom, TraceText.Sleep, TraceKind.Consolidated,
-            $"A {_affect.A:F2} I {_affect.I:F2} resting I {_affect.RestingI:F2}; {OrientingTicks} orienting tick(s); {habituated.Count} habituated; {_weights.Learned.Count()} weight(s)"));
+            string.Create(TraceText.Culture, $"A {_affect.A:F2} I {_affect.I:F2} resting I {_affect.RestingI:F2}; {OrientingTicks} orienting tick(s); {habituated.Count} habituated; {_weights.Learned.Count()} weight(s)")));
         var entries = _habituation.Entries.ToList();
         context.Notes.Add("trace: " + (entries.Count == 0 ? "nothing met" : string.Join("; ", entries.Select(e => $"{e.Action} [{Short(e.Situation)}] {e.Last} ×{e.Matches}"))));
         context.Notes.Add("habituated: " + (habituated.Count == 0 ? "none" : string.Join(", ", habituated)));
-        context.Notes.Add("weights: " + (!_weights.Learned.Any() ? "none learned" : string.Join("; ", _weights.Learned.Select(w => $"{w.Tool}@{w.Goal} p {w.Weight.Promise:F2} t {w.Weight.Threat:F2} ({w.Weight.Seen})"))));
-        context.Notes.Add($"orienting ticks: {OrientingTicks}; deliberate approaches that ended in control: {_deliberate.Count}{(_deliberate.Count == 0 ? "" : $" ({string.Join(", ", _deliberate)})")}; resting inhibition {_affect.RestingI:F2}");
+        context.Notes.Add("weights: " + (!_weights.Learned.Any() ? "none learned" : string.Join("; ", _weights.Learned.Select(w => string.Create(TraceText.Culture, $"{w.Tool}@{w.Goal} p {w.Weight.Promise:F2} t {w.Weight.Threat:F2} ({w.Weight.Seen})")))));
+        context.Notes.Add(string.Create(TraceText.Culture, $"orienting ticks: {OrientingTicks}; deliberate approaches that ended in control: {_deliberate.Count}{(_deliberate.Count == 0 ? "" : $" ({string.Join(", ", _deliberate)})")}; resting inhibition {_affect.RestingI:F2}"));
     }
 
     // ---- The frame: the orienting agent's words for the layer's decisions --------------------------------------
@@ -328,11 +328,11 @@ public sealed class OrientingRegulator : IRegulator
 
                 if (approached)
                 {
-                    ctx.Row("cell", "valence", 0.0, ctx.Freedom, tool.Id, TraceKind.Acted, $"approached: effect landed on the retry, {reading}; resting inhibition {_affect.RestingI:F2}");
+                    ctx.Row("cell", "valence", 0.0, ctx.Freedom, tool.Id, TraceKind.Acted, string.Create(TraceText.Culture, $"approached: effect landed on the retry, {reading}; resting inhibition {_affect.RestingI:F2}"));
                 }
                 else
                 {
-                    ctx.Row("cell", "valence", 0.0, ctx.Freedom, tool.Id, TraceKind.Acted, $"{reading}{(discrepancy ? " (changed: orienting)" : "")}; A {_affect.A:F2} I {_affect.I:F2}");
+                    ctx.Row("cell", "valence", 0.0, ctx.Freedom, tool.Id, TraceKind.Acted, string.Create(TraceText.Culture, $"{reading}{(discrepancy ? " (changed: orienting)" : "")}; A {_affect.A:F2} I {_affect.I:F2}"));
                 }
 
                 if (discrepancy) _oriented = true;
@@ -340,7 +340,7 @@ public sealed class OrientingRegulator : IRegulator
 
             case ActionVerdict.HonestFailure:
                 ctx.Row("cell", "valence", 0.0, ctx.Freedom, tool.Id, TraceKind.Blocked,
-                    $"{TraceText.HonestFailure}: {reading} (weight {reading.PunishmentWeight:F2}); threat now {weight.Threat:F2}{(approached ? "; approached once, not a lie" : "")}{(discrepancy ? " (changed: orienting)" : "")}");
+                    string.Create(TraceText.Culture, $"{TraceText.HonestFailure}: {reading} (weight {reading.PunishmentWeight:F2}); threat now {weight.Threat:F2}{(approached ? "; approached once, not a lie" : "")}{(discrepancy ? " (changed: orienting)" : "")}"));
                 if (discrepancy) _oriented = true;
                 break;
 
@@ -352,14 +352,14 @@ public sealed class OrientingRegulator : IRegulator
                     _distrust.Unknown(tool.Id, ctx.Tick);
                     _oriented = true;
                     ctx.Note($"{tool.Id} lied twice: threat at ceiling on {goal}, out of sight for {_unknownCooldown} ticks");
-                    ctx.Row("cell", "valence", 1.0, ctx.Freedom, tool.Id, TraceKind.Blocked, $"approached and lied again: threat {ceiling.Threat:F2}, unknown territory; orienting");
+                    ctx.Row("cell", "valence", 1.0, ctx.Freedom, tool.Id, TraceKind.Blocked, string.Create(TraceText.Culture, $"approached and lied again: threat {ceiling.Threat:F2}, unknown territory; orienting"));
                 }
                 else
                 {
                     // First lie: orient, then approach once under the brake.
                     _pendingLie = tool.Id;
                     _oriented = true;
-                    ctx.Row("cell", "valence", 1.0, ctx.Freedom, tool.Id, TraceKind.Blocked, $"reported '{outcome.Observation ?? "success"}', nothing landed: {reading} (weight {reading.PunishmentWeight:F2}); threat now {weight.Threat:F2}; orienting, then approach once");
+                    ctx.Row("cell", "valence", 1.0, ctx.Freedom, tool.Id, TraceKind.Blocked, string.Create(TraceText.Culture, $"reported '{outcome.Observation ?? "success"}', nothing landed: {reading} (weight {reading.PunishmentWeight:F2}); threat now {weight.Threat:F2}; orienting, then approach once"));
                 }
 
                 break;

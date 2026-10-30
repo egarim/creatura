@@ -120,7 +120,7 @@ public static class HubApp
             using var buffer = new MemoryStream();
             await context.Request.Body.CopyToAsync(buffer, context.RequestAborted);
             var put = files.Put(hash, buffer.ToArray(), context.Items[HubAuth.CellItem] as string);
-            if (put is FilePut.Stored) log?.Invoke($"stored file {hash} ({buffer.Length:N0} bytes) from {context.Items[HubAuth.CellItem]}");
+            if (put is FilePut.Stored) log?.Invoke(string.Create(TraceText.Culture, $"stored file {hash} ({buffer.Length:N0} bytes) from {context.Items[HubAuth.CellItem]}"));
             return put switch
             {
                 FilePut.Stored => Results.StatusCode(StatusCodes.Status201Created),

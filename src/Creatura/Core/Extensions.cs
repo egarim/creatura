@@ -285,7 +285,7 @@ public sealed class ExplorationExtension : IAgentExtension
         // In a developmental phase the budget waits until every tool has been tried once: an infant's probes are not spent.
         if (_fruitless >= budget && !(_developmental && untried > 0))
         {
-            return new PolicySuggestion(null, $"no route on the learned map and {_fruitless} fruitless tries at freedom {context.Freedom:F2}; handing off");
+            return new PolicySuggestion(null, string.Create(TraceText.Culture, $"no route on the learned map and {_fruitless} fruitless tries at freedom {context.Freedom:F2}; handing off"));
         }
 
         // Releases last: the design says release is a capability to be earned, not a step to try, so an explorer
@@ -491,7 +491,7 @@ public sealed class DreamSleepExtension : IAgentExtension
 
         _journal.Avoid.ExceptWith(onGoodRoutes);
         context.Trace.Add(new TraceEvent(context.LastTick, "self", "dream", 0, 0, "dream", TraceKind.Consolidated,
-            $"night {_journal.Nights}: {dreamed} dreamed routes over {learned.Count} learned tools; prefer {_journal.Prefer.Count}, avoid {_journal.Avoid.Count}; dream trust {_journal.Trust:P0} ({_journal.Confirmed}/{_journal.Tested})"));
+            string.Create(TraceText.Culture, $"night {_journal.Nights}: {dreamed} dreamed routes over {learned.Count} learned tools; prefer {_journal.Prefer.Count}, avoid {_journal.Avoid.Count}; dream trust {_journal.Trust:P0} ({_journal.Confirmed}/{_journal.Tested})")));
         context.Notes.Add($"dreamed (not seen): prefer [{string.Join(", ", _journal.Prefer.Order(StringComparer.Ordinal))}] avoid [{string.Join(", ", _journal.Avoid.Order(StringComparer.Ordinal))}]");
         _dayStart = null;
     }
@@ -589,7 +589,7 @@ public sealed class RecordCarryExtension : IAgentExtension
             yield return $"YOUR RECORD from {Cases} earlier case(s), how often each tool's effect landed when it said so:";
             foreach (var s in _record.Skills.Values.OrderByDescending(s => s.Attempted).ThenBy(s => s.Action, StringComparer.Ordinal).Take(8))
             {
-                yield return $"  {s.Action}: reliable {s.Reliability:P0} ({s.Supported}/{s.Attempted})";
+                yield return string.Create(TraceText.Culture, $"  {s.Action}: reliable {s.Reliability:P0} ({s.Supported}/{s.Attempted})");
             }
         }
 
@@ -598,7 +598,7 @@ public sealed class RecordCarryExtension : IAgentExtension
         {
             var idle = Cases - last;
             if (idle < _resampleEvery || !_record.Skills.TryGetValue(action, out var belief) || belief.Reliability >= 1.0) continue;
-            yield return $"RECORD GOING STALE: {action} was last tried {idle} cases ago, at {belief.Reliability:P0}. A record that is never re-tested cannot recover; if {action} is on a route this case, try it once.";
+            yield return string.Create(TraceText.Culture, $"RECORD GOING STALE: {action} was last tried {idle} cases ago, at {belief.Reliability:P0}. A record that is never re-tested cannot recover; if {action} is on a route this case, try it once.");
         }
     }
 
