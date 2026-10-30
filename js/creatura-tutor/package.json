@@ -1,0 +1,42 @@
+{
+  "name": "creatura-tutor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The emulated world of the first on-device app, a maths tutor for 4th grade: its facts and tools, seeded problems and student requests, barriers and a scripted driver, run through creatura-js's control layer (slice T0 of docs/design-mobile.md).",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "author": "Jose Ojeda",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/egarim/creatura.git",
+    "directory": "js/creatura-tutor"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "tsc -p tsconfig.test.json && node --test \"build-test/test/**/*.test.js\"",
+    "summary": "tsc -p tsconfig.test.json && node build-test/scripts/summary.js"
+  },
+  "dependencies": {
+    "creatura-js": "file:../creatura-js"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

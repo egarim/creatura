@@ -1,11 +1,15 @@
 # Design: the control layer on the phone, and what big models teach the small one
 
-**Status:** design note; slice S1 built (below). Written 2026-10-30 on the owner's laptop; the part on transferring
-knowledge from big models was added the same day. All eleven decisions were answered by the owner the same day
-(see "Decided"); two of them (D4, D9) change parts written above, and the table says how.
+**Status:** design note; slices S1 and T0 built (below). Written 2026-10-30 on the owner's laptop; the part on
+transferring knowledge from big models was added the same day. All eleven decisions were answered by the owner the same
+day (see "Decided"); two of them (D4, D9) change parts written above, and the table says how.
 
 **Built:** slice S1, `creatura-js` in [`js/creatura-js/`](../js/creatura-js/), 2026-10-30: M1 holds (the four controlled
-goldens replayed byte for byte, in Node and in a browser). Everything else here is still a design.
+goldens replayed byte for byte, in Node and in a browser). Slice T0, the maths tutor's emulated world, in
+[`js/creatura-tutor/`](../js/creatura-tutor/), 2026-10-30: four tools whose code is the app's, 100 seeded problems split
+by seed (67 train, 9 valid, 24 test) and 300 requests in three voices, three barriers and a scripted driver; the scripted
+driver finishes all 72 test requests in the clean world, and the control layer catches each barrier. Everything else
+here is still a design.
 
 ## The problem, in the owner's words
 
