@@ -20,6 +20,8 @@ agent tools around it, as hosts and as cells.
   and a router, world model and adapter trained from big models in the app's emulated world (slice S1, `creatura-js`, built).
 - [The operating system as the creature's body](design-embodiment.md): senses, limbs, inner senses, set points and a
   skin on Windows, Linux and macOS, with Telekinesis as senses and limbs (proposed, nothing built).
+- [Two creatures build and publish an app](design-two-creatures.md): an experiment with two agents on their own VMs,
+  three pairings and three channels, judged by an outside test (designed, nothing built).
 - [Setting up a model for the convoy](convoy-models.md).
 - [The replay format](replay-format.md): how a UI watches a run.
 - [Sources](sources.md): whose public work the designs read, in the author's words.
