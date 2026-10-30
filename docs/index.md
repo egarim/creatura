@@ -16,6 +16,8 @@ agent tools around it, as hosts and as cells.
   the learned judge, each pre-registered before it was built.
 - [Identity, vessel and the cell network](design-cells.md): cells, the signed work ledger and the hub.
 - [Sharing files between cells](design-shared-files.md).
+- [The control layer on the phone](design-mobile.md): a TypeScript port beside an on-device model, for Expo apps,
+  and a router, world model and adapter trained from big models in the app's emulated world (proposed, nothing built).
 - [Setting up a model for the convoy](convoy-models.md).
 - [The replay format](replay-format.md): how a UI watches a run.
 - [Sources](sources.md): whose public work the designs read, in the author's words.
