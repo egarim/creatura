@@ -542,7 +542,11 @@ seat. The trucks' planner keeps no state between ticks, so a small network can c
 6. **A world model in a learned representation (JEPA).** An encoder, a target encoder kept as its moving average,
    and a predictor of the next embedding (`tools/train/train_jepa.py`, `JepaModel`). It sees the lying road more
    clearly than the forward model on a driver it never saw (DeepSeek), and is level elsewhere. But it learns that a
-   lie seen often is normal, and forgets it the longer it trains. Nothing in the loop reads it yet.
+   lie seen often is normal, and forgets it the longer it trains.
+7. **A guide that calls the seat less.** `GuidedSeat` plays the action the JEPA predicts leads where the seat usually
+   goes, and calls the seat only when unsure (arms M, MU, MK). In the clean world it calls the planner on 40% of
+   decisions with nothing lost. In the noisy world it saves 10%, and after a breakdown it strands trucks. A network
+   that copies the seat (arm MN) calls it on 0.3% of decisions with nothing lost: the better guide.
 
 Every run behind these results is in [docs/experiment-log.md](docs/experiment-log.md).
 

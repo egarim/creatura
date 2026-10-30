@@ -197,3 +197,27 @@ runs are recorded only in the design note.
 - #48: `dotnet test --filter JepaModelTests; the same three breaks`
 
 </details>
+
+## Step 8
+
+6 entries; 1 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 49 | 2026-10-30 00:52 | `ab4816f`* | data | 50-599 | Latent subgoal heads trained over the frozen JEPAs (train_goal.py) | clean: held-out relative error 0.0273, epoch 96 of 100 (still improving at the cap); surprise p99 5.3288, p99.9 15.8481. Noisy: 0.1054, epoch 95 of 100 (same); p99 37.2859, p99.9 54.1325 | models/convoy-jepa-*-goal.json |
+| 50 | 2026-10-30 00:52 | `ab4816f`* | probe | 600-604 | Smoke run of arms J, M, MN before calibration (m 0.5, s p99) | Found a bug: the guide measured surprise at its next decision (a tick later, after the other trucks moved), not right after the action as the world sets do: 111 of 222 calls were surprise calls. Fixed with GuideObserverExtension. Before the fix: M 222 of 372 calls, delivered 150/150 as J; MN 0 calls at m 0.5 (the network is almost always that sure), 150/150. After: M 132 of 372 calls (35.5%), 3 surprise calls | the fix; nothing chosen from these numbers |
+| 51 | 2026-10-30 09:16 | `ab4816f`* | tune | 600-649 | Calibration grid for the guides (registered rule): M 15, MU 15, MN 5 settings | Baselines: J 3918 calls, 1500 delivered, 52 lies, served 25.1; U 5430 calls, 1489, 76 lies, 33.7. M qualifying from m 0.5 up; chosen m 0.5, no surprise trigger: 1502 of 3911 calls (38.4%), 1500, 51 lies. Below 0.5 it lost 4 to 21 units. MU qualifies only at m 0.9: chosen m 0.9, none: 4852 of 5424 calls (89.5%), 1489, 76 lies; m 0.5 called 62% but delivered 1480. The surprise trigger added calls and never qualified a lower m. MN: none qualifies (best 1499 delivered, 53 lies); by the fallback m 0.75 (1499, 53 lies, then fewest calls: 81 of 4017, 2.0%) | arms M (0.5, none), MU (0.9, none), MK (as M), MN (0.75) |
+| 52 | 2026-10-30 09:17 | `ab4816f`* | build | — | GuidedSeat tests and four deliberate breaks | 4 tests pass (the guide's subgoal and ranking equal the trainer's; calls only when unsure; arm J calls at every decision, arm M less). Breaks: margin ignored fails 2, surprise ignored 1, margin over the best instead of the second 1. A call with one choice passed at first: the fake guide gave margin 1 for a single choice, so the rule was never exercised; the fake now gives its margin always, and the break fails 1 | tests/Creatura.Scenarios.Tests/GuidedSeatTests.cs |
+| 53 | 2026-10-30 09:20 | `ab4816f`* | test | 0-49 **battery** | T14 to T14g: the JEPA guide against the planner every tick (scored once) | T14 held: M 1625 of 4014 decisions call the planner (40.5%; J 3981 of 3981). T14b held: 1500/1500, all served in 50 runs, as J. T14c held: lies 54, repeats 0, as J. T14d held: served by tick 25.76 vs 25.54. T14e failed: MU 4938 of 5496 (89.8%); outcomes as U (1471, 81 lies). T14f failed: MK 72 lies vs K 59, stranded 16 vs 6, delivered 1497 vs 1500, served 34.0 vs 26.4, calls 67.1%. T14g held. Control MN (policy network guide): 10 of 3952 calls (0.3%), 1500, 54 lies, served 25.3 | design note step 8 |
+| 54 | 2026-10-30 09:21 | `ab4816f`* | probe | 600-649 | Why MK fails T14f: K vs MK on training seeds, and seed 605's story | Same on training seeds: MK 1490 delivered, 74 lies, 19 stranded vs K 1500, 52, 4; calls 66.9%. Seed 605: guided trucks drive on toward a taken-over village without fuel for the round trip (the planner refuels first): Trucks 1 and 3 run dry at East crossing at t35 and t45, each out-of-fuel drive counted as a lie, Brisa left 3 short. Not the surprise trigger (it is off in the chosen setting): the subgoal head ignores the fuel fraction on the longer trips a breakdown causes | design note step 8, the diagnosis |
+
+<details><summary>Commands</summary>
+
+- #49: `uv run tools/train/train_goal.py datasets/world/train.jsonl models/convoy-jepa-varied.json models/convoy-jepa-varied-goal.json --jepa-set datasets/world/train-varied.jsonl; uv run tools/train/train_goal.py datasets/noisy/train-noisy.jsonl models/convoy-jepa-noisy.json models/convoy-jepa-noisy-goal.json`
+- #50: `dotnet run --project samples/Convoy -c Release -- --battery --arms J,M,MN --seeds 5 --first-seed 600`
+- #51: `dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --first-seed 600 --arms M\|MU\|MN --guide-margin m --guide-surprise s (each battery also replays seed 0 six times for M6)`
+- #52: `dotnet test --filter GuidedSeatTests; breaks in src/Creatura.Seats/GuidedSeat.cs, each restored and touched`
+- #53: `dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --arms J,U,K,M,MU,MK,MN`
+- #54: `dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --first-seed 600 --arms K,MK; --arm K\|MK --seed 605`
+
+</details>

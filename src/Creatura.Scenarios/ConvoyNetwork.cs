@@ -111,6 +111,51 @@ public static class ConvoyNetwork
         return judge;
     });
 
+    /// <summary>Arm M's guide (step 8): the latent subgoal head over <c>convoy-jepa-varied</c>, embedded in this assembly.</summary>
+    public const string EmbeddedGuide = "convoy-jepa-varied-goal";
+
+    /// <summary>Arm MU's guide: the latent subgoal head over <c>convoy-jepa-noisy</c>.</summary>
+    public const string EmbeddedGuideNoisy = "convoy-jepa-noisy-goal";
+
+    private static readonly ConcurrentDictionary<string, ISeatGuide> LoadedGuides = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// A guide for step 8's seat, by an embedded name or a path: a latent subgoal head (kind <c>goal</c>) with the JEPA it
+    /// names (embedded, or the file beside it), or a policy network. Each is checked against the map's schema and vocabulary.
+    /// </summary>
+    public static ISeatGuide LoadGuide(string nameOrPath, RoadMap map) => LoadedGuides.GetOrAdd(nameOrPath, key =>
+    {
+        var (json, source) = Text(key);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        if (doc.RootElement.TryGetProperty("kind", out var kind) && kind.GetString() == "policy")
+        {
+            var network = Load(key);
+            Fits(network, map);
+            return new NetworkGuide(network);
+        }
+        var goal = LatentGoal.Parse(json, source);
+        var jepaName = Path.GetFileNameWithoutExtension(goal.Jepa);
+        var (jepaJson, jepaSource) = Resource(jepaName) ?? (File.ReadAllText(Path.Combine(Path.GetDirectoryName(key) ?? "", goal.Jepa)), Path.Combine(Path.GetDirectoryName(key) ?? "", goal.Jepa));
+        var jepa = JepaModel.Parse(jepaJson, jepaSource);
+        var schema = ConvoyFeatures.Schema(map);
+        if (jepa.World != "convoy" || jepa.SchemaHash != schema.Hash || !jepa.Features.SequenceEqual(schema.Names) || !jepa.Actions.SequenceEqual(ConvoyActions.Vocabulary(map)))
+            throw new ArgumentException($"{jepa.Source} was trained for another world, schema or action vocabulary than the map {map.Name}'s");
+        return new LatentGuide(jepa, goal);
+    });
+
+    /// <summary>The surprise trigger's threshold named <paramref name="name"/> in a latent guide's goal file; null when none is asked for.</summary>
+    public static double? GuideSurprise(ISeatGuide guide, string? name) => name is null ? null
+        : guide is LatentGuide latent && latent.Goal.SurpriseThresholds.TryGetValue(name, out var t) ? t
+        : throw new ArgumentException($"{guide.Name} has no surprise threshold \"{name}\"");
+
+    private static (string Json, string Source)? Resource(string name)
+    {
+        using var stream = typeof(ConvoyNetwork).Assembly.GetManifestResourceStream($"Creatura.Scenarios.{name}.json");
+        return stream is null ? null : (new StreamReader(stream).ReadToEnd(), $"models/{name}.json");
+    }
+
+    private static (string Json, string Source) Text(string nameOrPath) => Resource(nameOrPath) ?? (File.ReadAllText(nameOrPath), nameOrPath);
+
     /// <summary>Refuses a network trained for another world, another feature schema or another action vocabulary.</summary>
     public static void Fits(PolicyNetwork network, RoadMap map)
     {

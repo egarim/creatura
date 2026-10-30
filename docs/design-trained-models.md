@@ -1263,6 +1263,152 @@ uv run tools/train/train_jepa.py datasets/noisy/train-noisy.jsonl models/convoy-
     --results datasets/noisy/results-jepa.json
 ```
 
+## Step 8, the JEPA as a guide that calls the seat less, registered before the code (2026-10-30)
+
+Written before the guide, its trainer or its arms existed. Nothing below has been run.
+
+**Why.** The owner asked whether the JEPA makes an agent cheaper to run. As built in step 7 it does not: it only checks
+outcomes after the fact, and nothing in the loop reads it. The untested idea is to plan in its latent space: let the
+JEPA choose the easy actions and call the expensive seat (a language model, in real use) only when it is unsure. This
+step tests that, free, with the offline planner standing in for the expensive seat behind a call counter.
+
+**The guide.** A seat that wraps another seat (the *inner seat*). Each decision:
+1. Encode what the truck sees with the JEPA's encoder: the embedding *z*.
+2. A **latent subgoal head** *G*, a small network trained for this step, gives the embedding the inner seat's choice
+   usually leads to: *G(z)*.
+3. For each visible action *a*, the JEPA's predictor gives the next embedding *P(z, a)*. Its distance to the subgoal
+   is *d(a)* = the squared distance between *P(z, a)* and *G(z)*. The best action is the one with the smallest *d*.
+4. **Unsure** means either of two things: the relative margin between the two best, (*d₂* − *d₁*) / *d₂*, is below a
+   threshold *m*; or the latent surprise at the truck's previous action was above a threshold *s* (something
+   unexpected happened, such as a lie or a misread).
+5. When unsure, call the inner seat and play what it says. Otherwise play the best action, without a call. With only
+   one visible action there is nothing to choose, and no call.
+
+**The subgoal head.** 32 → 128 → 32 (64 → 128 → 64 for the noisy JEPA), relu then linear, trained by
+`tools/train/train_goal.py` on the inner seat's own transitions, with the JEPA frozen: the target is the target
+encoder's embedding of what was seen after an action that landed. Clean world: `datasets/world/train.jsonl` (arm J's
+planner, seeds 100 to 599), with `models/convoy-jepa-varied.json`. Noisy world: `datasets/noisy/train-noisy.jsonl`
+(arm U's planner, seeds 50 to 599, landed by the truth), with `models/convoy-jepa-noisy.json`. Seeds ending in 9 are
+held out to choose the stopping point. This is imitation in the latent space: *G* learns where the planner goes, and
+the JEPA's predictor says which action gets there.
+
+**The arms.** The inner seat is always arm J's planner, counted.
+- **M:** arm J with the guide in every truck.
+- **MU:** arm U (the noisy world) with the noisy guide.
+- **MK:** arm K with the clean guide: a truck breaks down at tick 8 and its drives fail again and again. Step 7 found
+  that the JEPA learned those failures are normal (AUC 0.14 there), so this is the case where the surprise trigger may
+  stay silent. The guide must not start choosing what lies.
+- **MN, a control:** arm J with arm N's policy network (trained by example on raw features) as the guide in place of
+  the JEPA: unsure when its relative margin between the two best softmax shares is below *m*, with no surprise
+  trigger. It answers whether the JEPA adds anything over a cheap network.
+
+**The thresholds, set on seeds no model has seen.** Seeds 600 to 649 (not trained on, not the battery's). The grid:
+*m* in {0.1, 0.25, 0.5, 0.75, 0.9}; *s* at the 99th or the 99.9th percentile of the JEPA's latent surprise at landed
+actions on its held-out training seeds, or no surprise trigger. 15 settings. The rule: among the settings that, on
+those seeds, deliver at least as much as the arm with the inner seat every tick and act on no more lies, keep the one
+with the fewest calls (ties: the higher *m*, then the lower *s*). If none qualifies, keep the one that delivers most,
+then fewest lies, and say so. M is set against arm J, MU against arm U, MN against arm J on *m* alone. MK takes M's
+setting unchanged.
+
+Judged on the battery's seeds 0 to 49, once, with the settings chosen:
+
+| id | claim | falsifier |
+|---|---|---|
+| T14 | arm M calls the inner seat at most half as often as arm J does (arm J calls it at every decision) | more than half |
+| T14b | arm M delivers at least as much as arm J, and serves every village in at least as many runs | less of either |
+| T14c | arm M acts on no more lies than arm J, and takes a lying road again no more often | more of either |
+| T14d | arm M serves the villages no more than one tick later than arm J on average | more than one tick later |
+| T14e | in the noisy world, arm MU calls at most half as often as arm U, delivers at least as much, and acts on no more lies | any of the three |
+| T14f | with a breakdown, arm MK acts on no more lies than arm K and takes a lying road again no more often | more of either |
+| T14g | arms M, MU and MK replay byte for byte | any difference |
+
+Reported without a claim: the calls of each guided arm by trigger (margin or surprise), how often the inner seat,
+when called, chose differently from the guide's best, arm MN's calls and outcomes beside arm M's, and the calibration
+grid in full.
+
+The prediction: T14 should hold with room to spare, since most of a truck's decisions are the next road on a path,
+which the subgoal head should learn well. T14b is the risk: one wrong guided choice (a claim skipped, a refuel
+missed) can strand a truck. T14e is harder: misreads raise the surprise often, so the surprise trigger may call the
+planner nearly as often as every tick, or, without it, guided choices may follow a misread. T14f should hold: the
+broken truck's drives fail whatever chooses them, and the lying road is caught by the control layer, not the seat.
+Whether arm MN saves as many calls as arm M, I do not know.
+
+## Step 8, the JEPA as a guide, built (2026-10-30)
+
+**T14, T14b, T14c, T14d and T14g held. T14e and T14f failed. The control, arm MN, beat the JEPA guide.** On seeds
+0 to 49, scored once; every run is in docs/experiment-log.md (step 8).
+
+| arm | calls to the planner | of decisions | delivered | all served | lies acted on | stranded | served by tick |
+|---|---|---|---|---|---|---|---|
+| J (planner every tick) | 3,981 | 100% | 1500 | 50 | 54 | 6 | 25.5 |
+| **M (JEPA guide)** | **1,625** | **40.5%** | 1500 | 50 | 54 | 6 | 25.8 |
+| MN (network guide, the control) | **10** | **0.3%** | 1500 | 50 | 54 | 7 | 25.3 |
+| U (noisy, planner every tick) | 5,499 | 100% | 1471 | 45 | 81 | 8 | 35.9 |
+| MU (noisy JEPA guide) | 4,938 | 89.8% | 1471 | 45 | 81 | 8 | 35.8 |
+| K (breakdown, planner every tick) | 5,736 | 100% | 1500 | 50 | 59 | 6 | 26.4 |
+| MK (JEPA guide, breakdown) | 4,359 | 67.1% | 1497 | 49 | **72** | **16** | 34.0 |
+
+"Served by tick" here is the scored tests' measure (a run that leaves a village unserved counts 61).
+
+**In the clean world the JEPA guide works.** Arm M asked the planner on 40.5% of its decisions, saving 59.5% of the
+calls, and lost nothing: every unit delivered, the same 54 lies, no repeats, served 0.2 ticks later. When it did call,
+the planner chose other than the guide's best 613 times in 1,625: the margin rule calls where it matters.
+
+**But a plain policy network is a far better guide.** Arm MN, arm N's network (trained by example on raw features,
+step 2) in the guide's place, asked the planner 10 times in 3,952 decisions and matched arm J on every measure. That
+network copies the planner 99.97% of the time, so it is nearly the inner seat itself. The JEPA guide imitates the
+planner too, through its subgoal head, but less exactly: what its representation keeps is not what the planner
+decides on. For saving calls, the JEPA adds nothing over a network trained to imitate the seat directly.
+
+**In the noisy world it barely saves anything (T14e).** On the calibration seeds every margin below 0.9 lost units,
+so the rule chose 0.9, and arm MU called the planner on 89.8% of decisions. Its outcomes equal arm U's.
+
+**With a breakdown it fails, and not for the reason registered (T14f).** Arm MK acted on 72 lies against 59, left 16
+trucks stranded against 6, and served the villages 7.6 ticks later. The same happened on training seeds 600 to 649
+(19 stranded against 4). Seed 605 shows why: when the broken truck's villages are taken over, trips get longer; the
+planner turns back to refuel, the guide drives on toward where the planner usually goes, and two trucks run dry, each
+dry drive counted as a lie. The fuel left is a fraction feature, and the subgoal head weighs it little. The surprise
+trigger played no part: the calibration chose no surprise trigger for arm M, so arm MK had none.
+
+**The surprise trigger never helped.** On the calibration seeds, adding it at the 99th or 99.9th percentile always
+added calls and never let a lower margin qualify. A first version measured surprise a tick late (after the other
+trucks had moved), which made it fire on 30% of decisions; that was a bug, found on the calibration seeds and fixed
+before any setting was chosen.
+
+**What this answers.** Can a learned model cut how often an agent calls an expensive seat, without losing goals or
+letting lies through? Yes, in a world where the seat's choices are regular: 60% fewer calls with the JEPA guide and
+99.7% fewer with an imitation network, at no cost to the outcome, on the planner as the stand-in. It does not show
+the JEPA is the right tool for it: a network that imitates the seat is better at this and simpler. And a guide that
+imitates is safe only where the situations look like its training: under noise it must ask nearly every time, and
+after a breakdown it made worse choices than the seat it was guarding. A real model in the seat (DeepSeek) would need
+a guide trained on that model's own choices; nothing here has run one.
+
+What a run with DeepSeek would cost, not run: about $0.075 a run with the model at every tick (step 5's figure), so
+about $0.03 a run if a guide asked it on 40% of decisions. Ten training seeds with each, the model every tick and
+guided, would be about $1.05; fifty, about $5.25. The guide would first need DeepSeek's choices to imitate.
+
+The numbers on the way:
+- The subgoal heads: 142,423 landed planner transitions (clean) and 112,643 (noisy), both kept at the 100-epoch cap,
+  still improving slightly (held-out relative error 0.027 and 0.105). `models/convoy-jepa-varied-goal.json` (81 KB)
+  and `models/convoy-jepa-noisy-goal.json` (161 KB), embedded with both JEPAs in `Creatura.Scenarios`.
+- The calibration on seeds 600 to 649: arm M qualified from a margin of 0.5 up (0.5: 38.4% of calls; 0.9: 55.8%);
+  below 0.5 it lost 4 to 21 units. Arm MN qualified nowhere (its best delivered 1499 with 53 lies against 1500 and
+  52), so by the fallback it kept 0.75 (2.0% of calls there).
+- The code: `LatentGoal`, `ISeatGuide`, `LatentGuide`, `NetworkGuide`, `CountingSeat` and `GuidedSeat` in
+  `Creatura.Seats`; `ConvoyNetwork.LoadGuide`, `GuideObserverExtension`, arms M, MU, MK and MN, the measures
+  `Decisions`, `SeatCalls`, `GuideSurpriseCalls` and `GuideDisagreements` (not written to replays, so every earlier
+  replay is unchanged), the calls table in the battery's report, and `--guide`, `--guide-margin` and
+  `--guide-surprise` on the convoy sample. Four tests in `GuidedSeatTests`; four deliberate breaks each fail one or
+  two, after a fake guide was fixed so that the one-choice rule was really tested.
+
+```bash
+uv run tools/train/train_goal.py datasets/world/train.jsonl models/convoy-jepa-varied.json models/convoy-jepa-varied-goal.json \
+    --jepa-set datasets/world/train-varied.jsonl
+uv run tools/train/train_goal.py datasets/noisy/train-noisy.jsonl models/convoy-jepa-noisy.json models/convoy-jepa-noisy-goal.json
+dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --first-seed 600 --arms M --guide-margin 0.5 --guide-surprise none
+dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --arms J,U,K,M,MU,MK,MN
+```
+
 ## What this note does not cover
 
 - Training on data from real machines or real users. Every dataset here comes from simulated worlds.

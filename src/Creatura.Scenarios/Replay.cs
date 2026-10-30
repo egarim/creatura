@@ -97,6 +97,22 @@ public sealed record ConvoyMeasures(int Delivered, int Demand, int WastedTrips, 
 
     /// <summary>Of <see cref="CheckedLies"/>, lies whose final verdict was not a lie.</summary>
     public int CheckMisses { get; init; }
+
+    /// <summary>Decisions the trucks' seats made (step 8). Not written to replays, so every earlier replay stays as it was.</summary>
+    [JsonIgnore]
+    public int Decisions { get; init; }
+
+    /// <summary>Calls to the seat behind the guide, or to the seat itself where there is no guide (then equal to <see cref="Decisions"/>).</summary>
+    [JsonIgnore]
+    public int SeatCalls { get; init; }
+
+    /// <summary>Of <see cref="SeatCalls"/> with a guide, those made because the previous step surprised it.</summary>
+    [JsonIgnore]
+    public int GuideSurpriseCalls { get; init; }
+
+    /// <summary>Of <see cref="SeatCalls"/> with a guide, those where the seat chose other than the guide's best.</summary>
+    [JsonIgnore]
+    public int GuideDisagreements { get; init; }
 }
 
 /// <summary>What the language models in the seats used in one run: calls, failures, invalid answers, tokens, cost and time.</summary>

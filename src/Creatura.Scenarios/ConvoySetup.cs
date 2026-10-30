@@ -83,6 +83,18 @@ public enum ConvoyArm
 
     /// <summary>As P2, condemning a road at the first learned lie, with t1 fixed on its own driving (the third attempt).</summary>
     P3,
+
+    /// <summary>As J, with a guide in every truck's seat that calls the planner only when unsure: the JEPA and its latent subgoal head (docs/design-trained-models.md, step 8).</summary>
+    M,
+
+    /// <summary>As U (the noisy world), with the noisy JEPA's guide in every truck's seat.</summary>
+    MU,
+
+    /// <summary>As K (a breakdown at tick 8), with arm M's guide in every truck's seat: the case whose failures the JEPA learned are normal.</summary>
+    MK,
+
+    /// <summary>As J, with arm N's policy network as the guide in place of the JEPA: step 8's control.</summary>
+    MN,
 }
 
 /// <summary>A truck: its name, its machine, and the design that drives it ("plain", "levin", "bach", "peterson").</summary>
@@ -183,6 +195,18 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
     /// <summary>Seeds the sampling, with the run's seed and the truck, so a trial run can be made again exactly.</summary>
     public int SampleSeed { get; init; }
 
+    /// <summary>
+    /// The guide in every truck's seat (step 8): a latent subgoal head (kind <c>goal</c>) or a policy network, embedded or a
+    /// file. The seat it guides, the planner, is called only when the guide is unsure. Null: no guide.
+    /// </summary>
+    public string? SeatGuide { get; init; }
+
+    /// <summary>The guide calls the inner seat when its relative margin between the two best actions is below this.</summary>
+    public double GuideMargin { get; init; } = 0.5;
+
+    /// <summary>The guide's surprise trigger: a threshold named in the goal file (<c>p99</c>, <c>p999</c>); null: none.</summary>
+    public string? GuideSurprise { get; init; }
+
     public string ArmText => Arm switch
     {
         ConvoyArm.A => "plain loop, shared ledger, perfect link",
@@ -210,6 +234,9 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
         ConvoyArm.P2 => $"plain loop, shared ledger, all three fixes, noisy sensors, sealed, a lie judge with memory ({LearnedJudge}) on checkable actions that quarantines before it condemns",
         ConvoyArm.F or ConvoyArm.P => $"plain loop, shared ledger, all three fixes, noisy sensors, a learned judge ({LearnedJudge}) on checkable actions that quarantines before it condemns",
         ConvoyArm.Q => $"a policy network trained by trial on W's setup ({SeatNetwork}) in every truck's seat, all three fixes, distrust shared",
+        ConvoyArm.M or ConvoyArm.MN => $"plain loop, shared ledger, all three fixes, a guide ({SeatGuide}) that calls the planner only when unsure",
+        ConvoyArm.MU => $"plain loop, shared ledger, all three fixes, noisy sensors, a guide ({SeatGuide}) that calls the planner only when unsure",
+        ConvoyArm.MK => $"plain loop, shared ledger, a breakdown at tick 8, all three fixes, a guide ({SeatGuide}) that calls the planner only when unsure",
         _ => Arm.ToString(),
     };
 
@@ -281,6 +308,10 @@ public sealed record ConvoySetup(RoadMap Map, IReadOnlyList<TruckSpec> Trucks, C
             ConvoyArm.V2 => AllFixes(setup) with { Noise = SensorNoise.SealedRegistered, FusedCheck = true, FusedMemory = true },
             ConvoyArm.P2 => AllFixes(setup) with { Noise = SensorNoise.SealedRegistered, LearnedJudge = ConvoyNetwork.EmbeddedJudgeSealed, LearnedJudgeThreshold = 0.499305, LearnedJudgeCondemn = 0.972585, LearnedJudgeCheckableOnly = true },
             ConvoyArm.P3 => AllFixes(setup) with { Noise = SensorNoise.SealedRegistered, LearnedJudge = ConvoyNetwork.EmbeddedJudgeSealed, LearnedJudgeThreshold = 0.421863, LearnedJudgeCondemn = null, LearnedJudgeCheckableOnly = true },
+            ConvoyArm.M => AllFixes(setup) with { SeatGuide = ConvoyNetwork.EmbeddedGuide, GuideMargin = 0.5 },
+            ConvoyArm.MU => AllFixes(setup) with { Noise = SensorNoise.Registered, SeatGuide = ConvoyNetwork.EmbeddedGuideNoisy, GuideMargin = 0.9 },
+            ConvoyArm.MK => AllFixes(setup with { BreakdownTruck = "Truck 2", BreakdownTick = 8 }) with { SeatGuide = ConvoyNetwork.EmbeddedGuide, GuideMargin = 0.5 },
+            ConvoyArm.MN => AllFixes(setup) with { SeatGuide = ConvoyNetwork.Embedded, GuideMargin = 0.75 },
             _ => setup,
         };
     }

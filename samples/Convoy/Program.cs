@@ -11,6 +11,7 @@ using Creatura.Seats;
 // convoy-policy-j unless --network names a weights file from tools/train/train_policy.py; arm R's is convoy-policy-j-trial.
 // dotnet run --project samples/Convoy -- --rollouts runs.jsonl [--seeds 1000-1063] [--network w.json] [--temperature 2] [--sample-seed k]
 // --judge <weights.json> [--judge-threshold t1] [--judge-condemn t2] puts another learned judge in the arms that have one.
+// --guide <goal.json> [--guide-margin m] [--guide-surprise p99|p999|none] sets the guide of the arms that have one (step 8).
 string? Option(string name) => Array.IndexOf(args, name) is var i and >= 0 && i + 1 < args.Length ? args[i + 1] : null;
 
 var catalog = Option("--models-file") is { } modelsFile ? ModelCatalog.Load(modelsFile) : null;
@@ -32,6 +33,9 @@ ConvoySetup Adjust(ConvoySetup setup) => setup with
     LearnedJudge = setup.LearnedJudge is null ? null : judgeFile ?? setup.LearnedJudge,
     LearnedJudgeThreshold = setup.LearnedJudge is null ? setup.LearnedJudgeThreshold : Number("--judge-threshold") ?? setup.LearnedJudgeThreshold,
     LearnedJudgeCondemn = setup.LearnedJudge is null ? setup.LearnedJudgeCondemn : Number("--judge-condemn") ?? setup.LearnedJudgeCondemn,
+    SeatGuide = setup.SeatGuide is null ? null : Option("--guide") ?? setup.SeatGuide,
+    GuideMargin = setup.SeatGuide is null ? setup.GuideMargin : Number("--guide-margin") ?? setup.GuideMargin,
+    GuideSurprise = setup.SeatGuide is null ? setup.GuideSurprise : Option("--guide-surprise") is { } gs ? (gs == "none" ? null : gs) : setup.GuideSurprise,
 };
 
 if (Adjust(ConvoySetup.For(ConvoyArm.S, 0)).SeatModel is { } seatName && (args.Contains("--battery") ? Option("--arms")?.Contains('S') == true : Option("--arm") is "S" or "s" || model is not null))

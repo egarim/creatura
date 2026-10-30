@@ -24,6 +24,17 @@ public sealed record ConvoyBatteryReport(int Seeds, IReadOnlyDictionary<ConvoyAr
             text.AppendLine(CultureInfo.InvariantCulture,
                 $"{arm,-4} {runs.Sum(r => r.Delivered),5}/{runs.Sum(r => r.Demand),-5} {runs.Sum(r => r.WastedTrips),6} {runs.Sum(r => r.LiesBelieved),5} {runs.Sum(r => r.LyingRoadRepeats),8} {runs.Sum(r => r.Stranded),9} {served,9:0.0} {runs.Count(r => r.LedgersIdentical),5}/{runs.Count}");
         }
+        if (Runs.Values.Any(runs => runs.Any(r => r.SeatCalls < r.Decisions)))
+        {
+            // Step 8: what the seats were asked, where a guide stood in front of some of them.
+            text.AppendLine("arm  seat-calls  decisions  share  surprise-calls  disagreed");
+            foreach (var (arm, runs) in Runs)
+            {
+                int calls = runs.Sum(r => r.SeatCalls), decisions = runs.Sum(r => r.Decisions);
+                text.AppendLine(CultureInfo.InvariantCulture,
+                    $"{arm,-4} {calls,10} {decisions,10} {(decisions == 0 ? 0 : calls / (double)decisions),6:P1} {runs.Sum(r => r.GuideSurpriseCalls),15} {runs.Sum(r => r.GuideDisagreements),10}");
+            }
+        }
         foreach (var v in Verdicts) text.AppendLine(CultureInfo.InvariantCulture, $"{v.Id} {v.Verdict}: {v.Statement} ({v.Evidence})");
         if (Seats.Count > 0)
         {
@@ -361,6 +372,48 @@ public static class ConvoyBattery
         {
             var same = sealedArms.All(a => replays is not null && replays.TryGetValue(a, out var r) ? r : replaysMatch);
             verdicts.Add(new("T11g", $"the sealed arms replay byte for byte ({string.Join(", ", sealedArms)})", Held(same), same ? "six runs of seed 0 matched in each" : "a replay differed"));
+        }
+
+        // The guide that calls the seat less (pre-registered as T14 to T14g, step 8): each guided arm against its arm with the planner every tick.
+        int Pair(ConvoyArm a, ConvoyArm b) => Math.Min(runs[a].Count, runs[b].Count);
+        string Calls(ConvoyArm a, int n) =>
+            $"arm {a}: {Of(a, n, m => m.SeatCalls)} calls of {Of(a, n, m => m.Decisions)} decisions ({Rate(Of(a, n, m => m.SeatCalls), Of(a, n, m => m.Decisions)):P1})";
+        string Outcomes(ConvoyArm a, int n) =>
+            $"arm {a}: delivered {Of(a, n, m => m.Delivered)}, all served in {runs[a].Take(n).Count(m => m.AllServed)}, lies {Of(a, n, m => m.LiesBelieved)}, repeats {Of(a, n, m => m.LyingRoadRepeats)}, served by tick {ServedBy(a, n):0.0}";
+        if (runs.ContainsKey(ConvoyArm.M) && runs.ContainsKey(ConvoyArm.J))
+        {
+            var n = Pair(ConvoyArm.M, ConvoyArm.J);
+            verdicts.Add(new("T14", "arm M calls the inner seat at most half as often as arm J does",
+                Held(Of(ConvoyArm.M, n, m => m.SeatCalls) * 2 <= Of(ConvoyArm.J, n, m => m.SeatCalls)), $"{Calls(ConvoyArm.M, n)}; {Calls(ConvoyArm.J, n)}"));
+            verdicts.Add(new("T14b", "arm M delivers at least as much as arm J, and serves every village in at least as many runs",
+                Held(Of(ConvoyArm.M, n, m => m.Delivered) >= Of(ConvoyArm.J, n, m => m.Delivered) && runs[ConvoyArm.M].Take(n).Count(m => m.AllServed) >= runs[ConvoyArm.J].Take(n).Count(m => m.AllServed)),
+                $"{Outcomes(ConvoyArm.M, n)}; {Outcomes(ConvoyArm.J, n)}"));
+            verdicts.Add(new("T14c", "arm M acts on no more lies than arm J, and takes a lying road again no more often",
+                Held(Of(ConvoyArm.M, n, m => m.LiesBelieved) <= Of(ConvoyArm.J, n, m => m.LiesBelieved) && Of(ConvoyArm.M, n, m => m.LyingRoadRepeats) <= Of(ConvoyArm.J, n, m => m.LyingRoadRepeats)),
+                $"lies M {Of(ConvoyArm.M, n, m => m.LiesBelieved)}, J {Of(ConvoyArm.J, n, m => m.LiesBelieved)}; repeats M {Of(ConvoyArm.M, n, m => m.LyingRoadRepeats)}, J {Of(ConvoyArm.J, n, m => m.LyingRoadRepeats)}"));
+            verdicts.Add(new("T14d", "arm M serves the villages no more than one tick later than arm J on average",
+                Held(ServedBy(ConvoyArm.M, n) <= ServedBy(ConvoyArm.J, n) + 1), $"served by tick M {ServedBy(ConvoyArm.M, n):0.00}, J {ServedBy(ConvoyArm.J, n):0.00}"));
+        }
+        if (runs.ContainsKey(ConvoyArm.MU) && runs.ContainsKey(ConvoyArm.U))
+        {
+            var n = Pair(ConvoyArm.MU, ConvoyArm.U);
+            verdicts.Add(new("T14e", "in the noisy world, arm MU calls at most half as often as arm U, delivers at least as much, and acts on no more lies",
+                Held(Of(ConvoyArm.MU, n, m => m.SeatCalls) * 2 <= Of(ConvoyArm.U, n, m => m.SeatCalls) && Of(ConvoyArm.MU, n, m => m.Delivered) >= Of(ConvoyArm.U, n, m => m.Delivered)
+                    && Of(ConvoyArm.MU, n, m => m.LiesBelieved) <= Of(ConvoyArm.U, n, m => m.LiesBelieved)),
+                $"{Calls(ConvoyArm.MU, n)}; {Calls(ConvoyArm.U, n)}; {Outcomes(ConvoyArm.MU, n)}; {Outcomes(ConvoyArm.U, n)}"));
+        }
+        if (runs.ContainsKey(ConvoyArm.MK) && runs.ContainsKey(ConvoyArm.K))
+        {
+            var n = Pair(ConvoyArm.MK, ConvoyArm.K);
+            verdicts.Add(new("T14f", "with a breakdown, arm MK acts on no more lies than arm K and takes a lying road again no more often",
+                Held(Of(ConvoyArm.MK, n, m => m.LiesBelieved) <= Of(ConvoyArm.K, n, m => m.LiesBelieved) && Of(ConvoyArm.MK, n, m => m.LyingRoadRepeats) <= Of(ConvoyArm.K, n, m => m.LyingRoadRepeats)),
+                $"{Calls(ConvoyArm.MK, n)}; {Outcomes(ConvoyArm.MK, n)}; {Outcomes(ConvoyArm.K, n)}"));
+        }
+        var guidedArms = new[] { ConvoyArm.M, ConvoyArm.MU, ConvoyArm.MK }.Where(runs.ContainsKey).ToList();
+        if (guidedArms.Count > 0)
+        {
+            var same = guidedArms.All(a => replays is not null && replays.TryGetValue(a, out var r) ? r : replaysMatch);
+            verdicts.Add(new("T14g", $"the guided arms replay byte for byte ({string.Join(", ", guidedArms)})", Held(same), same ? "six runs of seed 0 matched in each" : "a replay differed"));
         }
 
         // Shared distrust (pre-registered as W1 to W3), scored when arms W and J both ran.

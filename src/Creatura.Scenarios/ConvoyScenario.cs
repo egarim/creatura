@@ -89,6 +89,33 @@ internal sealed class RoadDistrustExtension(ConvoyWorld world, string truck, Tru
 }
 
 /// <summary>
+/// Tells a guided seat (step 8) what its truck saw just before each action and just after it, in the same tick, as a
+/// world set records a transition, so the guide's surprise is measured the way its JEPA was trained.
+/// </summary>
+internal sealed class GuideObserverExtension(ConvoyWorld world, TruckSpec spec, GuidedSeat seat, RoadDistrustExtension? distrust) : IAgentExtension
+{
+    private double[]? _before;
+    private int _beforeTick = -1;
+
+    public string Name => "guide-observer";
+
+    private double[] Encode(TickContext context) =>
+        ConvoyFeatures.Encode(world.Map, spec.Machine, context.World.Facts, distrust?.Roads.Select(r => $"avoid:{r}") ?? [], context.Tick, context.MaxTicks);
+
+    public IReadOnlyList<Tool> VisibleTools(TickContext context, IReadOnlyList<Tool> visible)
+    {
+        _before = Encode(context);
+        _beforeTick = context.Tick;
+        return visible;
+    }
+
+    public void AfterAction(TickContext context, Tool tool, ActionOutcome outcome, ActionVerdict verdict)
+    {
+        if (_before is not null && _beforeTick == context.Tick) seat.Observe(_before, tool.Id, Encode(context));
+    }
+}
+
+/// <summary>
 /// The learned judge (arm X, docs/design-trained-models.md, step 5): before each decision it encodes what the truck
 /// sees, after the action what it sees then, and asks the world model how surprising the change was. Above the
 /// threshold the action is a lie, at or below it landed. It replaces the layer's verdict, so the quarantine, the
@@ -276,6 +303,10 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
 
     private readonly List<VerdictTally> _tallies = [];
 
+    private readonly List<CountingSeat> _counters = [];
+
+    private readonly List<GuidedSeat> _guided = [];
+
     private ConvoyWorld? _world;
 
     public static ConvoyScenario Create(ConvoyArm arm, int seed) => new(ConvoySetup.For(arm, seed));
@@ -377,7 +408,9 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
                 MessagesLost: mesh?.Lost ?? 0) { GaugeStranded = gaugeStranded, LiesAlreadyCaught = world.Trucks.Sum(t => t.LiesAlreadyCaught),
                     Judged = _judges.Sum(j => j.Judged), JudgeFalseAlarms = _judges.Sum(j => j.FalseAlarms), JudgeMisses = _judges.Sum(j => j.Misses),
                     Checked = _tallies.Sum(t => t.Checked), CheckedLies = _tallies.Sum(t => t.Lies),
-                    CheckFalseAlarms = _tallies.Sum(t => t.FalseAlarms), CheckMisses = _tallies.Sum(t => t.Misses) };
+                    CheckFalseAlarms = _tallies.Sum(t => t.FalseAlarms), CheckMisses = _tallies.Sum(t => t.Misses),
+                    Decisions = _guided.Count > 0 ? _guided.Sum(g => g.Decisions) : _counters.Sum(c => c.Calls), SeatCalls = _counters.Sum(c => c.Calls),
+                    GuideSurpriseCalls = _guided.Sum(g => g.SurpriseCalls), GuideDisagreements = _guided.Sum(g => g.Disagreements) };
             var summary = new ReplaySummary(measures, Outcome(world, measures)) { Seat = SeatUsage() };
             recorder?.EndRun(measures);
             observer?.End(summary);
@@ -411,11 +444,24 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
                 : new Random(unchecked(Setup.Seed * 1_000_003 + Setup.SampleSeed * 7_919 + Setup.Trucks.ToList().IndexOf(spec)));
             policy = ConvoyNetwork.Seat(network, Setup.Map, spec.Machine, sample, Setup.SeatTemperature ?? 1);
         }
+        // Every seat is counted (step 8); with a guide, the seat behind it is called only when the guide is unsure.
+        var counter = new CountingSeat(policy);
+        _counters.Add(counter);
+        policy = counter;
+        if (Setup.SeatGuide is { } guideName)
+        {
+            var guide = ConvoyNetwork.LoadGuide(guideName, Setup.Map);
+            var guided = new GuidedSeat(counter, guide, c => ConvoyFeatures.Encode(Setup.Map, spec.Machine, c.Facts, c.Notes, c.Tick, c.MaxTicks),
+                Setup.GuideMargin, ConvoyNetwork.GuideSurprise(guide, Setup.GuideSurprise));
+            _guided.Add(guided);
+            policy = guided;
+        }
         if (recorder is not null) policy = recorder.Seat(policy, spec, Setup.Map);
         var observers = new List<IAgentExtension> { story };
         RoadDistrustExtension? distrust = Setup.DistrustRoads ? new RoadDistrustExtension(_world!, spec.Name, Setup.ShareDistrust ? view : null) : null;
         if (distrust is not null) observers.Add(distrust);
         if (Setup.FusedCheck) observers.Add(new FusedCheckExtension(_world!, spec, Setup.FusedMemory));
+        if (_guided.Count > 0 && Setup.SeatGuide is not null) observers.Add(new GuideObserverExtension(_world!, spec, _guided[^1], distrust));
         if (Setup.LearnedJudge is { } judgeModel)
         {
             // Counted against the world's truth only in the noisy world, so the clean arms' measures stay as they were.
@@ -481,7 +527,9 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
             ? $"new ConvoyModelSeat(SeatFactory.Model(\"{endpoint.Name}\"), map, machine, \"{spec.Name}\"),  // {endpoint.Model} through {endpoint.ProviderName}, from models.json"
             : network is not null
                 ? $"ConvoyNetwork.Seat(ConvoyNetwork.Load(\"{Setup.SeatNetwork}\"), map, machine),  // a trained policy network, {network.Source}"
-                : "new ConvoyPolicy(map, machine),      // the offline planner: no language model is called";
+                : Setup.SeatGuide is not null
+                    ? $"new GuidedSeat(new ConvoyPolicy(map, machine), ConvoyNetwork.LoadGuide(\"{Setup.SeatGuide}\", map), encode, margin: {Setup.GuideMargin.ToString(CultureInfo.InvariantCulture)}, surprise: {Setup.GuideSurprise ?? "none"}),  // the planner, called only when the guide is unsure"
+                    : "new ConvoyPolicy(map, machine),      // the offline planner: no language model is called";
         var extensionCode = Setup.DistrustRoads
             ? $"AgentOptions.With(new StoryExtension(world, \"{spec.Name}\"), new RoadDistrustExtension(world, \"{spec.Name}\"{(Setup.ShareDistrust ? ", shared: view" : "")}){(Setup.LearnedJudge is null ? "" : $", new LearnedJudgeExtension(world, \"{spec.Name}\", ConvoyNetwork.LoadWorld(\"{Setup.LearnedJudge}\", map))")})"
             : $"AgentOptions.With(new StoryExtension(world, \"{spec.Name}\"))";

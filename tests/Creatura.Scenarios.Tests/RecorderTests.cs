@@ -168,7 +168,9 @@ public sealed class RecorderTests
         using (var writer = new StreamWriter(file)) recorder.WriteJsonl(writer);
 
         var back = ConvoyRecorder.ReadJsonl(file);
-        Assert.Equal(recorder.Runs.Select(r => (r.Id, r.Measures, r.Decisions.Count)), back.Select(r => (r.Id, r.Measures, r.Decisions.Count)));
+        // Step 8's seat counters are not written (so every earlier recording and replay stays as it was), so they read back as 0.
+        static ConvoyMeasures Written(ConvoyMeasures m) => m with { Decisions = 0, SeatCalls = 0, GuideSurpriseCalls = 0, GuideDisagreements = 0 };
+        Assert.Equal(recorder.Runs.Select(r => (r.Id, Written(r.Measures), r.Decisions.Count)), back.Select(r => (r.Id, r.Measures, r.Decisions.Count)));
         Assert.Equal(recorder.Runs[0].Decisions[5].Features, back[0].Decisions[5].Features);
         Assert.Equal(recorder.Runs[1].Decisions[^1].FactsAfter, back[1].Decisions[^1].FactsAfter);
 
