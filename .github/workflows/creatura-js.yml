@@ -1,0 +1,29 @@
+# creatura-js: the control layer in TypeScript (js/creatura-js, docs/design-mobile.md slice S1). Every push and pull
+# request runs its tests, which replay the C# host's four controlled goldens byte for byte straight from
+# tests/Creatura.Hosts.AgentFramework.Tests/golden. They run on every change, not only on changes under js/, because a
+# C# change that moves a golden must fail here too until both languages agree.
+name: creatura-js
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: js/creatura-js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: js/creatura-js/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test

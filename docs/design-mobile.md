@@ -1,8 +1,11 @@
 # Design: the control layer on the phone, and what big models teach the small one
 
-**Status:** design note, nothing built. Written 2026-10-30 on the owner's laptop; the part on transferring
+**Status:** design note; slice S1 built (below). Written 2026-10-30 on the owner's laptop; the part on transferring
 knowledge from big models was added the same day. All eleven decisions were answered by the owner the same day
 (see "Decided"); two of them (D4, D9) change parts written above, and the table says how.
+
+**Built:** slice S1, `creatura-js` in [`js/creatura-js/`](../js/creatura-js/), 2026-10-30: M1 holds (the four controlled
+goldens replayed byte for byte, in Node and in a browser). Everything else here is still a design.
 
 ## The problem, in the owner's words
 

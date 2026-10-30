@@ -275,3 +275,17 @@ runs are recorded only in the design note.
 - #63: `10 batches: dotnet run --project samples/Convoy -c Release -- --battery --arms S\|MS --model deepseek-chat --seeds 9 --first-seed 2000\|2009\|2018\|2027\|2036 --max-cost 0.85\|0.699 --record ... --calls ...; python3 tools/battery_sum.py; python3 tools/spend.py`
 
 </details>
+
+## Step S1 (mobile)
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 64 | 2026-10-30 16:08 | `bfa51ae` | test | — | M1: creatura-js replays the four controlled goldens (restore clean, patchrevoked, patchlies, deployrevoked) byte for byte | M1 held: 4 of 4 goldens identical byte for byte, row for row, note for note, goal and ticks (7, 7, 8, 1), first try. 31 TS tests pass. With its own host name only the header and first note differ. Formatting: 0 of 71,146 sampled values differ from .NET. Twelve deliberate breaks: 9 caught by the golden test; the 3 missed are paths no golden reaches (the quarantine's default cooldown, overridden by the options; no route while a tool is quarantined; a liar called twice), now covered by component and world tests. C# untouched; dotnet test 771 passed | slice S1 of docs/design-mobile.md |
+
+<details><summary>Commands</summary>
+
+- #64: `cd js/creatura-js && npm ci && npm test; dotnet test Creatura.slnx -c Release; .NET 10 probe of P0-P2/F0-F3 on 71,146 values compared with formatPercent/formatFixed; the patchlies golden replayed once in Chromium from dist/`
+
+</details>
