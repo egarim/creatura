@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0-preview.2 (2026-10-30)
 
 - **The activity stream** (docs/design-activity-stream.md, the first slice): `ActivityStream` in `Creatura.Cells`
   presents the ledger in Activity Streams 2.0, a pure function of the verified ledger with nothing sealed in it;
@@ -24,6 +24,11 @@
 - **No hook event is dropped on a busy home**: a hook that cannot get the home's lock leaves the event in
   `<home>/hooks-waiting/` (no prompt text, no tool input), and the next hook records it at its own time.
 - **Each package has its own description** on nuget.org.
+- **Trained models, steps 7 to 9** (docs/design-trained-models.md): a world model in a learned representation (JEPA),
+  saved as `creatura.network/1` files and loaded by `JepaModel`; a guide that calls the decision seat less (with the
+  planner in the seat, the JEPA guide called it on 40.5% of decisions in the clean world, a copying network on 0.3%);
+  and a network that copies DeepSeek's recorded choices, which is not yet reliable enough to cut its calls. Every
+  seat is now behind a call counter.
 
 ## 0.2.0-preview.1 (2026-10-29)
 
