@@ -30,9 +30,18 @@ second half of this note is about making the small model better at them with wha
 
 The owner's second ask, the same day:
 
-> I want to transfer agent knowledge that we learn in the bigger models, like the JEPA type of model that we can
+> I want to transfer agent knowledge that we learn in the bigger models, like the Jev type of model that we can
 > train, to see if that improves the local small model on mobile. Also, how can we fix the tool calling? Maybe an
 > adapter trained on Creatura.
+
+*Correction (2026-10-30):* this quote first read "the JEPA type of model", a misreading of "Jev". Jev is TypeSafe's
+*System One* model ([the owner's post on it](https://www.jocheojeda.com/2026/09/22/jev-typesafe-system-one-model-structured-output/)):
+it takes text plus a question with the answers allowed (a choice, a score, a yes or no) and returns probabilities
+over those answers in one forward pass, never writing JSON. Jev itself is a hosted API, so it can't run offline;
+what this note takes from it is the kind of model, which is the router below.
+
+The priority, as the owner set it the same day: **work offline, with small models trained until they are the best
+at their job.** That bar is defined under "The bar: best at its job".
 
 ## Three principles carried over from the framework
 
@@ -168,6 +177,12 @@ margin rule of steps 8 and 10), it chooses; when it is not, the language model c
 tools' names. Either way the control layer admits the choice. This is where most of a small model's tool-calling
 mistakes come from, and the convoy shows a network learns it from a careful teacher with little data.
 
+The router is a **System One model of our own**, in Jev's sense: a question with a fixed set of answers (which
+tool, which target, is this done), answered with probabilities in one forward pass. Where it reads only facts and
+offered tools, it is a small network like the convoy's. Where it also reads the request's text (D10), it is a small
+text encoder with answer heads, run through ONNX Runtime, which runs on phones and on all three desktop systems.
+Its probabilities are the margin rule's input, so they are calibrated on held-out turns before it is trusted.
+
 **Filling.** llama.cpp can constrain decoding to a grammar or a JSON schema. Given the chosen tool's schema, the
 model can only write a call that parses and has the right fields and types. Whether a value is *right* (an existing
 service, a free slot) is still the admit and judge steps' business.
@@ -182,6 +197,31 @@ don't use tools, and must not lose on them.
 **Checking.** A forward model or a JEPA over the app's facts predicts what a tool's call should change. When the
 backend reports a change the model finds surprising, the tool is quarantined like any other liar. It is used only
 for facts no exact check covers, since an exact check is better where it exists.
+
+### The bar: best at its job
+
+"Good enough" isn't the bar. For each job (the tutor, an app's assistant, the OS body in
+[design-embodiment.md](design-embodiment.md)), a fixed test set is kept that nothing is trained on, and the bar is:
+
+> **Offline, the small model with its trained parts and the control layer scores at least as well as the big
+> teacher behind the same control layer, on the job's own measures.**
+
+A small model can't match a big one at everything. On one narrow job, trained on the teacher's accepted turns and
+checked on every step, it can, and that is the bet this note makes. K3 is the first, softer step (within 10 points
+of the teacher); the bar is K9.
+
+**How the training gets there, in rounds.** The teacher drives the job's emulated world; the control layer labels
+every turn; the parts are trained; the small model is scored against the bar; the situations where it still loses
+to the teacher are recorded again, with the teacher's answers, and the parts are retrained (the DAgger loop that
+fixed the convoy's lie judge in step 6). The rounds stop when the bar holds or a round gains nothing.
+
+### One adapter per job
+
+Training one behaviour into a small model can cost it others. So the base model is never trained. Each job has its
+own adapter, router and world model, loaded only while that job runs; llama.cpp can apply and remove adapters at
+run time without reloading the base. The tutor loads the tutor's adapter, the OS body its own. A job's parts are
+catalogued with its world family and the base model's hash (D11), so nothing is loaded into the wrong job or onto
+the wrong base. K4 still checks each adapter on turns outside its job.
 
 ### Where the knowledge comes from: the app's world
 
@@ -296,6 +336,7 @@ For the trained parts, scored on the emulated app world's test requests, never t
 | K6 | the whole stack beats the raw small model on M5's measures (wrong proposals shown, fixed replies), each by at least 10 points | any measure better by under 10 points |
 | K7 | what was learned is the app, not its data: trained on one seeded tenant, scored on another with different data, K3 drops by at most 5 points | a drop of more than 5 points |
 | K8 | on the reference phone the router and world model together take at most 5 ms per decision and 1 MB, and the adapter at most 100 MB | any of these over |
+| K9 | the bar: offline, the small model with its parts and the control layer scores at least the teacher's score on every one of the job's measures, on the test requests | any measure below the teacher's, outside its 95% interval |
 
 ## What gets built first
 

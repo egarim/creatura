@@ -17,7 +17,9 @@ agent tools around it, as hosts and as cells.
 - [Identity, vessel and the cell network](design-cells.md): cells, the signed work ledger and the hub.
 - [Sharing files between cells](design-shared-files.md).
 - [The control layer on the phone](design-mobile.md): a TypeScript port beside an on-device model, for Expo apps,
-  and a router, world model and adapter trained from big models in the app's emulated world (proposed, nothing built).
+  and a router, world model and adapter trained from big models in the app's emulated world (slice S1, `creatura-js`, built).
+- [The operating system as the creature's body](design-embodiment.md): senses, limbs, inner senses, set points and a
+  skin on Windows, Linux and macOS, with Telekinesis as senses and limbs (proposed, nothing built).
 - [Setting up a model for the convoy](convoy-models.md).
 - [The replay format](replay-format.md): how a UI watches a run.
 - [Sources](sources.md): whose public work the designs read, in the author's words.
