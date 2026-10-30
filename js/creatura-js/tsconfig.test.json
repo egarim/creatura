@@ -1,0 +1,12 @@
+{
+  // The tests: the package plus Node's test runner and file system, compiled together into build-test/.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "build-test",
+    "types": ["node"],
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["src", "test"]
+}

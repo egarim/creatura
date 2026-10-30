@@ -1,0 +1,38 @@
+{
+  "name": "creatura-js",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Creatura's control layer in TypeScript: offer, admit, judge, stop, close. A port of Creatura.Core's control layer, kept identical to the C# by replaying its golden traces.",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "author": "Jose Ojeda",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/egarim/creatura.git",
+    "directory": "js/creatura-js"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "tsc -p tsconfig.test.json && node --test \"build-test/test/**/*.test.js\""
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
