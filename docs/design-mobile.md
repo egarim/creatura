@@ -1,7 +1,8 @@
 # Design: the control layer on the phone, and what big models teach the small one
 
 **Status:** design note, nothing built. Written 2026-10-30 on the owner's laptop; the part on transferring
-knowledge from big models was added the same day. The decisions at the end are open.
+knowledge from big models was added the same day. All eleven decisions were answered by the owner the same day
+(see "Decided"); two of them (D4, D9) change parts written above, and the table says how.
 
 ## The problem, in the owner's words
 
@@ -248,6 +249,22 @@ tools and checks, so an app's checks could be written once per language and test
 | D9 | where the emulated app world is written | C#, beside the convoy and the recorder; TypeScript, beside the phone's control layer | **C#**: the recorder, exporter, catalogue and paid-model seat exist there. The phone only runs what was trained |
 | D10 | what the router reads about the request | the facts and offered tools only; plus a small text embedding of the request | **both, compared** in K2: the embedding costs a second small model on the phone |
 | D11 | the adapter's base model | the same base as the phone's model (D3), always | yes: an adapter only fits the base it was trained on, so changing D3 means retraining |
+
+## Decided (owner, 2026-10-30)
+
+| | decided | what it changes |
+|---|---|---|
+| D1 | **(b)** the adapter is its own optional package in the framework's repository | nothing above |
+| D2 | **a new small app built for this: a maths tutor**. A student asks for help with a problem; the tools look up the problem, check an attempt exactly, and give the next hint | every effect has an exact check, and the whole turn can run offline. The world model (K5) has little to judge here, so it is scored only if the tutor gets facts without a check |
+| D3 | **after S0**: try a 2B model first, move up only if it can't call tools reliably; phones with 6 GB of memory and up | nothing above |
+| D4 | **(b) ported to the phone**: app tools are TypeScript and run on the phone | A2 is no longer needed. Ported tools read only through the SDK as the signed-in person, so the server's rules still decide what they see (principle 3). Turns can be offline where a tool needs no fresh data |
+| D5 | **none at first, then the hub** | nothing above |
+| D6 | **PolyForm Noncommercial**, the same as the rest | nothing above |
+| D7 | **`creatura-js` and `creatura-singular`**, unpublished until S2 passes | nothing above |
+| D8 | **DeepSeek first**, a second family later | nothing above |
+| D9 | **TypeScript**, changed from the recommendation because of D4 | the emulated world runs the very tool code the phone runs, so nothing drifts. The recorder and exporter get a small TypeScript version writing the same JSON files the trainers in `tools/train/` read. The catalogue check is ported with them |
+| D10 | **both, compared in K2** | nothing above |
+| D11 | **same base always**: the catalogue records the base model's hash with each adapter, and the phone refuses one trained on another base | nothing above |
 
 ## Pre-registered tests, written before the code
 
