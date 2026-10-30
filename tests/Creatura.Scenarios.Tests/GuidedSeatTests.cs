@@ -78,6 +78,18 @@ public sealed class GuidedSeatTests
         Assert.Contains(ConvoyArm.M, ConvoyBattery.DefaultArms);
     }
 
+    /// <summary>Step 9's DeepSeek copy was trained on the battery's seeds 0 to 4 by the owner's exception, so it never runs on seeds 0 to 49.</summary>
+    [Fact]
+    public async Task TheDeepSeekCopyNeverRunsOnTheBatterysSeeds()
+    {
+        var copy = Path.Combine(Repo, "models", "convoy-copy-deepseek.json");
+        await Assert.ThrowsAsync<ArgumentException>(() => new ConvoyScenario(ConvoySetup.For(ConvoyArm.N, 3) with { SeatNetwork = copy }).RunAsync());
+        await Assert.ThrowsAsync<ArgumentException>(() => new ConvoyScenario(ConvoySetup.For(ConvoyArm.MN, 49) with { SeatGuide = copy }).RunAsync());
+        var run = await new ConvoyScenario(ConvoySetup.For(ConvoyArm.N, 3000) with { SeatNetwork = copy }).RunAsync();
+        Assert.Empty(run.Errors);
+        ConvoyNetwork.CheckSeed(ConvoyNetwork.Load(ConvoyNetwork.Embedded), 0);  // an ordinary network runs anywhere
+    }
+
     private static PolicyContext Context(params string[] tools) => new()
     {
         Facts = new HashSet<string>(),

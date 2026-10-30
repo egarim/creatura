@@ -156,6 +156,17 @@ public static class ConvoyNetwork
 
     private static (string Json, string Source) Text(string nameOrPath) => Resource(nameOrPath) ?? (File.ReadAllText(nameOrPath), nameOrPath);
 
+    /// <summary>
+    /// Refuses a network trained on the battery's seeds by the owner's exception (step 9: the DeepSeek copy, marked
+    /// <c>"batteryException": true</c>) on those seeds, so no loop measure on seeds 0 to 49 is scored with it.
+    /// </summary>
+    public static void CheckSeed(PolicyNetwork network, int seed)
+    {
+        if (seed < ConvoyDatasets.FirstTrainingSeed && network.Training is { } training
+            && training.TryGetProperty("batteryException", out var exception) && exception.ValueKind == System.Text.Json.JsonValueKind.True)
+            throw new ArgumentException($"{network.Source} was trained on the battery's seeds by an exception and never runs on seeds 0 to {ConvoyDatasets.FirstTrainingSeed - 1} (seed {seed})");
+    }
+
     /// <summary>Refuses a network trained for another world, another feature schema or another action vocabulary.</summary>
     public static void Fits(PolicyNetwork network, RoadMap map)
     {

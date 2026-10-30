@@ -1409,6 +1409,110 @@ dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --first-s
 dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --arms J,U,K,M,MU,MK,MN
 ```
 
+## Step 9, a network that copies DeepSeek, registered before the code (2026-10-30)
+
+Written before the trainer or the model existed. Nothing below has been run.
+
+**Why.** Step 8 found that a network that copies the seat is a far better guide than the JEPA: copying the planner, it
+asked the planner on 0.3% of decisions. But the planner is easy to copy. The seat that costs money is a language
+model, and the guide for it would have to copy that model's choices. This step asks how well a network copies
+DeepSeek from the runs already recorded, free, before any paid run.
+
+**An exception to the rule on seeds, decided by the owner.** Every recorded DeepSeek decision is on the battery's
+seeds 0 to 4: 1,242 decisions from 10 runs (two passes over five seeds, `datasets/deepseek-s/record-s-deepseek.jsonl`).
+By the rule they are never trained on (step 5 kept them as a test set). The owner chose to allow training on them,
+on these terms:
+- Train only on those 10 runs, and score with one seed left out each time: learn from the runs of four seeds (three
+  to fit, one to choose the stopping point), score on the fifth seed's two runs, five times over. No number in this step is scored on a seed its network trained on.
+- Score offline only, on recorded decisions.
+- Never score this network in the loop on seeds 0 to 49. The file says so (`"batteryException": true` in its
+  training record), and the convoy refuses to run it on those seeds. Its live test is a paid run on fresh seeds from
+  2000 up (egarim/creatura#4).
+- The reason: the only other way is to pay for new DeepSeek runs on training seeds first, and the key has to be
+  rotated before any paid run. This answers the free question now without touching the battery's loop measures.
+
+**The network.** arm N's shape: the 61 features and the 36 visible bits in, 64 and 64 relu units, 36 scores out,
+trained by example with cross-entropy over the visible actions (`tools/train/train_copy.py`, reusing
+`train_policy.py`). For the fold that scores seed *k*, the stopping point is chosen on seed (*k* + 1) mod 5 and the
+weights are trained on the other three. The file that ships, `models/convoy-copy-deepseek.json`, is trained on seeds
+0 to 3 and stopped on seed 4.
+
+**The guide's rule, as in step 8.** With two or more visible actions, the margin is 1 − exp(*s₂* − *s₁*), where *s₁*
+and *s₂* are the two best scores; below *m* the guide asks the seat, otherwise it plays its best. *m* = 0.75, arm
+MN's setting, fixed here. The full curve over *m* is reported too.
+
+**Offline, what a recorded decision can tell.** Only whether the guide would have asked, and if not, whether it would
+have chosen what DeepSeek chose. A run cannot be replayed past the first decision where the guide chooses
+differently, since DeepSeek's answer to the new state was never recorded. So no outcome (deliveries, lies) can be
+scored offline.
+
+Judged on the left-out seeds, all five folds pooled:
+
+| id | claim | falsifier |
+|---|---|---|
+| T15 | the DeepSeek copy chooses what DeepSeek chose more often than arm N's network (the planner's copy) does on the same decisions | as often or less |
+| T15b | at *m* = 0.75 the copy asks DeepSeek on at most half of its decisions, and where it does not ask, it chooses what DeepSeek chose at least 95% of the time | more than half, or under 95% |
+| T15c | the shipped copy alone in the seat (no DeepSeek behind it), arm N's setup, on fresh seeds 3000 to 3049, delivers at least 95% of what arm J delivers on those seeds | under 95% |
+
+T15c is the one loop test the exception allows: seeds 3000 to 3049 are neither the battery's nor the paid run's.
+
+Reported without a claim: agreement by kind of action; the 89 decisions DeepSeek got wrong (lies, most of them its
+own failed claims), and how often the copy repeats them; the same curve for arm N's network and for step 8's JEPA
+guide; and in T15c's run, lies acted on and when the villages were served.
+
+The prediction: T15 should hold, since arm N's network never saw DeepSeek's habits (it waits and claims far more
+than the planner). T15b is doubtful: about 1,000 decisions per fold is little, and DeepSeek is not consistent with
+itself across its two passes over the same seed. T15c will likely fail: a copy learned from eight runs meets
+situations it never saw, and step 2 copied the planner from runs on 450 seeds.
+
+## Step 9, a network that copies DeepSeek, built (2026-10-30)
+
+**T15 held. T15b and T15c failed.** Every run is in docs/experiment-log.md (step 9).
+
+On the left-out seeds, 1,242 decisions pooled over the five folds:
+
+| guide | chooses what DeepSeek chose | at *m* = 0.75: asks DeepSeek | its own choices match |
+|---|---|---|---|
+| **the DeepSeek copy** | **63.4%** | 45.6% | 73.2% |
+| arm N's network (the planner's copy) | 52.4% | 8.9% | 54.9% |
+| step 8's JEPA guide | 39.4% | 82.9% | 66.7% |
+
+**T15 held.** Copying DeepSeek beats copying the planner at predicting DeepSeek: 63% against 52%. The copy learned
+DeepSeek's habits, which the planner does not share: it matches DeepSeek's claims 45% of the time against 21%, its
+waits 70% against 44%, its loads 96% against 63%. On drives and refuels the planner's copy is closer (72% against
+62%, and 88% against 25% on 16 refuels): DeepSeek drives much like the planner, and eight runs teach a network less
+about roads than 450 seeds of the planner did.
+
+**T15b failed, and no margin saves it.** At *m* = 0.75 the copy would ask DeepSeek on 46% of decisions, but its own
+choices match only 73% of the time. Raising *m* trades calls for agreement and never reaches 95%: at 0.9 it asks on
+70% and matches 79%; at 0.99 it asks on 95% and matches 88%. From 1,242 decisions, a copy of DeepSeek is not sure
+enough to stand in for it.
+
+**T15c failed.** Alone in the seat on fresh seeds 3000 to 3049, the copy delivered 1,092 of 1,500 units (73%, against
+arm J's 1,500), acted on 87 lies against 53, and every one of its 50 runs ended with a truck stranded. It copies
+DeepSeek's mistakes too: of DeepSeek's 89 lies on the left-out seeds (most of them claims of a village another truck
+held), it chose the same action 41 times; the planner's copy 33.
+
+What step 9 shows: a guide that saves calls to a language model must be trained on that model's own choices, and
+10 runs are far too few. The offline numbers say how far: on decisions where the copy is sure, it is still wrong a
+quarter of the time. The paid run (egarim/creatura#4) should therefore record DeepSeek on training seeds first, enough
+for a copy, and only then test a guided DeepSeek on fresh seeds from 2000 up, which this step's exception leaves
+untouched (3000 to 3049 are now used).
+
+The numbers on the way:
+- The folds fit on 705 to 795 decisions, kept at epochs 33 to 74, and matched DeepSeek on 61% to 67% of the left-out
+  seed's decisions. The shipped file, `models/convoy-copy-deepseek.json` (125 KB, not embedded), fit seeds 0 to 3 and
+  stopped on seed 4.
+- The guard: `ConvoyNetwork.CheckSeed` refuses a network marked `"batteryException": true` on seeds 0 to 49, as a seat
+  and as a guide; a test checks seeds 3 and 49 refused and 3000 run, and fails when the guard is broken.
+- A run cannot be replayed offline past the first decision where the guide differs from DeepSeek, so nothing beyond
+  per-decision agreement was scored from the recording.
+
+```bash
+uv run tools/train/train_copy.py datasets/deepseek-s/record-s-deepseek.jsonl models/convoy-copy-deepseek.json
+dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --first-seed 3000 --arms N --network models/convoy-copy-deepseek.json
+```
+
 ## What this note does not cover
 
 - Training on data from real machines or real users. Every dataset here comes from simulated worlds.

@@ -547,6 +547,10 @@ seat. The trucks' planner keeps no state between ticks, so a small network can c
    goes, and calls the seat only when unsure (arms M, MU, MK). In the clean world it calls the planner on 40% of
    decisions with nothing lost. In the noisy world it saves 10%, and after a breakdown it strands trucks. A network
    that copies the seat (arm MN) calls it on 0.3% of decisions with nothing lost: the better guide.
+8. **A copy of DeepSeek.** The same kind of network, trained on DeepSeek's 1,242 recorded decisions
+   (`tools/train/train_copy.py`). It predicts DeepSeek better than the planner's copy does (63% against 52%), but
+   is right only 73% of the time when sure, and alone in the seat it delivers 73% of what the planner does. Ten runs
+   are too few; a guide for a paid model needs more of its own decisions.
 
 Every run behind these results is in [docs/experiment-log.md](docs/experiment-log.md).
 

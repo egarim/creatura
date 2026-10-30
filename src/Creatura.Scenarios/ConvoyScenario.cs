@@ -440,6 +440,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         else if (Setup.SeatNetwork is { } seatNetwork)
         {
             network = ConvoyNetwork.Load(seatNetwork);
+            ConvoyNetwork.CheckSeed(network, Setup.Seed);
             var sample = Setup.SeatTemperature is null ? null
                 : new Random(unchecked(Setup.Seed * 1_000_003 + Setup.SampleSeed * 7_919 + Setup.Trucks.ToList().IndexOf(spec)));
             policy = ConvoyNetwork.Seat(network, Setup.Map, spec.Machine, sample, Setup.SeatTemperature ?? 1);
@@ -451,6 +452,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         if (Setup.SeatGuide is { } guideName)
         {
             var guide = ConvoyNetwork.LoadGuide(guideName, Setup.Map);
+            if (guide is NetworkGuide copying) ConvoyNetwork.CheckSeed(copying.Network, Setup.Seed);
             var guided = new GuidedSeat(counter, guide, c => ConvoyFeatures.Encode(Setup.Map, spec.Machine, c.Facts, c.Notes, c.Tick, c.MaxTicks),
                 Setup.GuideMargin, ConvoyNetwork.GuideSurprise(guide, Setup.GuideSurprise));
             _guided.Add(guided);

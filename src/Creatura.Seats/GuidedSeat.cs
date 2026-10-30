@@ -77,6 +77,8 @@ public sealed class NetworkGuide(PolicyNetwork network) : ISeatGuide
 {
     public string Name => $"network-guide({Path.GetFileNameWithoutExtension(network.Source)})";
 
+    public PolicyNetwork Network => network;
+
     public IReadOnlyList<string> Actions => network.Actions;
 
     public (int Best, double Margin) Rank(IReadOnlyList<double> features, IReadOnlyList<int> visible)

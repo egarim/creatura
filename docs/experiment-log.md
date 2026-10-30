@@ -235,3 +235,19 @@ runs are recorded only in the design note.
 - #55: `dotnet test tests/Creatura.Cells.Tests --filter HookTests; break: both Drain calls commented out`
 
 </details>
+
+## Step 9
+
+2 entries; 1 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 56 | 2026-10-30 10:00 | `fd76cfa`* | test | 0-4 **battery** | T15, T15b: a network copying DeepSeek, leave-one-seed-out on the recorded runs (owner's exception) | 1,242 decisions, 10 runs, seeds 0-4; folds fit 705-795 decisions, kept epochs 33-74, left-out agreement 0.61-0.67. T15 held: agreement copy 0.6345, planner copy (convoy-policy-j) 0.5242, JEPA guide 0.3937. T15b failed: at m 0.75 the copy asks on 45.6%, unasked agreement 73.2% (bar 95%); no m reaches 95% (m 0.99: asks 95%, 88.1%). By kind, copy vs planner copy: claim 0.45 vs 0.21, wait 0.70 vs 0.44, load 0.96 vs 0.63, drive 0.62 vs 0.72, refuel 0.25 vs 0.88. Of DeepSeek's 89 lies the copy repeats 41, the planner copy 33, the JEPA guide 34. Offline only; nothing scored in the loop | models/convoy-copy-deepseek.json (fit 0-3, stopped on 4); design note step 9 |
+| 57 | 2026-10-30 10:01 | `fd76cfa`* | test | 3000-3049 | T15c: the DeepSeek copy alone in the seat on fresh seeds 3000-3049 | T15c failed: delivered 1092 of 1500 (72.8%; bar 95% of J's 1500), lies 87 vs 53, stranded 50 vs 6, served by tick 41.0 vs 25.4 (served runs only). Also: a guard test, the copy refused on seeds 3 and 49 and run on 3000; breaking the guard fails it | design note step 9 |
+
+<details><summary>Commands</summary>
+
+- #56: `uv run tools/train/train_copy.py datasets/deepseek-s/record-s-deepseek.jsonl models/convoy-copy-deepseek.json`
+- #57: `dotnet run --project samples/Convoy -c Release -- --battery --seeds 50 --first-seed 3000 --arms J; the same with --arms N --network models/convoy-copy-deepseek.json`
+
+</details>
