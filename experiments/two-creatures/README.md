@@ -4,8 +4,10 @@ The harness for the experiment in [docs/design-two-creatures.md](../../docs/desi
 their own machines get the same goal (a shared shopping list, published to a sandbox host) and no roles, and an
 outside browser test judges whether the app shipped.
 
-This is slice **X0**: everything runs in containers on one Docker host, with scripted fake agents. Slice X1 moves the
-same three machines to VMs and wires the real agents (Claude Code, Codex, a small local model).
+This is slice **X0**: everything runs in containers on one Docker host, with scripted fake agents; slice **T1** of
+[docs/design-turns.md](../../docs/design-turns.md) adds two fake pairs with no roles, which settle who builds what
+through `cell turn`. Slice X1 moves the same three machines to VMs and wires the real agents (Claude Code, Codex, a
+small local model).
 
 ## Run it
 
@@ -16,7 +18,14 @@ experiments/two-creatures/build.sh                                      # the th
 node experiments/two-creatures/runner/run.mjs --reference                # the reference app: must score 5/5
 node experiments/two-creatures/runner/run.mjs --reference live           # one feature broken: must fail step 3
 node experiments/two-creatures/runner/run.mjs --arm CC-L --agents fake,fake --check-every 30
+node experiments/two-creatures/runner/run.mjs --arm CC-L --agents polite,polite          # no roles: both wait, turn picks one
+node experiments/two-creatures/runner/run.mjs --arm CC-L --agents simultaneous,simultaneous   # no roles: both propose at once
 ```
+
+**The agents** (`--agents`): `fake` has its roles written in (a the server, b the UI); `liar` is a fake that also
+claims done before anything is published; `polite` and `simultaneous` (slice T1) claim the same goal with no roles,
+then wait on each other, or propose at once, and let `cell turn` say whose move it is; the settled plan says who
+builds which half. The turn-driven kinds need the ledger (channel L or LM).
 
 Each run writes `results/<time>-<arm>/`: `summary.json`, every judge check (`checks.jsonl`), the message board, both
 creatures' ledgers, both repositories as git bundles, the deploy logs and the agents' logs. `--keep` leaves the
@@ -50,6 +59,6 @@ start one creature that owns both repositories.
 | `images/creature/` | a creature's body and its channel tools (`cell`, `say`, `listen`) |
 | `images/judge/test.mjs` | the outside test: five steps, two browsers, a restart |
 | `reference/` | a reference shopping list split in two repositories, with `BREAK` switches that each break one step |
-| `agents/fake.mjs` | the scripted fake agents: server, UI, or both alone |
+| `agents/fake.mjs` | the scripted fake agents: server, UI, or both alone; and the turn-driven pairs, polite and simultaneous |
 | `agents/goal.md` | the goal, word for word, for the real agents of X1 |
 | `runner/run.mjs` | one run: fresh machines, the agents, the judge, the claims, the record |

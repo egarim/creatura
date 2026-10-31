@@ -5,9 +5,10 @@
 //   node runner/run.mjs --reference [label|live|check|persist|down]     the reference app, no agents
 //
 // Arms: <pairing>-<channel>, channel L (ledger only), LM (ledger + messages), M (messages only), or C-0 / X-0 for one
-// agent alone. --agents names what drives each creature: fake (agents/fake.mjs, scripted), or the real agents of
-// slice X1 (claude, codex, small), which this runner refuses until they are wired. liar is a fake that also
-// claims done before anything is published, to test the false-claim path.
+// agent alone. --agents names what drives each creature: fake (agents/fake.mjs, scripted, the roles written in),
+// liar (a fake that also claims done before anything is published, to test the false-claim path), polite and
+// simultaneous (slice T1 of docs/design-turns.md: no roles, the plan settled through `cell turn`, so they need the
+// ledger), or the real agents of slice X1 (claude, codex, small), which this runner refuses until they are wired.
 // It talks to whatever Docker host `docker` points at; the sandbox is one network with fixed addresses inside
 // 100.64.0.0/10, which the ledger hub accepts as mesh addresses.
 import { execFileSync, spawnSync } from "node:child_process";
@@ -37,9 +38,15 @@ const solo = channel === "0";
 if (!reference && !["L", "LM", "M", "0"].includes(channel)) usage(`unknown channel in ${arm}`);
 const agentKinds = reference ? [] : (opt("--agents") ?? usage("--agents is required")).split(",");
 if (!reference && agentKinds.length !== (solo ? 1 : 2)) usage(solo ? "an arm alone takes one agent" : "a pair takes two agents, a,b");
-for (const k of agentKinds) if (!["fake", "liar"].includes(k)) usage(`agent '${k}' is wired in slice X1; X0 runs fake agents only (fake, liar)`);
+const TURN_KINDS = ["polite", "simultaneous"];
+for (const k of agentKinds) if (!["fake", "liar", ...TURN_KINDS].includes(k)) usage(`agent '${k}' is wired in slice X1; this runner takes fake, liar, polite and simultaneous`);
 const ledger = channel === "L" || channel === "LM";
 const board = channel === "M" || channel === "LM";
+if (agentKinds.some((k) => TURN_KINDS.includes(k))) {
+  if (!ledger) usage(`${agentKinds.join(",")} settle the plan through the ledger: an arm with channel L or LM`);
+  if (solo) usage("polite and simultaneous are pairs");
+  if (!agentKinds.every((k) => TURN_KINDS.includes(k))) usage("a turn-driven pair takes two of polite, simultaneous; fake and liar have their roles written in");
+}
 const names = reference ? [] : solo ? ["a"] : ["a", "b"];
 
 function usage(why) {
@@ -182,6 +189,22 @@ function ledgerEntries(n) {
 
 const kindOf = (e) => String(e.kind ?? e.Kind ?? "");
 const cells = {}; // cell id -> creature name, from each creature's accept
+
+/** What the turns of docs/design-turns.md left in the ledgers: the waits, proposals and answers, and whose plan was accepted. */
+function turns() {
+  if (!ledger) return undefined;
+  const entries = new Map();
+  for (const n of names) for (const e of ledgerEntries(n)) entries.set(`${e.cell}#${e.sequence}`, e);
+  const progress = [...entries.values()].filter((e) => kindOf(e) === "Progress").map((e) => e.payload ?? {});
+  const accepted = progress.filter((p) => p.answers && p.verdict === "Accept").map((p) => p.answers);
+  return {
+    waits: progress.filter((p) => p.waitingOn).length,
+    proposals: progress.filter((p) => p.topic && !p.answers).length,
+    answers: progress.filter((p) => p.answers).length,
+    objections: progress.filter((p) => p.answers && p.verdict === "Object").length,
+    plannedBy: [...new Set(accepted.map((id) => cells[id.split("#")[0]] ?? id.split("#")[0]))],
+  };
+}
 const seen = new Set();
 const claims = [];
 
@@ -239,8 +262,8 @@ function deployStatus() {
 
 function startAgents() {
   names.forEach((n, i) => {
-    // liar: the fake agent that also claims done before anything is published, to test the false-claim path
-    const cmd = `${agentKinds[i] === "liar" ? "LIE=1 " : ""}node /x/agents/fake.mjs`;
+    // KIND picks the part (fake.mjs); liar is the fake that also claims done before anything is published
+    const cmd = `KIND=${agentKinds[i]} ${agentKinds[i] === "liar" ? "LIE=1 " : ""}node /x/agents/fake.mjs`;
     docker(["exec", "-d", "-u", "creature", "-w", "/home/creature", `tc-creature-${n}`, "sh", "-c", `${cmd} > /home/creature/agent.log 2>&1; echo $? > /home/creature/agent.exit`]);
     say(`agent on creature-${n}: ${agentKinds[i]}`);
   });
@@ -305,6 +328,7 @@ async function main() {
     seconds: Math.round((Date.now() - t0) / 1000),
     claims: claims.map(({ key, ...c }) => c), falseClaims: claims.filter((c) => !c.true).length,
     messages: boardMessages().length, ledgerEntries: Object.fromEntries(names.map((n) => [n, ledgerEntries(n).length])),
+    turns: turns(),
     agentsExited: Object.fromEntries(names.map((n) => [n, finished(n)])),
   };
   collect(summary);
