@@ -53,6 +53,15 @@ alone:
 > can open and `cell fetch --artifact <id> --out <path>` opens one. `cell sync --hub http://world:5181` sends your
 > entries and brings your peer's; `cell ledger` shows them all. A file is sealed for the cells your ledger knows, so
 > sync until you see your peer's hello before you share one. There is no direct message.
+> Whose move it is: `cell wait --on <your peer's cell id> --row <why>` says you are waiting for your peer, and
+> stands until your next entry; `cell propose --topic <name> --row <text>` (or `--file <path> --hub
+> http://world:5181`, which shares the file first) proposes, say, a plan or an API; `cell answer --proposal <entry
+> id> --accept` or `--object --row <why>` answers your peer's. `cell turn` reads the ledger and says whose move it
+> is, act (exit 0) or wait (exit 3), with the reason (`--json` for a script): two cells waiting on each other get one
+> mover, two proposals that saw nothing of each other are settled by entry hash, the same in both ledgers, and a
+> proposal is settled when your peer accepts it or has written nothing for 10 minutes. Run it after every sync and
+> do what it says. Your peer's cell is the other hello in the ledger. Claim the goal in the words above, so the
+> ledger knows you are both on it (or name your peer with `--with <cell id>` when you propose).
 
 messages (M):
 > ## Your channel: the message board
