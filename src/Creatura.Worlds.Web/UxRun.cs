@@ -37,9 +37,19 @@ public sealed record UxCell
 
     public required string Environment { get; init; }
 
+    /// <summary>The seat's own name (a script's file, a model's name).</summary>
     public required string Seat { get; init; }
 
+    /// <summary>The tester as the matrix named it (<c>script:…</c>, <c>model:…</c>): part of the cell's key. The seat's name when run alone.</summary>
+    public string Tester { get; init; } = "";
+
     public required string Agent { get; init; }
+
+    /// <summary>The cell's identity across runs, for compare: task, persona, environment and tester.</summary>
+    public string Key => $"{Task}|{Persona}|{Environment}|{(Tester.Length == 0 ? Seat : Tester)}";
+
+    /// <summary>Why the cell could not run (the app did not open, the browser failed); null when it ran.</summary>
+    public string? Error { get; init; }
 
     public IReadOnlyList<string> Barriers { get; init; } = [];
 
@@ -60,18 +70,37 @@ public sealed record UxCell
 
     public required int Escalations { get; init; }
 
+    /// <summary>What the seat's calls cost: 0 for a script, null for a model whose price the catalog does not know.</summary>
     public decimal? Cost { get; init; }
 
     public IReadOnlyDictionary<string, int> BarrierFires { get; init; } = new Dictionary<string, int>();
 
+    [System.Text.Json.Serialization.JsonIgnore]
     public AgentRun? Run { get; init; }
 
     /// <summary>The gap a judge reads: someone (the page or the model) said done and the data does not.</summary>
     public bool FalseDone => !DataDone && (PageSaidDone || BelievedDoneAt is not null);
 
+    /// <summary>The model believed it was done and the data says not: the persona's gap.</summary>
+    public bool BelievedNotDone => !DataDone && BelievedDoneAt is not null;
+
+    /// <summary>The page said a commit went through and the data says not: the app's gap (or a barrier's).</summary>
+    public bool PageSaidNotDone => !DataDone && PageSaidDone;
+
+    /// <summary>The page said done, the data says not, and the run caught no lie: the design did not notice.</summary>
+    public bool UncaughtLie => PageSaidNotDone && LiesCaught == 0;
+
+    /// <summary>A cell that could not run, recorded so the matrix keeps its shape.</summary>
+    public static UxCell Failed(string task, string persona, string environment, string tester, string error) => new()
+    {
+        Task = task, Persona = persona, Environment = environment, Seat = tester, Tester = tester, Agent = "",
+        DataDone = false, CheckDetail = "not run", PageSaidDone = false, Ticks = 0, LiesCaught = 0, Escalations = 0, Error = error,
+    };
+
     public string Summary()
     {
         var sb = new StringBuilder();
+        if (Error is not null) return $"{Task} × {Persona} × {Environment} × {(Tester.Length == 0 ? Seat : Tester)}: NOT RUN ({Error})";
         sb.Append($"{Task} × {Persona} × {Environment} × {Seat}: the data says {(DataDone ? "DONE" : "NOT DONE")} ({CheckDetail})");
         sb.Append(string.Create(CultureInfo.InvariantCulture, $"; {Ticks} tick{(Ticks == 1 ? "" : "s")}, {LiesCaught} lie{(LiesCaught == 1 ? "" : "s")} caught"));
         if (PageSaidDone && !DataDone) sb.Append("; the page said it was saved");
@@ -105,7 +134,7 @@ public static class UxRunner
             Barriers = options.Barriers, DataDone = world.LastCheck.Done, CheckDetail = world.LastCheck.Detail,
             PageSaidDone = world.PageReportedCommit, BelievedDoneAt = persona_?.Telemetry.BelievedDoneAt,
             Ticks = run.Ticks, LiesCaught = Measures.LiesCaught(run), Escalations = persona_?.Telemetry.Escalations ?? 0,
-            Cost = persona_?.Telemetry.Cost, BarrierFires = new Dictionary<string, int>(world.BarrierFires), Run = run,
+            Cost = persona_ is null ? 0m : persona_.Telemetry.Cost, BarrierFires = new Dictionary<string, int>(world.BarrierFires), Run = run,
         };
     }
 }

@@ -21,7 +21,14 @@
       "reset": { "method": "POST", "url": "/api/reset" }
     }
   ],
-  "limits": { "steps": 12, "escalations": 2, "models": { "decide": "deepseek-chat", "escalate": "deepseek-reasoner" } },
+  "limits": {
+    "steps": 12, "escalations": 2,
+    "models": { "decide": "deepseek-chat", "escalate": "deepseek-reasoner" },
+    // The testers a matrix runs when none is named: the offline script. Add model:<name> rows for a paid panel.
+    "testers": [ "script:demo" ]
+  },
+  // creatura ux gate: every cell done, nobody believed done when it was not, no lie missed.
+  "gate": { "minDone": 1.0, "maxBelievedNotDone": 0, "maxUncaughtLies": 0, "maxCost": 0.5 },
   "barriers": [
     { "id": "save-lies", "kind": "lie", "method": "POST", "url": "**/api/notes" },
     { "id": "save-fails", "kind": "fail", "method": "POST", "url": "**/api/notes", "status": 500 },

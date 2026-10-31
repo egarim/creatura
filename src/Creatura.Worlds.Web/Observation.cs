@@ -117,15 +117,15 @@ public sealed record Observation(string Url, string Title, string Text, IReadOnl
         return new Observation(raw.Url, raw.Title, raw.Text, controls);
     }
 
-    /// <summary>Lower-case letters and digits, runs of anything else one dash, at most 40 characters.</summary>
-    public static string Slug(string s)
+    /// <summary>Lower-case letters and digits, runs of anything else one dash, at most <paramref name="max"/> characters (40 for an id).</summary>
+    public static string Slug(string s, int max = 40)
     {
         var sb = new StringBuilder();
         foreach (var ch in s.ToLowerInvariant())
         {
             if (char.IsAsciiLetterOrDigit(ch)) sb.Append(ch);
             else if (sb.Length > 0 && sb[^1] != '-') sb.Append('-');
-            if (sb.Length >= 40) break;
+            if (sb.Length >= max) break;
         }
 
         return sb.ToString().Trim('-');

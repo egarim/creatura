@@ -10,6 +10,11 @@
   stronger model when stuck, a cost cap) and `WebScriptPolicy` (offline, by control name). `creatura ux run` runs one
   cell; `--demo` serves a bundled notes app and runs offline. W1 to W8 hold; not yet run with a real model or a real
   app. `Creatura.Cli` now references `Creatura.Worlds.Web`, and the cells' purity test allows it.
+- **Web worlds, phase 2a**: `creatura ux matrix` runs every task × persona × environment × tester and writes a report
+  (`report.json`, `cells.csv`, `report.md`, a trace per cell); `creatura ux compare` joins two reports cell by cell;
+  `creatura ux gate` (or `matrix --gate`) holds a report to the adapter's `gate` and exits 1 naming each threshold
+  broken. The report counts apart the three gaps: believed done, the page said done, and a lie not caught. A cell
+  that cannot run is recorded and the matrix goes on; a cost cap stops new cells. W11 to W14 hold.
 
 ## 0.2.0-preview.3 (2026-10-30)
 

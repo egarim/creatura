@@ -132,7 +132,7 @@ sample worlds are `Creatura.Worlds.Samples`; and `Creatura.Cli` is in `Creatura.
 | [Creatura.Worlds/](src/Creatura.Worlds) | the bench's worlds: sample worlds, manifests, barrier sets, controls, the agent and extension catalogs, the ingenuity series | none; no file IO |
 | [Creatura.Bench/](src/Creatura.Bench) | the bench's protocols: oracle and outcome class, hypotheses, batteries, arms and rows, the trainer and the exam over the record store, the legacy CSV writers, the fine-tune seam | none; may do file IO |
 | [Creatura.Seats/](src/Creatura.Seats) | the model seats: IModelTransport (Ollama, OpenAI-compatible, Azure Foundry) over an injected HttpClient, ModelClient, ModelPolicy, ModelJudge, ModelCatalog from models.json, the seat's biology, SeatResolver, the call log and the scoreboard | none; may do file IO |
-| [Creatura.Worlds.Web/](src/Creatura.Worlds.Web) | web worlds: WebWorld over a real app in Chromium, the observation (visible text and numbered controls), a tool per control, the declarative data check, barriers by Playwright routing, the persona and script seats, the UX adapter format and the offline notes demo | Microsoft.Playwright; may do file IO |
+| [Creatura.Worlds.Web/](src/Creatura.Worlds.Web) | web worlds: WebWorld over a real app in Chromium, the observation (visible text and numbered controls), a tool per control, the declarative data check, barriers by Playwright routing, the persona and script seats, the UX adapter format, the matrix, its report, compare and the gate, and the offline notes demo | Microsoft.Playwright; may do file IO |
 
 **The hosts** (`src/`)
 
@@ -445,11 +445,16 @@ creatura ux run --demo                                   # the bundled notes app
 creatura ux run --demo --barriers save-lies --design bach  # the page says saved, the data says not: 1 lie caught
 creatura ux adapter > myapp.json                         # an adapter to start from: personas, environments, tasks, checks
 creatura ux run --adapter myapp.json --seat model:deepseek-chat --escalate deepseek-reasoner   # a model as the persona; paid
+creatura ux matrix --demo --out runs/ux/main --gate      # every task × persona × viewport × tester; the gate exits 1 if broken
+creatura ux compare runs/ux/main runs/ux/branch          # cell by cell: regressed, fixed, new gaps, slower
+creatura ux gate runs/ux/branch --baseline runs/ux/main  # thresholds from the adapter's gate, or flags
 ```
 
 The demo runs offline with no model. It needs a Chromium Playwright can launch (`PLAYWRIGHT_BROWSERS_PATH`, Playwright's
-own `playwright.ps1 install chromium`, or `--browser <path>`). Phase 1 runs one cell (task × persona × viewport × seat);
-the full matrix, the report, compare and the CI gate, and the Singular adapter with sign-in reuse are phase 2.
+own `playwright.ps1 install chromium`, or `--browser <path>`). A matrix leaves a folder: `report.json`, `cells.csv`,
+`report.md` and each cell's trace. The report counts three gaps apart: the persona believed it was done and the data
+says not; the page said done and the data says not; and a lie the run did not catch. The Singular adapter, with
+sign-in once per account and the session reused, is phase 2b.
 
 ## Anatomy
 

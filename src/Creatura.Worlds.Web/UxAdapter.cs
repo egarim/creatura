@@ -30,6 +30,9 @@ public sealed record UxAdapter
     /// <summary>The barriers this app can be run with; none is on unless a run names it.</summary>
     public IReadOnlyList<UxBarrier> Barriers { get; init; } = [];
 
+    /// <summary>The CI gate's thresholds for a matrix of this app (<c>creatura ux gate</c>); none when absent.</summary>
+    public UxGate? Gate { get; init; }
+
     /// <summary>Visible text that means the page itself reports a failure (an error banner): an action after which any of it appears is reported failed, honestly.</summary>
     public IReadOnlyList<string> ErrorText { get; init; } = [];
 
@@ -76,6 +79,7 @@ public sealed record UxAdapter
         }
 
         foreach (var b in Barriers.Where(b => string.IsNullOrWhiteSpace(b.Url))) problems.Add($"barrier {b.Id}: no url pattern");
+        if (Gate?.MinDone is < 0 or > 1) problems.Add("gate minDone is a share, from 0 to 1");
         if (problems.Count > 0) throw new FormatException("the adapter is not valid: " + string.Join("; ", problems));
     }
 
@@ -149,7 +153,7 @@ public sealed record UxLimits
     /// <summary>The seats by role: <c>decide</c>, <c>escalate</c> (and, in phase 2, <c>vision</c>, <c>summary</c>, <c>judge</c>): catalog names.</summary>
     public IReadOnlyDictionary<string, string> Models { get; init; } = new Dictionary<string, string>();
 
-    /// <summary>The panel of tester seats a full matrix runs (phase 2).</summary>
+    /// <summary>The panel of testers a matrix runs when none is named: <c>model:&lt;name&gt;</c> or <c>script:&lt;path&gt;</c>.</summary>
     public IReadOnlyList<string> Testers { get; init; } = [];
 }
 

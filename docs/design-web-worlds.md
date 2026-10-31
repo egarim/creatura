@@ -1,10 +1,12 @@
 # Design: web worlds, where a persona uses a real app and the app's data is the judge
 
-**Status:** design note, with phase 1 built (below). Written 2026-10-31. Nothing here has been run against a real
+**Status:** design note, with phase 1 and phase 2a built (below). Written 2026-10-31. Nothing here has been run against a real
 model or a real app yet; what was run is the bundled demo, offline, in a real Chromium.
 
-**Built (phase 1):** `src/Creatura.Worlds.Web` (`WebWorld`, the observation, the tools, the declarative check, the
-barriers, the two seats, the demo), `creatura ux run`, and `tests/Creatura.Worlds.Web.Tests`. The rest is a design.
+**Built:** phase 1, `src/Creatura.Worlds.Web` (`WebWorld`, the observation, the tools, the declarative check, the
+barriers, the two seats, the demo), `creatura ux run` and `tests/Creatura.Worlds.Web.Tests`; phase 2a, the matrix, the
+report, compare and the gate (`UxMatrix`, `UxReport`, `UxComparison`, `UxGate`, `creatura ux matrix | compare | gate`).
+The rest is a design.
 
 ## The problem
 
@@ -111,9 +113,10 @@ One JSON file, read the way `models.json` is (camelCase, comments and trailing c
 - **`errorText`** is the page's own way of saying "that failed". New text that contains one of these after an action
   makes the report a failure, so a save the page refuses is an honest failure, not a lie.
 - **`limits.models`** names the seats by role from the model catalog (`decide`, `escalate`; phase 2 adds `vision`,
-  `summary`, `judge`) and **`limits.testers`** the panel for a full matrix (phase 2).
+  `summary`, `judge`) and **`limits.testers`** the panel a matrix runs when none is named. **`gate`** holds the CI
+  thresholds (below).
 
-## Sign-in and session reuse (phase 2)
+## Sign-in and session reuse (phase 2b)
 
 uxkit signs each account in once and reuses the browser's storage state. A web world does the same per account:
 `SignInAsync(page, account)` runs on a fresh context the first time, then `context.StorageStateAsync()` is kept under
@@ -152,21 +155,55 @@ not only the ones it injects, and the tests check both.
 `limits.cost` is a cap in the catalog's currency for one cell; the persona seat stops (no action, "cost limit
 reached") once its calls have cost that much by the catalog's prices, and a seat whose price is unknown counts as
 unknown, not free. `limits.steps` caps the ticks and `limits.escalations` the calls to the stronger seat. The command
-never picks a model on its own: an adapter run needs `--seat model:<name>`, and it says the price is per step. Phase 2
-adds a cap for the whole matrix, checked before each cell starts, and the spend in the report.
+never picks a model on its own: an adapter run needs `--seat model:<name>`, and it says the price is per step.
 
-## Report, compare, gate (phase 2)
+A matrix has its own cap (`--max-cost`, else the gate's `maxCost`): no cell starts once the cells before it have spent
+that much, and the report's total cost is what the gate's `maxCost` checks. A total with an unpriced model in it is
+unknown, and breaks a `maxCost`.
 
-uxkit's three outputs, built on what the bench already has:
+## Report, compare, gate (phase 2a, built)
 
-- **Report.** A matrix of cells (task × persona × environment × tester), each a `UxCell` written as one `Row` with
-  the web columns (data done, page said done, believed done, lies caught, escalations, cost) through `AppendOnlyCsv`,
-  and each run's trace as JSON lines (`AgentRun.WriteJsonl`), so the replay format can show it. The summary writer and
-  the judge are two more seats; the judge reads only the trace and the three verdicts, and its job is the gap:
-  "believed done, data not done" and "page said done, data not done" are the findings.
-- **Compare.** Two runs' rows joined by cell: done in A and not in B, more ticks, more cost, a new false done.
-- **Gate.** Thresholds in the adapter (`gate: { minDone: 0.9, maxFalseDone: 0, maxCost: … }`), and `creatura ux gate`
-  exiting 1 when one is broken, for CI.
+uxkit's three outputs. Each cell carries three verdicts side by side, and the report counts the gaps between them
+apart, because they mean different things:
+
+| gap | the cell | what it is about |
+|---|---|---|
+| believed done, not done | the persona said `done` and the data says not | the model (uxkit's judge reads this) |
+| the page said done, not done | a commit went through on the page and the data says not | the app, or a barrier |
+| a lie not caught | the page said done, the data says not, and the run caught no lie | the design: it did not notice |
+
+With a lie barrier on, "the page said done, not done" is every cell where the persona saved, by construction; the one
+a design is judged on is the third.
+
+- **The matrix** (`UxMatrix`, `creatura ux matrix`) runs every task × persona × environment × tester, one cell at a
+  time, each in a fresh browser context, in that order. Testers are named as for a run (`script:<path>`, `script:demo`,
+  `model:<name>`), on the command line or in the adapter's `limits.testers`; every tester is checked (the script
+  exists, the model is in the catalog, its key is set) before the browser starts. A cell that cannot run (the app does
+  not open) is recorded with its error and the matrix goes on. A cost cap (`--max-cost`, else the gate's `maxCost`)
+  stops the matrix starting cells once that much is spent; the rest are recorded as not run.
+- **The report** (`UxReport.Write`) is a folder: `report.json` (the cells, the totals, the design, the barriers and the
+  adapter's gate at the time: what compare and gate read), `cells.csv` (one row per cell, through the bench's
+  `AppendOnlyCsv`), `report.md` (a table for a person) and `traces/`, each cell's run as JSON lines in the goldens'
+  format. The bench's `Row` was not used: its columns are the batteries' and its legacy CSV shapes are pinned byte for
+  byte, and the web verdicts have no column there.
+- **Compare** (`UxComparison`, `creatura ux compare <before> <after>`) joins two reports on the cell's key (task,
+  persona, environment, tester; the same cell on another tester is another cell) and lists what regressed (done before,
+  not after), what was fixed, new gaps, cells done in more ticks, and cells only in one of them.
+- **The gate** (`UxGate`, the adapter's `gate`, `creatura ux gate <report>` or `ux matrix --gate`) holds a report to
+  thresholds and exits 1 when one breaks, naming each: `minDone` (a share of the cells that ran), `maxBelievedNotDone`,
+  `maxPageSaidNotDone`, `maxUncaughtLies`, `maxCost` (an unknown cost breaks it), `maxErrors` (0 unless set: a cell that
+  did not run is no pass) and `maxRegressions` (0 unless set, checked only against a `--baseline`). A report where no
+  cell ran never passes. Flags override the report's gate (`--min-done 0` for a run with a lie barrier on).
+
+The demo's gate is `minDone 1.0, maxBelievedNotDone 0, maxUncaughtLies 0, maxCost 0.5`. In CI:
+
+```bash
+creatura ux matrix --demo --out runs/ux/main --gate                       # 4 cells, all done: exit 0
+creatura ux matrix --demo --barriers save-lies --design bach --out runs/ux/lie
+creatura ux gate runs/ux/lie --min-done 0 --max-regressions 99 --baseline runs/ux/main   # every lie caught: exit 0
+```
+
+The summary writer and the judge (two more seats, reading only the traces and the three verdicts) are phase 2c.
 
 ## Pre-registered tests, written before the code
 
@@ -180,8 +217,12 @@ uxkit's three outputs, built on what the bench already has:
 | W6 | the app's own dropped write is caught the same way as the injected one | missed | holds |
 | W7 | the offline demo runs to the goal in two ticks, on the phone and the desktop viewport, with the bundled script, and with a stub model that reads only the screen | anything else | holds |
 | W8 | the persona escalates only on a trigger and within the budget; a cost cap stops the seat | an escalation without a trigger or over the budget, a call after the cap | holds (stub transport) |
-| W9 | on a real app (a Singular starter) with a real model, the matrix's verdicts agree with a person checking the same cells | disagreement on more than one cell in twenty | phase 2 |
-| W10 | with the lie barrier on, every design catches the lie at the commit in every cell where the persona reaches it, and the plain persona with no control layer would have reported done | a missed lie | phase 2 |
+| W9 | on a real app (a Singular starter) with a real model, the matrix's verdicts agree with a person checking the same cells | disagreement on more than one cell in twenty | phase 2b |
+| W10 | with the lie barrier on, every design catches the lie at the commit in every cell where the persona reaches it, and the plain persona with no control layer would have reported done | a missed lie | phase 2c |
+| W11 | the matrix runs every task × persona × environment × tester named, in order; a cell that cannot run is recorded and the rest still run; the cost cap stops new cells | a cell missing, out of order, or the matrix stopped by one cell | holds (the cap: by its code only, with no paid seat) |
+| W12 | a report written and read back gives the same cells and totals; the CSV has one row per cell | anything else | holds |
+| W13 | compare joins on task, persona, environment and tester, and names every regression, fix, new gap and slower cell | a cell joined to another tester's, or a change not listed | holds |
+| W14 | the gate exits 1 naming every threshold broken, 0 when none is; with the lie barrier the demo breaks `minDone`, and holds `maxUncaughtLies 0` under Bach | anything else | holds |
 
 ## Results (phase 1, 2026-10-31)
 
@@ -201,6 +242,15 @@ only), any real app (no Singular starter was run), sign-in and storage-state reu
 driver out (it cannot run from inside the file and would add about 120 MB; the file grows from 74 MB to 78 MB), so
 there `creatura ux` says no browser could be started and points to the .NET tool or `dotnet run`, where it works.
 
+## Results (phase 2a, 2026-10-31)
+
+Run the same way, offline, in a real Chromium. W11 to W14 hold: `ReportTests` (12, no browser), `MatrixBrowserTests`
+(3) and 11 more command tests in `UxCommandTests`. The demo's matrix is 4 cells (1 task × 2 personas × 2 viewports ×
+the bundled script), all done in 2 ticks, and holds its gate. With `save-lies` and Bach it is 0 of 4 done, 4 lies
+caught, none missed; the gate breaks on `minDone` and, against the clean run as baseline, on 4 regressions, and holds
+with `--min-done 0 --max-regressions 99`. Not verified: a matrix with a model as tester, so the cost cap has stopped
+nothing real yet.
+
 ## Decisions for the owner
 
 | | decision | options | recommendation |
@@ -215,7 +265,7 @@ there `creatura ux` says no browser could be started and points to the .NET tool
 | phase | what | passes when |
 |---|---|---|
 | 1 | `WebWorld`, the observation, tools per control, the declarative check, the lie / fail / slow barriers, the persona and script seats, `creatura ux run`, the offline demo | W1 to W8 (done) |
-| 2a | the full matrix (tasks × personas × environments × testers), the report as rows and traces, compare, gate | a matrix of the demo runs and gates in CI, offline |
+| 2a | the full matrix (tasks × personas × environments × testers), the report (json, csv, markdown, traces), compare, gate | W11 to W14 (done) |
 | 2b | the Singular adapter: sign-in once per account, storage state kept and reused, sessionStorage put back; tasks from PhotoSet and Cosmos | W9 on one app |
 | 2c | the summary writer and the judge as seats; vision on the triggers; the stuck triggers as a regulator alarm | W10; the judge's findings agree with W9's person |
 | 3 | barriers on the page (a moving button, a covered control), `scroll`, record and replay of web runs | a design's catch rate per barrier, per viewport |
