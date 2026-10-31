@@ -243,3 +243,17 @@ API tokens (about USD 1 a creature at the budget's cap), judged by the outside t
 far with a scripted mock of the endpoint (`agents/model-smoke.mjs`, log #70); the live pair needs the owner's key,
 on the owner's Docker host or as this environment's secret. T2's question, whether a goal-only pair waits politely
 or both lead and whether `turn` resolves it, is then asked of DeepSeek rather than of Claude Code.
+
+**Outcome (2026-10-31, log #71 to #73).** The goal-only DeepSeek pair (`deepseek-chat`) shipped 5/5 on all three
+channels on one Docker host: DD-L first ship 708 s (USD 0.68 for the pair), DD-M 300 s (USD 0.50), DD-LM 510 s (USD
+0.54); every creature stopped by itself, under 90 steps and USD 0.47. T2's answer: nobody waited politely. On the
+ledger alone both proposed a plan at once and `turn` settled it by hash (T6); the loser answered, then proposed a
+resolution that the winner accepted (T1): one explicit contract, 3 proposals. On messages alone and on both channels
+there was no proposal at all: both built the whole app, the first to deploy owned :8080, the other met the bind
+failure, yielded in writing and turned into the tester; with both channels open the ledger carried only claims,
+progress and releases (T7 only). Both claims paraphrased the goal in every run and the ledger still paired them. False
+claims: 0 on L, 2 on M (an early 'app ready' and a deliberate port test, each judged 0/5), 1 on LM (a release judged 5
+s into the peer's redeploy). H2 (LM ships at least as often as M): 1 of 1 each, no difference at n=1. H3 (L writes an
+explicit contract more often than M): L yes, M no, LM no, at n=1. Harness notes: every board message is judged as a
+claim, so status and test reports count as claims; the record is complete but the run ends with EACCES on
+`state/<run>`, because the hub writes root-owned files under `state/<run>/owner`.
