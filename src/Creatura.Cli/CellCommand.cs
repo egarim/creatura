@@ -7,7 +7,8 @@ namespace Creatura.Cells;
 /// <summary>
 /// <c>creatura cell ...</c>: the cell on this vessel, from a shell or a host tool's hook. Everything it writes goes
 /// under <c>--home</c> (default <c>~/.creatura</c>, or <c>$CREATURA_HOME</c>). It prints ids, hashes and fingerprints,
-/// never a private key or the raw hardware identifier. Exit codes: 0 done, 1 not initialized, 2 a usage or ledger error.
+/// never a private key or the raw hardware identifier. Exit codes: 0 done, 1 not initialized, 2 a usage or ledger error,
+/// 3 <c>turn</c> says wait.
 /// </summary>
 public static class CellCommand
 {
@@ -26,8 +27,17 @@ public static class CellCommand
           stream [--port <n>] [--no-open]
                                        serve the activity stream as a page on 127.0.0.1 only, read-only, and open it
 
+        turns, so two cells neither wait on each other nor both lead (docs/design-turns.md):
+          wait --on <cell or entry id> --row <why>
+                                       this cell waits; the wait stands until its next entry that is not one (--claim <id>)
+          propose --topic <name> (--row <text> | --file <path> --hub <url>) [--with <cell,...>]
+                                       propose on a topic (plan, api, ...); --file shares the file first and names it
+          answer --proposal <entry id> (--accept | --object --row <why>)
+          turn [--json] [--quiet <minutes>]
+                                       act or wait, with the reason, from the verified ledger: exit 0 to act, 3 to wait
+
         goals offered to cells (docs/design-activity-stream.md):
-          offer --to <cell, vessel or host name> --goal <text> [--repo --branch --folder] [--expires <24h|3d>]
+          offer --to <cell, vessel or host name> --goal <text> [--repo --branch --folder] [--expires <24h|3d>] [--quiet <minutes>]
                                        on the owner's vessel: offer a goal, signed with the owner key
           withdraw --offer <id>        on the owner's vessel: take an offer back
           offers [--all]               the offers waiting for this cell; --all: every offer and where it stands
@@ -72,7 +82,7 @@ public static class CellCommand
                                        which imports ledger.json on its first run and is the ledger from then on)
         """;
 
-    private static readonly HashSet<string> Flags = new(StringComparer.Ordinal) { "--open", "--blocked", "--no-mesh", "--help", "--dry-run", "--quiet", "--no-load", "--no-open", "--all" };
+    private static readonly HashSet<string> Flags = new(StringComparer.Ordinal) { "--open", "--blocked", "--no-mesh", "--help", "--dry-run", "--no-load", "--no-open", "--all", "--json", "--accept", "--object" };
 
     private static readonly TimeSpan InteractiveLockWait = TimeSpan.FromSeconds(10);
 
@@ -89,7 +99,7 @@ public static class CellCommand
         Func<CellHome, ILedgerStore>? store;
         try
         {
-            options = Parse(args[2..]);
+            options = Parse(args[1], args[2..]);
             store = LedgerStores.Factory(options.GetValueOrDefault("--store"));
         }
         catch (ArgumentException e)
@@ -118,6 +128,10 @@ public static class CellCommand
                 "ledger" => Ledger(context),
                 "activity" => Activity(context),
                 "stream" => Stream(context),
+                "wait" => Wait(context),
+                "propose" => Propose(context),
+                "answer" => Answer(context),
+                "turn" => Turn(context),
                 "offer" => Offer(context),
                 "withdraw" => Withdraw(context),
                 "offers" => Offers(context),
@@ -225,6 +239,8 @@ public static class CellCommand
         var goal = Required(c, "--goal");
         var to = Required(c, "--to");
         var lifetime = Lifetime(c.Options.GetValueOrDefault("--expires") ?? "24h");
+        var quiet = c.Options.GetValueOrDefault("--quiet") is { } minutes ? int.Parse(minutes, CultureInfo.InvariantCulture) : (int?)null;
+        if (quiet is <= 0) throw new ArgumentException("--quiet takes a number of minutes above 0");
         using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
         using var owner = c.Home.LoadOwner() ?? throw new InvalidOperationException("only the owner's vessel can offer a goal: this home has no owner key");
         using var cell = OpenEndorsed(c);
@@ -232,10 +248,10 @@ public static class CellCommand
         SayHelloIfNeeded(ledger, cell);
         var (target, name) = Addressee(ledger, to);
         var offer = owner.Offer(target, goal, DateTimeOffset.UtcNow, lifetime,
-            c.Options.GetValueOrDefault("--repo"), c.Options.GetValueOrDefault("--branch"), c.Options.GetValueOrDefault("--folder"));
+            c.Options.GetValueOrDefault("--repo"), c.Options.GetValueOrDefault("--branch"), c.Options.GetValueOrDefault("--folder"), quiet);
         ledger.Append(cell, new OfferPayload(offer));
         store.Save(ledger);
-        c.Out.WriteLine($"offered      {offer.Id} to {name}: {goal}");
+        c.Out.WriteLine($"offered      {offer.Id} to {name}: {goal}{(quiet is { } q ? $" (quiet time {q} min)" : "")}");
         c.Out.WriteLine($"open until   {CellJson.Stamp(offer.ExpiresAt)[..16]}Z; it reaches the other vessels with the next sync");
         return 0;
     }
@@ -357,6 +373,17 @@ public static class CellCommand
         using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
         using var cell = OpenEndorsed(c);
         var (ledger, store) = OpenLedger(c, cell);
+        var claim = ClaimFor(c, ledger, cell);
+        SayHelloIfNeeded(ledger, cell);
+        var entry = ledger.Append(cell, payload(claim, text));
+        store.Save(ledger);
+        c.Out.WriteLine($"{T.Kind.ToString().ToLowerInvariant()} {entry.Id} on {claim}: {text}");
+        return 0;
+    }
+
+    /// <summary>The claim an entry is about: <c>--claim</c>, the open claim of <c>--session</c>, or this cell's latest active claim.</summary>
+    private static string ClaimFor(Context c, WorkLedger ledger, LocalCell cell)
+    {
         var claim = c.Options.GetValueOrDefault("--claim")
             ?? (c.Options.GetValueOrDefault("--session") is { } session
                 ? ledger.WhoIsWorkingOn(activeOnly: false).LastOrDefault(w => w.Goal.Session == session && w.State != ClaimState.Released)?.Claim.Id
@@ -365,11 +392,119 @@ public static class CellCommand
             ?? ledger.LatestActiveClaimOf(cell.Id)?.Id
             ?? throw new InvalidOperationException($"{cell.Id} has no active claim: run `creatura cell claim --goal ...` or pass --claim <id>");
         if (ledger.PathOf(claim).Count == 0) throw new InvalidOperationException($"no claim {claim} in the ledger");
+        return claim;
+    }
+
+    /// <summary>A wait on a cell or an entry (docs/design-turns.md), as a step of this cell's claim. It stands until this cell's next entry that is not a wait.</summary>
+    private static int Wait(Context c)
+    {
+        var on = Required(c, "--on");
+        var why = Required(c, "--row");
+        using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
+        using var cell = OpenEndorsed(c);
+        var (ledger, store) = OpenLedger(c, cell);
+        var peer = TurnLedger.CellOf(on);
+        if (peer == cell.Id) throw new InvalidOperationException("a cell cannot wait on itself: `creatura cell turn` already waits for the answers to its proposals");
+        var claim = ClaimFor(c, ledger, cell);
         SayHelloIfNeeded(ledger, cell);
-        var entry = ledger.Append(cell, payload(claim, text));
+        var entry = ledger.Append(cell, TurnLedger.Wait(claim, on, why));
         store.Save(ledger);
-        c.Out.WriteLine($"{T.Kind.ToString().ToLowerInvariant()} {entry.Id} on {claim}: {text}");
+        c.Out.WriteLine($"waiting      {entry.Id} on {on}: {why}");
+        if (!ledger.Entries.Any(e => e.Cell == peer)) c.Out.WriteLine($"note         nothing from {peer} is in this ledger yet; its quiet time counts from now");
+        c.Out.WriteLine("stands       until this cell's next entry that is not a wait; `creatura cell turn` says when to move");
         return 0;
+    }
+
+    /// <summary>
+    /// A proposal on a topic (docs/design-turns.md), as a step of this cell's claim, carrying the proposal entry ids on
+    /// the topic this home holds (Seen), so two proposals that saw nothing of each other compete and one that saw the
+    /// other is a counter. With --file the file is shared first, sealed for the parties, and the proposal names it.
+    /// </summary>
+    private static int Propose(Context c)
+    {
+        var topic = Required(c, "--topic");
+        var row = c.Options.GetValueOrDefault("--row");
+        var file = c.Options.GetValueOrDefault("--file");
+        if (string.IsNullOrWhiteSpace(row) && string.IsNullOrWhiteSpace(file)) throw new ArgumentException("--row <text> or --file <path> is required");
+        var named = c.Options.GetValueOrDefault("--with") is { Length: > 0 } with ? with.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : [];
+        using var cell = OpenEndorsed(c);
+
+        SealedFile? sealedFile = null;
+        IReadOnlyList<Recipient> recipients = [];
+        string? type = null;
+        if (file is { Length: > 0 })
+        {
+            var path = Path.GetFullPath(file);
+            var hub = new Uri(Required(c, "--hub"));
+            WorkLedger snapshot;
+            using (LedgerLock.Acquire(c.Home.Root, InteractiveLockWait)) snapshot = OpenLedger(c, cell).Ledger;
+            var parties = snapshot.PartiesOf(cell.Id).Union(named, StringComparer.Ordinal).ToList();
+            (sealedFile, recipients, type) = Upload(c, cell, snapshot, path, hub, parties.Count > 0 ? parties : null);
+        }
+
+        using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
+        var (ledger, store) = OpenLedger(c, cell);
+        var claim = ClaimFor(c, ledger, cell);
+        SayHelloIfNeeded(ledger, cell);
+        SignedEntry? artifact = sealedFile is null ? null : ledger.Append(cell, sealedFile.Payload with { Claim = claim });
+        var payload = ledger.Propose(claim, topic, string.IsNullOrWhiteSpace(row) ? $"proposal in {Path.GetFileName(file)}" : row, named, artifact?.Id);
+        var entry = ledger.Append(cell, payload);
+        store.Save(ledger);
+        var parties2 = ledger.PartiesOf(cell.Id);
+        c.Out.WriteLine($"proposed     {entry.Id} on '{payload.Topic}': {payload.Row}");
+        c.Out.WriteLine($"seen         {payload.Seen!.Count} earlier proposal{(payload.Seen.Count == 1 ? "" : "s")} on it; parties {(parties2.Count == 0 ? "none known yet" : string.Join(", ", parties2.Order(StringComparer.Ordinal)))}");
+        if (artifact is not null) c.Out.WriteLine($"file         {Path.GetFileName(file)} ({type}) shared as {artifact.Id}, sealed for {recipients.Count} cell{(recipients.Count == 1 ? "" : "s")}");
+        return 0;
+    }
+
+    /// <summary>An answer to another cell's proposal: accept, or object and say why.</summary>
+    private static int Answer(Context c)
+    {
+        var id = Required(c, "--proposal");
+        var accept = c.Options.ContainsKey("--accept");
+        var objects = c.Options.ContainsKey("--object");
+        if (accept == objects) throw new ArgumentException("--accept or --object, one of them");
+        var row = c.Options.GetValueOrDefault("--row");
+        if (objects && string.IsNullOrWhiteSpace(row)) throw new ArgumentException("--object takes --row <why>");
+        using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
+        using var cell = OpenEndorsed(c);
+        var (ledger, store) = OpenLedger(c, cell);
+        var proposal = ledger.Entries.FirstOrDefault(e => e.Id == id) ?? throw new InvalidOperationException($"no entry {id} in the ledger: sync first");
+        if (!TurnLedger.IsProposal(proposal)) throw new InvalidOperationException($"{id} is not a proposal");
+        if (proposal.Cell == cell.Id) throw new InvalidOperationException("a proposal is answered by the other parties, not by its proposer");
+        var claim = ClaimFor(c, ledger, cell);
+        SayHelloIfNeeded(ledger, cell);
+        var entry = ledger.Append(cell, TurnLedger.Answer(claim, id, accept ? AnswerVerdict.Accept : AnswerVerdict.Object, string.IsNullOrWhiteSpace(row) ? "accept" : row));
+        store.Save(ledger);
+        c.Out.WriteLine($"{(accept ? "accepted" : "objected"),-12} {id} with {entry.Id}{(string.IsNullOrWhiteSpace(row) ? "" : $": {row}")}");
+        return 0;
+    }
+
+    /// <summary>Whose move it is (docs/design-turns.md): read-only, from the verified ledger; exit 0 to act, 3 to wait.</summary>
+    private static int Turn(Context c)
+    {
+        using var cell = OpenEndorsed(c);
+        WorkLedger ledger;
+        using (LedgerLock.Acquire(c.Home.Root, InteractiveLockWait)) ledger = OpenLedger(c, cell).Ledger;
+        var quiet = c.Options.GetValueOrDefault("--quiet") is { } minutes ? TimeSpan.FromMinutes(double.Parse(minutes, CultureInfo.InvariantCulture)) : (TimeSpan?)null;
+        if (quiet is { } q && q <= TimeSpan.Zero) throw new ArgumentException("--quiet takes a number of minutes above 0");
+        var result = ledger.Turn(cell.Id, DateTimeOffset.UtcNow, quiet);
+        if (c.Options.ContainsKey("--json"))
+        {
+            c.Out.WriteLine(result.ToJson());
+            return result.ExitCode;
+        }
+
+        c.Out.WriteLine($"{result.Move.ToString().ToLowerInvariant(),-12} {result.Reason} ({result.Rule})");
+        if (result.Waiting is { } waiting) c.Out.WriteLine($"waiting      on {waiting.On} since {CellJson.Stamp(waiting.Entry.Timestamp)[..19]}Z ({waiting.Entry.Id})");
+        foreach (var t in result.Topics)
+        {
+            var state = t.Settled ? "settled" : t.BySilence ? "settled by silence" : t.Objected.Count > 0 ? $"objected by {string.Join(", ", t.Objected)}" : $"waiting for {string.Join(", ", t.Unanswered)}";
+            var among = t.Competitors.Count > 1 ? $", won among {t.Competitors.Count} by hash" : "";
+            var plan = t.Plan is { } p && p.Id != t.Live.Id ? $"; the plan stands at {p.Id} until this is accepted" : "";
+            c.Out.WriteLine($"topic        {t.Topic}: {t.Live.Id} by {t.Live.Cell}, {state}{among}{plan}");
+        }
+        return result.ExitCode;
     }
 
     private static int Heartbeat(Context c)
@@ -529,7 +664,7 @@ public static class CellCommand
             EntryKind.Hello => e.Body<HelloPayload>().Cell is var id ? $"creatura {id.Creatura} on {id.Hardware.VesselId}, {id.Position.Render()}, key {id.Fingerprint}" : "",
             EntryKind.Claim => e.Body<ClaimPayload>() is var claim ? claim.Goal + (Where(claim) is { Length: > 0 } w ? $"  ({w})" : "") : "",
             EntryKind.Progress => e.Body<ProgressPayload>() is var p
-                ? $"on {p.Claim}: {p.Row}{(p.Stress is { } s ? $" (stress {s.ToString("0.##", CultureInfo.InvariantCulture)})" : "")}{(p.Blocked == true ? " [blocked]" : "")}" : "",
+                ? $"on {p.Claim}: {p.Row}{(p.Stress is { } s ? $" (stress {s.ToString("0.##", CultureInfo.InvariantCulture)})" : "")}{(p.Blocked == true ? " [blocked]" : "")}{Turns(p)}" : "",
             EntryKind.HandOff => e.Body<HandOffPayload>() is var h ? $"on {h.Claim}: {h.Reason}" : "",
             EntryKind.Release => e.Body<ReleasePayload>() is var r ? $"on {r.Claim}: {r.Evidence}" : "",
             EntryKind.Heartbeat => e.Body<HeartbeatPayload>().Load is { } load ? $"load {load.ToString("0.##", CultureInfo.InvariantCulture)}" : "alive",
@@ -538,6 +673,13 @@ public static class CellCommand
         };
         return $"{e.Timestamp.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss'Z'", CultureInfo.InvariantCulture)}  {e.Id,-24}  {e.Kind,-9}  {summary}";
     }
+
+    /// <summary>What a Progress entry says beyond its row, when it is a wait, a proposal or an answer (docs/design-turns.md).</summary>
+    private static string Turns(ProgressPayload p) =>
+        p.WaitingOn is { } on ? $" [waits on {on}]"
+        : p.Answers is { } answers ? $" [{p.Verdict?.ToString().ToLowerInvariant()} {answers}]"
+        : p.Topic is { } topic ? $" [proposal on {topic}, saw {p.Seen?.Count ?? 0}{(p.Artifact is { } a ? $", file {a}" : "")}]"
+        : "";
 
     private static string Where(ClaimPayload claim) => string.Join(", ", new[]
     {
@@ -885,20 +1027,13 @@ public static class CellCommand
     {
         var path = Path.GetFullPath(Required(c, "--file"));
         var hub = new Uri(Required(c, "--hub"));
-        var size = new FileInfo(path).Length;
-        if (size > SharedFiles.MaxBytes) throw new SharedFileException(SharedFileProblem.TooLarge, $"{Path.GetFileName(path)} is {size:N0} bytes; the limit is {SharedFiles.MaxBytes:N0}");
         using var cell = EndorsedCell(c);
 
         WorkLedger snapshot;
         using (LedgerLock.Acquire(c.Home.Root, InteractiveLockWait)) snapshot = OpenLedger(c, cell).Ledger;
         var only = c.Options.GetValueOrDefault("--to") is { Length: > 0 } to ? to.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : null;
-        var recipients = SharedFiles.Recipients(snapshot, cell, only);
-        var type = c.Options.GetValueOrDefault("--type") ?? ContentTypes.GetValueOrDefault(Path.GetExtension(path)) ?? "application/octet-stream";
-        var sealedFile = SharedFiles.Seal(File.ReadAllBytes(path), Path.GetFileName(path), type, recipients);
-
-        LedgerHub.PutFileAsync(hub, cell, sealedFile.Ciphertext, CancellationToken.None).GetAwaiter().GetResult();
-        OwnerOnly.CreateDirectory(c.Home.FilesDirectory);
-        OwnerOnly.Replace(Path.Combine(c.Home.FilesDirectory, sealedFile.Payload.Ciphertext), sealedFile.Ciphertext);
+        var (sealedFile, recipients, type) = Upload(c, cell, snapshot, path, hub, only);
+        var size = new FileInfo(path).Length;
 
         SignedEntry entry;
         using (LedgerLock.Acquire(c.Home.Root, InteractiveLockWait))
@@ -914,6 +1049,25 @@ public static class CellCommand
         c.Out.WriteLine($"file         {Path.GetFileName(path)} ({type}, {size:N0} bytes), sealed for {recipients.Count} cell{(recipients.Count == 1 ? "" : "s")}");
         c.Out.WriteLine($"hub          {hub} holds the ciphertext for 90 days; the other cells see the entry after their next sync");
         return 0;
+    }
+
+    /// <summary>
+    /// A file sealed for its recipients (every endorsed cell, or only those named), uploaded to the hub, with a copy
+    /// kept here: what <c>share</c> and <c>propose --file</c> do before they write an entry, so an entry never names
+    /// bytes the hub does not have.
+    /// </summary>
+    private static (SealedFile File, IReadOnlyList<Recipient> Recipients, string Type) Upload(Context c, LocalCell cell, WorkLedger snapshot, string path, Uri hub, IEnumerable<string>? only)
+    {
+        var size = new FileInfo(path).Length;
+        if (size > SharedFiles.MaxBytes) throw new SharedFileException(SharedFileProblem.TooLarge, $"{Path.GetFileName(path)} is {size:N0} bytes; the limit is {SharedFiles.MaxBytes:N0}");
+        var recipients = SharedFiles.Recipients(snapshot, cell, only);
+        var type = c.Options.GetValueOrDefault("--type") ?? ContentTypes.GetValueOrDefault(Path.GetExtension(path)) ?? "application/octet-stream";
+        var sealedFile = SharedFiles.Seal(File.ReadAllBytes(path), Path.GetFileName(path), type, recipients);
+
+        LedgerHub.PutFileAsync(hub, cell, sealedFile.Ciphertext, CancellationToken.None).GetAwaiter().GetResult();
+        OwnerOnly.CreateDirectory(c.Home.FilesDirectory);
+        OwnerOnly.Replace(Path.Combine(c.Home.FilesDirectory, sealedFile.Payload.Ciphertext), sealedFile.Ciphertext);
+        return (sealedFile, recipients, type);
     }
 
     /// <summary>The Artifact entries this cell can open, labels read without downloading anything.</summary>
@@ -989,14 +1143,15 @@ public static class CellCommand
     private static string Required(Context c, string option) =>
         c.Options.GetValueOrDefault(option) is { Length: > 0 } value ? value : throw new ArgumentException($"{option} <text> is required");
 
-    private static Dictionary<string, string?> Parse(string[] args)
+    /// <summary>The options of a command. <c>--quiet</c> is a flag for <c>sync</c> and takes minutes for <c>turn</c> and <c>offer</c>.</summary>
+    private static Dictionary<string, string?> Parse(string command, string[] args)
     {
         var options = new Dictionary<string, string?>(StringComparer.Ordinal);
         for (var i = 0; i < args.Length; i++)
         {
             var name = args[i];
             if (!name.StartsWith("--", StringComparison.Ordinal)) throw new ArgumentException($"unexpected argument: {name}");
-            if (Flags.Contains(name))
+            if (Flags.Contains(name) || (name == "--quiet" && command == "sync"))
             {
                 options[name] = null;
                 continue;
