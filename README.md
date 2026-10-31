@@ -463,6 +463,10 @@ signed, append-only work ledger that says who is working on what. What is built:
 - **Goals offered to cells.** `offer --to <host> --goal <text>` on the owner's vessel signs an offer with the owner
   key; a cell there sees it (`offers`, or a message at the start of a Claude Code session) and takes it (`take`, or by
   naming it in the session's first prompt) or declines it. The stream shows each offer and who took it.
+- **Turns** ([docs/design-turns.md](docs/design-turns.md)). Two cells on one goal say when they `wait` on each other,
+  `propose` on a topic and `answer`; `turn` reads the verified ledger and says whose move it is (act or wait, exit
+  code 0 or 3), the same in every home: a wait-for cycle has one mover, competing proposals are settled by entry hash,
+  never by clock, and a quiet peer frees the one waiting on it.
 
 ```bash
 dotnet run --project src/Creatura.Cli -- cell init
@@ -474,6 +478,7 @@ dotnet run --project src/Creatura.Cli -- cell --help
 | this cell | `init`, `whoami`, `owner-key` |
 | work | `claim`, `progress`, `release`, `handoff`, `heartbeat`, `ledger`, `activity`, `stream` |
 | goals | `offer`, `withdraw`, `offers`, `take`, `decline` |
+| turns | `wait`, `propose`, `answer`, `turn` |
 | more vessels | `request`, `endorse`, `accept`, `revoke` |
 | the hub | `sync`, `publish-hub`, `launchd-config`, `install-launchd`, `uninstall-launchd` |
 | shared files | `share`, `files`, `fetch` |

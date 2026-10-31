@@ -84,6 +84,11 @@ of entries and dropping any that fail verification. That is all the agreement th
 consensus, and it converges whatever order the entries arrive in. The *path of the work* is the chain of a claim's
 entries, readable afterwards like a route, and the Augur can read it like any other trace.
 
+Two cells on one goal can wait on each other, or both propose a plan at once. [design-turns.md](design-turns.md)
+adds optional fields to `Progress` for that: a wait (`WaitingOn`), a proposal on a topic (`Topic`, `Seen`) and an
+answer to one (`Answers`, `Verdict`), and `creatura cell turn`, which reads the verified ledger and says whose move
+it is, the same in every home, with no clock deciding who wins.
+
 ### The cell network
 
 ```csharp
@@ -384,5 +389,6 @@ entry a hook writes reaches the hub within a minute anyway.
 ## What this note does not cover
 
 Model seats on remote vessels (a cell asking another vessel's model), task assignment between cells (who should take
-the next job), and anything that changes a server, a firewall or the mesh's configuration. Each of those is a later
-note, and the last needs the owner's approval per machine.
+the next job; whose move it is between cells already on one goal is [design-turns.md](design-turns.md)), and anything
+that changes a server, a firewall or the mesh's configuration. Each of those is a later note, and the last needs the
+owner's approval per machine.

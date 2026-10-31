@@ -21,7 +21,9 @@ agent tools around it, as hosts and as cells.
 - [The operating system as the creature's body](design-embodiment.md): senses, limbs, inner senses, set points and a
   skin on Windows, Linux and macOS, with Telekinesis as senses and limbs (proposed, nothing built).
 - [Two creatures build and publish an app](design-two-creatures.md): an experiment with two agents on their own VMs,
-  three pairings and three channels, judged by an outside test (designed, nothing built).
+  three pairings and three channels, judged by an outside test (slice X0, the local harness, built).
+- [Turns, so two cells neither wait on each other nor both lead](design-turns.md): waits, proposals and answers in
+  the ledger, and `creatura cell turn`, which says whose move it is, the same in every home (slice T0, built).
 - [Setting up a model for the convoy](convoy-models.md).
 - [The replay format](replay-format.md): how a UI watches a run.
 - [Sources](sources.md): whose public work the designs read, in the author's words.
