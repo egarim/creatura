@@ -1,0 +1,76 @@
+{
+ "run": "2026-10-31T13-06-02-DD-L-R",
+ "arm": "DD-L",
+ "agents": [
+  "deepseek",
+  "deepseek"
+ ],
+ "channel": "L",
+ "roles": true,
+ "score": 5,
+ "shipped": true,
+ "firstShipSeconds": 798,
+ "seconds": 850,
+ "claims": [
+  {
+   "via": "ledger",
+   "who": "a",
+   "text": "{\"claim\":\"cell-a5652e6b1cccc64e#6\",\"evidence\":\"repo-a deploy branch at 2a4fab8 (world: running). Service api, NO published port, listens :8000 on shared net; node:sqlite DB at /data/shopping.db on volume api-data.\\nContract agreed with creature-b (accepted their proposal #4): GET /api/health; GET /a",
+   "at": 798,
+   "score": 5,
+   "true": true
+  },
+  {
+   "via": "ledger",
+   "who": "b",
+   "text": "{\"claim\":\"cell-af0f576ff962cff7#2\",\"evidence\":\"Published. repo-b deploy d4b205fcd234b91f269eb26043573381cfb94d8b is running on world (http://world:7001/status) and http://world:8080/ serves the shared shopping list. Page has a text field labelled 'Item', an 'Add' button and a list with a bought chec",
+   "at": 832,
+   "score": 5,
+   "true": true
+  }
+ ],
+ "falseClaims": 0,
+ "messages": 0,
+ "ledgerEntries": {
+  "a": 23,
+  "b": 24
+ },
+ "turns": {
+  "waits": 2,
+  "proposals": 2,
+  "answers": 2,
+  "objections": 0,
+  "plannedBy": [
+   "b",
+   "a"
+  ]
+ },
+ "usage": {
+  "a": {
+   "model": "deepseek-chat",
+   "calls": 77,
+   "steps": 81,
+   "promptTokens": 1606491,
+   "completionTokens": 21503,
+   "cacheHitTokens": 1289344,
+   "cost": 0.45884874000000003,
+   "stoppedBy": "stop",
+   "seconds": 776
+  },
+  "b": {
+   "model": "deepseek-chat",
+   "calls": 72,
+   "steps": 77,
+   "promptTokens": 1233784,
+   "completionTokens": 19613,
+   "cacheHitTokens": 1038720,
+   "cost": 0.35369698000000005,
+   "stoppedBy": "stop",
+   "seconds": 782
+  }
+ },
+ "agentsExited": {
+  "a": true,
+  "b": true
+ }
+}

@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    image: compose-api-a:latest
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      DATA_DIR: /data
+    volumes:
+      - api-data:/data
+volumes:
+  api-data:

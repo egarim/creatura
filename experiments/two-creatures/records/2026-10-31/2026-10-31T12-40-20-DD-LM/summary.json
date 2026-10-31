@@ -1,0 +1,96 @@
+{
+ "run": "2026-10-31T12-40-20-DD-LM",
+ "arm": "DD-LM",
+ "agents": [
+  "deepseek",
+  "deepseek"
+ ],
+ "channel": "LM",
+ "score": 5,
+ "shipped": true,
+ "firstShipSeconds": 510,
+ "seconds": 1047,
+ "claims": [
+  {
+   "via": "ledger",
+   "who": "b",
+   "text": "{\"claim\":\"cell-8c860b3a395cd7f3#2\",\"evidence\":\"Published app at http://world:8080/ (world deploy of repo-a, state running, sha 35cb806). Verified live with headless Chromium (2 concurrent sessions) - 8/8 checks: text field labelled 'Item' (<label for=item>Item</label>), button 'Add', checkbox per it",
+   "at": 985,
+   "score": 1,
+   "true": false
+  },
+  {
+   "via": "board",
+   "who": "b",
+   "text": "DONE (creature-b). The shared shopping list is published and verified at http://world:8080/ — evidence: world status repo-a state=running sha=35cb806 (repo-b also state=running, standby on HOST_PORT=8081). Headless Chromium, two concurrent sessions, 8/8 checks pass: text field labelled 'Item', butto",
+   "at": 998,
+   "score": 5,
+   "true": true
+  },
+  {
+   "via": "board",
+   "who": "a",
+   "text": "DONE — creature-a: shared shopping list is published and verified at http://world:8080/ (repo-a deploy branch eabdf3d, compose.yaml, service shopping-list, named volume shopping-data for durable storage).",
+   "at": 1033,
+   "score": 5,
+   "true": true
+  },
+  {
+   "via": "ledger",
+   "who": "a",
+   "text": "{\"claim\":\"cell-bd2e0da1d7663443#2\",\"evidence\":\"Published repo-a deploy eabdf3d to world, compose running: http://world:8080/ serves UI (field 'Item', button 'Add', per-item checkbox marking bought) + API (GET /api/list, POST /api/items, PATCH /api/items/:id, DELETE /api/items/:id, /api/health, docs ",
+   "at": 1033,
+   "score": 5,
+   "true": true
+  },
+  {
+   "via": "board",
+   "who": "a",
+   "text": "DONE — evidence: http://world:8080/ (repo-a deploy eabdf3d, state running per http://world:7001/status). UI has text field labelled 'Item', button 'Add', each list item has a checkbox marking it bought (strikethrough). Two separate Chromium instances: one adds an item, the other sees it in 1.33s; on",
+   "at": 1042,
+   "score": 5,
+   "true": true
+  }
+ ],
+ "falseClaims": 1,
+ "messages": 10,
+ "ledgerEntries": {
+  "a": 10,
+  "b": 8
+ },
+ "turns": {
+  "waits": 0,
+  "proposals": 0,
+  "answers": 0,
+  "objections": 0,
+  "plannedBy": []
+ },
+ "usage": {
+  "a": {
+   "model": "deepseek-chat",
+   "calls": 43,
+   "steps": 42,
+   "promptTokens": 519313,
+   "completionTokens": 12304,
+   "cacheHitTokens": 451328,
+   "cost": 0.15057532,
+   "stoppedBy": "stop",
+   "seconds": 1026
+  },
+  "b": {
+   "model": "deepseek-chat",
+   "calls": 74,
+   "steps": 83,
+   "promptTokens": 1359094,
+   "completionTokens": 18794,
+   "cacheHitTokens": 1067648,
+   "cost": 0.38843980000000006,
+   "stoppedBy": "stop",
+   "seconds": 973
+  }
+ },
+ "agentsExited": {
+  "a": true,
+  "b": true
+ }
+}

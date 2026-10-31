@@ -1,0 +1,16 @@
+{
+ "run": "2026-10-31T11-51-07-REF",
+ "arm": "REF",
+ "agents": [],
+ "channel": "none",
+ "reference": "intact",
+ "score": 5,
+ "shipped": true,
+ "firstShipSeconds": 36,
+ "seconds": 36,
+ "claims": [],
+ "falseClaims": 0,
+ "messages": 0,
+ "ledgerEntries": {},
+ "agentsExited": {}
+}

@@ -1,0 +1,29 @@
+{
+ "run": "2026-10-31T13-21-03-DD-M-R",
+ "arm": "DD-M",
+ "agents": [
+  "deepseek",
+  "deepseek"
+ ],
+ "channel": "M",
+ "roles": true,
+ "score": 0,
+ "shipped": false,
+ "firstShipSeconds": null,
+ "seconds": 1869,
+ "claims": [],
+ "falseClaims": 0,
+ "messages": 4,
+ "ledgerEntries": {
+  "a": 0,
+  "b": 0
+ },
+ "usage": {
+  "a": null,
+  "b": null
+ },
+ "agentsExited": {
+  "a": true,
+  "b": true
+ }
+}

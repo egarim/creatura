@@ -1,0 +1,192 @@
+[2026-10-31T13:11:52.996Z] deploying 55bdace
+[2026-10-31T13:12:31.615Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [ui internal] load build definition from Dockerfile
+#1 transferring dockerfile: 184B done
+#1 DONE 0.0s
+
+#2 [ui internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 3.5s
+
+#3 [ui internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [ui internal] load build context
+#4 transferring context: 10.75kB done
+#4 DONE 0.0s
+
+#5 [ui 1/5] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#5 resolve docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 0.0s done
+#5 sha256:025b8e975a61d94e33abeafaad1255ef44e4898cf1a1b6446860009c72e6d284 1.72kB / 1.72kB done
+#5 sha256:ae59e9992c6b3e963dd9dac9c476287048177ad8f90ac646669afb738705f56d 6.71kB / 6.71kB done
+#5 sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788 0B / 3.85MB 0.1s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 0B / 56.22MB 0.1s
+#5 sha256:7246d4c6a55dd0f8dd00d2e63aece3a68d91e6a5d04c4e748fc2706897d96312 0B / 1.26MB 0.1s
+#5 sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 6.41kB / 6.41kB done
+#5 sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788 1.05MB / 3.85MB 4.9s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 0B / 56.22MB 5.1s
+#5 sha256:7246d4c6a55dd0f8dd00d2e63aece3a68d91e6a5d04c4e748fc2706897d96312 0B / 1.26MB 5.1s
+#5 sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788 2.10MB / 3.85MB 5.2s
+#5 sha256:7246d4c6a55dd0f8dd00d2e63aece3a68d91e6a5d04c4e748fc2706897d96312 1.05MB / 1.26MB 5.2s
+#5 sha256:7246d4c6a55dd0f8dd00d2e63aece3a68d91e6a5d04c4e748fc2706897d96312 1.26MB / 1.26MB 5.2s done
+#5 sha256:304511616d6a6d472222f696b9045e20dc90e8043b2a8ba2acb61746595781f3 0B / 442B 5.3s
+#5 sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788 3.15MB / 3.85MB 5.5s
+#5 sha256:304511616d6a6d472222f696b9045e20dc90e8043b2a8ba2acb61746595781f3 442B / 442B 9.3s done
+#5 extracting sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788
+#5 sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788 3.85MB / 3.85MB 9.8s done
+#5 extracting sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788 0.1s done
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 1.05MB / 56.22MB 10.1s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 4.19MB / 56.22MB 11.0s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 7.34MB / 56.22MB 11.7s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 10.49MB / 56.22MB 12.2s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 13.63MB / 56.22MB 12.7s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 16.78MB / 56.22MB 13.2s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 20.97MB / 56.22MB 13.9s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 23.07MB / 56.22MB 18.9s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 27.26MB / 56.22MB 20.4s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 30.41MB / 56.22MB 20.6s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 32.51MB / 56.22MB 25.7s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 35.65MB / 56.22MB 26.5s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 38.80MB / 56.22MB 26.6s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 41.94MB / 56.22MB 27.6s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 46.14MB / 56.22MB 27.9s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 49.28MB / 56.22MB 28.5s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 52.43MB / 56.22MB 31.0s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 56.22MB / 56.22MB 32.2s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 56.22MB / 56.22MB 32.3s done
+#5 extracting sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 0.1s
+#5 extracting sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 0.9s done
+#5 extracting sha256:7246d4c6a55dd0f8dd00d2e63aece3a68d91e6a5d04c4e748fc2706897d96312 0.0s done
+#5 extracting sha256:304511616d6a6d472222f696b9045e20dc90e8043b2a8ba2acb61746595781f3 done
+#5 DONE 33.4s
+
+#6 [ui 2/5] WORKDIR /app
+#6 DONE 0.8s
+
+#7 [ui 3/5] COPY package.json ./
+#7 DONE 0.0s
+
+#8 [ui 4/5] COPY server.js ./
+#8 DONE 0.0s
+
+#9 [ui 5/5] COPY public ./public
+#9 DONE 0.0s
+
+#10 [ui] exporting to image
+#10 exporting layers 0.1s done
+#10 writing image sha256:6b6d2d21c3403e135aa9aa21ea4e8cc6d9aa9fbaffbfe5ff83c47060ae910cef done
+#10 naming to docker.io/library/shopping-ui:latest done
+#10 DONE 0.1s
+
+#11 [ui] resolving provenance for metadata file
+#11 DONE 0.0s
+ ui  Built
+ Network pub-repo-b_default  Creating
+ Network pub-repo-b_default  Created
+ Container pub-repo-b-ui-1  Creating
+ Container pub-repo-b-ui-1  Created
+ Container pub-repo-b-ui-1  Starting
+ Container pub-repo-b-ui-1  Started
+[2026-10-31T13:12:31.616Z] running 55bdace
+[2026-10-31T13:14:59.160Z] deploying bb3085b
+[2026-10-31T13:15:11.368Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [ui internal] load build definition from Dockerfile
+#1 transferring dockerfile: 184B done
+#1 DONE 0.0s
+
+#2 [ui internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 1.1s
+
+#3 [ui internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [ui 1/5] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [ui internal] load build context
+#5 transferring context: 10.75kB done
+#5 DONE 0.0s
+
+#6 [ui 2/5] WORKDIR /app
+#6 CACHED
+
+#7 [ui 3/5] COPY package.json ./
+#7 CACHED
+
+#8 [ui 4/5] COPY server.js ./
+#8 DONE 0.0s
+
+#9 [ui 5/5] COPY public ./public
+#9 DONE 0.0s
+
+#10 [ui] exporting to image
+#10 exporting layers
+#10 exporting layers 0.0s done
+#10 writing image sha256:6713cd9433357c0d6e3343b9e6903bc0de4f360b609a6bb309345f7bfb3acc38 done
+#10 naming to docker.io/library/shopping-ui:latest done
+#10 DONE 0.0s
+
+#11 [ui] resolving provenance for metadata file
+#11 DONE 0.0s
+ ui  Built
+ Container pub-repo-b-ui-1  Recreate
+ Container pub-repo-b-ui-1  Recreated
+ Container pub-repo-b-ui-1  Starting
+ Container pub-repo-b-ui-1  Started
+[2026-10-31T13:15:11.368Z] running bb3085b
+[2026-10-31T13:16:47.255Z] deploying d4b205f
+[2026-10-31T13:16:58.644Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [ui internal] load build definition from Dockerfile
+#1 transferring dockerfile: 184B done
+#1 DONE 0.0s
+
+#2 [ui internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.4s
+
+#3 [ui internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [ui 1/5] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [ui internal] load build context
+#5 transferring context: 11.31kB done
+#5 DONE 0.0s
+
+#6 [ui 2/5] WORKDIR /app
+#6 CACHED
+
+#7 [ui 3/5] COPY package.json ./
+#7 CACHED
+
+#8 [ui 4/5] COPY server.js ./
+#8 CACHED
+
+#9 [ui 5/5] COPY public ./public
+#9 DONE 0.1s
+
+#10 [ui] exporting to image
+#10 exporting layers 0.0s done
+#10 writing image sha256:e5b687825e84460c8c02001fe987b4e4fc0c167d85927bdb55563a4c7e811aa5 done
+#10 naming to docker.io/library/shopping-ui:latest done
+#10 DONE 0.0s
+
+#11 [ui] resolving provenance for metadata file
+#11 DONE 0.0s
+ ui  Built
+ Container pub-repo-b-ui-1  Recreate
+ Container pub-repo-b-ui-1  Recreated
+ Container pub-repo-b-ui-1  Starting
+ Container pub-repo-b-ui-1  Started
+[2026-10-31T13:16:58.644Z] running d4b205f
