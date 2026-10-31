@@ -132,6 +132,15 @@ public sealed record UxReport
 
     public IReadOnlyList<UxCell> Cells { get; init; } = [];
 
+    /// <summary>The judge's reading of each cell, in the cells' order, once the report has been judged (<see cref="UxJudging"/>).</summary>
+    public IReadOnlyList<UxJudgement> Judgements { get; init; } = [];
+
+    /// <summary>The summary written for the report, once judged.</summary>
+    public string? Summary { get; init; }
+
+    /// <summary>What judging and summarising cost; null when a model's price is unknown.</summary>
+    public decimal? JudgeCost { get; init; }
+
     /// <summary>How many times an account signed in during the matrix: once per account, unless a session expired.</summary>
     public int SignIns { get; init; }
 
@@ -184,13 +193,14 @@ public sealed record UxReport
             sb.AppendLine();
         }
 
-        sb.AppendLine("| task | persona | env | tester | data | page said done | believed done | ticks | lies caught | escalations | cost | note |");
-        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|");
+        var findings = Judgements.ToDictionary(j => j.Cell, j => string.Join(", ", j.Findings.Select(UxJudgement.Name)));
+        sb.AppendLine("| task | persona | env | tester | design | data | page said done | believed done | ticks | lies caught | escalations | cost | note |" + (findings.Count > 0 ? " findings |" : ""));
+        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|" + (findings.Count > 0 ? "---|" : ""));
         foreach (var c in Cells)
         {
             var note = c.Error ?? (c.UncaughtLie ? "lie not caught" : c.BelievedNotDone ? "believed done, not done" : c.PageSaidNotDone ? "page said done, not done" : "");
             sb.AppendLine(string.Create(TraceText.Culture,
-                $"| {c.Task} | {c.Persona} | {c.Environment} | {c.Tester} | {(c.Error is not null ? "not run" : c.DataDone ? "done" : "not done")} | {(c.PageSaidDone ? "yes" : "")} | {(c.BelievedDoneAt is { } t ? $"tick {t}" : "")} | {c.Ticks} | {c.LiesCaught} | {c.Escalations} | {(c.Cost is { } k && k > 0 ? k.ToString("0.####", TraceText.Culture) : "")} | {note} |"));
+                $"| {c.Task} | {c.Persona} | {c.Environment} | {c.Tester} | {c.Design} | {(c.Error is not null ? "not run" : c.DataDone ? "done" : "not done")} | {(c.PageSaidDone ? "yes" : "")} | {(c.BelievedDoneAt is { } t ? $"tick {t}" : "")} | {c.Ticks} | {c.LiesCaught} | {c.Escalations} | {(c.Cost is { } k && k > 0 ? k.ToString("0.####", TraceText.Culture) : "")} | {note} |") + (findings.Count > 0 ? $" {findings.GetValueOrDefault(c.Key, "")} |" : ""));
         }
 
         return sb.ToString();

@@ -114,7 +114,24 @@ public sealed class UxCommandTests
         Assert.Equal(0, (await Ux("gate", broken, "--min-done", "0", "--baseline", held, "--max-regressions", "1")).Code);
     }
 
+    [Fact]
+    public async Task JudgeWritesTheFindingsAndTheSummaryBesideTheReport()
+    {
+        using var temp = new TempHome();
+        var report = WriteReport(temp, "r", true, false);
+        var (code, output, err) = await Ux("judge", report);
+        Assert.True(code == 0, err);
+        Assert.Contains("judged by rules: ok 1, app-lied 1, not-done 1", output);
+        var folder = Path.GetDirectoryName(report)!;
+        Assert.Contains("- app-lied: 1 cell", File.ReadAllText(Path.Combine(folder, "summary.md")));
+        Assert.True(File.Exists(Path.Combine(folder, "judgements.json")));
+    }
+
     [Theory]
+    [InlineData(new string[] { "judge", "x", "--judge", "model:nobody" }, "no model 'nobody'")]
+    [InlineData(new string[] { "judge", "x", "--summary", "rules" }, "--summary takes model:<name>")]
+    [InlineData(new string[] { "judge" }, "ux judge takes one report")]
+    [InlineData(new string[] { "matrix", "--demo", "--judge", "model:nobody" }, "no model 'nobody'")]
     [InlineData(new string[] { "compare", "one" }, "two reports")]
     [InlineData(new string[] { "gate" }, "one report")]
     [InlineData(new string[] { "gate", "/no/such/report" }, "could not be read")]

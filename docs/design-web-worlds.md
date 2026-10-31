@@ -1,6 +1,6 @@
 # Design: web worlds, where a persona uses a real app and the app's data is the judge
 
-**Status:** design note, with phases 1, 2a and 2b and persona memory with a design axis built (below). Written 2026-10-31. Nothing here has been run against a real
+**Status:** design note, with phases 1, 2a, 2b and 2c (the summary and judge seats), persona memory and a design axis built (below). Written 2026-10-31. Nothing here has been run against a real
 model or a real app yet; what was run is the bundled demo, offline, in a real Chromium.
 
 **Built:** phase 1, `src/Creatura.Worlds.Web` (`WebWorld`, the observation, the tools, the declarative check, the
@@ -8,7 +8,8 @@ barriers, the two seats, the demo), `creatura ux run` and `tests/Creatura.Worlds
 report, compare and the gate (`UxMatrix`, `UxReport`, `UxComparison`, `UxGate`, `creatura ux matrix | compare | gate`);
 phase 2b, sign-in once per account with the session kept and reused, sessionStorage put back (`UxSessions`), and a
 Singular adapter template (`samples/ux/singular-starter.adapter.json`, not run against an app); persona memory and the
-design axis (`UxMemory`, `UxDesigns`, `--designs`, `--memory`). The rest is a design.
+design axis (`UxMemory`, `UxDesigns`, `--designs`, `--memory`); phase 2c's judge and summary writer (`UxJudge`,
+`UxSummary`, `creatura ux judge`). Vision on the triggers and the stuck triggers as an alarm are still a design.
 
 ## The problem
 
@@ -261,7 +262,44 @@ creatura ux matrix --demo --barriers save-lies --design bach --out runs/ux/lie
 creatura ux gate runs/ux/lie --min-done 0 --max-regressions 99 --baseline runs/ux/main   # every lie caught: exit 0
 ```
 
-The summary writer and the judge (two more seats, reading only the traces and the three verdicts) are phase 2c.
+The summary writer and the judge are phase 2c, below.
+
+## The judge and the summary writer (phase 2c, built)
+
+uxkit's last two model roles. Both read the report, never the app.
+
+**The judge** (`UxJudge`) reads one cell and answers from a closed set of findings, so judgements count and compare:
+
+| finding | when |
+|---|---|
+| `app-lied` | the page said a save went through and the data does not show it |
+| `persona-overclaimed` | the persona said it was done and the data says not |
+| `design-missed-lie` | the world told a lie the run did not block |
+| `not-done` | the data does not show the task done |
+| `not-run` | the cell could not run |
+| `friction` | wrong turns, repeated actions, escalations, a control the persona could not find |
+| `ok` | done, and nothing above |
+
+The first five follow from the cell's verdicts, and **the rules** (`UxJudge.Rules`, no model) always find them. A
+**model judge** (`--judge model:<name>`) is shown the verdicts and the cell's trace (at most 60 rows), never the
+screen. It answers `{findings, why, ticks}`: it can add `friction`, which only a reading of the trace can find, and it
+explains with tick numbers. It is **held to the rules** (`UxJudge.Hold`): a finding the verdicts require and it left
+out is put back; one they deny (`ok` on a cell not done, `app-lied` where the page said nothing) is struck; a name
+outside the set is dropped. Each is recorded as a correction on the judgement, and the summary lists them. So a model
+judge can explain a cell but cannot change its verdict, and how often the rules correct it is a measure of the judge.
+A judge that fails or answers nothing readable falls back to the rules, and its judgement says so. A cell that did not
+run is never sent.
+
+**The summary writer** (`UxSummary`) writes the facts first, always, by code: the totals, the totals by design, the
+findings counted, each cell with findings once (its findings, why, ticks), how many cells were ok, and the rules'
+corrections. A model (`--summary model:<name>`) may add one paragraph for the app's owner beneath them, under a heading
+that names it and says the facts above are the record. It never replaces a fact, and a failed call leaves the facts
+alone with a line saying it failed.
+
+A matrix is always judged, by the rules unless a model is named, and leaves `judgements.json` and `summary.md` beside
+the report. `report.json` keeps the judgements, the summary and what judging cost, and `report.md` gains a findings
+column. `creatura ux judge <report> [--judge model:<name>] [--summary model:<name>]` judges a report again: with
+another judge, or after the fact, reading each cell's trace back from `traces/`.
 
 ## Pre-registered tests, written before the code
 
@@ -286,6 +324,8 @@ The summary writer and the judge (two more seats, reading only the traces and th
 | W18 | the design is an axis: every cell runs once per design named, the key holds the design, the report's totals are split by design | anything else | holds |
 | W19 | with memory carried, a persona's cells start from the record its earlier cells left (cases, the design's carry, lessons); read starts every cell from the same record and saves nothing | anything else | holds |
 | W20 | lies are counted by the world: told when a commit the page took is not in the data, caught when the loop blocked that tool on that tick; under `save-lies` plain, Bach, the map-keeper and the orienting agent each catch the one lie told | a lie miscounted, or a design's catch missed for its words | holds |
+| W21 | the rules find every finding the verdicts decide; a model judge is held to them (required put back, denied struck, unknown dropped, each a correction); a failed judge falls back to the rules and says so | a model judgement that contradicts the data, or a correction not recorded | holds (stub models) |
+| W22 | the summary is the facts by code, each cell once; a model's paragraph comes after them, named, and a failed call leaves the facts | a fact missing or changed by a model | holds (stub models) |
 | W14 | the gate exits 1 naming every threshold broken, 0 when none is; with the lie barrier the demo breaks `minDone`, and holds `maxUncaughtLies 0` under Bach | anything else | holds |
 
 ## Results (phase 1, 2026-10-31)
@@ -338,6 +378,15 @@ Playwright (`System.TimeoutException`, not a `PlaywrightException`) crashed a ce
 now caught everywhere, and a test fails without the fix. Not verified: a model persona reading its lessons (the prompt
 is tested, a model's use of it is not), and whether carried records make any design better at a real app.
 
+## Results (phase 2c, 2026-10-31)
+
+Run the same way, offline. W21 and W22 hold: `JudgeTests` (7) with stub models, and command tests for `ux judge`. On
+the demo under `save-lies` with plain and Bach, the rules judged all 4 cells `app-lied` and `not-done`, with every lie
+caught, and wrote the summary beside the report. In the tests, a stub judge that called a lied-to cell `ok` with
+`friction` was corrected to `app-lied`, `not-done`, `friction`, with three corrections recorded. Not verified: any
+real model as judge or summary writer (how often the rules must correct one is the number to watch), and whether a
+model finds `friction` where a person would.
+
 ## Decisions for the owner
 
 | | decision | options | recommendation |
@@ -355,7 +404,7 @@ is tested, a model's use of it is not), and whether carried records make any des
 | 2a | the full matrix (tasks × personas × environments × testers), the report (json, csv, markdown, traces), compare, gate | W11 to W14 (done) |
 | 2b | sign-in once per account, storage state kept and reused, sessionStorage put back; a Singular template | W15 to W17 (done); W9 on PhotoSet or Cosmos is still open, with the template filled in |
 | 2b+ | persona memory (records and lessons, carry or read) and the design axis | W18 to W20 (done) |
-| 2c | the summary writer and the judge as seats; vision on the triggers; the stuck triggers as a regulator alarm | W10; the judge's findings agree with W9's person |
+| 2c | the summary writer and the judge as seats (built: W21, W22); vision on the triggers and the stuck triggers as an alarm (not built); vision on the triggers; the stuck triggers as a regulator alarm | W10; the judge's findings agree with W9's person |
 | 3 | barriers on the page (a moving button, a covered control), `scroll`, record and replay of web runs | a design's catch rate per barrier, per viewport |
 
 ## What this note does not cover

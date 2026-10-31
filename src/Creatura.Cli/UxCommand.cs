@@ -21,6 +21,7 @@ public static class UxCommand
                creatura ux matrix (--demo | --adapter <file.json>) [options] [--out <dir>] [--baseline <report>] [--gate]
                creatura ux compare <before report> <after report>
                creatura ux gate <report> [--baseline <report>] [thresholds]
+               creatura ux judge <report> [--judge model:<name>] [--summary model:<name>]
                creatura ux list (--demo | --adapter <file.json>)
                creatura ux adapter          print the demo's adapter, to start a file of your own from
 
@@ -60,6 +61,10 @@ public static class UxCommand
           --browser <path>             a Chromium to launch instead of Playwright's own
           --headed                     show the browser
 
+        judge (a matrix is always judged by the rules, offline; a model adds a reading of the trace, held to the verdicts):
+          --judge rules|model:<name>   who reads each cell for findings (default rules)
+          --summary model:<name>       a model writes one paragraph for the app's owner under the facts (default: none)
+
         gate thresholds (override the report's gate):
           --min-done <0..1> --max-believed-not-done <n> --max-page-said-not-done <n> --max-uncaught-lies <n>
           --max-cost <n> --max-errors <n> --max-regressions <n>
@@ -84,7 +89,7 @@ public static class UxCommand
             return 0;
         }
 
-        if (verb is not ("run" or "list" or "matrix" or "compare" or "gate")) return Fail(error, $"unknown ux command: {verb}");
+        if (verb is not ("run" or "list" or "matrix" or "compare" or "gate" or "judge")) return Fail(error, $"unknown ux command: {verb}");
 
         var flags = new HashSet<string>(StringComparer.Ordinal);
         var options = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -101,8 +106,9 @@ public static class UxCommand
         {
             "run" => ["--adapter", "--base-url", "--task", "--persona", "--env", "--barriers", "--seat", "--escalate", "--design", "--ticks", "--log", "--browser", "--sessions", "--memory", "--records"],
             "matrix" => ["--adapter", "--base-url", "--tasks", "--personas", "--envs", "--testers", "--barriers", "--escalate", "--design", "--designs", "--memory", "--records", "--ticks", "--log",
-                         "--browser", "--max-cost", "--out", "--baseline", "--sessions"],
+                         "--browser", "--max-cost", "--out", "--baseline", "--sessions", "--judge", "--summary"],
             "gate" => ["--baseline", .. Thresholds],
+            "judge" => ["--judge", "--summary", "--log"],
             "compare" => [],
             _ => ["--adapter", "--base-url"],
         };
@@ -110,6 +116,15 @@ public static class UxCommand
         if (unknown.Count > 0) return Fail(error, $"unknown option for ux {verb}: {string.Join(", ", unknown)}");
         if (verb is "compare") return positional.Count == 2 ? Compare(positional[0], positional[1], output, error) : Fail(error, "ux compare takes two reports: before and after");
         if (verb is "gate") return positional.Count == 1 ? Gate(positional[0], options, output, error) : Fail(error, "ux gate takes one report");
+        if (verb is "judge")
+        {
+            if (positional.Count != 1) return Fail(error, "ux judge takes one report");
+            if (Judges(options, error) is not { } judges) return 2;
+            if (Read(positional[0], error) is not { } toJudge) return 2;
+            var folder = Directory.Exists(positional[0]) ? positional[0] : Path.GetDirectoryName(Path.GetFullPath(positional[0]))!;
+            await JudgeAsync(toJudge, judges.Judge, judges.Summary, folder, output);
+            return 0;
+        }
         if (positional.Count > 0) return Fail(error, $"unexpected argument: {positional[0]}");
 
         var demo = flags.Contains("--demo");
@@ -276,6 +291,7 @@ public static class UxCommand
         }
 
         if (flags.Contains("--gate") && adapter.Gate is null) return Fail(error, "--gate needs a gate in the adapter");
+        if (Judges(options, error) is not { } judges) return 2;
         var outDir = options.GetValueOrDefault("--out")
             ?? Path.Combine("runs", "ux", $"{Observation.Slug(adapter.App)}-{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}");
         var models = cells.Count(c => UxSeats.IsModel(c.Tester));
@@ -303,6 +319,8 @@ public static class UxCommand
 
         var json = report.Write(outDir);
         output.WriteLine();
+        report = await JudgeAsync(report, judges.Judge, judges.Summary, outDir, output);
+        output.WriteLine();
         output.WriteLine(report.Totals());
         if (designs.Count > 1)
         {
@@ -319,6 +337,45 @@ public static class UxCommand
 
         if (!flags.Contains("--gate")) return 0;
         return Verdict(adapter.Gate!.Breaches(report, baseline), output);
+    }
+
+    /// <summary>The judge and the summary writer the options name: the rules and the facts alone by default; a model each when named.</summary>
+    private static (UxJudge Judge, UxSummary Summary)? Judges(Dictionary<string, string> options, TextWriter error)
+    {
+        var catalog = ModelCatalog.Current;
+        var log = options.TryGetValue("--log", out var path) ? new CallLog(path) : null;
+        var client = new ModelClient();
+        ModelEndpoint? Model(string option)
+        {
+            if (!options.TryGetValue(option, out var spec) || spec == "rules") return null;
+            var name = spec.StartsWith("model:", StringComparison.Ordinal) ? spec["model:".Length..] : spec;
+            var endpoint = catalog.TryFind(name) ?? throw new ArgumentException($"{option}: no model '{name}' in the catalog ({catalog.Source}); known: {string.Join(", ", catalog.Names)}");
+            if (SeatFactory.MissingKey(endpoint) is { } missing) throw new ArgumentException($"{endpoint.Name} needs a key in {missing}: set it and retry");
+            return endpoint;
+        }
+
+        try
+        {
+            if (options.GetValueOrDefault("--summary") == "rules") throw new ArgumentException("--summary takes model:<name>; the facts are always written");
+            return (new UxJudge(Model("--judge"), client, log), new UxSummary(Model("--summary"), client, log));
+        }
+        catch (ArgumentException e)
+        {
+            Fail(error, e.Message);
+            return null;
+        }
+    }
+
+    /// <summary>Judges the report's cells, writes the judgements and the summary beside it, and prints the findings.</summary>
+    private static async Task<UxReport> JudgeAsync(UxReport report, UxJudge judge, UxSummary summary, string folder, TextWriter output)
+    {
+        var judged = await InCulture(() => UxJudging.RunAsync(report, judge, summary, folder));
+        var counts = judged.Judgements.SelectMany(j => j.Findings).GroupBy(f => f).OrderBy(g => g.Key)
+            .Select(g => string.Create(CultureInfo.InvariantCulture, $"{UxJudgement.Name(g.Key)} {g.Count()}"));
+        output.WriteLine($"judged by {judge.Name}: {string.Join(", ", counts)}" +
+            (judged.Judgements.Count(j => j.Corrections.Count > 0) is var n and > 0 ? $"; the rules corrected the judge in {n} cell{(n == 1 ? "" : "s")}" : ""));
+        output.WriteLine($"summary: {Path.Combine(folder, UxJudging.SummaryFile)}; judgements: {Path.Combine(folder, UxJudging.JudgementsFile)}");
+        return judged;
     }
 
     /// <summary>Where signed-in sessions are kept between runs (<c>--sessions</c>); in memory, for this run only, without it.</summary>

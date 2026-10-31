@@ -465,6 +465,12 @@ design keeps a Creatura record: the design's own carry (Bach's self-model and pr
 inhibition) and one-line lessons the harness writes from each cell's verdicts, which a model persona is shown as what
 it remembers.
 
+Every matrix is judged. The rules find what the verdicts decide (`app-lied`, `persona-overclaimed`,
+`design-missed-lie`, `not-done`). `--judge model:<name>` adds a model that reads each cell's trace, may add `friction`,
+and is held to the verdicts: anything it gets wrong is corrected and recorded. `summary.md` is the facts, written by
+code, with an optional model paragraph (`--summary model:<name>`) beneath them. `creatura ux judge <report>` judges a
+report again.
+
 ## Anatomy
 
 [docs/anatomy.html](docs/anatomy.html) draws Creatura in five plates: the project's icon, a winged lion, with each

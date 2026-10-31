@@ -26,6 +26,12 @@
   cell after cell or read frozen. Lies in a web cell are now counted by the world's truth (told) and the trace's blocked
   row (caught), so the orienting agent's catches count; a save refused again on a page still showing its error is no
   longer read as a success; Playwright's `TimeoutException` fails the action instead of the cell. W18 to W20 hold.
+- **Web worlds, phase 2c: the judge and the summary writer.** `UxJudge` answers a closed set of findings per cell. The
+  rules (no model) find every finding the verdicts decide; a model judge reads the verdicts and the trace, may add
+  `friction`, and is held to the rules, with each correction recorded. `UxSummary` writes the facts by code and an
+  optional model paragraph beneath them. Every matrix is judged (`judgements.json`, `summary.md`, a findings column in
+  `report.md`); `creatura ux judge <report> [--judge model:<name>] [--summary model:<name>]` judges again. W21 and
+  W22 hold with stub models.
 
 ## 0.2.0-preview.3 (2026-10-30)
 

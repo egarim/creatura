@@ -57,7 +57,7 @@ public class ReportTests
             var csv = File.ReadAllLines(Path.Combine(dir, "cells.csv"));
             Assert.Equal(UxReport.CsvHeader, csv[0]);
             Assert.Equal(3, csv.Length);
-            Assert.Contains("| careful | phone | script:demo | not done | yes |", File.ReadAllText(Path.Combine(dir, "report.md")));
+            Assert.Contains("| careful | phone | script:demo | plain | not done | yes |", File.ReadAllText(Path.Combine(dir, "report.md")));
         }
         finally
         {
