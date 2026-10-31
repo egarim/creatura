@@ -20,27 +20,35 @@ public sealed record GoalOffer(string Id, string To, string Goal, DateTimeOffset
 
     public string? Folder { get; init; }
 
+    /// <summary>The quiet time, in minutes, for the cells on this goal (docs/design-turns.md), when the owner sets one; signed only when set, so earlier offers verify as before.</summary>
+    public int? Quiet { get; init; }
+
     public string OwnerFingerprint => CellKey.FingerprintOf(OwnerPublicKey);
 
     public static string NewId() => "of-" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(5));
 
-    public byte[] SignedBytes() => CellJson.CanonicalBytes(JsonSerializer.SerializeToElement(new Dictionary<string, string?>
+    public byte[] SignedBytes()
     {
-        ["purpose"] = Purpose,
-        ["id"] = Id,
-        ["to"] = To,
-        ["goal"] = Goal,
-        ["repo"] = Repo,
-        ["branch"] = Branch,
-        ["folder"] = Folder,
-        ["issuedAt"] = CellJson.Stamp(IssuedAt),
-        ["expiresAt"] = CellJson.Stamp(ExpiresAt),
-        ["ownerPublicKey"] = OwnerPublicKey,
-    }));
+        var fields = new Dictionary<string, string?>
+        {
+            ["purpose"] = Purpose,
+            ["id"] = Id,
+            ["to"] = To,
+            ["goal"] = Goal,
+            ["repo"] = Repo,
+            ["branch"] = Branch,
+            ["folder"] = Folder,
+            ["issuedAt"] = CellJson.Stamp(IssuedAt),
+            ["expiresAt"] = CellJson.Stamp(ExpiresAt),
+            ["ownerPublicKey"] = OwnerPublicKey,
+        };
+        if (Quiet is { } quiet) fields["quiet"] = quiet.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return CellJson.CanonicalBytes(JsonSerializer.SerializeToElement(fields));
+    }
 
-    /// <summary>True when it says something, lapses after it was made, and the owner's signature verifies.</summary>
+    /// <summary>True when it says something, lapses after it was made, its quiet time if any is above zero, and the owner's signature verifies.</summary>
     public bool Verify() =>
-        !string.IsNullOrWhiteSpace(Id) && !string.IsNullOrWhiteSpace(To) && !string.IsNullOrWhiteSpace(Goal) && ExpiresAt > IssuedAt
+        !string.IsNullOrWhiteSpace(Id) && !string.IsNullOrWhiteSpace(To) && !string.IsNullOrWhiteSpace(Goal) && ExpiresAt > IssuedAt && Quiet is null or > 0
         && !string.IsNullOrEmpty(Signature) && CellKey.Verify(OwnerPublicKey, SignedBytes(), Signature);
 }
 

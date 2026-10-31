@@ -175,7 +175,12 @@ public sealed class WorkLedger
                 case EntryKind.Claim:
                     if (string.IsNullOrWhiteSpace(entry.Body<ClaimPayload>().Goal)) return "a claim with no goal";
                     break;
-                case EntryKind.Progress: _ = entry.Body<ProgressPayload>(); break;
+                case EntryKind.Progress:
+                    var progress = entry.Body<ProgressPayload>();
+                    if (progress.WaitingOn is not null && string.IsNullOrWhiteSpace(progress.WaitingOn)) return "a wait on nothing";
+                    if (progress.Topic is not null && string.IsNullOrWhiteSpace(progress.Topic)) return "a proposal on no topic";
+                    if ((progress.Answers is null) != (progress.Verdict is null)) return "an answer with no proposal or no verdict";
+                    break;
                 case EntryKind.HandOff: _ = entry.Body<HandOffPayload>(); break;
                 case EntryKind.Release: _ = entry.Body<ReleasePayload>(); break;
                 case EntryKind.Heartbeat: _ = entry.Body<HeartbeatPayload>(); break;
