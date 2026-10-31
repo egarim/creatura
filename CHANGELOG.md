@@ -17,6 +17,11 @@
   the winner, the settled plan says who builds which half, and the halves find each other by service name whichever
   repository holds them. Both ship 5 of 5 on a Docker host; the X0 pairs score as before. The run's `summary.json`
   counts the waits, proposals and answers and names whose plan was accepted.
+- **A creature driven by DeepSeek** in the two-creatures harness (`agents/model.mjs`, `--agents deepseek,deepseek`):
+  the goal of `agents/goal.md` (now with `wait`, `propose`, `answer` and `turn`), a shell, a step and dollar budget,
+  a transcript and the spend in `summary.json`; the key stays out of the shell and the record. The goal-only run of
+  docs/design-turns.md (T2) runs this way for API tokens, after two cloud-session attempts stopped at their
+  permission classifier.
 
 ## 0.2.0-preview.3 (2026-10-30)
 

@@ -234,3 +234,12 @@ matched them to the letter, and the classifier refused them anyway. So in a clou
 session's. What remains is the owner's: sessions started from the app, where the probe's runs 2 to 4 downloaded
 and ran the CLI without the classifier firing, or a permission mode without it, or a machine the owner controls.
 Experiment log #68 and #69.
+
+**Moved to DeepSeek (2026-10-31).** The cloud credits ran out before a third attempt, so the goal-only pair moves
+off Claude Code cloud sessions and into the harness: `experiments/two-creatures/agents/model.mjs` is a creature
+driven by a hosted model (DeepSeek through its API, the convoy's seat) with the goal of `agents/goal.md`, now with
+the turn commands, and a shell; `run.mjs --arm DD-L --agents deepseek,deepseek` runs the pair on a Docker host for
+API tokens (about USD 1 a creature at the budget's cap), judged by the outside test as every other run. Proven so
+far with a scripted mock of the endpoint (`agents/model-smoke.mjs`, log #70); the live pair needs the owner's key,
+on the owner's Docker host or as this environment's secret. T2's question, whether a goal-only pair waits politely
+or both lead and whether `turn` resolves it, is then asked of DeepSeek rather than of Claude Code.

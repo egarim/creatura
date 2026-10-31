@@ -172,6 +172,12 @@ goal word for word; the polite pair then waits on each other and the simultaneou
 `creatura cell turn` settles who moves and whose plan stands. Both ship 5 of 5, and the plan decides which creature
 builds which half: in the runs so far the halves went the other way round from X0's written-in roles.
 
+**The first real agent (2026-10-31):** `agents/model.mjs`, a creature driven by a hosted model (DeepSeek, the
+convoy's seat) with the goal above, filled in for its arm, and a shell. `--agents deepseek,deepseek` runs a pair on a
+Docker host for API tokens; the model's key never reaches the shell it runs, the transcript or the record. The
+Claude Code and Codex pairings of the arms table still wait for X1's VMs: cloud sessions could not build or run the
+CLI past their permission classifier (design-turns.md, "Attempted T2").
+
 ## What this note does not cover
 
 - Agents on different operating systems. All three VMs are Linux; one body on each system is design-embodiment.md's
