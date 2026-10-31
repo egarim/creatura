@@ -4,7 +4,7 @@ namespace Creatura.Worlds.Web;
 
 /// <summary>
 /// A tester by name, as a run or a matrix names it: <c>script:&lt;path&gt;</c> (the offline seat), <c>script:demo</c> (the
-/// demo's bundled script), or <c>model:&lt;catalog name&gt;</c> (a persona over that model, with the adapter's
+/// demo's bundled script for the task), or <c>model:&lt;catalog name&gt;</c> (a persona over that model, with the adapter's
 /// escalation model when it names one). <see cref="Check"/> says what is wrong before any browser starts;
 /// <see cref="Build"/> seats the tester in an opened world.
 /// </summary>
@@ -53,13 +53,13 @@ public sealed class UxSeats
     }
 
     /// <summary>The tester seated in an opened world, as this persona on this device. Call <see cref="Check"/> first.</summary>
-    public IPolicy Build(string tester, UxAdapter adapter, UxPersona persona, UxEnvironment environment, WebWorld world)
+    public IPolicy Build(string tester, UxAdapter adapter, UxTask task, UxPersona persona, UxEnvironment environment, WebWorld world)
     {
         if (!IsModel(tester))
         {
             var path = tester["script:".Length..];
             return path == "demo"
-                ? new WebScriptPolicy(DemoFiles.Script, () => world.Current, BundledScript)
+                ? new WebScriptPolicy(DemoFiles.ScriptFor(task.Id), () => world.Current, BundledScript)
                 : WebScriptPolicy.FromFile(path, () => world.Current);
         }
 

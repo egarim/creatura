@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <Compile Include="..\TestCulture.cs" Link="TestCulture.cs" />
+    <!-- The Singular template, checked to parse. -->
+    <None Include="..\..\samples\ux\singular-starter.adapter.json" Link="singular-starter.adapter.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

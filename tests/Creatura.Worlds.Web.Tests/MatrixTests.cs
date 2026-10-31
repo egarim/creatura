@@ -131,9 +131,10 @@ public class ReportTests
     {
         var adapter = DemoFiles.Adapter();
         var all = UxMatrix.Cells(adapter, new UxMatrixSpec());
-        Assert.Equal(4, all.Count);   // 1 task × 2 personas × 2 environments × the adapter's 1 tester
-        Assert.Equal(["hurried/phone", "hurried/desktop", "careful/phone", "careful/desktop"], all.Select(c => $"{c.Persona.Id}/{c.Environment.Id}"));
-        var some = UxMatrix.Cells(adapter, new UxMatrixSpec { Environments = ["phone"], Testers = ["script:demo", "model:x"] });
+        Assert.Equal(8, all.Count);   // 2 tasks × 2 personas × 2 environments × the adapter's 1 tester
+        Assert.Equal(["hurried/phone", "hurried/desktop", "careful/phone", "careful/desktop"], all.Take(4).Select(c => $"{c.Persona.Id}/{c.Environment.Id}"));
+        Assert.Equal(["remember-milk", "private-bread"], all.Select(c => c.Task.Id).Distinct());
+        var some = UxMatrix.Cells(adapter, new UxMatrixSpec { Tasks = ["remember-milk"], Environments = ["phone"], Testers = ["script:demo", "model:x"] });
         Assert.Equal(4, some.Count);
         Assert.Throws<ArgumentException>(() => UxMatrix.Cells(adapter, new UxMatrixSpec { Personas = ["nobody"] }));
         Assert.Throws<ArgumentException>(() => UxMatrix.Cells(adapter with { Limits = adapter.Limits with { Testers = [] } }, new UxMatrixSpec()));
@@ -170,10 +171,10 @@ public class MatrixBrowserTests(DemoFixture demo) : IClassFixture<DemoFixture>
         var adapter = demo.App.Adapter();
         var seen = new List<UxCell>();
         var report = await UxMatrix.RunAsync(demo.Browser, adapter, new UxMatrixSpec(), new UxSeats(), progress: seen.Add);
-        Assert.Equal(4, report.Cells.Count);
+        Assert.Equal(8, report.Cells.Count);
         Assert.Equal(report.Cells, seen);
         Assert.All(report.Cells, c => Assert.True(c.DataDone, c.Summary()));
-        Assert.Equal(["phone", "desktop", "phone", "desktop"], report.Cells.Select(c => c.Environment));
+        Assert.Equal(["phone", "desktop", "phone", "desktop"], report.Cells.Take(4).Select(c => c.Environment));
         Assert.Empty(adapter.Gate!.Breaches(report));
     }
 
@@ -181,7 +182,7 @@ public class MatrixBrowserTests(DemoFixture demo) : IClassFixture<DemoFixture>
     public async Task UnderTheLieTheGateBreaksAndCompareNamesEveryRegression()
     {
         var adapter = demo.App.Adapter();
-        var spec = new UxMatrixSpec { Environments = ["desktop"] };
+        var spec = new UxMatrixSpec { Tasks = ["remember-milk"], Environments = ["desktop"] };
         var clean = await UxMatrix.RunAsync(demo.Browser, adapter, spec, new UxSeats());
         var lie = await UxMatrix.RunAsync(demo.Browser, adapter, spec with { Barriers = ["save-lies"] }, new UxSeats(),
             (policy, task) => AgentCatalog.Make("bach", policy, task), "bach");
@@ -199,7 +200,7 @@ public class MatrixBrowserTests(DemoFixture demo) : IClassFixture<DemoFixture>
     public async Task ACellThatCannotOpenIsRecordedAndTheMatrixGoesOn()
     {
         var adapter = demo.App.Adapter() with { BaseUrl = "http://127.0.0.1:1/" };   // nothing listens there
-        var report = await UxMatrix.RunAsync(demo.Browser, adapter, new UxMatrixSpec { Personas = ["hurried"] }, new UxSeats());
+        var report = await UxMatrix.RunAsync(demo.Browser, adapter, new UxMatrixSpec { Tasks = ["remember-milk"], Personas = ["hurried"] }, new UxSeats());
         Assert.Equal(2, report.Errors);
         Assert.All(report.Cells, c => Assert.NotNull(c.Error));
         Assert.Contains("no cell ran", new UxGate().Breaches(report));

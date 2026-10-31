@@ -51,6 +51,8 @@ public static class UxCommand
           --design plain|<name>        the design in the loop (default plain: the control layer alone); creatura run --list
           --ticks <n>                  at most n steps per cell (default: the adapter's limits.steps)
           --log <path>                 the model calls, one JSON line each
+          --sessions <dir>             keep each account's signed-in session here and reuse it next time (owner-only files
+                                       that hold tokens: keep the folder out of the repository); default: this run only
           --browser <path>             a Chromium to launch instead of Playwright's own
           --headed                     show the browser
 
@@ -93,9 +95,9 @@ public static class UxCommand
 
         string[] known = verb switch
         {
-            "run" => ["--adapter", "--base-url", "--task", "--persona", "--env", "--barriers", "--seat", "--escalate", "--design", "--ticks", "--log", "--browser"],
+            "run" => ["--adapter", "--base-url", "--task", "--persona", "--env", "--barriers", "--seat", "--escalate", "--design", "--ticks", "--log", "--browser", "--sessions"],
             "matrix" => ["--adapter", "--base-url", "--tasks", "--personas", "--envs", "--testers", "--barriers", "--escalate", "--design", "--ticks", "--log",
-                         "--browser", "--max-cost", "--out", "--baseline"],
+                         "--browser", "--max-cost", "--out", "--baseline", "--sessions"],
             "gate" => ["--baseline", .. Thresholds],
             "compare" => [],
             _ => ["--adapter", "--base-url"],
@@ -186,8 +188,8 @@ public static class UxCommand
         {
             try
             {
-                cell = await InCulture(() => UxRunner.RunAsync(browser, adapter, task, persona, environment, w => seats.Build(seat, adapter, persona, environment, w), agent,
-                    new WebWorldOptions { Barriers = barriers }, ticks));
+                cell = await InCulture(() => UxRunner.RunAsync(browser, adapter, task, persona, environment, w => seats.Build(seat, adapter, task, persona, environment, w), agent,
+                    new WebWorldOptions { Barriers = barriers, Sessions = Sessions(options) }, ticks));
             }
             catch (Exception e) when (WebBrowser.IsBrowserFailure(e))
             {
@@ -270,7 +272,7 @@ public static class UxCommand
         await using (browser)
         {
             report = await InCulture(() => UxMatrix.RunAsync(browser, adapter, spec, seats, agent, design,
-                cell => output.WriteLine("  " + cell.Summary())));
+                cell => output.WriteLine("  " + cell.Summary()), Sessions(options)));
         }
 
         var json = report.Write(outDir);
@@ -287,6 +289,10 @@ public static class UxCommand
         if (!flags.Contains("--gate")) return 0;
         return Verdict(adapter.Gate!.Breaches(report, baseline), output);
     }
+
+    /// <summary>Where signed-in sessions are kept between runs (<c>--sessions</c>); in memory, for this run only, without it.</summary>
+    private static UxSessions? Sessions(Dictionary<string, string> options) =>
+        options.TryGetValue("--sessions", out var folder) ? new UxSessions(folder) : null;
 
     private static int Compare(string before, string after, TextWriter output, TextWriter error)
     {

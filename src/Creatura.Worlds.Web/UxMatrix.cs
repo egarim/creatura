@@ -46,9 +46,12 @@ public static class UxMatrix
     }
 
     public static async Task<UxReport> RunAsync(WebBrowser browser, UxAdapter adapter, UxMatrixSpec spec, UxSeats seats,
-        Func<IPolicy, AgentTask, IAgent>? agent = null, string? design = null, Action<UxCell>? progress = null, CancellationToken cancellationToken = default)
+        Func<IPolicy, AgentTask, IAgent>? agent = null, string? design = null, Action<UxCell>? progress = null, UxSessions? sessions = null,
+        CancellationToken cancellationToken = default)
     {
         var cells = Cells(adapter, spec);
+        sessions ??= new UxSessions();
+        var (signInsBefore, reusedBefore) = (sessions.SignIns, sessions.Reused);
         var cap = spec.CostCap ?? adapter.Gate?.MaxCost;
         var results = new List<UxCell>();
         decimal spent = 0;
@@ -64,8 +67,8 @@ public static class UxMatrix
             {
                 try
                 {
-                    cell = await UxRunner.RunAsync(browser, adapter, task, persona, environment, w => seats.Build(tester, adapter, persona, environment, w), agent,
-                        new WebWorldOptions { Barriers = spec.Barriers }, spec.MaxTicks, cancellationToken).ConfigureAwait(false);
+                    cell = await UxRunner.RunAsync(browser, adapter, task, persona, environment, w => seats.Build(tester, adapter, task, persona, environment, w), agent,
+                        new WebWorldOptions { Barriers = spec.Barriers, Sessions = sessions }, spec.MaxTicks, cancellationToken).ConfigureAwait(false);
                     cell = cell with { Tester = tester };
                     spent += cell.Cost ?? 0;
                 }
@@ -82,6 +85,7 @@ public static class UxMatrix
         return new UxReport
         {
             App = adapter.App, At = DateTimeOffset.UtcNow, Design = design ?? "plain", Barriers = spec.Barriers, Gate = adapter.Gate, Cells = results,
+            SignIns = sessions.SignIns - signInsBefore, SessionsReused = sessions.Reused - reusedBefore,
         };
     }
 }
@@ -108,6 +112,12 @@ public sealed record UxReport
 
     public IReadOnlyList<UxCell> Cells { get; init; } = [];
 
+    /// <summary>How many times an account signed in during the matrix: once per account, unless a session expired.</summary>
+    public int SignIns { get; init; }
+
+    /// <summary>How many cells opened with a kept session instead of signing in.</summary>
+    public int SessionsReused { get; init; }
+
     public int Ran => Cells.Count(c => c.Error is null);
 
     public int Errors => Cells.Count(c => c.Error is not null);
@@ -132,7 +142,8 @@ public sealed record UxReport
 
     public string Totals() => string.Create(TraceText.Culture,
         $"{Done} of {Ran} cells done ({DoneRate:P0}); {BelievedNotDone} believed done but not; {PageSaidNotDone} the page said done but not; " +
-        $"{UncaughtLies} lie{(UncaughtLies == 1 ? "" : "s")} not caught; {LiesCaught} caught; {Errors} not run; cost {(Cost is { } c ? c.ToString("0.####", TraceText.Culture) : "unknown")}");
+        $"{UncaughtLies} lie{(UncaughtLies == 1 ? "" : "s")} not caught; {LiesCaught} caught; {Errors} not run; cost {(Cost is { } c ? c.ToString("0.####", TraceText.Culture) : "unknown")}")
+        + (SignIns + SessionsReused == 0 ? "" : $"; {SignIns} sign-in{(SignIns == 1 ? "" : "s")}, {SessionsReused} session{(SessionsReused == 1 ? "" : "s")} reused");
 
     public string ToMarkdown()
     {

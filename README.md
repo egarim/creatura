@@ -161,6 +161,7 @@ sample worlds are `Creatura.Worlds.Samples`; and `Creatura.Cli` is in `Creatura.
 | [samples/AgentFrameworkHost/](samples/AgentFrameworkHost) | the control layer on Agent Framework over the toy suite's four barriers, offline by default; `--compare` runs it beside the designs, `--seat <catalog name>` puts a model in it |
 | [samples/SemanticKernelHost/](samples/SemanticKernelHost) | the same on Semantic Kernel, with the same options |
 | [samples/Convoy/](samples/Convoy) | the convoy from the command line: one run, a battery, recordings, datasets, trial runs |
+| [samples/ux/](samples/ux) | a web-world adapter template for an app on the Singular starter (not yet run against one) |
 | [samples/models.json](samples/models.json) | the compiled model catalog written out, to copy beside an executable and edit |
 | [models/](models) | trained policy networks (plain JSON weights), embedded in Creatura.Scenarios |
 | [tools/convoy-viewer/](tools/convoy-viewer) | a three.js page that plays a convoy replay back as a story |
@@ -453,8 +454,10 @@ creatura ux gate runs/ux/branch --baseline runs/ux/main  # thresholds from the a
 The demo runs offline with no model. It needs a Chromium Playwright can launch (`PLAYWRIGHT_BROWSERS_PATH`, Playwright's
 own `playwright.ps1 install chromium`, or `--browser <path>`). A matrix leaves a folder: `report.json`, `cells.csv`,
 `report.md` and each cell's trace. The report counts three gaps apart: the persona believed it was done and the data
-says not; the page said done and the data says not; and a lie the run did not catch. The Singular adapter, with
-sign-in once per account and the session reused, is phase 2b.
+says not; the page said done and the data says not; and a lie the run did not catch. An account signs in once, by steps
+declared in the adapter. Its session (cookies, localStorage, and sessionStorage, where the Singular starter keeps its
+Keycloak token) is reused by every later cell, and with `--sessions <dir>` by the next run.
+[samples/ux/singular-starter.adapter.json](samples/ux/singular-starter.adapter.json) is a template for a Singular app.
 
 ## Anatomy
 

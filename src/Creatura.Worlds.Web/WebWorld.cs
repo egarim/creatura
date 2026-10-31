@@ -85,6 +85,9 @@ public sealed record WebWorldOptions
 
     public IUxHooks? Hooks { get; init; }
 
+    /// <summary>Where a task's account gets its session, signed in once and reused; a fresh set, for this world alone, when null.</summary>
+    public UxSessions? Sessions { get; init; }
+
     /// <summary>The client the check and the reset are made with; one of the world's own when null.</summary>
     public HttpClient? Http { get; init; }
 }
@@ -149,31 +152,51 @@ public sealed class WebWorld : IWorld, IAsyncDisposable
 
     public IPage Page => _page;
 
+    /// <summary>The account whose kept session this world was opened with, if any.</summary>
+    public string? SignedInAs { get; private set; }
+
     /// <summary>Opens the task's start page in a new browser context with the environment's viewport, the barriers routed, the data reset, the account signed in.</summary>
-    public static async Task<WebWorld> OpenAsync(WebBrowser browser, UxAdapter adapter, UxTask task, UxEnvironment environment, WebWorldOptions? options = null, CancellationToken cancellationToken = default)
+    public static Task<WebWorld> OpenAsync(WebBrowser browser, UxAdapter adapter, UxTask task, UxEnvironment environment, WebWorldOptions? options = null, CancellationToken cancellationToken = default) =>
+        OpenAsync(browser, adapter, task, environment, options ?? new WebWorldOptions(), retried: false, cancellationToken);
+
+    private static async Task<WebWorld> OpenAsync(WebBrowser browser, UxAdapter adapter, UxTask task, UxEnvironment environment, WebWorldOptions options, bool retried, CancellationToken cancellationToken)
     {
-        options ??= new WebWorldOptions();
         var barriers = options.Barriers.Select(adapter.Barrier).ToList();
+
+        // The account's session, signed in once and reused (a hook with no declared sign-in signs in on the world's own page, as in phase 1).
+        UxSession? session = null;
+        var sessions = options.Sessions ?? new UxSessions();
+        if (task.Account is { } accountId && adapter.SignIn is not null)
+        {
+            session = await sessions.GetAsync(browser, adapter, adapter.Account(accountId), options.Hooks, cancellationToken).ConfigureAwait(false);
+        }
+
         var context = await browser.Browser.NewContextAsync(new BrowserNewContextOptions
         {
             ViewportSize = new ViewportSize { Width = environment.Width, Height = environment.Height },
             IsMobile = environment.Mobile,
             HasTouch = environment.Mobile,
+            StorageState = session?.StorageState,
         }).ConfigureAwait(false);
         var http = options.Http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
         WebWorld? world = null;
         try
         {
+            if (session is not null && adapter.SignIn!.SessionStorage) await UxSessions.RestoreAsync(context, session).ConfigureAwait(false);
             var page = await context.NewPageAsync().ConfigureAwait(false);
             world = new WebWorld(adapter, task, environment, options, context, page, http, options.Http is null);
             world.Watch();
             foreach (var barrier in barriers) await world.RouteAsync(barrier).ConfigureAwait(false);
             await world.ResetAsync(cancellationToken).ConfigureAwait(false);
-            if (task.Account is { } account && options.Hooks is { } hooks) await hooks.SignInAsync(page, account, cancellationToken).ConfigureAwait(false);
+            if (task.Account is { } account && adapter.SignIn is null && options.Hooks is { } hooks) await hooks.SignInAsync(page, account, cancellationToken).ConfigureAwait(false);
             await page.GotoAsync(adapter.Resolve(task.Start)).ConfigureAwait(false);
             await world.SettleAsync().ConfigureAwait(false);
             await world.RefreshAsync(cancellationToken).ConfigureAwait(false);
-            return world;
+            if (session is null || await world.ShowsAsync(adapter.SignIn!.SignedInText, Math.Min(adapter.SignIn.TimeoutMs, 5000), cancellationToken).ConfigureAwait(false))
+            {
+                world.SignedInAs = session?.Account;
+                return world;
+            }
         }
         catch
         {
@@ -186,6 +209,14 @@ public sealed class WebWorld : IWorld, IAsyncDisposable
 
             throw;
         }
+
+        // The app no longer takes the kept session (it expired, or was revoked): sign in again, once.
+        await world.DisposeAsync().ConfigureAwait(false);
+        if (retried)
+            throw new InvalidOperationException($"{task.Account} signed in, but {task.Start} does not show \"{adapter.SignIn.SignedInText}\": the session did not carry over"
+                + (adapter.SignIn.SessionStorage ? "" : " (signIn.sessionStorage is off; does the app keep its token there?)"));
+        sessions.Invalidate(task.Account!);
+        return await OpenAsync(browser, adapter, task, environment, options with { Sessions = sessions }, retried: true, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task RouteAsync(UxBarrier barrier)
@@ -264,22 +295,8 @@ public sealed class WebWorld : IWorld, IAsyncDisposable
                     break;
                 default:
                     var control = before.ById(toolId)!;
-                    var target = _page.Locator($"[data-creatura-ref=\"{control.Ref.ToString(CultureInfo.InvariantCulture)}\"]");
-                    switch (control.Kind)
-                    {
-                        case ControlKind.Type:
-                            if (payload is null) return new ActionOutcome(toolId, false, [], "nothing to type");
-                            await target.FillAsync(payload, new LocatorFillOptions { Timeout = _options.ActionTimeoutMs }).ConfigureAwait(false);
-                            break;
-                        case ControlKind.Choose:
-                            if (payload is null) return new ActionOutcome(toolId, false, [], "no option named");
-                            await target.SelectOptionAsync(new SelectOptionValue { Label = payload }, new LocatorSelectOptionOptions { Timeout = _options.ActionTimeoutMs }).ConfigureAwait(false);
-                            break;
-                        default:
-                            await target.ClickAsync(new LocatorClickOptions { Timeout = _options.ActionTimeoutMs }).ConfigureAwait(false);
-                            break;
-                    }
-
+                    if (control.Kind != ControlKind.Click && payload is null) return new ActionOutcome(toolId, false, [], control.Kind == ControlKind.Type ? "nothing to type" : "no option named");
+                    await DoAsync(_page, control, payload, _options.ActionTimeoutMs).ConfigureAwait(false);
                     break;
             }
         }
@@ -296,6 +313,36 @@ public sealed class WebWorld : IWorld, IAsyncDisposable
         if (ErrorShown(before, Current) is { } error) return new ActionOutcome(toolId, false, [], $"the page says: {error}");
         if (tool.Kind == WebTools.SubmitKind) PageReportedCommit = true;
         return new ActionOutcome(toolId, true, tool.Grants, said);
+    }
+
+    /// <summary>
+    /// Whether the page shows the text within the time given, read again as it loads: a signed-in page fills in its user
+    /// only once its first request answers, which on a busy machine can be after the settle. The page is read anew when it does.
+    /// </summary>
+    private async Task<bool> ShowsAsync(string text, int timeoutMs, CancellationToken cancellationToken)
+    {
+        var deadline = System.Environment.TickCount64 + timeoutMs;
+        while (!Current.Text.Contains(text, StringComparison.OrdinalIgnoreCase))
+        {
+            if (System.Environment.TickCount64 >= deadline) return false;
+            await Task.Delay(150, cancellationToken).ConfigureAwait(false);
+            Current = await ObserveAsync(_page, _options.MaxText).ConfigureAwait(false);
+        }
+
+        await RefreshAsync(cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>Clicks, fills or chooses on the element the observation stamped for this control.</summary>
+    public static Task DoAsync(IPage page, Control control, string? payload, int timeoutMs)
+    {
+        var target = page.Locator($"[data-creatura-ref=\"{control.Ref.ToString(CultureInfo.InvariantCulture)}\"]");
+        return control.Kind switch
+        {
+            ControlKind.Type => target.FillAsync(payload ?? "", new LocatorFillOptions { Timeout = timeoutMs }),
+            ControlKind.Choose => target.SelectOptionAsync(new SelectOptionValue { Label = payload ?? "" }, new LocatorSelectOptionOptions { Timeout = timeoutMs }),
+            _ => target.ClickAsync(new LocatorClickOptions { Timeout = timeoutMs }),
+        };
     }
 
     /// <summary>Error text the adapter names that is on the page now and was not before.</summary>

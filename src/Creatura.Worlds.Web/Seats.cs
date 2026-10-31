@@ -84,9 +84,9 @@ public sealed class WebScriptPolicy : IPolicy
         if (_next >= _steps.Count) return new PolicySuggestion(null, "script exhausted");
         var step = _steps[_next++];
         var tag = $"script step {_next}: {step}";
-        var space = step.IndexOf(' ');
-        var verb = (space < 0 ? step : step[..space]).ToLowerInvariant();
-        var rest = space < 0 ? "" : step[(space + 1)..].Trim();
+        var parsed = ScriptStep.Parse(step);
+        if (parsed is null) return new PolicySuggestion(null, $"{tag}: needs 'name: text'");
+        var (verb, name, text) = parsed;
         switch (verb)
         {
             case "back": return Visible(WebTools.Back, tag, null, context);
@@ -94,22 +94,36 @@ public sealed class WebScriptPolicy : IPolicy
             case "give": return new PolicySuggestion(null, tag);
         }
 
-        string name = rest, text = "";
-        if (verb is "type" or "choose")
-        {
-            var colon = rest.IndexOf(':');
-            if (colon < 0) return new PolicySuggestion(null, $"{tag}: needs 'name: text'");
-            (name, text) = (rest[..colon].Trim(), rest[(colon + 1)..].Trim());
-        }
-
-        var kind = verb switch { "type" => ControlKind.Type, "choose" => ControlKind.Choose, _ => ControlKind.Click };
-        var control = _screen().Controls.FirstOrDefault(c => c.Kind == kind && string.Equals(c.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
+        var control = ScriptStep.Find(_screen(), verb, name);
         if (control is null) return new PolicySuggestion(null, $"{tag}: no {verb} control named '{name}' on screen");
-        return Visible(control.Id, tag, kind == ControlKind.Click ? null : text, context);
+        return Visible(control.Id, tag, control.Kind == ControlKind.Click ? null : text, context);
     }
 
     private static PolicySuggestion Visible(string id, string tag, string? content, PolicyContext context) =>
         context.Tools.Any(t => t.Id == id) ? new PolicySuggestion(id, tag, content) : new PolicySuggestion(null, $"{tag}: {id} is not offered");
+}
+
+/// <summary>One line of a script, as the offline seat and the declared sign-in read it: a verb, a control's visible name, a text.</summary>
+public sealed record ScriptStep(string Verb, string Name, string Text)
+{
+    /// <summary><c>click Save</c>, <c>type Note: buy milk</c>, <c>choose Colour: red</c>, <c>back</c>, <c>wait</c>, <c>give up</c>; null when a type or choose has no text.</summary>
+    public static ScriptStep? Parse(string line)
+    {
+        var step = line.Trim();
+        var space = step.IndexOf(' ');
+        var verb = (space < 0 ? step : step[..space]).ToLowerInvariant();
+        var rest = space < 0 ? "" : step[(space + 1)..].Trim();
+        if (verb is not ("type" or "choose")) return new ScriptStep(verb, rest, "");
+        var colon = rest.IndexOf(':');
+        return colon < 0 ? null : new ScriptStep(verb, rest[..colon].Trim(), rest[(colon + 1)..].Trim());
+    }
+
+    /// <summary>The control on screen the verb can use, by its visible name without case.</summary>
+    public static Control? Find(Observation screen, string verb, string name)
+    {
+        var kind = verb switch { "type" => ControlKind.Type, "choose" => ControlKind.Choose, _ => ControlKind.Click };
+        return screen.Controls.FirstOrDefault(c => c.Kind == kind && string.Equals(c.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
+    }
 }
 
 /// <summary>What the persona seat spent and saw, for the report.</summary>

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My list</title>
+  <style>body { font-family: system-ui, sans-serif; margin: 1.5rem; max-width: 40rem; } input, button { font-size: 1rem; padding: .4rem; }</style>
+</head>
+<body>
+  <h1>My list</h1>
+  <p id="who"></p>
+  <div id="signed-in" hidden>
+    <form id="form">
+      <label for="note">Note</label>
+      <input id="note" autocomplete="off">
+      <button type="submit">Save</button>
+    </form>
+    <p id="status" role="status"></p>
+    <ul id="list"></ul>
+  </div>
+  <p id="signed-out" hidden>Please sign in. <a href="/login">Sign in</a></p>
+  <script>
+    const token = sessionStorage.getItem('refresh_token');
+    const auth = { authorization: 'Bearer ' + token };
+    const list = document.getElementById('list');
+    const status = document.getElementById('status');
+    let shown = [];
+    function show() {
+      list.innerHTML = '';
+      for (const item of shown) { const li = document.createElement('li'); li.textContent = item.text; list.appendChild(li); }
+      if (!shown.length) { const li = document.createElement('li'); li.textContent = 'Nothing yet.'; list.appendChild(li); }
+    }
+    function signedOut() {
+      sessionStorage.removeItem('refresh_token');
+      document.getElementById('signed-out').hidden = false;
+    }
+    async function load() {
+      if (!token) return signedOut();
+      const r = await fetch('/api/private/notes', { headers: auth });
+      if (!r.ok) return signedOut();
+      const body = await r.json();
+      document.getElementById('who').textContent = 'Signed in as ' + body.user;
+      document.getElementById('signed-in').hidden = false;
+      shown = body.items;
+      show();
+    }
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = document.getElementById('note').value.trim();
+      if (!text) { status.textContent = 'Write something first.'; return; }
+      status.textContent = '';
+      const r = await fetch('/api/private/notes', { method: 'POST', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify({ text }) });
+      if (r.ok) { shown = shown.concat([{ text }]); show(); status.textContent = 'Saved.'; document.getElementById('note').value = ''; }
+      else status.textContent = 'Error: the note could not be saved.';
+    });
+    load();
+  </script>
+</body>
+</html>

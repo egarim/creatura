@@ -30,6 +30,12 @@ public sealed record UxAdapter
     /// <summary>The barriers this app can be run with; none is on unless a run names it.</summary>
     public IReadOnlyList<UxBarrier> Barriers { get; init; } = [];
 
+    /// <summary>The accounts tasks sign in as; their credentials are <c>env:NAME</c>, read at sign-in, or a test tenant's literals.</summary>
+    public IReadOnlyList<UxAccount> Accounts { get; init; } = [];
+
+    /// <summary>How an account signs in, declared; <see cref="IUxHooks.SignInAsync"/> is the escape hatch. Needed when a task names an account.</summary>
+    public UxSignIn? SignIn { get; init; }
+
     /// <summary>The CI gate's thresholds for a matrix of this app (<c>creatura ux gate</c>); none when absent.</summary>
     public UxGate? Gate { get; init; }
 
@@ -79,6 +85,13 @@ public sealed record UxAdapter
         }
 
         foreach (var b in Barriers.Where(b => string.IsNullOrWhiteSpace(b.Url))) problems.Add($"barrier {b.Id}: no url pattern");
+        Dupes(Accounts.Select(a => a.Id), "account", problems);
+        foreach (var t in Tasks.Where(t => t.Account is not null && Accounts.All(a => a.Id != t.Account))) problems.Add($"task {t.Id}: no account '{t.Account}'");
+        if (SignIn is { } signIn)
+        {
+            if (signIn.Steps.Count == 0) problems.Add("signIn has no steps");
+            if (string.IsNullOrWhiteSpace(signIn.SignedInText)) problems.Add("signIn has no signedInText (how a signed-in page is told apart)");
+        }
         if (Gate?.MinDone is < 0 or > 1) problems.Add("gate minDone is a share, from 0 to 1");
         if (problems.Count > 0) throw new FormatException("the adapter is not valid: " + string.Join("; ", problems));
     }
@@ -96,6 +109,8 @@ public sealed record UxAdapter
 
     public UxBarrier Barrier(string id) => Find(Barriers, b => b.Id, id, "barrier");
 
+    public UxAccount Account(string id) => Find(Accounts, a => a.Id, id, "account");
+
     private static T Find<T>(IReadOnlyList<T> items, Func<T, string> key, string? id, string what) =>
         id is null ? items[0]
         : items.FirstOrDefault(i => key(i) == id) ?? throw new ArgumentException($"no {what} '{id}'; known: {string.Join(", ", items.Select(key))}");
@@ -104,6 +119,39 @@ public sealed record UxAdapter
     public string Resolve(string url) =>
         Uri.TryCreate(url, UriKind.Absolute, out var abs) && abs.Scheme is "http" or "https" ? abs.ToString()
         : new Uri(new Uri(BaseUrl.EndsWith('/') ? BaseUrl : BaseUrl + "/"), url.TrimStart('/')).ToString();
+}
+
+/// <summary>
+/// Who a task signs in as. <see cref="User"/> and <see cref="Password"/> are <c>env:NAME</c> (read when the account signs
+/// in, never written anywhere) or, for a test tenant, the value itself.
+/// </summary>
+public sealed record UxAccount(string Id, string User, string Password)
+{
+    public string UserValue => Http.Environment(User);
+
+    public string PasswordValue => Http.Environment(Password);
+}
+
+/// <summary>
+/// The sign-in, declared: open <see cref="Start"/>, take <see cref="Steps"/> (the offline script's lines, with
+/// <c>{user}</c> and <c>{password}</c> filled from the account), and the account is signed in when a page shows
+/// <see cref="SignedInText"/>. Done once per account; the browser's storage state (cookies, localStorage) is kept and every
+/// later context for the account opens with it. <see cref="SessionStorage"/> keeps the signed-in origin's sessionStorage too
+/// and puts it back before the app's scripts run, which Playwright's storage state does not (the Singular starter keeps its
+/// Keycloak refresh token there).
+/// </summary>
+public sealed record UxSignIn
+{
+    public string Start { get; init; } = "/login";
+
+    public IReadOnlyList<string> Steps { get; init; } = [];
+
+    public string SignedInText { get; init; } = "";
+
+    public bool SessionStorage { get; init; } = true;
+
+    /// <summary>How long a sign-in may take to show <see cref="SignedInText"/>.</summary>
+    public int TimeoutMs { get; init; } = 15000;
 }
 
 /// <summary>A tester: how the person behaves, never what the app looks like.</summary>

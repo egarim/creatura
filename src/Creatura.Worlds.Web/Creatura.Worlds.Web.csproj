@@ -25,7 +25,9 @@
     <!-- The bundled offline demo: a notes app the demo server serves, its adapter and the scripted persona that drives it. -->
     <EmbeddedResource Include="Demo/notes.html" LogicalName="demo/notes.html" />
     <EmbeddedResource Include="Demo/notes.adapter.json" LogicalName="demo/notes.adapter.json" />
-    <EmbeddedResource Include="Demo/notes.script" LogicalName="demo/notes.script" />
+    <EmbeddedResource Include="Demo/login.html" LogicalName="demo/login.html" />
+    <EmbeddedResource Include="Demo/private.html" LogicalName="demo/private.html" />
+    <EmbeddedResource Include="Demo/*.script" LogicalName="demo/%(Filename).script" />
     <EmbeddedResource Include="Observe.js" LogicalName="observe.js" />
   </ItemGroup>
 

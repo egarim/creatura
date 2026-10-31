@@ -15,6 +15,11 @@
   `creatura ux gate` (or `matrix --gate`) holds a report to the adapter's `gate` and exits 1 naming each threshold
   broken. The report counts apart the three gaps: believed done, the page said done, and a lie not caught. A cell
   that cannot run is recorded and the matrix goes on; a cost cap stops new cells. W11 to W14 hold.
+- **Web worlds, phase 2b**: accounts and a declared sign-in in the adapter (credentials as `env:NAME`); each account
+  signs in once (`UxSessions`), its storage state and sessionStorage are kept and put back in every later context, an
+  expired session signs in again, and `--sessions <dir>` keeps sessions in owner-only files between runs. The demo
+  signs in like the Singular starter (a token in sessionStorage only); `samples/ux/singular-starter.adapter.json` is a
+  template. W15 to W17 hold. The demo's barriers now match `**/notes`.
 
 ## 0.2.0-preview.3 (2026-10-30)
 

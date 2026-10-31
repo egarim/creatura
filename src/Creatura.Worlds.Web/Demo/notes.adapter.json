@@ -19,8 +19,26 @@
       "commits": [ "Save" ],
       "check": { "method": "GET", "url": "/api/notes", "path": "items", "contains": { "text": "buy milk" }, "ignoreCase": true },
       "reset": { "method": "POST", "url": "/api/reset" }
+    },
+    {
+      "id": "private-bread",
+      "account": "ana",
+      "prompt": "You keep a private list in this app. Add \"buy bread\" to it.",
+      "start": "/private",
+      "commits": [ "Save" ],
+      "check": { "method": "GET", "url": "/api/admin/notes?user=ana@example.test", "path": "items", "contains": { "text": "buy bread" }, "ignoreCase": true },
+      "reset": { "method": "POST", "url": "/api/reset" }
     }
   ],
+  // A test tenant's account, so its credentials are written here; a real app's are env:NAME, read at sign-in.
+  "accounts": [ { "id": "ana", "user": "ana@example.test", "password": "demo-password" } ],
+  // Signed in once per account; the session (storage state and sessionStorage, where this app keeps its token) is reused.
+  "signIn": {
+    "start": "/login",
+    "steps": [ "type Email: {user}", "type Password: {password}", "click Sign in" ],
+    "signedInText": "Signed in as",
+    "sessionStorage": true
+  },
   "limits": {
     "steps": 12, "escalations": 2,
     "models": { "decide": "deepseek-chat", "escalate": "deepseek-reasoner" },
@@ -30,9 +48,9 @@
   // creatura ux gate: every cell done, nobody believed done when it was not, no lie missed.
   "gate": { "minDone": 1.0, "maxBelievedNotDone": 0, "maxUncaughtLies": 0, "maxCost": 0.5 },
   "barriers": [
-    { "id": "save-lies", "kind": "lie", "method": "POST", "url": "**/api/notes" },
-    { "id": "save-fails", "kind": "fail", "method": "POST", "url": "**/api/notes", "status": 500 },
-    { "id": "save-slow", "kind": "slow", "method": "POST", "url": "**/api/notes", "delayMs": 3000 }
+    { "id": "save-lies", "kind": "lie", "method": "POST", "url": "**/notes" },
+    { "id": "save-fails", "kind": "fail", "method": "POST", "url": "**/notes", "status": 500 },
+    { "id": "save-slow", "kind": "slow", "method": "POST", "url": "**/notes", "delayMs": 3000 }
   ],
   "errorText": [ "Error:", "Write something first" ]
 }

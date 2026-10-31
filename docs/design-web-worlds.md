@@ -1,12 +1,13 @@
 # Design: web worlds, where a persona uses a real app and the app's data is the judge
 
-**Status:** design note, with phase 1 and phase 2a built (below). Written 2026-10-31. Nothing here has been run against a real
+**Status:** design note, with phases 1, 2a and 2b built (below). Written 2026-10-31. Nothing here has been run against a real
 model or a real app yet; what was run is the bundled demo, offline, in a real Chromium.
 
 **Built:** phase 1, `src/Creatura.Worlds.Web` (`WebWorld`, the observation, the tools, the declarative check, the
 barriers, the two seats, the demo), `creatura ux run` and `tests/Creatura.Worlds.Web.Tests`; phase 2a, the matrix, the
-report, compare and the gate (`UxMatrix`, `UxReport`, `UxComparison`, `UxGate`, `creatura ux matrix | compare | gate`).
-The rest is a design.
+report, compare and the gate (`UxMatrix`, `UxReport`, `UxComparison`, `UxGate`, `creatura ux matrix | compare | gate`);
+phase 2b, sign-in once per account with the session kept and reused, sessionStorage put back (`UxSessions`), and a
+Singular adapter template (`samples/ux/singular-starter.adapter.json`, not run against an app). The rest is a design.
 
 ## The problem
 
@@ -116,16 +117,34 @@ One JSON file, read the way `models.json` is (camelCase, comments and trailing c
   `summary`, `judge`) and **`limits.testers`** the panel a matrix runs when none is named. **`gate`** holds the CI
   thresholds (below).
 
-## Sign-in and session reuse (phase 2b)
+## Sign-in and session reuse (phase 2b, built)
 
-uxkit signs each account in once and reuses the browser's storage state. A web world does the same per account:
-`SignInAsync(page, account)` runs on a fresh context the first time, then `context.StorageStateAsync()` is kept under
-the run's folder and every later context for that account opens with it (`BrowserNewContextOptions.StorageStatePath`).
-Playwright's storage state holds cookies and localStorage, not sessionStorage; the Singular starter keeps its Keycloak
-refresh token in sessionStorage, so the adapter for it also saves sessionStorage after sign-in (`page.EvaluateAsync`)
-and puts it back before the app's own scripts run (`context.AddInitScriptAsync`). The accounts' passwords are named as
-environment variables in the adapter, as the model keys are, never written in it. Phase 1 has the hook and calls it
-when a task names an account; nothing keeps or reuses the state yet.
+uxkit signs each account in once and reuses the browser's storage state. A web world does the same per account
+(`UxSessions`):
+
+- **Declared sign-in.** The adapter lists `accounts` (`user` and `password` as `env:NAME`, read at sign-in; a test
+  tenant may write literals) and one `signIn`: a `start` page, `steps` in the offline script's words (`type Username or
+  email: {user}`, `type Password: {password}`, `click Sign In`), and `signedInText`, the text only a signed-in page
+  shows. Each step waits for its control to appear, so a redirect to an identity provider and back is followed. The
+  hook `IUxHooks.SignInAsync` replaces the steps when an app needs code. An error names the step as written, with
+  `{password}` unfilled; the password is in no message, trace or file.
+- **Once per account.** The first task that names the account signs it in on a context of its own. Playwright's storage
+  state (cookies, localStorage) is kept, with the signed-in origin's sessionStorage. Every later context for the account
+  opens with that state. A matrix shares one store across its cells, and its report counts sign-ins and reuses.
+- **sessionStorage put back.** Playwright's storage state leaves sessionStorage out, and the Singular starter keeps its
+  Keycloak refresh token there. So an init script puts the kept items back before the app's own scripts run, on the
+  kept origin only, once per tab (a marker key stops it from undoing a later sign-out). `signIn.sessionStorage: false`
+  turns this off. The demo shows why it matters: without it the session does not carry over, and the cell says so.
+- **Expiry.** A world opened with a kept session must show `signedInText` (read again for up to 5 s as the page loads).
+  If it does not, the session is dropped, the account signs in again, and the world opens again, once. A second miss is
+  an error that says the session did not carry over.
+- **Kept between runs.** `--sessions <dir>` keeps each account's session in an owner-only file
+  (`<account>.session.json`, mode 600 on Unix), which the next run reuses until the app stops accepting it. The files
+  hold tokens: keep the folder out of the repository (`runs/` is ignored).
+
+The bundled demo signs in the way the starter does. `/login` keeps the token from `/api/login` in sessionStorage only,
+and `/private` is a list read and written with it that shows "Please sign in" without it. The demo's task
+`private-bread` signs in as `ana`.
 
 ## Viewports
 
@@ -222,6 +241,9 @@ The summary writer and the judge (two more seats, reading only the traces and th
 | W11 | the matrix runs every task × persona × environment × tester named, in order; a cell that cannot run is recorded and the rest still run; the cost cap stops new cells | a cell missing, out of order, or the matrix stopped by one cell | holds (the cap: by its code only, with no paid seat) |
 | W12 | a report written and read back gives the same cells and totals; the CSV has one row per cell | anything else | holds |
 | W13 | compare joins on task, persona, environment and tester, and names every regression, fix, new gap and slower cell | a cell joined to another tester's, or a change not listed | holds |
+| W15 | a matrix signs each account in once and reuses the session in every other cell for it | a second sign-in with the session still good | holds |
+| W16 | sessionStorage is put back: with it the private task opens signed in; without it the session does not carry over, and the cell says so | anything else | holds |
+| W17 | an expired session is dropped and the account signs in again, once; a session kept on disk is owner-only, holds no password, and the next run signs in zero times | anything else | holds |
 | W14 | the gate exits 1 naming every threshold broken, 0 when none is; with the lie barrier the demo breaks `minDone`, and holds `maxUncaughtLies 0` under Bach | anything else | holds |
 
 ## Results (phase 1, 2026-10-31)
@@ -251,6 +273,16 @@ caught, none missed; the gate breaks on `minDone` and, against the clean run as 
 with `--min-done 0 --max-regressions 99`. Not verified: a matrix with a model as tester, so the cost cap has stopped
 nothing real yet.
 
+## Results (phase 2b, 2026-10-31)
+
+Run the same way, offline, in a real Chromium. W15 to W17 hold: `SessionTests` (6, browser) and `SignInAdapterTests`
+(7, no browser, one of which parses the Singular template). The demo's matrix is now 8 cells (the anonymous
+`remember-milk` and the signed-in `private-bread`), all done, with 1 sign-in and 3 sessions reused, and holds its gate.
+A lie on the private list is caught like the public one. One test failed once when the whole solution ran on a busy
+machine: the signed-in check read the page before its first request had answered. It now reads the page again for up
+to 5 s, and two full runs after that passed. Not verified: the Singular template against a Singular app, a Keycloak
+redirect, and a token that refreshes itself during a cell.
+
 ## Decisions for the owner
 
 | | decision | options | recommendation |
@@ -266,7 +298,7 @@ nothing real yet.
 |---|---|---|
 | 1 | `WebWorld`, the observation, tools per control, the declarative check, the lie / fail / slow barriers, the persona and script seats, `creatura ux run`, the offline demo | W1 to W8 (done) |
 | 2a | the full matrix (tasks × personas × environments × testers), the report (json, csv, markdown, traces), compare, gate | W11 to W14 (done) |
-| 2b | the Singular adapter: sign-in once per account, storage state kept and reused, sessionStorage put back; tasks from PhotoSet and Cosmos | W9 on one app |
+| 2b | sign-in once per account, storage state kept and reused, sessionStorage put back; a Singular template | W15 to W17 (done); W9 on PhotoSet or Cosmos is still open, with the template filled in |
 | 2c | the summary writer and the judge as seats; vision on the triggers; the stuck triggers as a regulator alarm | W10; the judge's findings agree with W9's person |
 | 3 | barriers on the page (a moving button, a covered control), `scroll`, record and replay of web runs | a design's catch rate per barrier, per viewport |
 
