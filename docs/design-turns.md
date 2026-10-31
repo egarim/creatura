@@ -227,5 +227,10 @@ and both were then refused `dotnet publish` and the built binary by their auto-m
 from External"), five times in creature-a and twice in creature-b; both stopped as the prompt says and pushed a
 report (`spike/report.md`, "Goal-only run (T2)", on each repository). No cell was created, nothing reached the
 ledger, `turn` was never run. The fix the classifier names, a permission rule in each repository's
-`.claude/settings.json`, is the owner's to apply: a session writing it was refused as a bypass. The run itself is
-still the owner's call, as the slice table says. Experiment log #68.
+`.claude/settings.json`, was then put on both `spike` branches at the owner's request (09:36Z) and a second pair
+started from them at 09:37Z. Same outcome: the rules were on disk from the session's first second, the commands
+matched them to the letter, and the classifier refused them anyway. So in a cloud session the repository's
+`permissions.allow` does not pre-empt the auto-mode classifier, and the mode is the surface's choice, not the
+session's. What remains is the owner's: sessions started from the app, where the probe's runs 2 to 4 downloaded
+and ran the CLI without the classifier firing, or a permission mode without it, or a machine the owner controls.
+Experiment log #68 and #69.
