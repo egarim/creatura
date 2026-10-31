@@ -1,0 +1,10 @@
+services:
+  api:
+    build: .
+    environment:
+      BREAK: ${BREAK:-}
+    volumes:
+      - items:/data
+    restart: unless-stopped
+volumes:
+  items: {}

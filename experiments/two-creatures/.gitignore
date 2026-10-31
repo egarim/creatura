@@ -1,0 +1,5 @@
+# built by build.sh and written by the runner
+/build/
+/results/
+/state/
+node_modules/

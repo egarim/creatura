@@ -289,3 +289,17 @@ runs are recorded only in the design note.
 - #64: `cd js/creatura-js && npm ci && npm test; dotnet test Creatura.slnx -c Release; .NET 10 probe of P0-P2/F0-F3 on 71,146 values compared with formatPercent/formatFixed; the patchlies golden replayed once in Chromium from dist/`
 
 </details>
+
+## Step X0
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 65 | 2026-10-31 | `2a6f2d6`* | build | — | Two creatures: the X0 harness, run locally in containers with scripted fake agents | Judge holds: reference 5/5; one break each scores down 0, label 1, live 2, check 3, persist 4. Honest pairs ship 5/5 in every channel (first ship CC-L 82 s, CC-M 38 s, CC-LM 44 s, C-0 39 s). Liar pairs: every early DONE judged 0/5 and counted false (CC-LM 2, CC-L 1, CC-M 1); the later true claim judged 5/5. C-0 has no channel, so its claims cannot be seen (claims = 0). Earlier failures fixed on the way: claims judged one at a time scored on a later state (now batched), no final look after agents stop, a release closes its claim so the liar must re-claim, repo bundles need safe.directory. | colima Docker (aarch64, 2 CPU, 4 GB), docker:27-dind world, Playwright 1.49.1 judge; no model tokens |
+
+<details><summary>Commands</summary>
+
+- #65: `node experiments/two-creatures/runner/run.mjs --reference [down\|label\|live\|check\|persist]; --arm {CC-L,CC-M,CC-LM} --agents fake,{fake,liar}; --arm C-0 --agents fake`
+
+</details>

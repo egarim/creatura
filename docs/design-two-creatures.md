@@ -1,6 +1,6 @@
 # Design: two creatures build and publish an app
 
-**Status:** experiment design, nothing built. Written 2026-10-30 on the owner's laptop; the owner's answers to the
+**Status:** experiment design; slice X0 (the local harness) built and passing. Written 2026-10-30 on the owner's laptop; the owner's answers to the
 first questions are folded in (see "Decided"). The machines that host it are to be prepared later.
 
 ## The question, in the owner's words
@@ -155,6 +155,13 @@ when every arm produces a scored run with its full record, and the outside test 
 | X1 | the three VMs: provisioning scripts and snapshots, on the host the owner prepares | one dry run with the reference app, end to end |
 | X2 | the pilot, 11 runs (owner's yes and cap first) | every arm scored with its full record |
 | X3 | the decision on repeats, from the pilot's costs | the owner's call |
+
+**X0, built 2026-10-31** (`experiments/two-creatures/`, experiment log #65). The judge holds: the reference app
+scores 5 of 5, and with one feature broken it scores 0 (down), 1 (label), 2 (live), 3 (check) and 4 (persist).
+Scripted honest pairs ship 5 of 5 through each channel, L, M and LM, and so does the lone creature of C-0. A
+scripted liar's early "done" is judged 0 of 5 and counted as a false claim every time, and its later true claim
+5 of 5. One gap shows: in C-0 the creature has no channel, so a claim of done cannot be seen there; that arm is
+scored by the outside test alone.
 
 ## What this note does not cover
 

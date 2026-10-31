@@ -1,0 +1,18 @@
+#!/usr/bin/env node
+// say <text>: post a message to the board on world, as this creature. Only in arms with messages.
+const { readFileSync } = require("node:fs");
+
+(async () => {
+  const env = Object.fromEntries(readFileSync(`${process.env.HOME}/.creature.env`, "utf8").split("\n").filter((l) => l.includes("=")).map((l) => l.split("=", 2)));
+  const text = process.argv.slice(2).join(" ") || readFileSync(0, "utf8");
+  if (!text.trim()) {
+    console.error("usage: say <text>   (or the text on stdin)");
+    return void (process.exitCode = 2);
+  }
+  const res = await fetch(`http://${env.WORLD ?? "world"}:7000/say`, { method: "POST", body: JSON.stringify({ from: env.NAME, text }) }).catch((e) => ({ ok: false, statusText: e.message }));
+  if (!res.ok) {
+    console.error(`say: the board did not take it (${res.status ?? ""} ${res.statusText}); this arm may have no message board`);
+    return void (process.exitCode = 1);
+  }
+  console.log(`said #${(await res.json()).n}`);
+})();
