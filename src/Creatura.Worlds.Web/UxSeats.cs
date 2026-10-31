@@ -53,7 +53,7 @@ public sealed class UxSeats
     }
 
     /// <summary>The tester seated in an opened world, as this persona on this device. Call <see cref="Check"/> first.</summary>
-    public IPolicy Build(string tester, UxAdapter adapter, UxTask task, UxPersona persona, UxEnvironment environment, WebWorld world)
+    public IPolicy Build(string tester, UxAdapter adapter, UxTask task, UxPersona persona, UxEnvironment environment, WebWorld world, IReadOnlyList<string>? memories = null)
     {
         if (!IsModel(tester))
         {
@@ -66,6 +66,6 @@ public sealed class UxSeats
         var decide = _catalog.TryFind(ModelName(tester)) ?? throw new ArgumentException($"no model '{ModelName(tester)}' in the catalog");
         var escalateName = Escalate ?? adapter.Limits.Models.GetValueOrDefault("escalate");
         var escalate = escalateName is null ? null : _catalog.TryFind(escalateName);
-        return new PersonaPolicy(() => world.Current, persona, environment, decide, _client, escalate, adapter.Limits, _log);
+        return new PersonaPolicy(() => world.Current, persona, environment, decide, _client, escalate, adapter.Limits, _log, memories);
     }
 }

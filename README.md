@@ -459,6 +459,12 @@ declared in the adapter. Its session (cookies, localStorage, and sessionStorage,
 Keycloak token) is reused by every later cell, and with `--sessions <dir>` by the next run.
 [samples/ux/singular-starter.adapter.json](samples/ux/singular-starter.adapter.json) is a template for a Singular app.
 
+A matrix can run several designs on the same cells (`--designs plain,bach,peterson,orienting`), with the report's totals
+split by design. Personas can remember between cells (`--memory carry|read --records <dir>`). Each persona, tester and
+design keeps a Creatura record: the design's own carry (Bach's self-model and predictions, the orienting agent's resting
+inhibition) and one-line lessons the harness writes from each cell's verdicts, which a model persona is shown as what
+it remembers.
+
 ## Anatomy
 
 [docs/anatomy.html](docs/anatomy.html) draws Creatura in five plates: the project's icon, a winged lion, with each

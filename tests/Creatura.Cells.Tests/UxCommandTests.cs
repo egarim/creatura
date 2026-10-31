@@ -91,7 +91,7 @@ public sealed class UxCommandTests
         var (code, output, err) = await Ux("compare", before, Path.GetDirectoryName(after)!);
         Assert.True(code == 0, err);
         Assert.Contains("## Regressed (done before, not after): 1", output);
-        Assert.Contains("remember-milk|p1|phone|script:demo", output);
+        Assert.Contains("remember-milk|p1|phone|script:demo|plain", output);
     }
 
     [Fact]
@@ -124,6 +124,12 @@ public sealed class UxCommandTests
     [InlineData(new string[] { "matrix", "--demo", "--max-cost", "lots" }, "--max-cost takes a number")]
     [InlineData(new string[] { "matrix", "--demo", "--seat", "x" }, "unknown option for ux matrix")]
     [InlineData(new string[] { "matrix", "--demo", "--baseline", "/no/such/report" }, "could not be read")]
+    [InlineData(new string[] { "matrix", "--demo", "--designs", "bach,nobody" }, "unknown design 'nobody'")]
+    [InlineData(new string[] { "matrix", "--demo", "--design", "bach", "--designs", "levin" }, "name the designs once")]
+    [InlineData(new string[] { "matrix", "--demo", "--memory", "forever", "--records", "x" }, "--memory takes carry or read")]
+    [InlineData(new string[] { "matrix", "--demo", "--memory", "carry" }, "--memory needs --records")]
+    [InlineData(new string[] { "matrix", "--demo", "--records", "x" }, "--records needs --memory")]
+    [InlineData(new string[] { "run", "--demo", "--designs", "bach,levin" }, "unknown option for ux run: --designs")]
     public async Task MatrixCompareAndGateUsageErrors(string[] args, string message)
     {
         var (code, _, err) = await Ux(args);

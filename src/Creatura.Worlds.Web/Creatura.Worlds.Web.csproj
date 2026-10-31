@@ -19,6 +19,8 @@
     <PackageReference Include="Microsoft.Playwright" Version="1.63.0" />
     <ProjectReference Include="../Creatura/Creatura.csproj" />
     <ProjectReference Include="../Creatura.Seats/Creatura.Seats.csproj" />
+    <!-- The designs by name, for the matrix's design axis (package-free). -->
+    <ProjectReference Include="../Creatura.Worlds/Creatura.Worlds.csproj" />
   </ItemGroup>
 
   <ItemGroup>

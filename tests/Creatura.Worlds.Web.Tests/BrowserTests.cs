@@ -117,6 +117,18 @@ public class BrowserTests(DemoFixture demo) : IClassFixture<DemoFixture>
     }
 
     [BrowserFact]
+    public async Task AnActionThatTimesOutIsAFailedActionNotACrash()
+    {
+        // Playwright reports a timeout as System.TimeoutException, not a PlaywrightException: the world must catch both.
+        var adapter = Adapter;
+        await using var world = await WebWorld.OpenAsync(demo.Browser, adapter, adapter.Task(null), adapter.Environment("desktop"), new WebWorldOptions { ActionTimeoutMs = 300 });
+        await world.Page.EvaluateAsync("() => { document.querySelector('[data-creatura-ref]').style.visibility = 'hidden'; }");
+        var outcome = world.Act("textbox-note", "buy milk");
+        Assert.False(outcome.Succeeded);
+        Assert.Contains("did not go through", outcome.Observation);
+    }
+
+    [BrowserFact]
     public async Task ASaveTheDataBacksHasLanded()
     {
         await using var world = await Open();
@@ -144,6 +156,20 @@ public class BrowserTests(DemoFixture demo) : IClassFixture<DemoFixture>
         Assert.False(world.Has("done:remember-milk"));
         Assert.Equal(ActionVerdict.Lied, ((IWorldView)world).Verdict(save, outcome));
         Assert.Equal(1, world.BarrierFires["save-lies"]);
+    }
+
+    [BrowserFact]
+    public async Task ASaveRefusedAgainIsStillRefusedThoughTheMessageIsNotNew()
+    {
+        // Save on an empty note twice: the page says "Write something first." both times. The second time the text is not
+        // new, and before this rule the world read the second press as a success the data did not back: a lie it never told.
+        await using var world = await Open();
+        var save = world.Tool("button-save")!;
+        Assert.False(world.Act(save.Id).Succeeded);
+        var again = world.Act(save.Id);
+        Assert.False(again.Succeeded);
+        Assert.Contains("Write something first", again.Observation);
+        Assert.Empty(world.Lies);
     }
 
     [BrowserFact]

@@ -49,6 +49,10 @@ public static class UxCommand
           --barriers none|<ids>        barriers between the browser and the app, joined with +, e.g. save-lies
           --escalate <name>            the stronger model asked when a persona is stuck (default: limits.models.escalate)
           --design plain|<name>        the design in the loop (default plain: the control layer alone); creatura run --list
+          --designs <a,b>              matrix: several designs, a cell each, compared side by side in the report
+          --memory carry|read          personas remember between cells, in --records <dir>: carry learns cell after cell,
+                                       read starts every cell from the records as they are and saves nothing
+          --records <dir>              where the personas' records are kept (one per persona, tester and design)
           --ticks <n>                  at most n steps per cell (default: the adapter's limits.steps)
           --log <path>                 the model calls, one JSON line each
           --sessions <dir>             keep each account's signed-in session here and reuse it next time (owner-only files
@@ -95,8 +99,8 @@ public static class UxCommand
 
         string[] known = verb switch
         {
-            "run" => ["--adapter", "--base-url", "--task", "--persona", "--env", "--barriers", "--seat", "--escalate", "--design", "--ticks", "--log", "--browser", "--sessions"],
-            "matrix" => ["--adapter", "--base-url", "--tasks", "--personas", "--envs", "--testers", "--barriers", "--escalate", "--design", "--ticks", "--log",
+            "run" => ["--adapter", "--base-url", "--task", "--persona", "--env", "--barriers", "--seat", "--escalate", "--design", "--ticks", "--log", "--browser", "--sessions", "--memory", "--records"],
+            "matrix" => ["--adapter", "--base-url", "--tasks", "--personas", "--envs", "--testers", "--barriers", "--escalate", "--design", "--designs", "--memory", "--records", "--ticks", "--log",
                          "--browser", "--max-cost", "--out", "--baseline", "--sessions"],
             "gate" => ["--baseline", .. Thresholds],
             "compare" => [],
@@ -134,9 +138,19 @@ public static class UxCommand
         if (options.TryGetValue("--ticks", out var t) && (!int.TryParse(t, NumberStyles.Integer, CultureInfo.InvariantCulture, out ticks) || ticks < 1))
             return Fail(error, "--ticks takes a whole number of at least 1");
 
-        var design = options.GetValueOrDefault("--design") ?? "plain";
-        if (design != "plain" && AgentCatalog.TryFind(design) is null) return Fail(error, $"unknown design '{design}'; known: plain, {string.Join(", ", AgentCatalog.Names)}");
-        Func<IPolicy, AgentTask, IAgent> agent = design == "plain" ? PlainLoop.Make : (p, k) => AgentCatalog.Make(design, p, k);
+        if (options.ContainsKey("--design") && options.ContainsKey("--designs")) return Fail(error, "name the designs once: --design <name> or --designs <a,b>");
+        var designs = (options.GetValueOrDefault("--designs") ?? options.GetValueOrDefault("--design") ?? UxDesigns.Plain)
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (designs.FirstOrDefault(d => !UxDesigns.Known(d)) is { } unknownDesign) return Fail(error, $"unknown design '{unknownDesign}'; known: {string.Join(", ", UxDesigns.Names)}");
+
+        UxMemory? memory = null;
+        if (options.TryGetValue("--memory", out var mode))
+        {
+            if (mode is not ("carry" or "read")) return Fail(error, "--memory takes carry or read");
+            if (!options.TryGetValue("--records", out var records)) return Fail(error, "--memory needs --records <dir>, where the personas' records are kept");
+            memory = new UxMemory(new JsonRecordStore(records), mode == "carry" ? UxMemoryMode.Carry : UxMemoryMode.Read);
+        }
+        else if (options.ContainsKey("--records")) return Fail(error, "--records needs --memory carry or --memory read");
 
         var set = options.GetValueOrDefault("--barriers") ?? "none";
         var barriers = set == "none" ? new List<string>() : set.Split('+').ToList();
@@ -151,12 +165,12 @@ public static class UxCommand
         }
 
         return verb == "run"
-            ? await RunOne(adapter, options, flags, demo, barriers, seats, agent, design, ticks, output, error)
-            : await RunMatrix(adapter, options, flags, demo, barriers, seats, agent, design, ticks, output, error);
+            ? await RunOne(adapter, options, flags, demo, barriers, seats, designs[0], memory, ticks, output, error)
+            : await RunMatrix(adapter, options, flags, demo, barriers, seats, designs, memory, ticks, output, error);
     }
 
     private static async Task<int> RunOne(UxAdapter adapter, Dictionary<string, string> options, HashSet<string> flags, bool demo, List<string> barriers,
-        UxSeats seats, Func<IPolicy, AgentTask, IAgent> agent, string design, int ticks, TextWriter output, TextWriter error)
+        UxSeats seats, string design, UxMemory? memory, int ticks, TextWriter output, TextWriter error)
     {
         UxTask task;
         UxPersona persona;
@@ -182,14 +196,23 @@ public static class UxCommand
         if (UxSeats.IsModel(seat))
             output.WriteLine("the persona is a model: each step is a call to it, at its price" + (adapter.Limits.Cost is { } cap ? string.Create(CultureInfo.InvariantCulture, $", at most {cap:0.####} spent") : ""));
 
+        var key = memory is null ? null : UxMemory.Key(persona.Id, seat, design);
+        var lessons = key is null ? [] : memory!.Lessons(key);
+        var casesBefore = key is null ? 0 : memory!.Cases(key);
+        var store = memory?.ForCell();
+        if (key is not null) output.WriteLine($"memory: {memory!.Mode.ToString().ToLowerInvariant()}, record {key}, {casesBefore} earlier cell{(casesBefore == 1 ? "" : "s")}, {lessons.Count} lesson{(lessons.Count == 1 ? "" : "s")}");
+
         if (await Launch(options, flags, error) is not { } browser) return 3;
         UxCell cell;
         await using (browser)
         {
             try
             {
-                cell = await InCulture(() => UxRunner.RunAsync(browser, adapter, task, persona, environment, w => seats.Build(seat, adapter, task, persona, environment, w), agent,
+                cell = await InCulture(() => UxRunner.RunAsync(browser, adapter, task, persona, environment, w => seats.Build(seat, adapter, task, persona, environment, w, lessons),
+                    (p, t) => UxDesigns.Make(design, p, t, store, key),
                     new WebWorldOptions { Barriers = barriers, Sessions = Sessions(options) }, ticks));
+                cell = cell with { Tester = seat, Design = design, Memory = key, CasesBefore = casesBefore, Remembered = lessons };
+                if (key is not null) memory!.Remember(key, cell, environment);
             }
             catch (Exception e) when (WebBrowser.IsBrowserFailure(e))
             {
@@ -212,7 +235,7 @@ public static class UxCommand
     }
 
     private static async Task<int> RunMatrix(UxAdapter adapter, Dictionary<string, string> options, HashSet<string> flags, bool demo, List<string> barriers,
-        UxSeats seats, Func<IPolicy, AgentTask, IAgent> agent, string design, int ticks, TextWriter output, TextWriter error)
+        UxSeats seats, List<string> designs, UxMemory? memory, int ticks, TextWriter output, TextWriter error)
     {
         static IReadOnlyList<string> Ids(string? s) => s is null or "all" ? [] : s.Split('+');
         decimal? maxCost = null;
@@ -227,10 +250,10 @@ public static class UxCommand
         var spec = new UxMatrixSpec
         {
             Tasks = Ids(options.GetValueOrDefault("--tasks")), Personas = Ids(options.GetValueOrDefault("--personas")), Environments = Ids(options.GetValueOrDefault("--envs")),
-            Testers = testers, Barriers = barriers, MaxTicks = ticks, CostCap = maxCost,
+            Testers = testers, Barriers = barriers, MaxTicks = ticks, CostCap = maxCost, Designs = designs, Memory = memory,
         };
 
-        IReadOnlyList<(UxTask Task, UxPersona Persona, UxEnvironment Environment, string Tester)> cells;
+        IReadOnlyList<(UxTask Task, UxPersona Persona, UxEnvironment Environment, string Tester, string Design)> cells;
         try
         {
             cells = UxMatrix.Cells(adapter, spec);
@@ -259,7 +282,10 @@ public static class UxCommand
         static string Count(int n, string what) => $"{n} {what}{(n == 1 ? "" : "s")}";
         output.WriteLine($"{adapter.App}: {Count(cells.Count, "cell")} ({Count(cells.Select(c => c.Task.Id).Distinct().Count(), "task")} × " +
             $"{Count(cells.Select(c => c.Persona.Id).Distinct().Count(), "persona")} × {Count(cells.Select(c => c.Environment.Id).Distinct().Count(), "environment")} × " +
-            $"{Count(cells.Select(c => c.Tester).Distinct().Count(), "tester")}); barriers: {(barriers.Count == 0 ? "none" : string.Join(", ", barriers))}; design: {design}; up to {ticks} steps a cell");
+            $"{Count(cells.Select(c => c.Tester).Distinct().Count(), "tester")} × {Count(designs.Count, "design")}); barriers: {(barriers.Count == 0 ? "none" : string.Join(", ", barriers))}; " +
+            $"designs: {string.Join(", ", designs)}; up to {ticks} steps a cell");
+        if (memory is not null)
+            output.WriteLine($"memory: {memory.Mode.ToString().ToLowerInvariant()} (personas {(memory.Mode == UxMemoryMode.Carry ? "learn cell after cell, in this order" : "start from their records and save nothing")})");
         if (models > 0)
         {
             var cap = maxCost ?? adapter.Gate?.MaxCost;
@@ -271,13 +297,18 @@ public static class UxCommand
         UxReport report;
         await using (browser)
         {
-            report = await InCulture(() => UxMatrix.RunAsync(browser, adapter, spec, seats, agent, design,
+            report = await InCulture(() => UxMatrix.RunAsync(browser, adapter, spec, seats,
                 cell => output.WriteLine("  " + cell.Summary()), Sessions(options)));
         }
 
         var json = report.Write(outDir);
         output.WriteLine();
         output.WriteLine(report.Totals());
+        if (designs.Count > 1)
+        {
+            foreach (var d in report.ByDesign()) output.WriteLine("  " + d.Line());
+        }
+
         output.WriteLine($"report: {json} (and cells.csv, report.md, traces/ beside it)");
         if (baseline is not null)
         {

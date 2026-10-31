@@ -6,12 +6,12 @@ namespace Creatura.Worlds.Web.Tests;
 public class ReportTests
 {
     internal static UxCell Cell(string persona, bool done, string env = "phone", string tester = "script:demo", bool pageSaid = false, int? believed = null,
-        int lies = 0, int ticks = 2, decimal? cost = 0m, string? error = null) =>
+        int lies = 0, int ticks = 2, decimal? cost = 0m, string? error = null, int? told = null) =>
         error is not null ? UxCell.Failed("remember-milk", persona, env, tester, error) : new UxCell
         {
             Task = "remember-milk", Persona = persona, Environment = env, Seat = tester, Tester = tester, Agent = "plain loop",
             DataDone = done, CheckDetail = done ? "items holds it" : "items holds no it", PageSaidDone = pageSaid, BelievedDoneAt = believed,
-            Ticks = ticks, LiesCaught = lies, Escalations = 0, Cost = cost,
+            Ticks = ticks, LiesTold = told ?? (pageSaid && !done ? Math.Max(1, lies) : lies), LiesCaught = lies, Escalations = 0, Cost = cost,
         };
 
     internal static UxReport Report(params UxCell[] cells) => new() { App = "notes-demo", At = new DateTimeOffset(2026, 10, 31, 9, 0, 0, TimeSpan.Zero), Cells = cells };
@@ -71,12 +71,12 @@ public class ReportTests
         var before = Report(Cell("a", true), Cell("b", false), Cell("c", true, ticks: 2), Cell("d", true), Cell("old", true));
         var after = Report(Cell("a", false, pageSaid: true), Cell("b", true), Cell("c", true, ticks: 5), Cell("d", true), Cell("new", true));
         var diff = UxComparison.Of(before, after);
-        Assert.Equal(["remember-milk|a|phone|script:demo"], diff.Regressed);
-        Assert.Equal(["remember-milk|b|phone|script:demo"], diff.Fixed);
-        Assert.Equal(["remember-milk|a|phone|script:demo (lie not caught, page said done)"], diff.NewGaps);
-        Assert.Equal(["remember-milk|c|phone|script:demo (2 → 5 ticks)"], diff.Slower);
-        Assert.Equal(["remember-milk|old|phone|script:demo"], diff.OnlyBefore);
-        Assert.Equal(["remember-milk|new|phone|script:demo"], diff.OnlyAfter);
+        Assert.Equal(["remember-milk|a|phone|script:demo|plain"], diff.Regressed);
+        Assert.Equal(["remember-milk|b|phone|script:demo|plain"], diff.Fixed);
+        Assert.Equal(["remember-milk|a|phone|script:demo|plain (lie not caught, page said done)"], diff.NewGaps);
+        Assert.Equal(["remember-milk|c|phone|script:demo|plain (2 → 5 ticks)"], diff.Slower);
+        Assert.Equal(["remember-milk|old|phone|script:demo|plain"], diff.OnlyBefore);
+        Assert.Equal(["remember-milk|new|phone|script:demo|plain"], diff.OnlyAfter);
         Assert.Contains("## Regressed (done before, not after): 1", diff.ToMarkdown());
     }
 
@@ -182,10 +182,9 @@ public class MatrixBrowserTests(DemoFixture demo) : IClassFixture<DemoFixture>
     public async Task UnderTheLieTheGateBreaksAndCompareNamesEveryRegression()
     {
         var adapter = demo.App.Adapter();
-        var spec = new UxMatrixSpec { Tasks = ["remember-milk"], Environments = ["desktop"] };
+        var spec = new UxMatrixSpec { Tasks = ["remember-milk"], Environments = ["desktop"], Designs = ["bach"] };
         var clean = await UxMatrix.RunAsync(demo.Browser, adapter, spec, new UxSeats());
-        var lie = await UxMatrix.RunAsync(demo.Browser, adapter, spec with { Barriers = ["save-lies"] }, new UxSeats(),
-            (policy, task) => AgentCatalog.Make("bach", policy, task), "bach");
+        var lie = await UxMatrix.RunAsync(demo.Browser, adapter, spec with { Barriers = ["save-lies"] }, new UxSeats());
         Assert.Equal((0, 2, 0, 2), (lie.Done, lie.PageSaidNotDone, lie.UncaughtLies, lie.LiesCaught));
         Assert.Equal("bach", lie.Design);
         var diff = UxComparison.Of(clean, lie);

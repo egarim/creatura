@@ -19,6 +19,12 @@ public sealed record UxMatrixSpec
 
     public IReadOnlyList<string> Barriers { get; init; } = [];
 
+    /// <summary>The designs in the loop, by name (<see cref="UxDesigns"/>); empty: <c>plain</c> alone.</summary>
+    public IReadOnlyList<string> Designs { get; init; } = [];
+
+    /// <summary>What the personas keep between cells; nothing when null.</summary>
+    public UxMemory? Memory { get; init; }
+
     /// <summary>Ticks per cell; the adapter's <c>limits.steps</c> when null.</summary>
     public int? MaxTicks { get; init; }
 
@@ -27,14 +33,14 @@ public sealed record UxMatrixSpec
 }
 
 /// <summary>
-/// The full matrix: every task × persona × environment × tester, one cell at a time, each in a fresh browser context.
+/// The full matrix: every task × persona × environment × tester × design, one cell at a time, each in a fresh browser context.
 /// A cell that cannot run is recorded with its error and the matrix goes on; once the spend reaches the cap, the cells
 /// left are recorded as not run.
 /// </summary>
 public static class UxMatrix
 {
-    /// <summary>The cells the spec names, in order: task, then persona, then environment, then tester.</summary>
-    public static IReadOnlyList<(UxTask Task, UxPersona Persona, UxEnvironment Environment, string Tester)> Cells(UxAdapter adapter, UxMatrixSpec spec)
+    /// <summary>The cells the spec names, in order: task, then persona, then environment, then tester, then design.</summary>
+    public static IReadOnlyList<(UxTask Task, UxPersona Persona, UxEnvironment Environment, string Tester, string Design)> Cells(UxAdapter adapter, UxMatrixSpec spec)
     {
         var tasks = spec.Tasks.Count == 0 ? adapter.Tasks : spec.Tasks.Select(adapter.Task).ToList();
         var personas = spec.Personas.Count == 0 ? adapter.Personas : spec.Personas.Select(adapter.Persona).ToList();
@@ -42,12 +48,13 @@ public static class UxMatrix
         var testers = spec.Testers.Count > 0 ? spec.Testers : adapter.Limits.Testers;
         if (testers.Count == 0) throw new ArgumentException("no testers: name them (--testers) or list them in the adapter's limits.testers");
         foreach (var b in spec.Barriers) adapter.Barrier(b);
-        return [.. from t in tasks from p in personas from e in environments from s in testers select (t, p, e, s)];
+        var designs = spec.Designs.Count == 0 ? [UxDesigns.Plain] : spec.Designs;
+        if (designs.FirstOrDefault(d => !UxDesigns.Known(d)) is { } unknown) throw new ArgumentException($"unknown design '{unknown}'; known: {string.Join(", ", UxDesigns.Names)}");
+        return [.. from t in tasks from p in personas from e in environments from s in testers from d in designs select (t, p, e, s, d)];
     }
 
     public static async Task<UxReport> RunAsync(WebBrowser browser, UxAdapter adapter, UxMatrixSpec spec, UxSeats seats,
-        Func<IPolicy, AgentTask, IAgent>? agent = null, string? design = null, Action<UxCell>? progress = null, UxSessions? sessions = null,
-        CancellationToken cancellationToken = default)
+        Action<UxCell>? progress = null, UxSessions? sessions = null, CancellationToken cancellationToken = default)
     {
         var cells = Cells(adapter, spec);
         sessions ??= new UxSessions();
@@ -55,26 +62,34 @@ public static class UxMatrix
         var cap = spec.CostCap ?? adapter.Gate?.MaxCost;
         var results = new List<UxCell>();
         decimal spent = 0;
-        foreach (var (task, persona, environment, tester) in cells)
+        var memory = spec.Memory;
+        foreach (var (task, persona, environment, tester, design) in cells)
         {
             cancellationToken.ThrowIfCancellationRequested();
             UxCell cell;
             if (cap is { } c && spent >= c)
             {
-                cell = UxCell.Failed(task.Id, persona.Id, environment.Id, tester, string.Create(TraceText.Culture, $"cost cap {c:0.####} reached"));
+                cell = UxCell.Failed(task.Id, persona.Id, environment.Id, tester, string.Create(TraceText.Culture, $"cost cap {c:0.####} reached"), design);
             }
             else
             {
+                // The persona's memory: its record (the design's carry) and its lessons, as they stand before this cell.
+                var key = memory is null ? null : UxMemory.Key(persona.Id, tester, design);
+                var store = memory?.ForCell();
+                var lessons = key is null ? [] : memory!.Lessons(key);
+                var casesBefore = key is null ? 0 : memory!.Cases(key);
                 try
                 {
-                    cell = await UxRunner.RunAsync(browser, adapter, task, persona, environment, w => seats.Build(tester, adapter, task, persona, environment, w), agent,
+                    cell = await UxRunner.RunAsync(browser, adapter, task, persona, environment, w => seats.Build(tester, adapter, task, persona, environment, w, lessons),
+                        (p, t) => UxDesigns.Make(design, p, t, store, key),
                         new WebWorldOptions { Barriers = spec.Barriers, Sessions = sessions }, spec.MaxTicks, cancellationToken).ConfigureAwait(false);
-                    cell = cell with { Tester = tester };
+                    cell = cell with { Tester = tester, Design = design, Memory = key, CasesBefore = casesBefore, Remembered = lessons };
                     spent += cell.Cost ?? 0;
+                    if (key is not null) memory!.Remember(key, cell, environment);
                 }
                 catch (Exception e) when (WebBrowser.IsBrowserFailure(e))
                 {
-                    cell = UxCell.Failed(task.Id, persona.Id, environment.Id, tester, e.Message.Split('\n')[0]);
+                    cell = UxCell.Failed(task.Id, persona.Id, environment.Id, tester, e.Message.Split('\n')[0], design);
                 }
             }
 
@@ -84,7 +99,8 @@ public static class UxMatrix
 
         return new UxReport
         {
-            App = adapter.App, At = DateTimeOffset.UtcNow, Design = design ?? "plain", Barriers = spec.Barriers, Gate = adapter.Gate, Cells = results,
+            App = adapter.App, At = DateTimeOffset.UtcNow, Design = string.Join(", ", spec.Designs.Count == 0 ? [UxDesigns.Plain] : spec.Designs),
+            Memory = memory?.Mode ?? UxMemoryMode.Off, Barriers = spec.Barriers, Gate = adapter.Gate, Cells = results,
             SignIns = sessions.SignIns - signInsBefore, SessionsReused = sessions.Reused - reusedBefore,
         };
     }
@@ -103,7 +119,11 @@ public sealed record UxReport
 
     public DateTimeOffset At { get; init; }
 
+    /// <summary>The designs the matrix ran, joined with commas.</summary>
     public string Design { get; init; } = "plain";
+
+    /// <summary>Whether the personas remembered between cells: a report with memory compares only with one that started from the same records.</summary>
+    public UxMemoryMode Memory { get; init; }
 
     public IReadOnlyList<string> Barriers { get; init; } = [];
 
@@ -154,6 +174,16 @@ public sealed record UxReport
         sb.AppendLine();
         sb.AppendLine(Totals() + ".");
         sb.AppendLine();
+        if (Memory != UxMemoryMode.Off) { sb.AppendLine($"Memory: {Memory.ToString().ToLowerInvariant()} (personas remembered earlier cells; the order of the cells matters)."); sb.AppendLine(); }
+        if (ByDesign().Count > 1)
+        {
+            sb.AppendLine("| design | done | believed done, not | page said done, not | lies not caught | lies caught | mean ticks (done) | cost |");
+            sb.AppendLine("|---|---|---|---|---|---|---|---|");
+            foreach (var d in ByDesign())
+                sb.AppendLine(string.Create(TraceText.Culture, $"| {d.Design} | {d.Done} of {d.Ran} | {d.BelievedNotDone} | {d.PageSaidNotDone} | {d.UncaughtLies} | {d.LiesCaught} | {(d.MeanTicksDone is { } m ? m.ToString("0.#", TraceText.Culture) : "")} | {(d.Cost is { } k ? k.ToString("0.####", TraceText.Culture) : "unknown")} |"));
+            sb.AppendLine();
+        }
+
         sb.AppendLine("| task | persona | env | tester | data | page said done | believed done | ticks | lies caught | escalations | cost | note |");
         sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|");
         foreach (var c in Cells)
@@ -166,11 +196,20 @@ public sealed record UxReport
         return sb.ToString();
     }
 
-    public const string CsvHeader = "task,persona,environment,tester,seat,agent,barriers,data_done,page_said_done,believed_done_at,ticks,lies_caught,escalations,cost,uncaught_lie,error,check";
+    /// <summary>The totals for each design, in the order the matrix ran them: how the control mechanisms compare on the same cells.</summary>
+    public IReadOnlyList<UxDesignTotals> ByDesign() => Cells.GroupBy(c => c.Design).Select(g =>
+    {
+        var ran = g.Where(c => c.Error is null).ToList();
+        var done = ran.Where(c => c.DataDone).ToList();
+        return new UxDesignTotals(g.Key, ran.Count, done.Count, ran.Count(c => c.BelievedNotDone), ran.Count(c => c.PageSaidNotDone), ran.Count(c => c.UncaughtLie),
+            ran.Sum(c => c.LiesCaught), done.Count == 0 ? null : done.Average(c => c.Ticks), ran.Any(c => c.Cost is null) ? null : ran.Sum(c => c.Cost ?? 0));
+    }).ToList();
+
+    public const string CsvHeader = "task,persona,environment,tester,design,seat,agent,barriers,data_done,page_said_done,believed_done_at,ticks,lies_told,lies_caught,escalations,cost,uncaught_lie,error,check";
 
     public IEnumerable<string> CsvLines() => Cells.Select(c => string.Join(',', new[]
     {
-        c.Task, c.Persona, c.Environment, c.Tester, c.Seat, c.Agent, string.Join('+', c.Barriers), c.DataDone ? "1" : "0", c.PageSaidDone ? "1" : "0",
+        c.Task, c.Persona, c.Environment, c.Tester, c.Design, c.Seat, c.Agent, string.Join('+', c.Barriers), c.DataDone ? "1" : "0", c.PageSaidDone ? "1" : "0",
         c.BelievedDoneAt?.ToString(TraceText.Culture) ?? "", c.Ticks.ToString(TraceText.Culture), c.LiesCaught.ToString(TraceText.Culture),
         c.Escalations.ToString(TraceText.Culture), c.Cost?.ToString(TraceText.Culture) ?? "", c.UncaughtLie ? "1" : "0", c.Error ?? "", c.CheckDetail,
     }.Select(Csv)));
@@ -208,7 +247,15 @@ public sealed record UxReport
     }
 }
 
-/// <summary>Two runs of a matrix, cell by cell, joined on the cell's key (task, persona, environment, tester).</summary>
+/// <summary>One design's totals in a report.</summary>
+public sealed record UxDesignTotals(string Design, int Ran, int Done, int BelievedNotDone, int PageSaidNotDone, int UncaughtLies, int LiesCaught, double? MeanTicksDone, decimal? Cost)
+{
+    public string Line() => string.Create(TraceText.Culture,
+        $"{Design}: {Done} of {Ran} done; {UncaughtLies} lie{(UncaughtLies == 1 ? "" : "s")} not caught, {LiesCaught} caught; {BelievedNotDone} believed done but not")
+        + (MeanTicksDone is { } m ? string.Create(TraceText.Culture, $"; {m:0.#} ticks a done cell") : "");
+}
+
+/// <summary>Two runs of a matrix, cell by cell, joined on the cell's key (task, persona, environment, tester, design).</summary>
 public sealed record UxComparison
 {
     public required UxReport Before { get; init; }

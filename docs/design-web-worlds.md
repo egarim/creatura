@@ -1,13 +1,14 @@
 # Design: web worlds, where a persona uses a real app and the app's data is the judge
 
-**Status:** design note, with phases 1, 2a and 2b built (below). Written 2026-10-31. Nothing here has been run against a real
+**Status:** design note, with phases 1, 2a and 2b and persona memory with a design axis built (below). Written 2026-10-31. Nothing here has been run against a real
 model or a real app yet; what was run is the bundled demo, offline, in a real Chromium.
 
 **Built:** phase 1, `src/Creatura.Worlds.Web` (`WebWorld`, the observation, the tools, the declarative check, the
 barriers, the two seats, the demo), `creatura ux run` and `tests/Creatura.Worlds.Web.Tests`; phase 2a, the matrix, the
 report, compare and the gate (`UxMatrix`, `UxReport`, `UxComparison`, `UxGate`, `creatura ux matrix | compare | gate`);
 phase 2b, sign-in once per account with the session kept and reused, sessionStorage put back (`UxSessions`), and a
-Singular adapter template (`samples/ux/singular-starter.adapter.json`, not run against an app). The rest is a design.
+Singular adapter template (`samples/ux/singular-starter.adapter.json`, not run against an app); persona memory and the
+design axis (`UxMemory`, `UxDesigns`, `--designs`, `--memory`). The rest is a design.
 
 ## The problem
 
@@ -146,6 +147,44 @@ The bundled demo signs in the way the starter does. `/login` keeps the token fro
 and `/private` is a list read and written with it that shows "Please sign in" without it. The demo's task
 `private-bread` signs in as `ana`.
 
+## Persona memory and the design axis (built)
+
+The owner asked whether a persona can run under different control mechanisms and keep what it felt and thought
+between tests. Both are built, on what the Core already has.
+
+**The design axis.** A matrix takes `--designs plain,bach,levin,peterson,orienting,hybrid` (or `UxMatrixSpec.Designs`),
+and every task × persona × environment × tester cell runs once per design. The design is part of the cell's key, so
+compare never joins a Bach cell to a plain one. The report's totals are split by design (`ByDesign`, a table in
+`report.md`), so the control mechanisms are compared on exactly the same cells. The persona is the seat and the design
+is the loop around it: the same hurried persona under Bach and under the map-keeper is two different runs.
+
+**Persona memory.** The Core's record store (`IRecordStore`, `JsonRecordStore` under `--records <dir>`) keeps one
+record per persona, tester and design (`UxMemory.Key`: the same persona played by another model, or under another
+design, is another mind). What it holds:
+
+- **The design's own carry,** as the bench's trainer keeps it: Bach's self-model, skill beliefs, prediction record and
+  stage (through `RecordCarryExtension`); the orienting agent's resting inhibition (the nearest thing in the code to a
+  mood); the map-keeper's territory; the hybrid's cell. The plain loop keeps only its count of cases.
+- **The persona's lessons:** one line per cell, written by the harness from the cell's verdicts, never by the model
+  ("`remember-milk` on your phone: the app said it was saved, but it was not kept; you noticed"). The newest 8 are
+  shown to a model persona before the screen, as "what you remember from using this app before".
+- **Not kept:** distrust (the Core's rule: a new case starts trusting) and the model's own reasoning text.
+
+Two modes. `--memory carry` loads each cell's record and saves it after, so a persona's later cells know what its
+earlier ones learned, in the matrix's order. `--memory read` starts every cell from the records as they are on disk
+and saves nothing: a fixed, experienced persona. A tester who remembers the app is no longer a first-time user, so a
+report says which mode it ran in, and two reports compare only when they started from the same records. The usual way
+to use it: train a persona with `carry` on one matrix, then run `read` matrices against it.
+
+**Lies told and lies caught.** Building this showed the bench's lie counter reads the designs' words ("contradiction",
+"effect missing"). The orienting agent writes "punishment … orienting", so its catches went uncounted, and the report
+said it missed lies it had caught. A web cell now counts by the world's own truth. A lie is **told** when a commit the
+page took is not in the data (`WebWorld.Lies`, placed on the loop's tick through `ITickedWorld`). It is **caught** when
+the loop blocked that tool on that tick, whatever the design's words (`WebLie.CaughtIn`). "A lie not caught" is a lie
+told and not blocked. The same work found a world bug from phase 1: a save pressed again on a page still showing
+"Write something first" was read as a success, because the error text was not new. After a commit, any error text on
+screen now means the page refused it.
+
 ## Viewports
 
 An environment is a viewport (`width`, `height`) and `mobile` (Playwright's `IsMobile` and `HasTouch`), so the same
@@ -244,6 +283,9 @@ The summary writer and the judge (two more seats, reading only the traces and th
 | W15 | a matrix signs each account in once and reuses the session in every other cell for it | a second sign-in with the session still good | holds |
 | W16 | sessionStorage is put back: with it the private task opens signed in; without it the session does not carry over, and the cell says so | anything else | holds |
 | W17 | an expired session is dropped and the account signs in again, once; a session kept on disk is owner-only, holds no password, and the next run signs in zero times | anything else | holds |
+| W18 | the design is an axis: every cell runs once per design named, the key holds the design, the report's totals are split by design | anything else | holds |
+| W19 | with memory carried, a persona's cells start from the record its earlier cells left (cases, the design's carry, lessons); read starts every cell from the same record and saves nothing | anything else | holds |
+| W20 | lies are counted by the world: told when a commit the page took is not in the data, caught when the loop blocked that tool on that tick; under `save-lies` plain, Bach, the map-keeper and the orienting agent each catch the one lie told | a lie miscounted, or a design's catch missed for its words | holds |
 | W14 | the gate exits 1 naming every threshold broken, 0 when none is; with the lie barrier the demo breaks `minDone`, and holds `maxUncaughtLies 0` under Bach | anything else | holds |
 
 ## Results (phase 1, 2026-10-31)
@@ -283,6 +325,19 @@ machine: the signed-in check read the page before its first request had answered
 to 5 s, and two full runs after that passed. Not verified: the Singular template against a Singular app, a Keycloak
 redirect, and a token that refreshes itself during a cell.
 
+## Results (persona memory and the design axis, 2026-10-31)
+
+Run the same way, offline, in a real Chromium. W18 to W20 hold: `MemoryTests` (5, no browser), `MemoryBrowserTests`
+(3) and command tests for the new flags. Under `save-lies`, with plain, Bach, the map-keeper and the orienting agent
+on the same 8 cells, each design catches the 2 lies told and misses none. Before the count moved to the world's
+truth, the same run said the orienting agent missed both, and that the map-keeper caught 4. The 4 were two real
+lies plus two refused saves the world had misread (the phase 1 bug above). With `carry`, a hurried persona under Bach
+went into its second cell with one earlier case and one lesson, and its record held Bach's skill beliefs about the
+controls. With `read`, two cells started from the same record and the record was unchanged after. A timeout from
+Playwright (`System.TimeoutException`, not a `PlaywrightException`) crashed a cell instead of failing the action; it is
+now caught everywhere, and a test fails without the fix. Not verified: a model persona reading its lessons (the prompt
+is tested, a model's use of it is not), and whether carried records make any design better at a real app.
+
 ## Decisions for the owner
 
 | | decision | options | recommendation |
@@ -299,6 +354,7 @@ redirect, and a token that refreshes itself during a cell.
 | 1 | `WebWorld`, the observation, tools per control, the declarative check, the lie / fail / slow barriers, the persona and script seats, `creatura ux run`, the offline demo | W1 to W8 (done) |
 | 2a | the full matrix (tasks × personas × environments × testers), the report (json, csv, markdown, traces), compare, gate | W11 to W14 (done) |
 | 2b | sign-in once per account, storage state kept and reused, sessionStorage put back; a Singular template | W15 to W17 (done); W9 on PhotoSet or Cosmos is still open, with the template filled in |
+| 2b+ | persona memory (records and lessons, carry or read) and the design axis | W18 to W20 (done) |
 | 2c | the summary writer and the judge as seats; vision on the triggers; the stuck triggers as a regulator alarm | W10; the judge's findings agree with W9's person |
 | 3 | barriers on the page (a moving button, a covered control), `scroll`, record and replay of web runs | a design's catch rate per barrier, per viewport |
 

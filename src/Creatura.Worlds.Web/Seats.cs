@@ -152,7 +152,8 @@ public sealed class PersonaTelemetry
 /// and answers ONE action as JSON: <c>{"action": "click 3", "text": "...", "confidence": 0.8, "done": false, "why": "..."}</c>.
 /// When the person is stuck (confidence under 0.4, the same action again on an unchanged screen, an answer that names
 /// no control) the tick is asked again of the stronger seat, within the escalation budget. A cost limit stops the
-/// seat. <c>done</c> is recorded as what the model believed; it never ends the run: the data does.
+/// seat. <c>done</c> is recorded as what the model believed; it never ends the run: the data does. A persona that remembers
+/// (<see cref="UxMemory"/>) is shown its lessons from earlier cells before the screen.
 /// </summary>
 public sealed class PersonaPolicy : IPolicy
 {
@@ -175,12 +176,14 @@ public sealed class PersonaPolicy : IPolicy
     private readonly ModelClient _client;
     private readonly UxLimits _limits;
     private readonly CallLog _log;
+    private readonly IReadOnlyList<string> _memories;
     private string? _lastAction;
     private string? _lastScreen;
 
     public PersonaPolicy(Func<Observation> screen, UxPersona persona, UxEnvironment environment, ModelEndpoint decide, ModelClient client,
-        ModelEndpoint? escalate = null, UxLimits? limits = null, CallLog? log = null)
+        ModelEndpoint? escalate = null, UxLimits? limits = null, CallLog? log = null, IReadOnlyList<string>? memories = null)
     {
+        _memories = memories ?? [];
         _screen = screen;
         _persona = persona;
         _environment = environment;
@@ -202,9 +205,15 @@ public sealed class PersonaPolicy : IPolicy
             .Replace("{goal}", goal, StringComparison.Ordinal);
 
     /// <summary>The user message: the tick, the screen, the person's last steps.</summary>
-    public static string User(PolicyContext context, Observation screen, string? escalation = null)
+    public static string User(PolicyContext context, Observation screen, string? escalation = null, IReadOnlyList<string>? memories = null)
     {
         var sb = new StringBuilder();
+        if (memories is { Count: > 0 })
+        {
+            sb.AppendLine("WHAT YOU REMEMBER FROM USING THIS APP BEFORE (oldest first):");
+            foreach (var line in memories) sb.AppendLine($"  {line}");
+        }
+
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"STEP {context.Tick} of {context.MaxTicks}."));
         sb.Append(screen.Render());
         sb.AppendLine("WHAT YOU DID SO FAR (oldest first):");
@@ -262,7 +271,7 @@ public sealed class PersonaPolicy : IPolicy
         var messages = new List<ChatMessage>
         {
             new("system", System(_persona, _environment, context.GoalText)),
-            new("user", User(context, screen, escalation)),
+            new("user", User(context, screen, escalation, _memories)),
         };
         var reply = await _client.ChatAsync(endpoint, messages, null, jsonMode: true, maxTokens: 300, cancellationToken).ConfigureAwait(false);
         Telemetry.Calls++;

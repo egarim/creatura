@@ -20,6 +20,12 @@
   expired session signs in again, and `--sessions <dir>` keeps sessions in owner-only files between runs. The demo
   signs in like the Singular starter (a token in sessionStorage only); `samples/ux/singular-starter.adapter.json` is a
   template. W15 to W17 hold. The demo's barriers now match `**/notes`.
+- **Web worlds: persona memory and the design axis**: `ux matrix --designs a,b` runs every cell once per design, keys
+  cells by design and splits the report's totals by design; `--memory carry|read --records <dir>` keeps one Creatura
+  record per persona, tester and design (the design's carry and the persona's lessons, written from verdicts), carried
+  cell after cell or read frozen. Lies in a web cell are now counted by the world's truth (told) and the trace's blocked
+  row (caught), so the orienting agent's catches count; a save refused again on a page still showing its error is no
+  longer read as a success; Playwright's `TimeoutException` fails the action instead of the cell. W18 to W20 hold.
 
 ## 0.2.0-preview.3 (2026-10-30)
 

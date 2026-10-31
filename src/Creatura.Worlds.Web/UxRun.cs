@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text;
-using Creatura.Bench;
 
 namespace Creatura.Worlds.Web;
 
@@ -22,7 +21,11 @@ public static class PlainLoop
         public Identity Identity { get; } = new("tester", "the app's owner");
     }
 
-    public static IAgent Make(IPolicy policy, AgentTask task) => new ReferenceLoop(new Plain(), policy, task, name: "plain loop");
+    public static IAgent Make(IPolicy policy, AgentTask task) => Make(policy, task, null, null);
+
+    /// <summary>The plain loop that loads its record before the run and saves it after, under the key.</summary>
+    public static IAgent Make(IPolicy policy, AgentTask task, IRecordStore? store, string? key) =>
+        new ReferenceLoop(new Plain(), policy, task, name: "plain loop", store: store, recordKey: key);
 }
 
 /// <summary>
@@ -45,8 +48,20 @@ public sealed record UxCell
 
     public required string Agent { get; init; }
 
-    /// <summary>The cell's identity across runs, for compare: task, persona, environment and tester.</summary>
-    public string Key => $"{Task}|{Persona}|{Environment}|{(Tester.Length == 0 ? Seat : Tester)}";
+    /// <summary>The design in the loop, by its matrix name (<c>plain</c>, <c>bach</c>, …): part of the cell's key.</summary>
+    public string Design { get; init; } = "plain";
+
+    /// <summary>The persona's record key when it remembers, else null.</summary>
+    public string? Memory { get; init; }
+
+    /// <summary>How many cells the persona's record had been through before this one (0: it started fresh).</summary>
+    public int CasesBefore { get; init; }
+
+    /// <summary>The lessons the persona was shown from earlier cells.</summary>
+    public IReadOnlyList<string> Remembered { get; init; } = [];
+
+    /// <summary>The cell's identity across runs, for compare: task, persona, environment, tester and design.</summary>
+    public string Key => $"{Task}|{Persona}|{Environment}|{(Tester.Length == 0 ? Seat : Tester)}|{Design}";
 
     /// <summary>Why the cell could not run (the app did not open, the browser failed); null when it ran.</summary>
     public string? Error { get; init; }
@@ -66,6 +81,10 @@ public sealed record UxCell
 
     public required int Ticks { get; init; }
 
+    /// <summary>The lies the world told in this cell, by its own truth (a commit the page took that the data does not show).</summary>
+    public int LiesTold { get; init; }
+
+    /// <summary>Of <see cref="LiesTold"/>, the ones the run blocked on the tick they were told, in any design's words.</summary>
     public required int LiesCaught { get; init; }
 
     public required int Escalations { get; init; }
@@ -87,26 +106,28 @@ public sealed record UxCell
     /// <summary>The page said a commit went through and the data says not: the app's gap (or a barrier's).</summary>
     public bool PageSaidNotDone => !DataDone && PageSaidDone;
 
-    /// <summary>The page said done, the data says not, and the run caught no lie: the design did not notice.</summary>
-    public bool UncaughtLie => PageSaidNotDone && LiesCaught == 0;
+    /// <summary>The world told a lie the run did not block: the design did not notice.</summary>
+    public bool UncaughtLie => LiesTold > LiesCaught;
 
     /// <summary>A cell that could not run, recorded so the matrix keeps its shape.</summary>
-    public static UxCell Failed(string task, string persona, string environment, string tester, string error) => new()
+    public static UxCell Failed(string task, string persona, string environment, string tester, string error, string design = "plain") => new()
     {
-        Task = task, Persona = persona, Environment = environment, Seat = tester, Tester = tester, Agent = "",
+        Task = task, Persona = persona, Environment = environment, Seat = tester, Tester = tester, Agent = "", Design = design,
         DataDone = false, CheckDetail = "not run", PageSaidDone = false, Ticks = 0, LiesCaught = 0, Escalations = 0, Error = error,
     };
 
     public string Summary()
     {
         var sb = new StringBuilder();
-        if (Error is not null) return $"{Task} × {Persona} × {Environment} × {(Tester.Length == 0 ? Seat : Tester)}: NOT RUN ({Error})";
-        sb.Append($"{Task} × {Persona} × {Environment} × {Seat}: the data says {(DataDone ? "DONE" : "NOT DONE")} ({CheckDetail})");
+        var design = Design == "plain" ? "" : $" × {Design}";
+        if (Error is not null) return $"{Task} × {Persona} × {Environment} × {(Tester.Length == 0 ? Seat : Tester)}{design}: NOT RUN ({Error})";
+        sb.Append($"{Task} × {Persona} × {Environment} × {Seat}{design}: the data says {(DataDone ? "DONE" : "NOT DONE")} ({CheckDetail})");
         sb.Append(string.Create(CultureInfo.InvariantCulture, $"; {Ticks} tick{(Ticks == 1 ? "" : "s")}, {LiesCaught} lie{(LiesCaught == 1 ? "" : "s")} caught"));
         if (PageSaidDone && !DataDone) sb.Append("; the page said it was saved");
         if (BelievedDoneAt is { } t) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; the persona believed it was done at tick {t}"));
         if (Escalations > 0) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; {Escalations} escalation{(Escalations == 1 ? "" : "s")}"));
         if (Cost is { } cost && cost > 0) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; cost {cost:0.####}"));
+        if (Memory is not null) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; remembered {CasesBefore} earlier cell{(CasesBefore == 1 ? "" : "s")}"));
         if (BarrierFires.Count > 0) sb.Append("; barriers fired: " + string.Join(", ", BarrierFires.Select(kv => string.Create(CultureInfo.InvariantCulture, $"{kv.Key} ×{kv.Value}"))));
         return sb.ToString();
     }
@@ -133,7 +154,7 @@ public static class UxRunner
             Task = task.Id, Persona = persona.Id, Environment = environment.Id, Seat = policy.Name, Agent = run.Agent,
             Barriers = options.Barriers, DataDone = world.LastCheck.Done, CheckDetail = world.LastCheck.Detail,
             PageSaidDone = world.PageReportedCommit, BelievedDoneAt = persona_?.Telemetry.BelievedDoneAt,
-            Ticks = run.Ticks, LiesCaught = Measures.LiesCaught(run), Escalations = persona_?.Telemetry.Escalations ?? 0,
+            Ticks = run.Ticks, LiesTold = world.Lies.Count, LiesCaught = world.Lies.Count(l => l.CaughtIn(run)), Escalations = persona_?.Telemetry.Escalations ?? 0,
             Cost = persona_ is null ? 0m : persona_.Telemetry.Cost, BarrierFires = new Dictionary<string, int>(world.BarrierFires), Run = run,
         };
     }

@@ -5,6 +5,17 @@ using Microsoft.Playwright;
 
 namespace Creatura.Worlds.Web;
 
+/// <summary>A lie a web world told: on this loop tick, this commit was reported done and the data did not show it.</summary>
+public sealed record WebLie(int Tick, string Tool)
+{
+    /// <summary>
+    /// Whether the run caught it: the loop blocked this tool on this tick (the control layer's verdict row), in whatever
+    /// words the design writes (Bach's "contradiction", the orienting agent's "punishment", the map-keeper's "anomaly").
+    /// </summary>
+    public bool CaughtIn(AgentRun run) =>
+        run.Trace.Any(e => e.Tick == Tick && e.Action == Tool && e.Level == "cell" && e.Kind == TraceKind.Blocked);
+}
+
 /// <summary>The browser a web world runs in: one Playwright and one Chromium, shared by the worlds opened on it.</summary>
 public sealed class WebBrowser : IAsyncDisposable
 {
@@ -52,7 +63,7 @@ public sealed class WebBrowser : IAsyncDisposable
     /// Whether an exception is the browser's or the app's (Playwright could not start or drive Chromium, the app did not
     /// answer the harness), not a bug: what a command reports as such. Callers need not reference Playwright.
     /// </summary>
-    public static bool IsBrowserFailure(Exception e) => e is PlaywrightException or HttpRequestException or InvalidOperationException or IOException;
+    public static bool IsBrowserFailure(Exception e) => e is PlaywrightException or TimeoutException or HttpRequestException or InvalidOperationException or IOException;
 }
 
 /// <summary>The code escape hatch beside the declarative check and reset: what an app needs that a request cannot say.</summary>
@@ -105,7 +116,7 @@ public sealed record WebWorldOptions
 /// waits for it, so a caller's synchronization context is never needed.
 /// </para>
 /// </summary>
-public sealed class WebWorld : IWorld, IAsyncDisposable
+public sealed class WebWorld : ITickedWorld, IAsyncDisposable
 {
     private static readonly Lazy<string> Script = new(() => Resource("observe.js"));
 
@@ -119,6 +130,8 @@ public sealed class WebWorld : IWorld, IAsyncDisposable
     private readonly HashSet<string> _facts = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _fires = new(StringComparer.Ordinal);
     private IReadOnlyList<Tool> _tools = [];
+    private readonly List<WebLie> _lies = [];
+    private int _loopTick;
     private int _inFlight;
     private long _lastNetwork = System.Environment.TickCount64;
 
@@ -300,7 +313,7 @@ public sealed class WebWorld : IWorld, IAsyncDisposable
                     break;
             }
         }
-        catch (PlaywrightException e)
+        catch (Exception e) when (e is PlaywrightException or TimeoutException)
         {
             await SettleAsync().ConfigureAwait(false);
             await RefreshAsync(cancellationToken).ConfigureAwait(false);
@@ -310,10 +323,20 @@ public sealed class WebWorld : IWorld, IAsyncDisposable
         await SettleAsync().ConfigureAwait(false);
         await RefreshAsync(cancellationToken).ConfigureAwait(false);
         var said = Said(before, Current);
-        if (ErrorShown(before, Current) is { } error) return new ActionOutcome(toolId, false, [], $"the page says: {error}");
+        if (ErrorShown(before, Current, tool.Kind == WebTools.SubmitKind) is { } error) return new ActionOutcome(toolId, false, [], $"the page says: {error}");
         if (tool.Kind == WebTools.SubmitKind) PageReportedCommit = true;
+        if (tool.Grants.Count > 0 && !EffectsLanded(tool)) _lies.Add(new WebLie(_loopTick, toolId));
         return new ActionOutcome(toolId, true, tool.Grants, said);
     }
+
+    /// <summary>The loop's tick, so a lie told is placed on the tick the loop judged it.</summary>
+    public void BeginTick(int tick) => _loopTick = tick;
+
+    /// <summary>
+    /// Every lie the world told, by its own truth: a commit the page took (it reported success) and the app's data does not
+    /// show. What a design did about each is in the run's trace; <see cref="WebLie.CaughtIn"/> reads it.
+    /// </summary>
+    public IReadOnlyList<WebLie> Lies => _lies;
 
     /// <summary>
     /// Whether the page shows the text within the time given, read again as it loads: a signed-in page fills in its user
@@ -346,11 +369,15 @@ public sealed class WebWorld : IWorld, IAsyncDisposable
     }
 
     /// <summary>Error text the adapter names that is on the page now and was not before.</summary>
-    private string? ErrorShown(Observation before, Observation after)
+    /// <summary>
+    /// Error text the adapter names on the page after an action: new text for any action, and any at all after a commit (a
+    /// save pressed again on a page still saying "Write something first" was refused again, not taken).
+    /// </summary>
+    private string? ErrorShown(Observation before, Observation after, bool commit)
     {
         var lines = after.Text.Split('\n');
         var old = new HashSet<string>(before.Text.Split('\n'), StringComparer.Ordinal);
-        return lines.Where(l => !old.Contains(l)).FirstOrDefault(l => _adapter.ErrorText.Any(e => l.Contains(e, StringComparison.OrdinalIgnoreCase)));
+        return lines.Where(l => commit || !old.Contains(l)).FirstOrDefault(l => _adapter.ErrorText.Any(e => l.Contains(e, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>What the page says after an action, in one line for the history: where it is and the first new text.</summary>
@@ -426,14 +453,14 @@ public sealed class WebWorld : IWorld, IAsyncDisposable
                 var raw = await page.EvaluateAsync<JsonElement>(Script.Value, maxText).ConfigureAwait(false);
                 return Observation.From(raw.Deserialize<RawObservation>(UxAdapter.Json) ?? new RawObservation());
             }
-            catch (PlaywrightException) when (attempt < 2)
+            catch (Exception e) when (e is PlaywrightException or TimeoutException && attempt < 2)
             {
                 // The page navigated under the script; read it again once it has loaded.
                 try
                 {
                     await page.WaitForLoadStateAsync(LoadState.DOMContentLoaded, new PageWaitForLoadStateOptions { Timeout = 5000 }).ConfigureAwait(false);
                 }
-                catch (PlaywrightException)
+                catch (Exception inner) when (inner is PlaywrightException or TimeoutException)
                 {
                 }
             }
