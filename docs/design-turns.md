@@ -3,7 +3,9 @@
 **Status:** proposed 2026-10-31, from the cloud-session probe of the two-creatures experiment (egarim/two-creatures-a,
 branch `spike`). Slice T0 built 2026-10-31 (branch `turns-t0`): C30 to C37 hold, each of the three deliberate breaks
 fails a check, and the compatibility question is answered by test: optional fields on Progress, no new kinds, no hub
-upgrade needed. The builder's choices are recorded in "Built" at the end. T1 and T2 are not built.
+upgrade needed. Slice T1 built 2026-10-31 on the same branch: the polite and the simultaneous fake pairs ship 5 of 5
+on a Docker host, and the X0 pairs score as before. The builder's choices and both results are recorded in "Built"
+at the end. T2 is not built.
 
 ## The problem, in the owner's words
 
@@ -173,5 +175,43 @@ commands test.
 - *`propose --file`* needs `--hub` (the file is uploaded as `share` does), seals the file for the parties when they
   are known and for every endorsed cell otherwise, and the proposal's row defaults to "proposal in <name>".
 
-**Left for T1:** the fake pair in `experiments/two-creatures/agents/fake.mjs` does not call `turn` yet, and the hub
-image of the harness builds from the repository's current code, so a run there picks this up unchanged.
+## Built (2026-10-31): slice T1
+
+`experiments/two-creatures/agents/fake.mjs` takes `KIND`: `fake` and `liar` as in X0, with their roles written in, and
+two pairs with no roles, `polite` and `simultaneous`, which the runner takes as `--agents polite,polite` and
+`simultaneous,simultaneous` on an arm with the ledger (L or LM). Both claim the goal word for word (`cell claim
+--goal`, the same text on both machines, which makes them parties). The polite pair then each `wait --on` the other
+for a plan; the simultaneous pair each `propose --topic plan` at once, before any sync, so neither proposal has seen
+the other. Both then loop on `cell sync` and `cell turn --json`: wait means sleep two seconds and look again; act with
+a live proposal of the peer's waiting for an answer means read it (its file fetched from the hub when it names one)
+and `answer --accept` (`--object` if it does not say who builds what); act with no proposal, the polite mover of T3,
+means propose, as a file through `propose --file`. A settled topic ends the loop, and the plan's text says who builds
+which half: the proposer takes the server. The halves are the reference app's, pushed to whichever repository the
+plan says, since they find each other by service name. The runner records the waits, proposals and answers and whose
+plan was accepted in `summary.json`.
+
+On a Docker host (this session's, an x64 VM with 4 CPUs; `--check-every 60`), every run shipped 5 of 5:
+
+| arm | agents | first ship | waits | proposals | answers | plan by |
+|---|---|---|---|---|---|---|
+| CC-L | polite, polite | 51 s | 3 | 1 | 1 | b |
+| CC-L | simultaneous, simultaneous | 47 s | 1 | 2 | 1 | b |
+| CC-LM | polite, polite | 51 s | 3 | 1 | 1 | b |
+| CC-LM | simultaneous, simultaneous | 50 s | 1 | 2 | 1 | a |
+
+The polite runs: both waited, `turn` gave the cell whose wait was the latest "act: break the deadlock" (T3) and the
+other "wait"; the mover proposed, the other was told "act: answer" (T1), accepted, and both read the topic as settled
+(T7). The simultaneous runs: each saw its own proposal first ("wait: waits for the peer to answer", T6), then both,
+and the loser was told "your proposal lost to ... (the lower hash): answer it" (T6); the hash fell on b in three runs
+and on a in the fourth. In every run the settled plan put the server in the proposer's repository, so three runs
+built the halves the other way round from X0's written-in roles, and shipped the same.
+
+The X0 pairs score as before: CC-L fake 5 of 5 (46 s), CC-M fake 5 of 5 (40 s), C-0 5 of 5 (40 s), the reference 5
+of 5 (39 s); the liars' early "done" judged 0 of 5 and counted false (CC-L 1, CC-LM 2), their later true claim 5 of 5
+(138 s and 139 s). Experiment log #67.
+
+Found on the way: a hello in `cell ledger` names the creatura by its id, not by the creature's name, so the first
+polite run waited ten minutes for "the peer's hello" and shipped nothing. A pair has two cells, so the peer is the
+other hello; a run with more cells would need names, which the ledger does not carry.
+
+**Left for T2:** `agents/goal.md` does not yet tell a real agent about `wait`, `propose`, `answer` and `turn`.

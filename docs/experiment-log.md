@@ -317,3 +317,17 @@ runs are recorded only in the design note.
 - #66: `dotnet test Creatura.slnx -c Release (baseline on e694f8b, then final); dotnet test tests/Creatura.Cells.Tests --filter TurnTests; breaks, one at a time on Turns.cs: live = frontier.MinBy(Timestamp); Seen = []; StandingWaits from the latest wait instead of the latest entry; compat: dotnet publish src/Creatura.Cells.Hub and src/Creatura.Cli at e694f8b, then with the new CLI: init, owner-key, request/endorse/accept a second home, claim x2, wait --on, propose --topic plan, sync, turn, answer --accept, sync, turn --json, all through the e694f8b hub (--listen 127.0.0.1:5199 --trust --data); the e694f8b CLI's ledger and sync on the second home; the hub's hub.db read with sqlite3`
 
 </details>
+
+## Step T1
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 67 | 2026-10-31 08:53 | `9c2c09e` | build | — | Two creatures T1: the polite and the simultaneous fake pairs, settled through cell turn; the X0 pairs again | Every run 5/5. polite: CC-L first ship 51 s, CC-LM 51 s (3 waits, 1 proposal, 1 answer; T3 picked b, which proposed as a file; a accepted). simultaneous: CC-L 47 s, CC-LM 50 s (1 wait, 2 proposals, 1 answer; the lower hash won: b in CC-L, a in CC-LM; the loser answered). The proposer takes the server, so three of four runs built the halves the other way round from X0's roles. As before: CC-L fake 46 s, CC-M fake 40 s, C-0 40 s, reference 39 s; the liars' early DONE judged 0/5 and counted false (CC-L 1, CC-LM 2), their true claim 5/5 at 138 s and 139 s. The first polite run, before a fix, shipped nothing: the agent looked for the peer's hello by the creature's name, which a hello does not carry (it names the creatura id); now the peer is the other hello. | docs/design-turns.md, Built T1. This session's Docker: an x64 VM with 4 CPUs, dockerd started here; the images built on the host network with the egress proxy's CA added in an early layer (the sandbox's proxy README), which build.sh does not do; no model tokens |
+
+<details><summary>Commands</summary>
+
+- #67: `node experiments/two-creatures/runner/run.mjs --reference; --arm CC-L\|CC-LM --agents polite,polite \| simultaneous,simultaneous --check-every 60 --minutes 8; --arm CC-L --agents fake,fake \| fake,liar; --arm CC-LM --agents fake,liar; --arm CC-M --agents fake,fake; --arm C-0 --agents fake`
+
+</details>
