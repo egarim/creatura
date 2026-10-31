@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **Web worlds, phase 1** (docs/design-web-worlds.md): a real web app as a Creatura world, the idea of Singular
+  Framework's uxkit on the control layer. `Creatura.Worlds.Web` (new, takes Microsoft.Playwright) has `WebWorld`: the
+  page read into the visible text and numbered controls, a tool per control with an id that survives re-renders, the
+  task's done fact granted only by a declared check of the app's own data, and barriers as Playwright routes (`lie`,
+  `fail`, `slow`). Two seats: `PersonaPolicy` (a catalogued model as a persona, one action per tick, escalation to a
+  stronger model when stuck, a cost cap) and `WebScriptPolicy` (offline, by control name). `creatura ux run` runs one
+  cell; `--demo` serves a bundled notes app and runs offline. W1 to W8 hold; not yet run with a real model or a real
+  app. `Creatura.Cli` now references `Creatura.Worlds.Web`, and the cells' purity test allows it.
+
 ## 0.2.0-preview.3 (2026-10-30)
 
 - **One culture for every text** (the owner's decision, issue #5): traces, notes, self-descriptions and model prompts

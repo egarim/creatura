@@ -285,7 +285,9 @@ public class CellsPurityTest
             name.StartsWith("System", StringComparison.Ordinal) || name.StartsWith("Microsoft.Win32", StringComparison.Ordinal)
             || name is "netstandard" or "Creatura" or "Creatura.Cells" || (project == "Creatura.Cli" && name is "Creatura.Cells.Sqlite" or "Creatura.Cells.Sync"
                 // creatura run: the catalogs and the seats, Creatura projects that are package-free themselves (CorePurityTest)
-                or "Creatura.Worlds" or "Creatura.Seats" or "Creatura.Bench"),
+                or "Creatura.Worlds" or "Creatura.Seats" or "Creatura.Bench"
+                // creatura ux: web worlds; Microsoft.Playwright comes through it, as Microsoft.Data.Sqlite comes through Creatura.Cells.Sqlite
+                or "Creatura.Worlds.Web"),
             $"{project} references {name}"));
     }
 }

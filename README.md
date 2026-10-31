@@ -63,6 +63,7 @@ this repository does the same):
 ```bash
 creatura run --design bach --world restore --barriers patchlies   # a design on a world, no code, offline
 creatura run --list                                              # the designs, the worlds and their barriers, the seats
+creatura ux run --demo --barriers save-lies                      # a persona uses a web app in a browser; the app's data judges
 creatura new agent                                               # a project: agent, world or sk; with no name, it asks
 creatura doctor                                                  # what is set up and what is missing, with the fix
 ```
@@ -131,6 +132,7 @@ sample worlds are `Creatura.Worlds.Samples`; and `Creatura.Cli` is in `Creatura.
 | [Creatura.Worlds/](src/Creatura.Worlds) | the bench's worlds: sample worlds, manifests, barrier sets, controls, the agent and extension catalogs, the ingenuity series | none; no file IO |
 | [Creatura.Bench/](src/Creatura.Bench) | the bench's protocols: oracle and outcome class, hypotheses, batteries, arms and rows, the trainer and the exam over the record store, the legacy CSV writers, the fine-tune seam | none; may do file IO |
 | [Creatura.Seats/](src/Creatura.Seats) | the model seats: IModelTransport (Ollama, OpenAI-compatible, Azure Foundry) over an injected HttpClient, ModelClient, ModelPolicy, ModelJudge, ModelCatalog from models.json, the seat's biology, SeatResolver, the call log and the scoreboard | none; may do file IO |
+| [Creatura.Worlds.Web/](src/Creatura.Worlds.Web) | web worlds: WebWorld over a real app in Chromium, the observation (visible text and numbered controls), a tool per control, the declarative data check, barriers by Playwright routing, the persona and script seats, the UX adapter format and the offline notes demo | Microsoft.Playwright; may do file IO |
 
 **The hosts** (`src/`)
 
@@ -147,7 +149,7 @@ sample worlds are `Creatura.Worlds.Samples`; and `Creatura.Cli` is in `Creatura.
 | [Creatura.Cells.Sqlite/](src/Creatura.Cells.Sqlite) | SqliteLedgerStore, the ledger in SQLite | Microsoft.Data.Sqlite |
 | [Creatura.Cells.Sync/](src/Creatura.Cells.Sync) | the ledger over SyncFramework (`LedgerSyncNode`, `LedgerHub`) | BIT.Data.Sync |
 | [Creatura.Cells.Hub/](src/Creatura.Cells.Hub) | the ledger hub, `creatura-hub`: an ASP.NET host for the sync endpoint and the shared files' bytes | BIT.Data.Sync.AspNetCore, Microsoft.Data.Sqlite |
-| [Creatura.Cli/](src/Creatura.Cli) | the `creatura` command: `new`, `run` and `doctor` to get started, and `creatura cell` over the cells, the hub client and the Claude Code hooks | none |
+| [Creatura.Cli/](src/Creatura.Cli) | the `creatura` command: `new`, `run` and `doctor` to get started, `ux` for web worlds, and `creatura cell` over the cells, the hub client and the Claude Code hooks | none of its own |
 | [Creatura.Scenarios/](src/Creatura.Scenarios) | several creaturas in one shared world: the convoy (ConvoyWorld, TruckView, ConvoyPolicy, ScenarioMesh, ConvoyBattery), the replay writer, the recorder and dataset exporter, and the trained networks' seats (ConvoyNetwork) | none |
 
 **Samples, models and tools**
@@ -173,6 +175,7 @@ sample worlds are `Creatura.Worlds.Samples`; and `Creatura.Cli` is in `Creatura.
 | [Creatura.Hosts.AgentFramework.Tests/](tests/Creatura.Hosts.AgentFramework.Tests) | the host's tests and its four goldens (golden/restore-*-controlled.jsonl) |
 | [Creatura.Hosts.SemanticKernel.Tests/](tests/Creatura.Hosts.SemanticKernel.Tests) | the Semantic Kernel host's tests; it runs the Agent Framework host's goldens byte for byte |
 | [Creatura.Scenarios.Tests/](tests/Creatura.Scenarios.Tests) | the convoy, the model seat, the recorder, the networks, shared distrust |
+| [Creatura.Worlds.Web.Tests/](tests/Creatura.Worlds.Web.Tests) | web worlds: the check, the observation, the tools, the seats, and the demo in a real browser (skipped, saying why, when no Chromium is found) |
 
 ```sh
 dotnet build Creatura.slnx
@@ -425,6 +428,28 @@ var run   = await agent.RunAsync(world);            // or ControlledKernelAgent.
 
 OpenClaw, Hermes and the Copilot SDK are not built as hosts; their hooks have been mapped onto the same verbs on paper
 only.
+
+## Web worlds
+
+[docs/design-web-worlds.md](docs/design-web-worlds.md) makes a real web app a Creatura world. A persona uses it through
+Playwright on a phone or desktop viewport and sees only what a person sees: the visible text and a numbered list of the
+controls on screen. It answers one action per tick (click 3, type 1 "buy milk", back, give up). The controls are the
+tools; a control that writes (a save) promises the task's done fact, and only the app's own data grants it, read by a
+declared check (one HTTP request, one JSON assertion) outside the browser. So a save the page shows as done and the data
+does not is judged a lie, as in every other world. Barriers are Playwright routes between the browser and the app: a
+save that answers 200 and drops the write, one that fails, one that is slow. It is the idea of uxkit, the synthetic-user
+kit in Singular Framework's private repository, built on the control layer.
+
+```bash
+creatura ux run --demo                                   # the bundled notes app on 127.0.0.1, the bundled script: done in 2 ticks
+creatura ux run --demo --barriers save-lies --design bach  # the page says saved, the data says not: 1 lie caught
+creatura ux adapter > myapp.json                         # an adapter to start from: personas, environments, tasks, checks
+creatura ux run --adapter myapp.json --seat model:deepseek-chat --escalate deepseek-reasoner   # a model as the persona; paid
+```
+
+The demo runs offline with no model. It needs a Chromium Playwright can launch (`PLAYWRIGHT_BROWSERS_PATH`, Playwright's
+own `playwright.ps1 install chromium`, or `--browser <path>`). Phase 1 runs one cell (task × persona × viewport × seat);
+the full matrix, the report, compare and the CI gate, and the Singular adapter with sign-in reuse are phase 2.
 
 ## Anatomy
 

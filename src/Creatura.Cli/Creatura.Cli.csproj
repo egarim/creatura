@@ -2,7 +2,7 @@
 
   <!-- The `creatura` command (`creatura cell ...`). No package references of its own (CellsPurityTest): its
        packages come through Creatura.Cells.Sqlite (Microsoft.Data.Sqlite, the sqlite store) and Creatura.Cells.Sync
-       (BIT.Data.Sync, cell sync). The assembly is
+       (BIT.Data.Sync, cell sync), and Creatura.Worlds.Web (Microsoft.Playwright, creatura ux). The assembly is
        Creatura.Cli, not "creatura": on a case-insensitive file system it would collide with Creatura.dll.
        Run it with dotnet run on this project (arguments after a double dash), or pack it as a .NET tool whose
        command is `creatura`. -->
@@ -16,6 +16,9 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>creatura</ToolCommandName>
     <PackageId>Creatura.Cli</PackageId>
+    <!-- As in Creatura.Worlds.Web, whose Playwright targets this project imports too: a single-file build (the release's
+         executable) leaves Playwright's node driver out, since it cannot run from inside the file. -->
+    <PlaywrightPlatform Condition="'$(PublishSingleFile)' == 'true'">none</PlaywrightPlatform>
   </PropertyGroup>
 
   <ItemGroup>
@@ -35,6 +38,8 @@
     <!-- creatura run: the agent and world catalogs, and the seats (the planner, a script or a catalogued model). -->
     <ProjectReference Include="..\Creatura.Worlds\Creatura.Worlds.csproj" />
     <ProjectReference Include="..\Creatura.Seats\Creatura.Seats.csproj" />
+    <!-- creatura ux: web worlds, through Playwright (Microsoft.Playwright comes with this project; a browser is found at run time). -->
+    <ProjectReference Include="..\Creatura.Worlds.Web\Creatura.Worlds.Web.csproj" />
   </ItemGroup>
 
 </Project>

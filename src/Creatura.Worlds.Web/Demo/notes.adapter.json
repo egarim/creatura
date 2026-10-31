@@ -1,0 +1,31 @@
+{
+  // The bundled offline demo (docs/design-web-worlds.md): a notes app the demo server serves on 127.0.0.1.
+  // The base url is the server's, set when it starts.
+  "app": "notes-demo",
+  "baseUrl": "http://127.0.0.1/",
+  "personas": [
+    { "id": "hurried", "description": "You are in a hurry. You read little and press the first thing that looks right." },
+    { "id": "careful", "description": "You read everything on the screen before you act, and you check that what you did worked." }
+  ],
+  "environments": [
+    { "id": "phone", "width": 390, "height": 844, "mobile": true },
+    { "id": "desktop", "width": 1280, "height": 800 }
+  ],
+  "tasks": [
+    {
+      "id": "remember-milk",
+      "prompt": "You must not forget to buy milk. Write \"buy milk\" down in this app so it is kept.",
+      "start": "/",
+      "commits": [ "Save" ],
+      "check": { "method": "GET", "url": "/api/notes", "path": "items", "contains": { "text": "buy milk" }, "ignoreCase": true },
+      "reset": { "method": "POST", "url": "/api/reset" }
+    }
+  ],
+  "limits": { "steps": 12, "escalations": 2, "models": { "decide": "deepseek-chat", "escalate": "deepseek-reasoner" } },
+  "barriers": [
+    { "id": "save-lies", "kind": "lie", "method": "POST", "url": "**/api/notes" },
+    { "id": "save-fails", "kind": "fail", "method": "POST", "url": "**/api/notes", "status": 500 },
+    { "id": "save-slow", "kind": "slow", "method": "POST", "url": "**/api/notes", "delayMs": 3000 }
+  ],
+  "errorText": [ "Error:", "Write something first" ]
+}
