@@ -25,7 +25,19 @@ node experiments/two-creatures/runner/run.mjs --arm CC-L --agents simultaneous,s
 **The agents** (`--agents`): `fake` has its roles written in (a the server, b the UI); `liar` is a fake that also
 claims done before anything is published; `polite` and `simultaneous` (slice T1) claim the same goal with no roles,
 then wait on each other, or propose at once, and let `cell turn` say whose move it is; the settled plan says who
-builds which half. The turn-driven kinds need the ledger (channel L or LM).
+builds which half. The turn-driven kinds need the ledger (channel L or LM). `deepseek` (`agents/model.mjs`) is a
+real agent on a hosted model: it gets the goal of `agents/goal.md`, filled in for the arm, and a shell on its
+creature, and acts through DeepSeek's API (`DEEPSEEK_API_KEY` in the runner's shell; `DEEPSEEK_MODEL`, default
+`deepseek-chat`). It stops when it says so, or at `--minutes`, `--steps` (200) or `--budget` (USD 2 per creature).
+Every call and command goes to `agent-<n>-transcript.jsonl` in the record, and what it spent to `summary.json`.
+
+```bash
+DEEPSEEK_API_KEY=... node experiments/two-creatures/runner/run.mjs --arm DD-L --agents deepseek,deepseek    # a goal-only pair
+DEEPSEEK_API_KEY=... node experiments/two-creatures/runner/run.mjs --arm D-0 --agents deepseek             # alone
+```
+
+On a host whose egress is inspected (a corporate proxy), `TC_CA_FILE=<ca bundle>` mounts the bundle into the
+creatures so the agent's calls verify; nothing else in the sandbox reaches outside.
 
 Each run writes `results/<time>-<arm>/`: `summary.json`, every judge check (`checks.jsonl`), the message board, both
 creatures' ledgers, both repositories as git bundles, the deploy logs and the agents' logs. `--keep` leaves the
@@ -60,5 +72,6 @@ start one creature that owns both repositories.
 | `images/judge/test.mjs` | the outside test: five steps, two browsers, a restart |
 | `reference/` | a reference shopping list split in two repositories, with `BREAK` switches that each break one step |
 | `agents/fake.mjs` | the scripted fake agents: server, UI, or both alone; and the turn-driven pairs, polite and simultaneous |
+| `agents/model.mjs` | a creature driven by a hosted model (DeepSeek): the goal, a shell, a step and dollar budget, a transcript |
 | `agents/goal.md` | the goal, word for word, for the real agents of X1 |
 | `runner/run.mjs` | one run: fresh machines, the agents, the judge, the claims, the record |
