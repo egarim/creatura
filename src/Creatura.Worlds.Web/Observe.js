@@ -57,6 +57,14 @@
       || (tag === 'input' ? el.value : '') || el.getAttribute('name') || '');
   };
 
+  // Covered: something else is on top at the control's centre (a banner, a dialog's veil). Only on screen can it be told.
+  const coveredAt = (el, r) => {
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    if (x < 0 || y < 0 || x >= vw || y >= vh) return false;
+    const top = document.elementFromPoint(x, y);
+    return !!top && top !== el && !el.contains(top) && !top.contains(el) && !(top.tagName === 'LABEL' && top.control === el);
+  };
+
   const all = Array.from(document.body ? document.body.querySelectorAll('*') : []);
   const picked = [];
   const pickedSet = new Set();
@@ -93,6 +101,7 @@
       checked: role === 'checkbox' || role === 'radio' ? !!el.checked : null,
       options: kind === 'choose' ? Array.from(el.options).map(o => clean(o.text)) : [],
       inViewport: r.bottom > 0 && r.right > 0 && r.top < vh && r.left < vw,
+      covered: coveredAt(el, r),
       top: Math.round(r.top + window.scrollY), left: Math.round(r.left + window.scrollX),
     };
   });
@@ -109,7 +118,7 @@
     text,
     controls: rows.map((row, i) => ({
       ref: i, role: row.role, kind: row.kind, tag: row.tag, name: row.name, value: row.value,
-      checked: row.checked, options: row.options, inViewport: row.inViewport,
+      checked: row.checked, options: row.options, inViewport: row.inViewport, covered: row.covered,
     })),
   };
 }

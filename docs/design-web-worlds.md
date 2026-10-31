@@ -1,6 +1,6 @@
 # Design: web worlds, where a persona uses a real app and the app's data is the judge
 
-**Status:** design note, with phases 1, 2a, 2b and 2c, persona memory and a design axis built (below). Written 2026-10-31. Nothing here has been run against a real
+**Status:** design note, with phases 1, 2a, 2b and 2c, persona memory, a design axis and phase 3's page barriers built (below). Written 2026-10-31. Nothing here has been run against a real
 model or a real app yet; what was run is the bundled demo, offline, in a real Chromium.
 
 **Built:** phase 1, `src/Creatura.Worlds.Web` (`WebWorld`, the observation, the tools, the declarative check, the
@@ -10,7 +10,8 @@ phase 2b, sign-in once per account with the session kept and reused, sessionStor
 Singular adapter template (`samples/ux/singular-starter.adapter.json`, not run against an app); persona memory and the
 design axis (`UxMemory`, `UxDesigns`, `--designs`, `--memory`); phase 2c's judge and summary writer (`UxJudge`,
 `UxSummary`, `creatura ux judge`); the rest of 2c, vision on the triggers and the stuck alarm in the loop (`UxStuckAlarm`,
-`limits.models.vision`, `--vision`). Phase 3 is still a design.
+`limits.models.vision`, `--vision`); phase 3's barriers on the page (`dodge`, `cover`, `drop-letter`). `scroll` and record
+and replay are still a design.
 
 ## The problem
 
@@ -176,6 +177,33 @@ transports send it as content parts with data URLs, Ollama's as `images`, and a 
 as before. Images are never written to a call log; the record's note gives their size. The catalog does not say which
 models can see; the adapter names one that can.
 
+## Barriers on the page (phase 3, built)
+
+A network barrier tests whether a design notices the app lying. A page barrier tests the persona and the world: the
+page gets in the way, and the world must say so honestly. Each is a script put into every page of the world's context
+before the app's own (`PageBarriers`). It finds its control by visible name, the way the observation does, and tells
+the world each time it acts (`__creaturaBarrierFired`, exposed by the world and counted in `BarrierFires`). `times`
+limits it per tab.
+
+| kind | what the page does | what the world reports |
+|---|---|---|
+| `dodge` (`target`) | the button jumps to the end of its parent when clicked, and the click lands nowhere | a save the page did not answer: an honest failure; the button keeps its id |
+| `cover` (`text`) | a banner (`role=dialog`) covers every control until its own Accept is pressed; accepted, it stays away for the tab | the covered controls are marked "covered by something on top"; pressing one fails at once, saying so; Accept is a control like any other |
+| `drop-letter` (`target`) | the field drops the second letter of what is typed into it | the typing failed, with what the field shows ("by milk", not "buy milk") |
+
+Making these honest took four changes to the world. They apply with or without a barrier:
+- **Covered controls.** The observation checks what is on top of each control's centre (`elementFromPoint`). A covered
+  control is shown as covered, and pressing it is refused at once rather than after Playwright's timeout.
+- **A save the page did not answer** (no new text, the same page) is an honest failure. The page claimed nothing, so it
+  is never a lie. New text is counted as a multiset, so a second "buy milk" in a list is new.
+- **Typing promises something:** the field shows what was typed (`typed:<id>`, held while it does). Before this a type
+  tool promised nothing. The designs' default judge reads "landed" first, and a tool that promises nothing has always
+  landed, so a field that dropped a letter passed in every design but the map-keeper. That was a phase 1 gap.
+- **Input lost is not the app's lie.** A save made while a field the persona typed into did not show what was typed
+  is still a reported success the data does not back, and the designs still block it. But the judge says `input-lost`,
+  not `app-lied`, because the app saved what it was given. This closes the ambiguity noted in phase 1 (a dropped write
+  against a write of the wrong thing), for the case where the world can see it.
+
 ## Persona memory and the design axis (built)
 
 The owner asked whether a persona can run under different control mechanisms and keep what it felt and thought
@@ -232,8 +260,9 @@ by the barrier instead of the app.
 | `fail` | an error status | nothing | the page says it failed (its error text): an honest failure |
 | `slow` | the app's own answer, `delayMs` late | the request, late | a commit that looks like a lie when the world reads the data, and lands later: does the design wait, retry, or condemn? |
 
-`times` makes a barrier fire only so many times (a lie once, then the truth). Phase 2 adds barriers on the page
-rather than the network: a button that moves between ticks, a control that is covered, a field that drops a letter.
+`times` makes a barrier fire only so many times (a lie once, then the truth). Phase 3 adds barriers on the page
+rather than the network (below): a button that jumps away, a banner that covers the controls, a field that drops a
+letter.
 The demo app can also lie by itself (`DemoApp.DropWrites`), with no barrier: the world must catch the app's own lies,
 not only the ones it injects, and the tests check both.
 
@@ -305,6 +334,7 @@ uxkit's last two model roles. Both read the report, never the app.
 | `design-missed-lie` | the world told a lie the run did not block |
 | `not-done` | the data does not show the task done |
 | `not-run` | the cell could not run |
+| `input-lost` | a save went ahead with a field that did not show what was typed: the app saved what it was given (phase 3) |
 | `friction` | wrong turns, repeated actions, escalations, a control the persona could not find |
 | `ok` | done, and nothing above |
 
@@ -357,6 +387,10 @@ another judge, or after the fact, reading each cell's trace back from `traces/`.
 | W23 | the stuck alarm fires after its patience of unchanged screens, tells the seat once per streak, and at its limit takes the controls away, after which each design hands off by its own rule | a fire on a changed screen, a missed one, or a design stopped by the alarm itself | holds (plain and Bach) |
 | W24 | on the alarm, a persona asks its vision model at once, with a screenshot, within the escalation budget; with no vision model, the stronger model with no image; past the budget, the fast model, told it is stuck | anything else | holds (stub models) |
 | W25 | an image goes as a content part on the OpenAI shape and as `images` on Ollama's, a message without one is unchanged, and no image reaches a call log | anything else | holds |
+| W26 | a covered control is shown covered, and pressing it fails at once, saying so | pressed, or a timeout | holds |
+| W27 | a save the page did not answer is an honest failure, never a lie; a save the page claimed and the data lacks is still a lie | anything else | holds |
+| W28 | typing promises the field shows what was typed: a field that drops a letter is a typing that did not land, in every design | a design that passes it as landed | holds (plain and Bach) |
+| W29 | a save after lost input is judged `input-lost`, not `app-lied`; a persistent persona gets the task done under each page barrier with no lie told | anything else | holds |
 | W14 | the gate exits 1 naming every threshold broken, 0 when none is; with the lie barrier the demo breaks `minDone`, and holds `maxUncaughtLies 0` under Bach | anything else | holds |
 
 ## Results (phase 1, 2026-10-31)
@@ -432,6 +466,23 @@ Run the same way, offline, in a real Chromium. W23 to W25 hold: `VisionStuckTest
 Not verified: a real vision model reading a real screenshot, and how often a real persona's screen stops changing
 without it being stuck (a slow page, a confirmation it must wait for).
 
+## Results (phase 3, 2026-10-31)
+
+Run the same way, offline, in a real Chromium. W26 to W29 hold: `PageBarrierAdapterTests` (4) and `PageBarrierTests`
+(6).
+- **A persistent persona under Bach got the task done under each page barrier, with no lie told.** It pressed Accept
+  on the banner, pressed Save again after it dodged, and typed again after the dropped letter. Each step waited out the
+  control layer's 3-tick hiding of a tool that had just failed.
+- **The bundled script, which never retries,** did not get it done under any of them, under plain or Bach.
+  - The banner made the stuck alarm fire: pressing covered controls changes nothing on screen.
+  - The dropped letter was saved as "by milk". The first matrix run judged that `app-lied`, which led to the
+    `input-lost` finding; it now judges `not-done` and `input-lost`.
+- **The typing gap:** under Bach, before typing promised anything, the dropped letter showed in the trace as
+  "predicted correctly".
+
+Not verified: these barriers against a real app's own layout (a banner that is not a `role=dialog`, a button that moves
+by animation rather than at once), and a model persona finding Accept on its own.
+
 ## Decisions for the owner
 
 | | decision | options | recommendation |
@@ -450,7 +501,8 @@ without it being stuck (a slow page, a confirmation it must wait for).
 | 2b | sign-in once per account, storage state kept and reused, sessionStorage put back; a Singular template | W15 to W17 (done); W9 on PhotoSet or Cosmos is still open, with the template filled in |
 | 2b+ | persona memory (records and lessons, carry or read) and the design axis | W18 to W20 (done) |
 | 2c | the summary writer and the judge as seats; vision on the triggers; the stuck alarm in the loop | W21 to W25 (done); W10 and the judge against W9's person are still open |
-| 3 | barriers on the page (a moving button, a covered control), `scroll`, record and replay of web runs | a design's catch rate per barrier, per viewport |
+| 3 | barriers on the page: `dodge`, `cover`, `drop-letter` | W26 to W29 (done) |
+| 3+ | `scroll`, record and replay of web runs, more page barriers (a modal, a slow render, a reordered list) | a design's catch rate per barrier, per viewport |
 
 ## What this note does not cover
 

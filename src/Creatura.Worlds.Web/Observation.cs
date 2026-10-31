@@ -31,6 +31,8 @@ public sealed record RawControl
     public IReadOnlyList<string> Options { get; init; } = [];
 
     public bool InViewport { get; init; } = true;
+
+    public bool Covered { get; init; }
 }
 
 /// <summary>The page as the script reports it.</summary>
@@ -52,6 +54,9 @@ public sealed record RawObservation
 /// </summary>
 public sealed record Control(int Number, string Id, int Ref, string Role, ControlKind Kind, string Name, string Value, bool? Checked, IReadOnlyList<string> Options, bool InViewport)
 {
+    /// <summary>Something else is on top of it (a banner, a dialog's veil): it can be seen and not pressed.</summary>
+    public bool Covered { get; init; }
+
     /// <summary>The line the persona reads: <c>3. [button] Save</c>, with the value typed so far or the option chosen.</summary>
     public string Line()
     {
@@ -61,6 +66,7 @@ public sealed record Control(int Number, string Id, int Ref, string Role, Contro
         if (Kind == ControlKind.Choose) sb.Append($" (chosen: \"{Value}\"; options: {string.Join(" | ", Options)})");
         if (Checked is { } on) sb.Append(on ? " (checked)" : " (not checked)");
         if (!InViewport) sb.Append(" (below, scroll to reach)");
+        if (Covered) sb.Append(" (covered by something on top)");
         return sb.ToString();
     }
 }
@@ -111,7 +117,7 @@ public sealed record Observation(string Url, string Title, string Text, IReadOnl
             else seen[id] = n = 1;
             if (n > 1) id = $"{id}-{n}";
             var kind = c.Kind switch { "type" => ControlKind.Type, "choose" => ControlKind.Choose, _ => ControlKind.Click };
-            controls.Add(new Control(number, id, c.Ref, c.Role, kind, c.Name, c.Value, c.Checked, c.Options, c.InViewport));
+            controls.Add(new Control(number, id, c.Ref, c.Role, kind, c.Name, c.Value, c.Checked, c.Options, c.InViewport) { Covered = c.Covered });
         }
 
         return new Observation(raw.Url, raw.Title, raw.Text, controls);

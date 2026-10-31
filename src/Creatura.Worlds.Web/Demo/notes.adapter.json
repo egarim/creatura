@@ -50,7 +50,12 @@
   "barriers": [
     { "id": "save-lies", "kind": "lie", "method": "POST", "url": "**/notes" },
     { "id": "save-fails", "kind": "fail", "method": "POST", "url": "**/notes", "status": 500 },
-    { "id": "save-slow", "kind": "slow", "method": "POST", "url": "**/notes", "delayMs": 3000 }
+    { "id": "save-slow", "kind": "slow", "method": "POST", "url": "**/notes", "delayMs": 3000 },
+    // On the page: Save jumps away from the first click; a cookie banner covers everything until accepted; the Note
+    // field drops the second letter of the first thing typed into it.
+    { "id": "save-dodges", "kind": "dodge", "target": "Save", "times": 1 },
+    { "id": "cookie-banner", "kind": "cover", "text": "We use cookies to keep your notes." },
+    { "id": "note-drops-letter", "kind": "drop-letter", "target": "Note", "times": 1 }
   ],
   "errorText": [ "Error:", "Write something first" ]
 }

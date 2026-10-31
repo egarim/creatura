@@ -161,7 +161,7 @@ public class WebToolsTests
         var note = tools[0];
         Assert.Equal("type", note.Kind);
         Assert.True(note.NeedsPayload);
-        Assert.Empty(note.Grants);
+        Assert.Equal(["typed:textbox-note"], note.Grants);   // the field shows what was typed: the page can be read for it
 
         var save = tools[1];
         Assert.Equal(WebTools.SubmitKind, save.Kind);

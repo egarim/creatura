@@ -6,7 +6,8 @@ using Microsoft.Playwright;
 namespace Creatura.Worlds.Web;
 
 /// <summary>A lie a web world told: on this loop tick, this commit was reported done and the data did not show it.</summary>
-public sealed record WebLie(int Tick, string Tool)
+/// <param name="InputLost">The save carried a field that did not show what the persona typed into it: the app saved what it was given, so the gap is the input's, not the app's.</param>
+public sealed record WebLie(int Tick, string Tool, bool InputLost = false)
 {
     /// <summary>
     /// Whether the run caught it: the loop blocked this tool on this tick (the control layer's verdict row), in whatever
@@ -131,6 +132,7 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
     private readonly Dictionary<string, int> _fires = new(StringComparer.Ordinal);
     private IReadOnlyList<Tool> _tools = [];
     private readonly List<WebLie> _lies = [];
+    private readonly Dictionary<string, string> _typed = new(StringComparer.Ordinal);
     private int _loopTick;
     private int _inFlight;
     private long _lastNetwork = System.Environment.TickCount64;
@@ -215,7 +217,13 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
             var page = await context.NewPageAsync().ConfigureAwait(false);
             world = new WebWorld(adapter, task, environment, options, context, page, http, options.Http is null);
             world.Watch();
-            foreach (var barrier in barriers) await world.RouteAsync(barrier).ConfigureAwait(false);
+            foreach (var barrier in barriers.Where(b => !b.OnPage)) await world.RouteAsync(barrier).ConfigureAwait(false);
+            if (barriers.Any(b => b.OnPage))
+            {
+                // Page barriers: a script in every page before the app's own, and a way for it to say it acted.
+                await context.ExposeFunctionAsync<string>(PageBarriers.FiredFunction, id => world.Fire(id)).ConfigureAwait(false);
+                foreach (var barrier in barriers.Where(b => b.OnPage)) await context.AddInitScriptAsync(PageBarriers.Script(barrier)!).ConfigureAwait(false);
+            }
             await world.ResetAsync(cancellationToken).ConfigureAwait(false);
             if (task.Account is { } account && adapter.SignIn is null && options.Hooks is { } hooks) await hooks.SignInAsync(page, account, cancellationToken).ConfigureAwait(false);
             await page.GotoAsync(adapter.Resolve(task.Start)).ConfigureAwait(false);
@@ -261,7 +269,7 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
             }
 
             if (left is not null) left--;
-            lock (_fires) _fires[barrier.Id] = _fires.GetValueOrDefault(barrier.Id) + 1;
+            Fire(barrier.Id);
             switch (barrier.Kind)
             {
                 case UxBarrierKind.Lie:
@@ -277,6 +285,11 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
                     break;
             }
         }).ConfigureAwait(false);
+    }
+
+    private void Fire(string barrier)
+    {
+        lock (_fires) _fires[barrier] = _fires.GetValueOrDefault(barrier) + 1;
     }
 
     private async Task ResetAsync(CancellationToken cancellationToken)
@@ -325,6 +338,9 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
                 default:
                     var control = before.ById(toolId)!;
                     if (control.Kind != ControlKind.Click && payload is null) return new ActionOutcome(toolId, false, [], control.Kind == ControlKind.Type ? "nothing to type" : "no option named");
+                    // A control with something on top of it cannot be pressed: said at once, not after the action's timeout.
+                    if (control.Covered) return new ActionOutcome(toolId, false, [], $"\"{control.Name}\" is covered by something on top of it");
+                    if (control.Kind == ControlKind.Type) _typed[toolId] = payload!;
                     await DoAsync(_page, control, payload, _options.ActionTimeoutMs).ConfigureAwait(false);
                     break;
             }
@@ -340,8 +356,17 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
         await RefreshAsync(cancellationToken).ConfigureAwait(false);
         var said = Said(before, Current);
         if (ErrorShown(before, Current, tool.Kind == WebTools.SubmitKind) is { } error) return new ActionOutcome(toolId, false, [], $"the page says: {error}");
+
+        // Typing is judged by the field: what it shows after, against what was typed.
+        if (tool.Kind == "type" && Current.ById(toolId) is { } field && field.Value != payload)
+            return new ActionOutcome(toolId, false, [], $"the field shows \"{field.Value}\", not what was typed");
+
+        // A commit the page did not answer (nothing new on screen, the same page) made no claim: a failure, never a lie.
+        if (tool.Kind == WebTools.SubmitKind && !Responded(before, Current))
+            return new ActionOutcome(toolId, false, [], "the page did not respond: nothing new on screen");
         if (tool.Kind == WebTools.SubmitKind) PageReportedCommit = true;
-        if (tool.Grants.Count > 0 && !EffectsLanded(tool)) _lies.Add(new WebLie(_loopTick, toolId));
+        if (tool.Kind == WebTools.SubmitKind && !EffectsLanded(tool))
+            _lies.Add(new WebLie(_loopTick, toolId, _typed.Any(kv => before.ById(kv.Key) is { Kind: ControlKind.Type } f && f.Value != kv.Value)));
         return new ActionOutcome(toolId, true, tool.Grants, said);
     }
 
@@ -399,10 +424,23 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
     /// <summary>What the page says after an action, in one line for the history: where it is and the first new text.</summary>
     public static string Said(Observation before, Observation after)
     {
-        var old = new HashSet<string>(before.Text.Split('\n'), StringComparer.Ordinal);
-        var fresh = after.Text.Split('\n').Where(l => l.Length > 0 && !old.Contains(l)).Take(2).ToList();
+        var fresh = Fresh(before, after).Take(2).ToList();
         var where = after.Path == before.Path ? "same page" : $"now on {after.Path}";
         return fresh.Count == 0 ? $"{where}; nothing new on screen" : $"{where}; new: {string.Join(" / ", fresh)}";
+    }
+
+    /// <summary>The page answered an action: it went to another page, or text appeared that was not there before (a line shown once more counts).</summary>
+    public static bool Responded(Observation before, Observation after) => after.Path != before.Path || Fresh(before, after).Any();
+
+    /// <summary>The lines on screen after that were not before, counted as a multiset: a second "buy milk" in a list is new.</summary>
+    private static IEnumerable<string> Fresh(Observation before, Observation after)
+    {
+        var old = before.Text.Split('\n').Where(l => l.Length > 0).GroupBy(l => l, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+        foreach (var line in after.Text.Split('\n').Where(l => l.Length > 0))
+        {
+            if (old.TryGetValue(line, out var n) && n > 0) old[line] = n - 1;
+            else yield return line;
+        }
     }
 
     /// <summary>Counts the page's requests in flight, so an action is read after what it started has answered.</summary>
@@ -451,6 +489,10 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
         _facts.Clear();
         _facts.Add($"page:{Current.Path}");
         if (LastCheck.Done) _facts.Add(_task.DoneFact);
+        foreach (var (id, text) in _typed)
+        {
+            if (Current.ById(id) is { Kind: ControlKind.Type } field && field.Value == text) _facts.Add(WebTools.Typed(id));
+        }
     }
 
     private async Task<CheckResult> CheckAsync(CancellationToken cancellationToken)

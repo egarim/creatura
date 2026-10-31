@@ -32,11 +32,18 @@ public static class WebTools
         var commit = IsCommit(control, task);
         return control.Kind switch
         {
-            ControlKind.Type => new Tool(control.Id, [], commit ? [task.DoneFact] : [], "type") { NeedsPayload = true, PayloadHint = $"the text to type into \"{control.Name}\"" },
+            ControlKind.Type => new Tool(control.Id, [], commit ? [task.DoneFact, Typed(control.Id)] : [Typed(control.Id)], "type") { NeedsPayload = true, PayloadHint = $"the text to type into \"{control.Name}\"" },
             ControlKind.Choose => new Tool(control.Id, [], commit ? [task.DoneFact] : [], "choose") { NeedsPayload = true, PayloadHint = $"one of: {string.Join(" | ", control.Options)}" },
             _ => new Tool(control.Id, [], commit ? [task.DoneFact] : [], commit ? SubmitKind : "click"),
         };
     }
+
+    /// <summary>
+    /// What typing promises: the field shows what was typed. The world holds the fact while it does, so a field that drops
+    /// a letter is a typing that did not land, which every design's judge sees (one that reads "landed" first would
+    /// otherwise pass a tool that promised nothing).
+    /// </summary>
+    public static string Typed(string controlId) => $"typed:{controlId}";
 
     /// <summary>The task names this control as one that writes: its visible name, whole, without case.</summary>
     public static bool IsCommit(Control control, UxTask task) =>

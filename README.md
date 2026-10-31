@@ -475,6 +475,11 @@ When a persona's screen stops changing, a stuck alarm in the loop has it ask a s
 screenshot, if one is named (`limits.models.vision`, `--vision`). Past a limit, the alarm takes the controls away and
 the design hands off by its own rule.
 
+Barriers can also sit on the page: `dodge` (a button jumps away from the click), `cover` (a banner covers everything
+until accepted) and `drop-letter` (a field loses a letter of what is typed). The world reports each honestly: a covered
+control is marked and refused, a save the page did not answer is a failure and not a lie, and typing that did not stick
+says what the field shows. A save after lost input is judged `input-lost`, not the app's lie.
+
 ## Anatomy
 
 [docs/anatomy.html](docs/anatomy.html) draws Creatura in five plates: the project's icon, a winged lion, with each

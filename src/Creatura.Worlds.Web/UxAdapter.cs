@@ -84,7 +84,9 @@ public sealed record UxAdapter
             else if (t.Check.Problem() is { } p) problems.Add($"task {t.Id}: check {p}");
         }
 
-        foreach (var b in Barriers.Where(b => string.IsNullOrWhiteSpace(b.Url))) problems.Add($"barrier {b.Id}: no url pattern");
+        foreach (var b in Barriers.Where(b => !b.OnPage && string.IsNullOrWhiteSpace(b.Url))) problems.Add($"barrier {b.Id}: no url pattern");
+        foreach (var b in Barriers.Where(b => b.Kind is UxBarrierKind.Dodge or UxBarrierKind.DropLetter && string.IsNullOrWhiteSpace(b.Target)))
+            problems.Add($"barrier {b.Id}: no target (the visible name of the control it acts on)");
         Dupes(Accounts.Select(a => a.Id), "account", problems);
         foreach (var t in Tasks.Where(t => t.Account is not null && Accounts.All(a => a.Id != t.Account))) problems.Add($"task {t.Id}: no account '{t.Account}'");
         if (SignIn is { } signIn)
@@ -234,11 +236,22 @@ public enum UxBarrierKind
 
     /// <summary>The request never reaches the app and the browser gets an error status: the honest failure.</summary>
     Fail,
+
+    /// <summary>On the page: the button named <see cref="UxBarrier.Target"/> jumps away when it is clicked, and the click lands nowhere.</summary>
+    Dodge,
+
+    /// <summary>On the page: a banner (<see cref="UxBarrier.Text"/>) covers every control until its own Accept button is pressed.</summary>
+    Cover,
+
+    /// <summary>On the page: the field named <see cref="UxBarrier.Target"/> drops the second letter of what is typed into it.</summary>
+    DropLetter,
 }
 
 /// <summary>
-/// A barrier put between the browser and the app with Playwright routing: requests whose method and url match are
-/// answered by the barrier. The harness's own check is made outside the browser, so it always reads the truth.
+/// A barrier. On the network (<c>lie</c>, <c>fail</c>, <c>slow</c>) it is a Playwright route between the browser and the
+/// app: requests whose method and url match are answered by the barrier. On the page (<c>dodge</c>, <c>cover</c>,
+/// <c>drop-letter</c>) it is a script put into every page before the app's own run, acting on a control by its visible
+/// name. The harness's own check is made outside the browser, so it always reads the truth.
 /// </summary>
 public sealed record UxBarrier
 {
@@ -246,8 +259,18 @@ public sealed record UxBarrier
 
     public required UxBarrierKind Kind { get; init; }
 
-    /// <summary>A Playwright url glob, e.g. <c>**/api/notes</c>.</summary>
-    public required string Url { get; init; }
+    /// <summary>A Playwright url glob, e.g. <c>**/api/notes</c> (network barriers).</summary>
+    public string Url { get; init; } = "";
+
+    /// <summary>The visible name of the control a page barrier acts on (<c>dodge</c>, <c>drop-letter</c>), matched whole, without case.</summary>
+    public string Target { get; init; } = "";
+
+    /// <summary>What a <c>cover</c> banner says.</summary>
+    public string Text { get; init; } = "We use cookies to make this site work.";
+
+    /// <summary>Whether this barrier acts on the page rather than the network.</summary>
+    [JsonIgnore]
+    public bool OnPage => Kind is UxBarrierKind.Dodge or UxBarrierKind.Cover or UxBarrierKind.DropLetter;
 
     /// <summary>The method that is caught; null for any.</summary>
     public string? Method { get; init; } = "POST";

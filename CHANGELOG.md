@@ -38,6 +38,12 @@
   model. At `limits.stuckLimit` (default 6) it takes the controls away, and the design hands off by its own rule.
   `Creatura.Seats`: `ChatMessage` takes images (`ChatImage`), sent as content parts on the OpenAI shape and as
   `images` on Ollama's, never written to a call log. W23 to W25 hold.
+- **Web worlds, phase 3: barriers on the page.** `dodge`, `cover` and `drop-letter` (`PageBarriers`), scripts put into
+  every page before the app's own, counted through a function the world exposes. The world reports them honestly: a
+  covered control is shown covered and refused at once; a save the page did not answer is an honest failure, never a
+  lie; typing promises the field shows what was typed (`typed:<id>`), which fixes a phase 1 gap where a field that
+  dropped a letter passed as landed in most designs; a save after lost input is judged `input-lost`, not `app-lied`.
+  W26 to W29 hold.
 
 ## 0.2.0-preview.3 (2026-10-30)
 

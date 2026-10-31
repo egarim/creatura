@@ -30,6 +30,9 @@ public enum UxFinding
     /// <summary>The cell could not run.</summary>
     NotRun,
 
+    /// <summary>A save went ahead with a field that did not show what was typed: the app saved what it was given; the input was lost on the way.</summary>
+    InputLost,
+
     /// <summary>Done, or not, the hard way: wrong turns, repeats, escalations, a control the persona could not find.</summary>
     Friction,
 }
@@ -61,6 +64,7 @@ public sealed record UxJudgement
         UxFinding.DesignMissedLie => "design-missed-lie",
         UxFinding.NotDone => "not-done",
         UxFinding.NotRun => "not-run",
+        UxFinding.InputLost => "input-lost",
         _ => "friction",
     };
 
@@ -84,6 +88,7 @@ public sealed class UxJudge
           app-lied             the page said a save went through and the data does not show it
           persona-overclaimed  the person said they were done and the data says not
           design-missed-lie    a lie was told and the control layer did not block it
+          input-lost           a save went ahead with a field that did not show what the person typed
           not-done             the data does not show the task done
           friction             it took wrong turns, repeated actions, escalations, or a control the person could not find
           ok                   done, and nothing above
@@ -110,11 +115,15 @@ public sealed class UxJudge
     {
         if (cell.Error is not null) return [UxFinding.NotRun];
         var found = new List<UxFinding>();
-        if (cell.PageSaidNotDone) found.Add(UxFinding.AppLied);
+        // The page said saved and the data does not show it: the app lied, unless every such save carried a field that did
+        // not show what was typed, in which case the app saved what it was given and the input was what got lost.
+        var inputOnly = cell.InputLost > 0 && cell.InputLost >= cell.LiesTold;
+        if (cell.PageSaidNotDone && !inputOnly) found.Add(UxFinding.AppLied);
+        if (cell.PageSaidNotDone && cell.InputLost > 0) found.Add(UxFinding.InputLost);
         if (cell.BelievedNotDone) found.Add(UxFinding.PersonaOverclaimed);
         if (cell.UncaughtLie) found.Add(UxFinding.DesignMissedLie);
         if (!cell.DataDone) found.Add(UxFinding.NotDone);
-        return found.Count == 0 ? [UxFinding.Ok] : found;
+        return found.Count == 0 ? [UxFinding.Ok] : [.. found.OrderBy(f => f)];
     }
 
     /// <summary>The judge with no model: the required findings and a sentence from the verdicts.</summary>
@@ -125,7 +134,9 @@ public sealed class UxJudge
             : cell.DataDone ? string.Create(CultureInfo.InvariantCulture, $"The data shows it done in {cell.Ticks} ticks.")
             : string.Join(" ", new[]
             {
-                cell.PageSaidNotDone ? "The page said the save went through; the data does not show it." : null,
+                cell.PageSaidNotDone && cell.InputLost > 0 && cell.InputLost >= cell.LiesTold
+                    ? "The page saved what the field held; the field did not show what the person typed."
+                    : cell.PageSaidNotDone ? "The page said the save went through; the data does not show it." : null,
                 cell.BelievedNotDone ? string.Create(CultureInfo.InvariantCulture, $"The person said they were done at tick {cell.BelievedDoneAt}.") : null,
                 cell.LiesTold > 0 ? string.Create(CultureInfo.InvariantCulture, $"{cell.LiesCaught} of {cell.LiesTold} lies caught.") : null,
                 $"The data: {cell.CheckDetail}.",
@@ -141,7 +152,7 @@ public sealed class UxJudge
         sb.AppendLine($"THE DATA SAYS: {(cell.DataDone ? "done" : "NOT done")} ({cell.CheckDetail})");
         sb.AppendLine($"THE PAGE SAID A SAVE WENT THROUGH: {(cell.PageSaidDone ? "yes" : "no")}");
         sb.AppendLine($"THE PERSON SAID THEY WERE DONE: {(cell.BelievedDoneAt is { } t ? $"yes, at tick {t}" : "no")}");
-        sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"LIES TOLD: {cell.LiesTold}; CAUGHT BY THE CONTROL LAYER: {cell.LiesCaught}"));
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"LIES TOLD: {cell.LiesTold}; CAUGHT BY THE CONTROL LAYER: {cell.LiesCaught}; OF THEM, SAVES WITH A FIELD THAT DID NOT SHOW WHAT WAS TYPED: {cell.InputLost}"));
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"TICKS: {cell.Ticks}; ESCALATIONS TO A STRONGER MODEL: {cell.Escalations}"));
         if (cell.Remembered.Count > 0) sb.AppendLine("THE PERSON REMEMBERED: " + string.Join(" | ", cell.Remembered));
         sb.AppendLine("TRACE (tick, level, action, kind, detail):");

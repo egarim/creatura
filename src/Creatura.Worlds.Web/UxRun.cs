@@ -93,6 +93,9 @@ public sealed record UxCell
     /// <summary>The lies the world told in this cell, by its own truth (a commit the page took that the data does not show).</summary>
     public int LiesTold { get; init; }
 
+    /// <summary>Of <see cref="LiesTold"/>, the saves that carried a field not showing what the persona typed: the input was lost, the app did not lie.</summary>
+    public int InputLost { get; init; }
+
     /// <summary>Of <see cref="LiesTold"/>, the ones the run blocked on the tick they were told, in any design's words.</summary>
     public required int LiesCaught { get; init; }
 
@@ -132,7 +135,7 @@ public sealed record UxCell
         if (Error is not null) return $"{Task} × {Persona} × {Environment} × {(Tester.Length == 0 ? Seat : Tester)}{design}: NOT RUN ({Error})";
         sb.Append($"{Task} × {Persona} × {Environment} × {Seat}{design}: the data says {(DataDone ? "DONE" : "NOT DONE")} ({CheckDetail})");
         sb.Append(string.Create(CultureInfo.InvariantCulture, $"; {Ticks} tick{(Ticks == 1 ? "" : "s")}, {LiesCaught} lie{(LiesCaught == 1 ? "" : "s")} caught"));
-        if (PageSaidDone && !DataDone) sb.Append("; the page said it was saved");
+        if (PageSaidDone && !DataDone) sb.Append(InputLost > 0 && InputLost >= LiesTold ? "; the page saved what the field held, not what was typed" : "; the page said it was saved");
         if (BelievedDoneAt is { } t) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; the persona believed it was done at tick {t}"));
         if (Escalations > 0) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; {Escalations} escalation{(Escalations == 1 ? "" : "s")}"));
         if (Cost is { } cost && cost > 0) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; cost {cost:0.####}"));
@@ -173,7 +176,7 @@ public static class UxRunner
             Task = task.Id, Persona = persona.Id, Environment = environment.Id, Seat = policy.Name, Agent = run.Agent,
             Barriers = options.Barriers, DataDone = world.LastCheck.Done, CheckDetail = world.LastCheck.Detail,
             PageSaidDone = world.PageReportedCommit, BelievedDoneAt = persona_?.Telemetry.BelievedDoneAt,
-            Ticks = run.Ticks, LiesTold = world.Lies.Count, LiesCaught = world.Lies.Count(l => l.CaughtIn(run)), Escalations = persona_?.Telemetry.Escalations ?? 0,
+            Ticks = run.Ticks, LiesTold = world.Lies.Count, InputLost = world.Lies.Count(l => l.InputLost), LiesCaught = world.Lies.Count(l => l.CaughtIn(run)), Escalations = persona_?.Telemetry.Escalations ?? 0,
             Cost = persona_ is null ? 0m : persona_.Telemetry.Cost, BarrierFires = new Dictionary<string, int>(world.BarrierFires), Run = run,
             StuckAlarms = alarm?.Fired ?? 0, ControlsTaken = alarm?.TookControls ?? false, Screenshots = persona_?.Telemetry.Screenshots ?? 0,
         };

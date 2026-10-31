@@ -23,6 +23,10 @@ public class JudgeTests
         Assert.Equal([UxFinding.AppLied, UxFinding.DesignMissedLie, UxFinding.NotDone], UxJudge.Rules(Cell(done: false, pageSaid: true, lies: 0)).Findings);
         Assert.Equal([UxFinding.PersonaOverclaimed, UxFinding.NotDone], UxJudge.Rules(Cell(done: false, believed: 3)).Findings);
         Assert.Equal([UxFinding.NotRun], UxJudge.Rules(Cell(done: false, error: "no app")).Findings);
+        var lost = Cell(done: false, pageSaid: true, lies: 1) with { InputLost = 1 };
+        Assert.Equal([UxFinding.NotDone, UxFinding.InputLost], UxJudge.Rules(lost).Findings);   // not the app's lie
+        Assert.Equal([UxFinding.AppLied, UxFinding.NotDone, UxFinding.InputLost],
+            UxJudge.Rules(Cell(done: false, pageSaid: true, lies: 2, told: 2) with { InputLost = 1 }).Findings);   // one of each
         Assert.Contains("1 of 1 lies caught", UxJudge.Rules(Cell(done: false, pageSaid: true, lies: 1)).Why);
     }
 
