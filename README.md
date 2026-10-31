@@ -471,6 +471,10 @@ and is held to the verdicts: anything it gets wrong is corrected and recorded. `
 code, with an optional model paragraph (`--summary model:<name>`) beneath them. `creatura ux judge <report>` judges a
 report again.
 
+When a persona's screen stops changing, a stuck alarm in the loop has it ask a stronger model: a vision model with a
+screenshot, if one is named (`limits.models.vision`, `--vision`). Past a limit, the alarm takes the controls away and
+the design hands off by its own rule.
+
 ## Anatomy
 
 [docs/anatomy.html](docs/anatomy.html) draws Creatura in five plates: the project's icon, a winged lion, with each

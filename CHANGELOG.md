@@ -32,6 +32,12 @@
   optional model paragraph beneath them. Every matrix is judged (`judgements.json`, `summary.md`, a findings column in
   `report.md`); `creatura ux judge <report> [--judge model:<name>] [--summary model:<name>]` judges again. W21 and
   W22 hold with stub models.
+- **Web worlds, the rest of 2c: vision and the stuck alarm.** `UxStuckAlarm`, an extension on every design, fires
+  when the screen has not changed after `limits.stuckPatience` actions (default 2). It tells the seat, which asks its
+  stronger model at once: the vision model (`limits.models.vision`, `--vision`) with a screenshot, else the escalation
+  model. At `limits.stuckLimit` (default 6) it takes the controls away, and the design hands off by its own rule.
+  `Creatura.Seats`: `ChatMessage` takes images (`ChatImage`), sent as content parts on the OpenAI shape and as
+  `images` on Ollama's, never written to a call log. W23 to W25 hold.
 
 ## 0.2.0-preview.3 (2026-10-30)
 
