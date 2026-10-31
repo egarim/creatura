@@ -25,6 +25,7 @@ public sealed class OllamaTransport : IModelTransport
             ["messages"] = new JsonArray(request.Messages.Select(m =>
             {
                 var o = new JsonObject { ["role"] = m.Role, ["content"] = m.Content };
+                if (m.Images is { Count: > 0 } images) o["images"] = new JsonArray(images.Select(i => (JsonNode)Convert.ToBase64String(i.Data)).ToArray());
                 if (m.Name is not null) o["tool_name"] = m.Name;
                 return (JsonNode)o;
             }).ToArray()),

@@ -1,0 +1,75 @@
+{
+  // A web-world adapter for an app built on the Singular starter (docs/design-web-worlds.md, phase 2b).
+  // NOT VERIFIED: written without a Singular app to run it against. Everything in <angle brackets> is the app's own,
+  // to fill in; the sign-in steps assume Keycloak's default login theme ("Username or email", "Password", "Sign In").
+  //
+  //   creatura ux list   --adapter singular-starter.adapter.json
+  //   creatura ux matrix --adapter singular-starter.adapter.json --sessions ~/.creatura/ux-sessions --out runs/ux/<app>
+  //
+  // Credentials and tokens are never written here: env:NAME is read when it is needed.
+  "app": "<app name>",
+  "baseUrl": "https://<the app's test tenant>/",
+
+  "personas": [
+    { "id": "first-time", "description": "You have never used this app. You read the screen before you act, and you avoid anything you do not understand." },
+    { "id": "hurried", "description": "You are in a hurry. You read little and press the first thing that looks right." },
+    { "id": "careful", "description": "You check that what you did worked before you move on." }
+  ],
+  "environments": [
+    { "id": "phone", "width": 390, "height": 844, "mobile": true },
+    { "id": "tablet", "width": 820, "height": 1180, "mobile": true },
+    { "id": "desktop", "width": 1280, "height": 800 }
+  ],
+
+  // One account per role the tasks need; each signs in once per matrix, and with --sessions once until its session expires.
+  "accounts": [
+    { "id": "member", "user": "env:UX_MEMBER_USER", "password": "env:UX_MEMBER_PASSWORD" }
+  ],
+  "signIn": {
+    // The app's start page sends a signed-out browser to Keycloak and back; the steps run on whatever page shows the controls.
+    "start": "/",
+    "steps": [ "type Username or email: {user}", "type Password: {password}", "click Sign In" ],
+    // Text every signed-in page of the app shows (the user menu, say), and no signed-out page does.
+    "signedInText": "<text only a signed-in page shows>",
+    // The starter keeps its Keycloak refresh token in sessionStorage, which Playwright's storage state does not carry.
+    "sessionStorage": true,
+    "timeoutMs": 20000
+  },
+
+  "tasks": [
+    {
+      "id": "<task id>",
+      "account": "member",
+      // What the person knows and wants, in their words; never the names of screens or buttons.
+      "prompt": "<what the person wants to get done>",
+      "start": "/",
+      // The visible names of the controls that write; each promises the task's done fact, which only the check grants.
+      "commits": [ "Save" ],
+      // The app's own data, read by the harness outside the browser, with a test tenant's service token.
+      "check": {
+        "method": "GET",
+        "url": "<the app's API path that shows the record>",
+        "headers": { "Authorization": "env:UX_SERVICE_AUTHORIZATION" },
+        "path": "<dot path to the list or value>",
+        "contains": { "<field>": "<value the task writes>" },
+        "ignoreCase": true
+      },
+      "reset": { "method": "POST", "url": "<the test tenant's reset endpoint>", "headers": { "Authorization": "env:UX_SERVICE_AUTHORIZATION" } }
+    }
+  ],
+
+  "limits": {
+    "steps": 25,
+    "cost": 0.05,
+    "escalations": 3,
+    "models": { "decide": "deepseek-chat", "escalate": "deepseek-reasoner" },
+    "testers": [ "model:deepseek-chat" ]
+  },
+  "gate": { "minDone": 0.9, "maxBelievedNotDone": 0, "maxUncaughtLies": 0, "maxCost": 2.0 },
+
+  "barriers": [
+    { "id": "save-lies", "kind": "lie", "method": "POST", "url": "<glob of the app's write endpoint>" },
+    { "id": "save-fails", "kind": "fail", "method": "POST", "url": "<glob of the app's write endpoint>", "status": 500 }
+  ],
+  "errorText": [ "<the app's error banner text>" ]
+}

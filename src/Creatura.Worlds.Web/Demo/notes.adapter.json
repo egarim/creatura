@@ -1,0 +1,61 @@
+{
+  // The bundled offline demo (docs/design-web-worlds.md): a notes app the demo server serves on 127.0.0.1.
+  // The base url is the server's, set when it starts.
+  "app": "notes-demo",
+  "baseUrl": "http://127.0.0.1/",
+  "personas": [
+    { "id": "hurried", "description": "You are in a hurry. You read little and press the first thing that looks right." },
+    { "id": "careful", "description": "You read everything on the screen before you act, and you check that what you did worked." }
+  ],
+  "environments": [
+    { "id": "phone", "width": 390, "height": 844, "mobile": true },
+    { "id": "desktop", "width": 1280, "height": 800 }
+  ],
+  "tasks": [
+    {
+      "id": "remember-milk",
+      "prompt": "You must not forget to buy milk. Write \"buy milk\" down in this app so it is kept.",
+      "start": "/",
+      "commits": [ "Save" ],
+      "check": { "method": "GET", "url": "/api/notes", "path": "items", "contains": { "text": "buy milk" }, "ignoreCase": true },
+      "reset": { "method": "POST", "url": "/api/reset" }
+    },
+    {
+      "id": "private-bread",
+      "account": "ana",
+      "prompt": "You keep a private list in this app. Add \"buy bread\" to it.",
+      "start": "/private",
+      "commits": [ "Save" ],
+      "check": { "method": "GET", "url": "/api/admin/notes?user=ana@example.test", "path": "items", "contains": { "text": "buy bread" }, "ignoreCase": true },
+      "reset": { "method": "POST", "url": "/api/reset" }
+    }
+  ],
+  // A test tenant's account, so its credentials are written here; a real app's are env:NAME, read at sign-in.
+  "accounts": [ { "id": "ana", "user": "ana@example.test", "password": "demo-password" } ],
+  // Signed in once per account; the session (storage state and sessionStorage, where this app keeps its token) is reused.
+  "signIn": {
+    "start": "/login",
+    "steps": [ "type Email: {user}", "type Password: {password}", "click Sign in" ],
+    "signedInText": "Signed in as",
+    "sessionStorage": true
+  },
+  "limits": {
+    "steps": 12, "escalations": 2,
+    "models": { "decide": "deepseek-chat", "escalate": "deepseek-reasoner" },
+    // The testers a matrix runs when none is named: the offline script. Add model:<name> rows for a paid panel.
+    "testers": [ "script:demo" ]
+  },
+  // creatura ux gate: every cell done, nobody believed done when it was not, no lie missed.
+  "gate": { "minDone": 1.0, "maxBelievedNotDone": 0, "maxUncaughtLies": 0, "maxCost": 0.5 },
+  "barriers": [
+    { "id": "save-lies", "kind": "lie", "method": "POST", "url": "**/notes" },
+    { "id": "save-fails", "kind": "fail", "method": "POST", "url": "**/notes", "status": 500 },
+    { "id": "save-slow", "kind": "slow", "method": "POST", "url": "**/notes", "delayMs": 3000 },
+    // On the page: Save jumps away from the first click; a cookie banner covers everything until accepted; the Note
+    // field drops the second letter of the first thing typed into it.
+    { "id": "save-dodges", "kind": "dodge", "target": "Save", "times": 1 },
+    { "id": "cookie-banner", "kind": "cover", "text": "We use cookies to keep your notes." },
+    { "id": "note-drops-letter", "kind": "drop-letter", "target": "Note", "times": 1 }
+  ],
+  "errorText": [ "Error:", "Write something first" ]
+}

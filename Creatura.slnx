@@ -4,6 +4,7 @@
     <Project Path="src/Creatura.Worlds/Creatura.Worlds.csproj" />
     <Project Path="src/Creatura.Bench/Creatura.Bench.csproj" />
     <Project Path="src/Creatura.Seats/Creatura.Seats.csproj" />
+    <Project Path="src/Creatura.Worlds.Web/Creatura.Worlds.Web.csproj" />
     <Project Path="src/Creatura.Cells/Creatura.Cells.csproj" />
     <Project Path="src/Creatura.Cells.Sqlite/Creatura.Cells.Sqlite.csproj" />
     <Project Path="src/Creatura.Cells.Sync/Creatura.Cells.Sync.csproj" />
@@ -25,5 +26,6 @@
     <Project Path="tests/Creatura.Hosts.AgentFramework.Tests/Creatura.Hosts.AgentFramework.Tests.csproj" />
     <Project Path="tests/Creatura.Hosts.SemanticKernel.Tests/Creatura.Hosts.SemanticKernel.Tests.csproj" />
     <Project Path="tests/Creatura.Scenarios.Tests/Creatura.Scenarios.Tests.csproj" />
+    <Project Path="tests/Creatura.Worlds.Web.Tests/Creatura.Worlds.Web.Tests.csproj" />
   </Folder>
 </Solution>

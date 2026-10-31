@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Creatura.Worlds.Web</RootNamespace>
+    <!-- A single-file build (the release's `creatura`) cannot run Playwright's node driver from inside itself, so it
+         leaves the driver out (it would add about 120 MB) and `creatura ux` says no browser could be started; dotnet run,
+         the .NET tool and an ordinary publish carry it. -->
+    <PlaywrightPlatform Condition="'$(PublishSingleFile)' == 'true'">none</PlaywrightPlatform>
+    <Description>Web worlds for Creatura: an agent with a persona uses a real web app through Playwright, sees only the visible text and the numbered controls, and is judged by the app's own data, never by the page or the model.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Web worlds (docs/design-web-worlds.md). The one project with a browser behind it, so it is apart from the four
+         package-free projects (CorePurityTest): Microsoft.Playwright drives the browser. Seats is referenced for the persona
+         policy, which asks a catalogued model for one action per tick. It may do file IO (the adapter file, the browser). -->
+    <PackageReference Include="Microsoft.Playwright" Version="1.63.0" />
+    <ProjectReference Include="../Creatura/Creatura.csproj" />
+    <ProjectReference Include="../Creatura.Seats/Creatura.Seats.csproj" />
+    <!-- The designs by name, for the matrix's design axis (package-free). -->
+    <ProjectReference Include="../Creatura.Worlds/Creatura.Worlds.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The bundled offline demo: a notes app the demo server serves, its adapter and the scripted persona that drives it. -->
+    <EmbeddedResource Include="Demo/notes.html" LogicalName="demo/notes.html" />
+    <EmbeddedResource Include="Demo/notes.adapter.json" LogicalName="demo/notes.adapter.json" />
+    <EmbeddedResource Include="Demo/login.html" LogicalName="demo/login.html" />
+    <EmbeddedResource Include="Demo/private.html" LogicalName="demo/private.html" />
+    <EmbeddedResource Include="Demo/*.script" LogicalName="demo/%(Filename).script" />
+    <EmbeddedResource Include="Observe.js" LogicalName="observe.js" />
+  </ItemGroup>
+
+</Project>
