@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **Turns, so two cells neither wait on each other nor both lead** (docs/design-turns.md, slice T0): a cell says it
+  waits (`creatura cell wait --on <cell or entry id>`), proposes on a topic (`propose --topic`, with `--file` to share
+  the proposal as a file first) and answers (`answer --accept | --object`); `creatura cell turn` reads the verified
+  ledger and says whose move it is, act or wait, with the rule and one reason, as text or `--json`, exit 0 or 3. A
+  wait stands until the cell's next entry; a cycle of waits has one mover, the latest wait; competing proposals are
+  settled by the lowest entry hash, never by clock, and a proposal that saw the other is a counter, not a competitor;
+  a proposal is settled by every party's acceptance or, past the quiet time (10 minutes, `--quiet`, or the offer's
+  `--quiet`), by silence, and `turn` says which. All of it is optional fields on Progress entries: an un-upgraded hub
+  stores them (tested against the hub of the commit before), and a ledger without them reads as before. C30 to C37
+  hold; three deliberate breaks each fail a check.
+
 ## 0.2.0-preview.3 (2026-10-30)
 
 - **One culture for every text** (the owner's decision, issue #5): traces, notes, self-descriptions and model prompts

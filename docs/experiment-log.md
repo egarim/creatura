@@ -303,3 +303,17 @@ runs are recorded only in the design note.
 - #65: `node experiments/two-creatures/runner/run.mjs --reference [down\|label\|live\|check\|persist]; --arm {CC-L,CC-M,CC-LM} --agents fake,{fake,liar}; --arm C-0 --agents fake`
 
 </details>
+
+## Step T0
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 66 | 2026-10-31 07:50 | `9877c47` | build | — | Turns T0: wait, propose, answer and turn in the cells ledger; C30-C37; three deliberate breaks; the un-upgraded hub given the new fields | Baseline 771 of 771 (16, 514, 13, 120, 108). C30-C37 pass, with one more test for the commands (9 of 9). Breaks: the mover picked by timestamp fails C32 and C33; Seen dropped fails C33 and C34; a wait that outlives the waiter's next entry fails C30, C35 and the commands test; restored, 9 of 9. Compat: the e694f8b hub verified and stored all 7 deltas (2 hellos, 2 claims, 3 Progress carrying waitingOn, topic+seen, answers+verdict), refused none, and served them to the second home, where turn read the proposal as settled; the e694f8b CLI listed that ledger with the unknown fields ignored and synced it (7 entries, digest cac96b4cf61bb6dc, nothing sent or refused). So: optional fields on Progress, no new kinds, no hub upgrade. Final suite 780 of 780 (16, 514, 13, 120, 117). | docs/design-turns.md, Compatibility and Built; CHANGELOG Unreleased |
+
+<details><summary>Commands</summary>
+
+- #66: `dotnet test Creatura.slnx -c Release (baseline on e694f8b, then final); dotnet test tests/Creatura.Cells.Tests --filter TurnTests; breaks, one at a time on Turns.cs: live = frontier.MinBy(Timestamp); Seen = []; StandingWaits from the latest wait instead of the latest entry; compat: dotnet publish src/Creatura.Cells.Hub and src/Creatura.Cli at e694f8b, then with the new CLI: init, owner-key, request/endorse/accept a second home, claim x2, wait --on, propose --topic plan, sync, turn, answer --accept, sync, turn --json, all through the e694f8b hub (--listen 127.0.0.1:5199 --trust --data); the e694f8b CLI's ledger and sync on the second home; the hub's hub.db read with sqlite3`
+
+</details>

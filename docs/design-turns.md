@@ -1,7 +1,9 @@
 # Design: turns, so two cells neither wait on each other nor both lead
 
 **Status:** proposed 2026-10-31, from the cloud-session probe of the two-creatures experiment (egarim/two-creatures-a,
-branch `spike`). Not built.
+branch `spike`). Slice T0 built 2026-10-31 (branch `turns-t0`): C30 to C37 hold, each of the three deliberate breaks
+fails a check, and the compatibility question is answered by test: optional fields on Progress, no new kinds, no hub
+upgrade needed. The builder's choices are recorded in "Built" at the end. T1 and T2 are not built.
 
 ## The problem, in the owner's words
 
@@ -55,6 +57,12 @@ a party objects, the proposal is not settled and the proposer has the move. If a
 one offer naming several cells). Without offers, they are the cells named with `--with <cell,...>` on `propose`. The
 builder may choose a simpler definition if it covers both cases, and records the choice in this note.
 
+*As built:* the parties of a cell are the cells with an active claim whose goal text equals its active claim's, and
+the cells a proposal names with `--with`, by this cell or naming it. A claim that takes an offer carries the offer's
+goal text, so both cases of the paragraph above are covered, and so is the experiment's plain `cell claim --goal`
+with the same goal on both machines. The set is computed from the ledger at every `turn`, not fixed at `propose`:
+a peer whose claim arrives after the proposal becomes a party when it arrives.
+
 ### 3. `creatura cell turn`
 
 Read-only. It prints, for this cell, **act** or **wait** with one reason, from the verified ledger alone. With
@@ -83,6 +91,16 @@ existing kinds**: `WaitingOn` on Progress, and proposals and answers as Progress
 the hub built from the commit before this change. If it doesn't, add entry kinds `Proposal` and `Answer`, and note in
 the changelog that the hub must be upgraded first. Either way, a ledger with none of the new fields reads exactly as
 before.
+
+**Tested 2026-10-31, answer: the un-upgraded hub takes them.** The hub and the CLI were published from `e694f8b`, the
+commit before this change, and the new CLI drove two homes through that hub: a wait, a proposal (with `topic` and
+`seen`) and an accepting answer, all Progress entries. The old hub verified and stored all three (7 deltas: 2 hellos,
+2 claims, 3 Progress with the new fields; no refusal in its log) and served them to the other home, where `turn` read
+the proposal as settled. The old CLI read that home's ledger, the unknown fields ignored, and synced it with nothing
+sent or refused. The reason: a signature covers the payload's canonical JSON whatever it holds, and a payload is
+checked by deserializing it into its kind's record, which ignores fields it does not know. So the fields are optional
+fields on Progress (`WaitingOn`; `Topic`, `Seen`, `With`, `Artifact`; `Answers`, `Verdict`), there are no new entry
+kinds, and the hub on `world` need not be upgraded for T1. The experiment log has the commands (#66).
 
 ## Checks
 
@@ -113,3 +131,47 @@ let a wait outlive the waiter's next entry. Each must fail at least one of C30â€
 - More than two cells. The rules are written for any number of parties, but C30â€“C37 test two.
 - Assigning roles, splitting work or judging a plan's quality. That stays the agents' job.
 - Upgrading the hub on `world`. Deploying is the owner's call.
+
+## Built (2026-10-31): slice T0
+
+`TurnLedger` in `Creatura.Cells` (`Turns.cs`), the fields on `ProgressPayload`, and `creatura cell wait`, `propose`,
+`answer` and `turn` (`--json`, `--quiet <minutes>`; exit 0 to act, 3 to wait); `offer` takes `--quiet <minutes>`,
+signed into the offer only when set, so earlier offers verify as before. C30 to C37 are
+`tests/Creatura.Cells.Tests/TurnTests.cs`, with one more test for the commands themselves (nine tests). The full
+suite went from 771 to 780 tests, all passing.
+
+**The three deliberate breaks**, each on its own and reverted: the mover picked by timestamp instead of hash fails
+C32 and C33; `Seen` dropped fails C33 and C34; a wait that outlives the waiter's next entry fails C30, C35 and the
+commands test.
+
+**What the builder decided where the note left room, or read differently:**
+
+- *A heartbeat is not a move.* A wait stands until the cell's next entry that is not a wait, as the note says, but a
+  heartbeat does not end it and does not count as writing for the quiet time: a timer writes heartbeats, and a peer
+  whose only entries are heartbeats is not moving the work.
+- *The proposer of the only proposal waits too.* The table gives the winner of competing proposals "wait until it's
+  settled" (T6) and says nothing of a lone proposal, whose proposer would fall to T7 and act, which is the "both lead"
+  failure in another form. As built, T6 covers the live proposal of a topic whether it won a competition or stood
+  alone: the proposer waits for the answers, proceeds when the unanswered parties are silent past the quiet time
+  (saying it was by silence), and a party that objected waits while the proposer has the move, unless the proposer
+  goes quiet. The losers of a competition get act: answer the winner, reported as T6; a party that was simply asked
+  gets T1.
+- *The live proposal and the plan.* On a topic, the proposals no other proposal has seen are the frontier; among them
+  the lowest hash is live, the one the parties answer. A counter-proposal (one that saw the earlier one) takes the
+  earlier one out of the frontier at once, so it is what the other parties answer now, but the plan, the latest
+  proposal every party accepted, changes only when the counter is accepted, as the note says. `turn --json` reports
+  both (`proposal` and `plan`).
+- *Ties in the wait cycle.* Ledger order is total, so the rule's tie-break never fires; as built, the mover is the
+  wait with the latest timestamp, ties by the higher hash, which is the note's rule word for word and the same in
+  every home.
+- *Waiting on an entry* waits on the cell that wrote it (an entry id names its cell). A cell cannot wait on itself;
+  `turn` already waits for the answers to its proposals. A peer this ledger holds nothing from is quiet from the
+  moment of the wait.
+- *Topics are scoped to the parties:* `turn` reads proposals on a topic from this cell and its parties, so two pairs
+  on different goals in one ledger can both have a `plan`. `Seen` is filled from every proposal on the topic the
+  home holds, which can include a stranger's; that only makes a counter of what would have been one anyway.
+- *`propose --file`* needs `--hub` (the file is uploaded as `share` does), seals the file for the parties when they
+  are known and for every endorsed cell otherwise, and the proposal's row defaults to "proposal in <name>".
+
+**Left for T1:** the fake pair in `experiments/two-creatures/agents/fake.mjs` does not call `turn` yet, and the hub
+image of the harness builds from the repository's current code, so a run there picks this up unchanged.
