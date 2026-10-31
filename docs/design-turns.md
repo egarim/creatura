@@ -5,7 +5,7 @@ branch `spike`). Slice T0 built 2026-10-31 (branch `turns-t0`): C30 to C37 hold,
 fails a check, and the compatibility question is answered by test: optional fields on Progress, no new kinds, no hub
 upgrade needed. Slice T1 built 2026-10-31 on the same branch: the polite and the simultaneous fake pairs ship 5 of 5
 on a Docker host, and the X0 pairs score as before. The builder's choices and both results are recorded in "Built"
-at the end. T2 is not built.
+at the end. T2 was attempted the same day and stopped at setup; see "Attempted" at the end.
 
 ## The problem, in the owner's words
 
@@ -214,4 +214,18 @@ Found on the way: a hello in `cell ledger` names the creatura by its id, not by 
 polite run waited ten minutes for "the peer's hello" and shipped nothing. A pair has two cells, so the peer is the
 other hello; a run with more cells would need names, which the ledger does not carry.
 
-**Left for T2:** `agents/goal.md` does not yet tell a real agent about `wait`, `propose`, `answer` and `turn`.
+## Attempted (2026-10-31): slice T2
+
+`agents/goal.md` now tells a real agent about `wait`, `propose`, `answer` and `turn`, the peer as the other hello,
+and the claim in the goal's words (or `--with`) so the ledger treats both cells as parties. The goal-only prompts
+for two Claude Code cloud sessions are `spike/prompts/t2-creature-a.full.md` and `t2-creature-b.full.md` on
+egarim/two-creatures-a (the probe's run 4 goal, Creatura Notes, the same words for both, no roles; the CLI built from
+`turns-t0`, since world's download predates `turn`; world's hub needs no upgrade).
+
+The pair was started at 09:05Z from the build session. Both sessions installed the .NET SDK and cloned `turns-t0`,
+and both were then refused `dotnet publish` and the built binary by their auto-mode permission classifier ("Code
+from External"), five times in creature-a and twice in creature-b; both stopped as the prompt says and pushed a
+report (`spike/report.md`, "Goal-only run (T2)", on each repository). No cell was created, nothing reached the
+ledger, `turn` was never run. The fix the classifier names, a permission rule in each repository's
+`.claude/settings.json`, is the owner's to apply: a session writing it was refused as a bypass. The run itself is
+still the owner's call, as the slice table says. Experiment log #68.
