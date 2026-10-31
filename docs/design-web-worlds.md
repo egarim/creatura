@@ -1,6 +1,6 @@
 # Design: web worlds, where a persona uses a real app and the app's data is the judge
 
-**Status:** design note, with phases 1, 2a, 2b and 2c (the summary and judge seats), persona memory and a design axis built (below). Written 2026-10-31. Nothing here has been run against a real
+**Status:** design note, with phases 1, 2a, 2b and 2c, persona memory and a design axis built (below). Written 2026-10-31. Nothing here has been run against a real
 model or a real app yet; what was run is the bundled demo, offline, in a real Chromium.
 
 **Built:** phase 1, `src/Creatura.Worlds.Web` (`WebWorld`, the observation, the tools, the declarative check, the
@@ -9,7 +9,8 @@ report, compare and the gate (`UxMatrix`, `UxReport`, `UxComparison`, `UxGate`, 
 phase 2b, sign-in once per account with the session kept and reused, sessionStorage put back (`UxSessions`), and a
 Singular adapter template (`samples/ux/singular-starter.adapter.json`, not run against an app); persona memory and the
 design axis (`UxMemory`, `UxDesigns`, `--designs`, `--memory`); phase 2c's judge and summary writer (`UxJudge`,
-`UxSummary`, `creatura ux judge`). Vision on the triggers and the stuck triggers as an alarm are still a design.
+`UxSummary`, `creatura ux judge`); the rest of 2c, vision on the triggers and the stuck alarm in the loop (`UxStuckAlarm`,
+`limits.models.vision`, `--vision`). Phase 3 is still a design.
 
 ## The problem
 
@@ -147,6 +148,33 @@ uxkit signs each account in once and reuses the browser's storage state. A web w
 The bundled demo signs in the way the starter does. `/login` keeps the token from `/api/login` in sessionStorage only,
 and `/private` is a list read and written with it that shows "Please sign in" without it. The demo's task
 `private-bread` signs in as `ana`.
+
+## Vision and the stuck alarm (phase 2c, built)
+
+uxkit asks a vision model only on its stuck triggers, and escalates on five of them. Creatura splits the triggers by
+what they are about.
+
+**In the seat**, the triggers about the model's own answer stay where phase 1 put them: confidence under 0.4, an
+answer that is no action, a control number that is not on screen, the same action again on an unchanged screen.
+
+**In the loop**, the trigger about the world moves to an alarm: no change on screen after two steps
+(`UxStuckAlarm`). It is an extension, so it rides every design unchanged. After each action it compares the screen
+the persona reads with the one before; a step with no action is not counted.
+- At `limits.stuckPatience` actions in a row that changed nothing (default 2), it writes an alarm row, puts a note in
+  the seat's prompt ("The screen has not changed after your last 2 steps."), and raises the world's stuck signal.
+- At `limits.stuckLimit` (default 6), it takes the controls away. No tool is visible, and each design meets "no route"
+  and hands off by its own rule, which its extensions may veto. The alarm never decides how a design stops.
+
+**Escalation and vision.** On a seat trigger, or when it takes the alarm's signal, the persona asks its stronger seat:
+the vision model (`limits.models.vision`, or `--vision <name>`) with a screenshot of the viewport (JPEG), else the
+escalation model with text only. On the alarm the stronger seat is asked at once, without the fast one. Escalations
+stay within `limits.escalations`; past it, the fast seat is asked and told it seems stuck. A cell counts the alarms,
+whether the controls were taken, and the screenshots sent.
+
+**Images in the seats.** `ChatMessage` gains an optional image list (`ChatImage`). The OpenAI-compatible and Foundry
+transports send it as content parts with data URLs, Ollama's as `images`, and a message without images is sent exactly
+as before. Images are never written to a call log; the record's note gives their size. The catalog does not say which
+models can see; the adapter names one that can.
 
 ## Persona memory and the design axis (built)
 
@@ -326,6 +354,9 @@ another judge, or after the fact, reading each cell's trace back from `traces/`.
 | W20 | lies are counted by the world: told when a commit the page took is not in the data, caught when the loop blocked that tool on that tick; under `save-lies` plain, Bach, the map-keeper and the orienting agent each catch the one lie told | a lie miscounted, or a design's catch missed for its words | holds |
 | W21 | the rules find every finding the verdicts decide; a model judge is held to them (required put back, denied struck, unknown dropped, each a correction); a failed judge falls back to the rules and says so | a model judgement that contradicts the data, or a correction not recorded | holds (stub models) |
 | W22 | the summary is the facts by code, each cell once; a model's paragraph comes after them, named, and a failed call leaves the facts | a fact missing or changed by a model | holds (stub models) |
+| W23 | the stuck alarm fires after its patience of unchanged screens, tells the seat once per streak, and at its limit takes the controls away, after which each design hands off by its own rule | a fire on a changed screen, a missed one, or a design stopped by the alarm itself | holds (plain and Bach) |
+| W24 | on the alarm, a persona asks its vision model at once, with a screenshot, within the escalation budget; with no vision model, the stronger model with no image; past the budget, the fast model, told it is stuck | anything else | holds (stub models) |
+| W25 | an image goes as a content part on the OpenAI shape and as `images` on Ollama's, a message without one is unchanged, and no image reaches a call log | anything else | holds |
 | W14 | the gate exits 1 naming every threshold broken, 0 when none is; with the lie barrier the demo breaks `minDone`, and holds `maxUncaughtLies 0` under Bach | anything else | holds |
 
 ## Results (phase 1, 2026-10-31)
@@ -387,13 +418,27 @@ caught, and wrote the summary beside the report. In the tests, a stub judge that
 real model as judge or summary writer (how often the rules must correct one is the number to watch), and whether a
 model finds `friction` where a person would.
 
+## Results (the rest of phase 2c, 2026-10-31)
+
+Run the same way, offline, in a real Chromium. W23 to W25 hold: `VisionStuckTests` (6, no browser) and
+`VisionStuckBrowserTests` (3).
+- **A script pressing a button that changes nothing,** under plain and Bach: the alarm fired at tick 2, took the
+  controls at its limit, and each design handed off in its own words, well before its step budget.
+- **A stub persona whose fast model keeps pressing Clear:** the alarm fired, the vision model was asked once with a
+  screenshot, typed the note, and the data says done.
+- **A first version of that test** reached the vision model through the seat's own same-answer trigger, a tick before
+  the alarm. Both paths are real; the test now varies the fast model's words, so it checks the alarm's path.
+
+Not verified: a real vision model reading a real screenshot, and how often a real persona's screen stops changing
+without it being stuck (a slow page, a confirmation it must wait for).
+
 ## Decisions for the owner
 
 | | decision | options | recommendation |
 |---|---|---|---|
 | U1 | where web worlds live | (a) a project here; (b) the framework's repository | **(a)**, done: the world is generic, and a Singular adapter is a JSON file and maybe a hooks class in the app's own repository |
 | U2 | the CLI | `creatura ux` in the `creatura` tool; a separate `creatura-ux` program | **`creatura ux`**, done; if the release's single file must run it, ship Playwright's driver folder with it, or split it out then |
-| U3 | escalation | in the seat (phase 1); as the stuck alarm in a regulator | **both**: the seat's triggers stay (they are about the model's answer), and the "no change after two steps" trigger moves to a regulator's alarm, where the designs differ |
+| U3 | escalation | in the seat (phase 1); as the stuck alarm in a regulator | **both**, done: the seat's triggers stay (they are about the model's answer); "no change after two steps" is an alarm in the loop. It is an extension rather than a joined regulator, because the catalog's designs build their regulators inside their factories; past its limit it takes the controls away, so each design stops by its own rule |
 | U4 | uxkit itself | keep it; retire it once phase 2 runs the PhotoSet and Cosmos tasks | **retire after W9 holds** on both apps |
 
 ## Phases
@@ -404,7 +449,7 @@ model finds `friction` where a person would.
 | 2a | the full matrix (tasks × personas × environments × testers), the report (json, csv, markdown, traces), compare, gate | W11 to W14 (done) |
 | 2b | sign-in once per account, storage state kept and reused, sessionStorage put back; a Singular template | W15 to W17 (done); W9 on PhotoSet or Cosmos is still open, with the template filled in |
 | 2b+ | persona memory (records and lessons, carry or read) and the design axis | W18 to W20 (done) |
-| 2c | the summary writer and the judge as seats (built: W21, W22); vision on the triggers and the stuck triggers as an alarm (not built); vision on the triggers; the stuck triggers as a regulator alarm | W10; the judge's findings agree with W9's person |
+| 2c | the summary writer and the judge as seats; vision on the triggers; the stuck alarm in the loop | W21 to W25 (done); W10 and the judge against W9's person are still open |
 | 3 | barriers on the page (a moving button, a covered control), `scroll`, record and replay of web runs | a design's catch rate per barrier, per viewport |
 
 ## What this note does not cover

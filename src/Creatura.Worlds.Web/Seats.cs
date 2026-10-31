@@ -143,6 +143,9 @@ public sealed class PersonaTelemetry
     /// <summary>The tick the person said they were done, if they did: what the model believed, beside what the data says.</summary>
     public int? BelievedDoneAt { get; internal set; }
 
+    /// <summary>How many screenshots went to the vision model.</summary>
+    public int Screenshots { get; internal set; }
+
     public List<string> EscalationReasons { get; } = [];
 }
 
@@ -177,13 +180,20 @@ public sealed class PersonaPolicy : IPolicy
     private readonly UxLimits _limits;
     private readonly CallLog _log;
     private readonly IReadOnlyList<string> _memories;
+    private readonly ModelEndpoint? _vision;
+    private readonly Func<byte[]?>? _screenshot;
+    private readonly UxStuckSignal? _signal;
     private string? _lastAction;
     private string? _lastScreen;
 
     public PersonaPolicy(Func<Observation> screen, UxPersona persona, UxEnvironment environment, ModelEndpoint decide, ModelClient client,
-        ModelEndpoint? escalate = null, UxLimits? limits = null, CallLog? log = null, IReadOnlyList<string>? memories = null)
+        ModelEndpoint? escalate = null, UxLimits? limits = null, CallLog? log = null, IReadOnlyList<string>? memories = null,
+        ModelEndpoint? vision = null, Func<byte[]?>? screenshot = null, UxStuckSignal? signal = null)
     {
         _memories = memories ?? [];
+        _vision = vision;
+        _screenshot = screenshot;
+        _signal = signal;
         _screen = screen;
         _persona = persona;
         _environment = environment;
@@ -194,7 +204,7 @@ public sealed class PersonaPolicy : IPolicy
         _log = log ?? CallLog.None;
     }
 
-    public string Name => _escalate is null ? $"persona:{_decide.Name}" : $"persona:{_decide.Name}+{_escalate.Name}";
+    public string Name => $"persona:{_decide.Name}" + (_escalate is null ? "" : $"+{_escalate.Name}") + (_vision is null ? "" : $"+vision:{_vision.Name}");
 
     public PersonaTelemetry Telemetry { get; } = new();
 
@@ -215,6 +225,12 @@ public sealed class PersonaPolicy : IPolicy
         }
 
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"STEP {context.Tick} of {context.MaxTicks}."));
+        if (context.Notes.Count > 0)
+        {
+            sb.AppendLine("NOTES:");
+            foreach (var note in context.Notes) sb.AppendLine($"  {note}");
+        }
+
         sb.Append(screen.Render());
         sb.AppendLine("WHAT YOU DID SO FAR (oldest first):");
         if (context.History.Count == 0) sb.AppendLine("  (nothing yet)");
@@ -230,13 +246,22 @@ public sealed class PersonaPolicy : IPolicy
             return new PolicySuggestion(null, string.Create(CultureInfo.InvariantCulture, $"cost limit reached ({spent:0.####} of {cap:0.####})"));
 
         var screen = _screen();
-        var answer = await AskAsync(_decide, context, screen, null, cancellationToken).ConfigureAwait(false);
-        var stuck = Stuck(answer, screen);
-        if (stuck is not null && _escalate is not null && Telemetry.Escalations < _limits.Escalations)
+        var stronger = _vision ?? _escalate;
+        var canEscalate = stronger is not null && Telemetry.Escalations < _limits.Escalations;
+
+        // The loop's alarm first: the screen has stopped changing, so the stronger seat is asked at once, without the fast one.
+        var alarm = _signal?.Take();
+        Answer answer;
+        if (alarm is not null && canEscalate)
         {
-            Telemetry.Escalations++;
-            Telemetry.EscalationReasons.Add($"tick {context.Tick}: {stuck}");
-            answer = await AskAsync(_escalate, context, screen, stuck, cancellationToken).ConfigureAwait(false);
+            answer = await EscalateAsync(stronger!, context, screen, "alarm: " + alarm, alarm, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            answer = await AskAsync(_decide, context, screen, alarm, null, cancellationToken).ConfigureAwait(false);
+            var stuck = Stuck(answer, screen);
+            if (stuck is not null && stronger is not null && Telemetry.Escalations < _limits.Escalations)
+                answer = await EscalateAsync(stronger, context, screen, stuck, stuck, cancellationToken).ConfigureAwait(false);
         }
 
         _lastAction = answer.Action;
@@ -266,12 +291,28 @@ public sealed class PersonaPolicy : IPolicy
         return null;
     }
 
-    private async Task<Answer> AskAsync(ModelEndpoint endpoint, PolicyContext context, Observation screen, string? escalation, CancellationToken cancellationToken)
+    /// <summary>The stronger seat, on a trigger: the vision model with a screenshot when there is one, else the escalation model.</summary>
+    private async Task<Answer> EscalateAsync(ModelEndpoint endpoint, PolicyContext context, Observation screen, string reason, string escalation, CancellationToken cancellationToken)
     {
+        Telemetry.Escalations++;
+        Telemetry.EscalationReasons.Add($"tick {context.Tick}: {reason}");
+        IReadOnlyList<ChatImage>? images = null;
+        if (endpoint == _vision && _screenshot?.Invoke() is { Length: > 0 } shot)
+        {
+            images = [new ChatImage("image/jpeg", shot)];
+            Telemetry.Screenshots++;
+        }
+
+        return await AskAsync(endpoint, context, screen, escalation, images, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Answer> AskAsync(ModelEndpoint endpoint, PolicyContext context, Observation screen, string? escalation, IReadOnlyList<ChatImage>? images, CancellationToken cancellationToken)
+    {
+        var text = User(context, screen, escalation, _memories) + (images is null ? "" : "\nA screenshot of the screen is attached.");
         var messages = new List<ChatMessage>
         {
             new("system", System(_persona, _environment, context.GoalText)),
-            new("user", User(context, screen, escalation, _memories)),
+            new("user", text, Images: images),
         };
         var reply = await _client.ChatAsync(endpoint, messages, null, jsonMode: true, maxTokens: 300, cancellationToken).ConfigureAwait(false);
         Telemetry.Calls++;
@@ -280,7 +321,8 @@ public sealed class PersonaPolicy : IPolicy
         var cost = endpoint.Cost(reply.PromptTokens ?? 0, reply.CompletionTokens ?? 0);
         Telemetry.Cost = cost is null || Telemetry.Cost is null ? null : Telemetry.Cost + cost;
         var answer = reply.Failed ? new Answer(null, null, null, false, "", $"{TraceText.ModelError}: {reply.Error}") : Answer.Parse(reply.Content);
-        _log.Write(CallRecord.Of(endpoint, escalation is null ? "persona" : "persona-escalated", endpoint.Protocol, $"{_persona.Id} tick {context.Tick}", messages, [], reply, answer.Error is null, escalation));
+        var note = images is null ? escalation : $"{escalation}; with a screenshot ({string.Create(CultureInfo.InvariantCulture, $"{images.Sum(i => i.Data.Length) / 1024}")} KB, not logged)";
+        _log.Write(CallRecord.Of(endpoint, images is not null ? "persona-vision" : escalation is null ? "persona" : "persona-escalated", endpoint.Protocol, $"{_persona.Id} tick {context.Tick}", messages, [], reply, answer.Error is null, note));
         return answer;
     }
 

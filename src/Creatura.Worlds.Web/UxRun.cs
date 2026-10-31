@@ -24,8 +24,8 @@ public static class PlainLoop
     public static IAgent Make(IPolicy policy, AgentTask task) => Make(policy, task, null, null);
 
     /// <summary>The plain loop that loads its record before the run and saves it after, under the key.</summary>
-    public static IAgent Make(IPolicy policy, AgentTask task, IRecordStore? store, string? key) =>
-        new ReferenceLoop(new Plain(), policy, task, name: "plain loop", store: store, recordKey: key);
+    public static IAgent Make(IPolicy policy, AgentTask task, IRecordStore? store, string? key, AgentOptions? options = null) =>
+        new ReferenceLoop(new Plain(), policy, task, options, name: "plain loop", store: store, recordKey: key);
 }
 
 /// <summary>
@@ -50,6 +50,15 @@ public sealed record UxCell
 
     /// <summary>The design in the loop, by its matrix name (<c>plain</c>, <c>bach</c>, …): part of the cell's key.</summary>
     public string Design { get; init; } = "plain";
+
+    /// <summary>How many times the stuck alarm fired (the screen stopped changing for its patience).</summary>
+    public int StuckAlarms { get; init; }
+
+    /// <summary>Whether the stuck alarm took the controls away, so the design handed off.</summary>
+    public bool ControlsTaken { get; init; }
+
+    /// <summary>How many screenshots the persona sent to its vision model.</summary>
+    public int Screenshots { get; init; }
 
     /// <summary>The persona's record key when it remembers, else null.</summary>
     public string? Memory { get; init; }
@@ -127,6 +136,8 @@ public sealed record UxCell
         if (BelievedDoneAt is { } t) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; the persona believed it was done at tick {t}"));
         if (Escalations > 0) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; {Escalations} escalation{(Escalations == 1 ? "" : "s")}"));
         if (Cost is { } cost && cost > 0) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; cost {cost:0.####}"));
+        if (StuckAlarms > 0) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; stuck alarm ×{StuckAlarms}{(ControlsTaken ? ", controls taken" : "")}"));
+        if (Screenshots > 0) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; {Screenshots} screenshot{(Screenshots == 1 ? "" : "s")} to the vision model"));
         if (Memory is not null) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; remembered {CasesBefore} earlier cell{(CasesBefore == 1 ? "" : "s")}"));
         if (BarrierFires.Count > 0) sb.Append("; barriers fired: " + string.Join(", ", BarrierFires.Select(kv => string.Create(CultureInfo.InvariantCulture, $"{kv.Key} ×{kv.Value}"))));
         return sb.ToString();
@@ -137,15 +148,23 @@ public sealed record UxCell
 public static class UxRunner
 {
     /// <param name="seat">Builds the seat for the opened world (it needs the world's screen).</param>
-    /// <param name="agent">Builds the agent around the seat and the task; the plain loop when null.</param>
-    public static async Task<UxCell> RunAsync(WebBrowser browser, UxAdapter adapter, UxTask task, UxPersona persona, UxEnvironment environment,
+    /// <param name="agent">Builds the agent around the seat and the task; the plain loop when null. No stuck alarm rides it.</param>
+    public static Task<UxCell> RunAsync(WebBrowser browser, UxAdapter adapter, UxTask task, UxPersona persona, UxEnvironment environment,
         Func<WebWorld, IPolicy> seat, Func<IPolicy, AgentTask, IAgent>? agent = null, WebWorldOptions? options = null, int? maxTicks = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        RunAsync(browser, adapter, task, persona, environment, seat, (p, t, _) => (agent ?? PlainLoop.Make)(p, t), options, maxTicks, stuckAlarm: false, cancellationToken);
+
+    /// <param name="agent">Builds the agent around the seat and the task, with the extensions the runner adds (the stuck alarm).</param>
+    /// <param name="stuckAlarm">Put the stuck alarm (<see cref="UxStuckAlarm"/>) in the loop, with the adapter's patience and limit; off when the patience is 0.</param>
+    public static async Task<UxCell> RunAsync(WebBrowser browser, UxAdapter adapter, UxTask task, UxPersona persona, UxEnvironment environment,
+        Func<WebWorld, IPolicy> seat, Func<IPolicy, AgentTask, IReadOnlyList<IAgentExtension>, IAgent> agent, WebWorldOptions? options, int? maxTicks,
+        bool stuckAlarm = true, CancellationToken cancellationToken = default)
     {
         options ??= new WebWorldOptions();
         await using var world = await WebWorld.OpenAsync(browser, adapter, task, environment, options, cancellationToken).ConfigureAwait(false);
         var policy = seat(world);
-        var loop = (agent ?? PlainLoop.Make)(policy, WebTask.For(task));
+        var alarm = stuckAlarm && adapter.Limits.StuckPatience > 0 ? new UxStuckAlarm(world, adapter.Limits.StuckPatience, adapter.Limits.StuckLimit) : null;
+        var loop = agent(policy, WebTask.For(task), alarm is null ? [] : [alarm]);
         var run = await loop.RunAsync(world, maxTicks ?? adapter.Limits.Steps, cancellationToken).ConfigureAwait(false);
         await world.RefreshAsync(cancellationToken).ConfigureAwait(false);
         var persona_ = policy as PersonaPolicy;
@@ -156,6 +175,7 @@ public static class UxRunner
             PageSaidDone = world.PageReportedCommit, BelievedDoneAt = persona_?.Telemetry.BelievedDoneAt,
             Ticks = run.Ticks, LiesTold = world.Lies.Count, LiesCaught = world.Lies.Count(l => l.CaughtIn(run)), Escalations = persona_?.Telemetry.Escalations ?? 0,
             Cost = persona_ is null ? 0m : persona_.Telemetry.Cost, BarrierFires = new Dictionary<string, int>(world.BarrierFires), Run = run,
+            StuckAlarms = alarm?.Fired ?? 0, ControlsTaken = alarm?.TookControls ?? false, Screenshots = persona_?.Telemetry.Screenshots ?? 0,
         };
     }
 }

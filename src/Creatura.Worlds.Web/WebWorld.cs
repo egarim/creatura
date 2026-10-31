@@ -165,6 +165,22 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
 
     public IPage Page => _page;
 
+    /// <summary>What the loop's stuck alarm tells the seat (<see cref="UxStuckAlarm"/>).</summary>
+    public UxStuckSignal Stuck { get; } = new();
+
+    /// <summary>The screen as an image (JPEG, the viewport), for a vision model when the persona is stuck; null when it cannot be taken.</summary>
+    public byte[]? Screenshot()
+    {
+        try
+        {
+            return Task.Run(() => _page.ScreenshotAsync(new PageScreenshotOptions { Type = ScreenshotType.Jpeg, Quality = 60 })).GetAwaiter().GetResult();
+        }
+        catch (Exception e) when (e is PlaywrightException or TimeoutException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>The account whose kept session this world was opened with, if any.</summary>
     public string? SignedInAs { get; private set; }
 

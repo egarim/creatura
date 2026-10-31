@@ -49,6 +49,9 @@ public static class UxCommand
         both:
           --barriers none|<ids>        barriers between the browser and the app, joined with +, e.g. save-lies
           --escalate <name>            the stronger model asked when a persona is stuck (default: limits.models.escalate)
+          --vision <name>              a model that sees: asked with a screenshot when a persona is stuck, before --escalate
+                                       (default: limits.models.vision). The stuck alarm (limits.stuckPatience, stuckLimit)
+                                       raises it when the screen stops changing, and past its limit takes the controls away
           --design plain|<name>        the design in the loop (default plain: the control layer alone); creatura run --list
           --designs <a,b>              matrix: several designs, a cell each, compared side by side in the report
           --memory carry|read          personas remember between cells, in --records <dir>: carry learns cell after cell,
@@ -104,8 +107,8 @@ public static class UxCommand
 
         string[] known = verb switch
         {
-            "run" => ["--adapter", "--base-url", "--task", "--persona", "--env", "--barriers", "--seat", "--escalate", "--design", "--ticks", "--log", "--browser", "--sessions", "--memory", "--records"],
-            "matrix" => ["--adapter", "--base-url", "--tasks", "--personas", "--envs", "--testers", "--barriers", "--escalate", "--design", "--designs", "--memory", "--records", "--ticks", "--log",
+            "run" => ["--adapter", "--base-url", "--task", "--persona", "--env", "--barriers", "--seat", "--escalate", "--vision", "--design", "--ticks", "--log", "--browser", "--sessions", "--memory", "--records"],
+            "matrix" => ["--adapter", "--base-url", "--tasks", "--personas", "--envs", "--testers", "--barriers", "--escalate", "--vision", "--design", "--designs", "--memory", "--records", "--ticks", "--log",
                          "--browser", "--max-cost", "--out", "--baseline", "--sessions", "--judge", "--summary"],
             "gate" => ["--baseline", .. Thresholds],
             "judge" => ["--judge", "--summary", "--log"],
@@ -169,7 +172,10 @@ public static class UxCommand
 
         var set = options.GetValueOrDefault("--barriers") ?? "none";
         var barriers = set == "none" ? new List<string>() : set.Split('+').ToList();
-        var seats = new UxSeats(log: options.TryGetValue("--log", out var logPath) ? new CallLog(logPath) : null) { Escalate = options.GetValueOrDefault("--escalate") };
+        var seats = new UxSeats(log: options.TryGetValue("--log", out var logPath) ? new CallLog(logPath) : null)
+        {
+            Escalate = options.GetValueOrDefault("--escalate"), Vision = options.GetValueOrDefault("--vision"),
+        };
         try
         {
             foreach (var id in barriers) adapter.Barrier(id);
@@ -224,8 +230,8 @@ public static class UxCommand
             try
             {
                 cell = await InCulture(() => UxRunner.RunAsync(browser, adapter, task, persona, environment, w => seats.Build(seat, adapter, task, persona, environment, w, lessons),
-                    (p, t) => UxDesigns.Make(design, p, t, store, key),
-                    new WebWorldOptions { Barriers = barriers, Sessions = Sessions(options) }, ticks));
+                    (p, t, extra) => UxDesigns.Make(design, p, t, store, key, extra),
+                    new WebWorldOptions { Barriers = barriers, Sessions = Sessions(options) }, ticks, stuckAlarm: true));
                 cell = cell with { Tester = seat, Design = design, Memory = key, CasesBefore = casesBefore, Remembered = lessons };
                 if (key is not null) memory!.Remember(key, cell, environment);
             }

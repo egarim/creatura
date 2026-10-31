@@ -56,6 +56,14 @@ internal static class OpenAiStyle
             ["messages"] = new JsonArray(request.Messages.Select(m =>
             {
                 var o = new JsonObject { ["role"] = m.Role, ["content"] = m.Content };
+                if (m.Images is { Count: > 0 } images)
+                {
+                    // A message that shows the model something: the text, then each image as a data URL.
+                    var parts = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = m.Content });
+                    foreach (var image in images) parts.Add(new JsonObject { ["type"] = "image_url", ["image_url"] = new JsonObject { ["url"] = image.DataUrl } });
+                    o["content"] = parts;
+                }
+
                 if (m.ToolCallId is not null) o["tool_call_id"] = m.ToolCallId;
                 if (m.Name is not null) o["name"] = m.Name;
                 return (JsonNode)o;

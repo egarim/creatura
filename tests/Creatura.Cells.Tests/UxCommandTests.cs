@@ -132,6 +132,7 @@ public sealed class UxCommandTests
     [InlineData(new string[] { "judge", "x", "--summary", "rules" }, "--summary takes model:<name>")]
     [InlineData(new string[] { "judge" }, "ux judge takes one report")]
     [InlineData(new string[] { "matrix", "--demo", "--judge", "model:nobody" }, "no model 'nobody'")]
+    [InlineData(new string[] { "run", "--demo", "--seat", "model:deepseek-chat", "--vision", "nobody" }, "no vision model 'nobody'")]
     [InlineData(new string[] { "compare", "one" }, "two reports")]
     [InlineData(new string[] { "gate" }, "one report")]
     [InlineData(new string[] { "gate", "/no/such/report" }, "could not be read")]

@@ -198,7 +198,13 @@ public sealed record UxLimits
 
     public int Escalations { get; init; } = 3;
 
-    /// <summary>The seats by role: <c>decide</c>, <c>escalate</c> (and, in phase 2, <c>vision</c>, <c>summary</c>, <c>judge</c>): catalog names.</summary>
+    /// <summary>The stuck alarm: actions in a row that change nothing on screen before the persona's stronger seat is asked (0: no alarm).</summary>
+    public int StuckPatience { get; init; } = 2;
+
+    /// <summary>The stuck alarm: actions in a row that change nothing before the controls are taken away and the design hands off.</summary>
+    public int StuckLimit { get; init; } = 6;
+
+    /// <summary>The seats by role: <c>decide</c>, <c>escalate</c>, <c>vision</c> (asked with a screenshot when stuck): catalog names.</summary>
     public IReadOnlyDictionary<string, string> Models { get; init; } = new Dictionary<string, string>();
 
     /// <summary>The panel of testers a matrix runs when none is named: <c>model:&lt;name&gt;</c> or <c>script:&lt;path&gt;</c>.</summary>

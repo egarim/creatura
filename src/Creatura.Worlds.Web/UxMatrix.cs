@@ -81,8 +81,8 @@ public static class UxMatrix
                 try
                 {
                     cell = await UxRunner.RunAsync(browser, adapter, task, persona, environment, w => seats.Build(tester, adapter, task, persona, environment, w, lessons),
-                        (p, t) => UxDesigns.Make(design, p, t, store, key),
-                        new WebWorldOptions { Barriers = spec.Barriers, Sessions = sessions }, spec.MaxTicks, cancellationToken).ConfigureAwait(false);
+                        (p, t, extra) => UxDesigns.Make(design, p, t, store, key, extra),
+                        new WebWorldOptions { Barriers = spec.Barriers, Sessions = sessions }, spec.MaxTicks, stuckAlarm: true, cancellationToken).ConfigureAwait(false);
                     cell = cell with { Tester = tester, Design = design, Memory = key, CasesBefore = casesBefore, Remembered = lessons };
                     spent += cell.Cost ?? 0;
                     if (key is not null) memory!.Remember(key, cell, environment);

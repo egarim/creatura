@@ -26,6 +26,9 @@ public sealed class UxSeats
     /// <summary>The model the persona escalates to when stuck: this name, else the adapter's <c>limits.models.escalate</c>, else none.</summary>
     public string? Escalate { get; init; }
 
+    /// <summary>The model that sees the screen when the persona is stuck: this name, else the adapter's <c>limits.models.vision</c>, else none.</summary>
+    public string? Vision { get; init; }
+
     public static bool IsModel(string tester) => !tester.StartsWith("script:", StringComparison.Ordinal);
 
     private static string ModelName(string tester) => tester.StartsWith("model:", StringComparison.Ordinal) ? tester["model:".Length..] : tester;
@@ -44,7 +47,10 @@ public sealed class UxSeats
         var escalateName = Escalate ?? adapter.Limits.Models.GetValueOrDefault("escalate");
         var escalate = escalateName is null ? null : _catalog.TryFind(escalateName);
         if (escalateName is not null && escalate is null) return $"no model '{escalateName}' to escalate to in the catalog";
-        foreach (var endpoint in new[] { decide, escalate }.OfType<ModelEndpoint>())
+        var visionName = Vision ?? adapter.Limits.Models.GetValueOrDefault("vision");
+        var vision = visionName is null ? null : _catalog.TryFind(visionName);
+        if (visionName is not null && vision is null) return $"no vision model '{visionName}' in the catalog";
+        foreach (var endpoint in new[] { decide, escalate, vision }.OfType<ModelEndpoint>())
         {
             if (SeatFactory.MissingKey(endpoint) is { } missing) return $"{endpoint.Name} needs a key in {missing}: set it and retry";
         }
@@ -66,6 +72,9 @@ public sealed class UxSeats
         var decide = _catalog.TryFind(ModelName(tester)) ?? throw new ArgumentException($"no model '{ModelName(tester)}' in the catalog");
         var escalateName = Escalate ?? adapter.Limits.Models.GetValueOrDefault("escalate");
         var escalate = escalateName is null ? null : _catalog.TryFind(escalateName);
-        return new PersonaPolicy(() => world.Current, persona, environment, decide, _client, escalate, adapter.Limits, _log, memories);
+        var visionName = Vision ?? adapter.Limits.Models.GetValueOrDefault("vision");
+        var vision = visionName is null ? null : _catalog.TryFind(visionName);
+        return new PersonaPolicy(() => world.Current, persona, environment, decide, _client, escalate, adapter.Limits, _log, memories,
+            vision, world.Screenshot, world.Stuck);
     }
 }

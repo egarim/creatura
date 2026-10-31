@@ -87,10 +87,12 @@ public static class UxDesigns
     public static IReadOnlyList<string> Names => [Plain, .. AgentCatalog.Names];
 
     /// <summary>The design around the seat, loading and saving its record under the key when a store is given.</summary>
-    public static IAgent Make(string name, IPolicy policy, AgentTask task, IRecordStore? store = null, string? key = null)
+    /// <param name="extensions">More extensions for the loop: the stuck alarm.</param>
+    public static IAgent Make(string name, IPolicy policy, AgentTask task, IRecordStore? store = null, string? key = null, IReadOnlyList<IAgentExtension>? extensions = null)
     {
-        if (name == Plain) return PlainLoop.Make(policy, task, store, key);
-        var options = store is null ? AgentOptions.None : AgentOptions.With(new RecordCarryExtension(store, key!));
+        IAgentExtension[] all = [.. store is null ? [] : new IAgentExtension[] { new RecordCarryExtension(store, key!) }, .. extensions ?? []];
+        var options = all.Length == 0 ? AgentOptions.None : AgentOptions.With(all);
+        if (name == Plain) return PlainLoop.Make(policy, task, store, key, options);
         return AgentCatalog.Make(name, new AgentBuild(policy, task, options, Store: store, RecordKey: key));
     }
 }
