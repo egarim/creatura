@@ -12,6 +12,11 @@
   `--quiet`), by silence, and `turn` says which. All of it is optional fields on Progress entries: an un-upgraded hub
   stores them (tested against the hub of the commit before), and a ledger without them reads as before. C30 to C37
   hold; three deliberate breaks each fail a check.
+- **Two fake pairs with no roles in the two-creatures harness** (slice T1): `--agents polite,polite` claim the same
+  goal and each waits on the other, `simultaneous,simultaneous` both propose at once; `cell turn` picks the mover or
+  the winner, the settled plan says who builds which half, and the halves find each other by service name whichever
+  repository holds them. Both ship 5 of 5 on a Docker host; the X0 pairs score as before. The run's `summary.json`
+  counts the waits, proposals and answers and names whose plan was accepted.
 
 ## 0.2.0-preview.3 (2026-10-30)
 

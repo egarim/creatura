@@ -167,6 +167,11 @@ scripted liar's early "done" is judged 0 of 5 and counted as a false claim every
 5 of 5. One gap shows: in C-0 the creature has no channel, so a claim of done cannot be seen there; that arm is
 scored by the outside test alone.
 
+**T1 of [design-turns.md](design-turns.md), built 2026-10-31:** two more fake pairs, with no roles. Both claim the
+goal word for word; the polite pair then waits on each other and the simultaneous pair proposes at once, and
+`creatura cell turn` settles who moves and whose plan stands. Both ship 5 of 5, and the plan decides which creature
+builds which half: in the runs so far the halves went the other way round from X0's written-in roles.
+
 ## What this note does not cover
 
 - Agents on different operating systems. All three VMs are Linux; one body on each system is design-embodiment.md's
