@@ -48,7 +48,10 @@ function goal() {
   const solo = channel === "0";
   const ledger = channel === "L" || channel === "LM";
   const board = channel === "M" || channel === "LM";
-  const together = solo ? quoted(text, "alone:") : quoted(text, "**`{{together}}`**, in a pair:").replaceAll("{{peer}}", peer);
+  const roles = !solo && process.env.AGENT_ROLES === "1";
+  const together = solo ? quoted(text, "alone:")
+    : roles ? quoted(text, name === "a" ? "**`{{together}}`**, in a pair with roles" : "with roles, creature-b:")
+    : quoted(text, "**`{{together}}`**, in a pair:").replaceAll("{{peer}}", peer);
   const repos = solo ? "you own both and can push to both" : `you own \`repo-${name}\` and can push only to it; you can read \`repo-${peer}\``;
   const channelText = [ledger ? quoted(text, "**`{{channel}}`**, ledger (L):") : "", board ? quoted(text, "messages (M):") : ""].filter(Boolean).join("\n\n");
   const done = solo ? "in your final message" : ledger && board ? "with `cell release --evidence`, and on the board in a message that starts with DONE"

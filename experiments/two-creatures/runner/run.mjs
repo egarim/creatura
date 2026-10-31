@@ -34,6 +34,7 @@ const arm = reference ? `REF${breakWhat ? "-" + breakWhat : ""}` : opt("--arm");
 const minutes = Number(opt("--minutes", reference ? 5 : 120));
 const checkEvery = Number(opt("--check-every", 600));
 const keep = argv.includes("--keep");
+const roles = argv.includes("--roles"); // the parts written in: a the server, b the UI (goal.md)
 if (!arm) usage("--arm is required");
 const channel = reference ? "none" : arm.split("-")[1];
 const solo = channel === "0";
@@ -54,6 +55,7 @@ if (agentKinds.some((k) => MODEL_KINDS.includes(k))) {
   if (!agentKinds.every((k) => MODEL_KINDS.includes(k))) usage("a model-driven run takes deepseek for every creature; the scripted kinds have their parts written in");
   if (!(process.env.DEEPSEEK_API_KEY || process.env.deepseek)) usage("deepseek needs DEEPSEEK_API_KEY (or deepseek) in this shell's environment; it is passed to the creatures and never written to the record");
 }
+if (roles && (reference || solo || !agentKinds.every((k) => MODEL_KINDS.includes(k)))) usage("--roles splits the goal for a model-driven pair: a builds the server, b the UI");
 /** What a model-driven creature gets from this host: the key and model, its limits, and a CA bundle when this host's egress is inspected (TC_CA_FILE). */
 const agentEnv = () => ({
   DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY || process.env.deepseek || "",
@@ -62,18 +64,19 @@ const agentEnv = () => ({
   AGENT_MINUTES: String(Number(opt("--minutes", 120))),
   AGENT_STEPS: opt("--steps", "200"),
   AGENT_BUDGET: opt("--budget", "2"),
+  ...(roles ? { AGENT_ROLES: "1" } : {}),
   ...(process.env.TC_CA_FILE ? { NODE_EXTRA_CA_CERTS: "/etc/tc-ca.crt" } : {}),
 });
 const names = reference ? [] : solo ? ["a"] : ["a", "b"];
 
 function usage(why) {
-  console.error(`run: ${why}\nusage: run.mjs --arm <CC-L|...|C-0> --agents <kind>[,<kind>] [--minutes n] [--check-every s] [--keep] [--steps n] [--budget usd]\n       run.mjs --reference [label|live|check|persist|down]`);
+  console.error(`run: ${why}\nusage: run.mjs --arm <CC-L|...|C-0> --agents <kind>[,<kind>] [--minutes n] [--check-every s] [--keep] [--steps n] [--budget usd] [--roles]\n       run.mjs --reference [label|live|check|persist|down]`);
   process.exit(2);
 }
 
 // ---- helpers ------------------------------------------------------------------------------------------------
 
-const runId = `${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}-${arm}`;
+const runId = `${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}-${arm}${roles ? "-R" : ""}`;
 const state = join(HERE, "state", runId);
 const out = join(HERE, "results", runId);
 mkdirSync(state, { recursive: true });
@@ -283,7 +286,10 @@ function startAgents() {
     // KIND picks the part (fake.mjs); liar is the fake that also claims done before anything is published; a model
     // kind runs model.mjs with the key and limits in its environment, never on its command line
     const model = MODEL_KINDS.includes(agentKinds[i]);
-    const cmd = model ? "node /x/agents/model.mjs" : `KIND=${agentKinds[i]} ${agentKinds[i] === "liar" ? "LIE=1 " : ""}node /x/agents/fake.mjs`;
+    // a model-driven agent runs under its own process name, so the model's own clean-ups (`pkill node`, `pkill -x
+    // node`) kill its test servers and not the driver (DD-M with roles, 2026-10-31: creature-b killed itself that way)
+    if (model) docker(["exec", `tc-creature-${n}`, "sh", "-c", 'cp -n "$(command -v node)" /usr/local/bin/creature-agent']);
+    const cmd = model ? "creature-agent /x/agents/model.mjs" : `KIND=${agentKinds[i]} ${agentKinds[i] === "liar" ? "LIE=1 " : ""}node /x/agents/fake.mjs`;
     const env = model ? Object.entries(agentEnv()).flatMap(([k, v]) => ["-e", `${k}=${v}`]) : [];
     docker(["exec", "-d", "-u", "creature", "-w", "/home/creature", ...env, `tc-creature-${n}`, "sh", "-c", `${cmd} > /home/creature/agent.log 2>&1; echo $? > /home/creature/agent.exit`]);
     say(`agent on creature-${n}: ${agentKinds[i]}${model ? ` (${agentEnv().DEEPSEEK_MODEL})` : ""}`);
@@ -306,7 +312,8 @@ function collect(summary) {
   cp("tc-world:/srv/deploy/logs", "deploy-logs");
   if (board) cp("tc-world:/srv/board/messages.jsonl", "messages.jsonl");
   for (const r of ["repo-a", "repo-b"]) {
-    if (docker(["exec", "tc-world", "git", "-c", "safe.directory=*", "--git-dir", `/srv/git/${r}.git`, "bundle", "create", `/tmp/${r}.bundle`, "--all"], { allowFail: true }) !== null) cp(`tc-world:/tmp/${r}.bundle`, `${r}.bundle`);
+    // written under /srv, not /tmp: world's /tmp is a tmpfs, which `docker cp` cannot read (no bundle in any record before 2026-10-31)
+    if (docker(["exec", "tc-world", "git", "-c", "safe.directory=*", "--git-dir", `/srv/git/${r}.git`, "bundle", "create", `/srv/${r}.bundle`, "--all"], { allowFail: true }) !== null) cp(`tc-world:/srv/${r}.bundle`, `${r}.bundle`);
   }
   for (const n of names) {
     cp(`tc-creature-${n}:/home/creature/agent.log`, `agent-${n}.log`);
@@ -354,7 +361,7 @@ async function main() {
   if (last.shipped && firstShip === null) firstShip = last.elapsed;
 
   const summary = {
-    run: runId, arm, agents: agentKinds, channel, reference: reference ? breakWhat || "intact" : undefined,
+    run: runId, arm, agents: agentKinds, channel, roles: roles || undefined, reference: reference ? breakWhat || "intact" : undefined,
     score: last.score, shipped: last.shipped, firstShipSeconds: firstShip,
     seconds: Math.round((Date.now() - t0) / 1000),
     claims: claims.map(({ key, ...c }) => c), falseClaims: claims.filter((c) => !c.true).length,

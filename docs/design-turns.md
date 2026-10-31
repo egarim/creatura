@@ -257,3 +257,17 @@ s into the peer's redeploy). H2 (LM ships at least as often as M): 1 of 1 each, 
 explicit contract more often than M): L yes, M no, LM no, at n=1. Harness notes: every board message is judged as a
 claim, so status and test reports count as claims; the record is complete but the run ends with EACCES on
 `state/<run>`, because the hub writes root-owned files under `state/<run>/owner`.
+
+**With roles (2026-10-31, log #74 to #77).** The owner read the no-roles runs, both creatures building the whole app,
+as not the collaboration the experiment is after, so `--roles` fills `{{together}}` with the split of the reference
+app: a builds the server (`api`, no published port), b the web UI (8080, calling `api`), and each is told not to build
+the other's part (the words are in `agents/goal.md`; the no-roles arms are unchanged). With roles the pair has to
+agree an API contract, and did on every channel: on L both proposed contract files naming the peer, `turn` picked one
+by hash and the loser adapted its UI; on M one proposed on the board and the other accepted within seconds; on LM both
+proposed files and one accepted, with the board carrying the hello and the done. Ships: L 798 s (USD 0.81 for the
+pair), M 1522 s (USD 1.15; a first try ended 0/5 when b's `pkill -x node`, cleaning up its test servers, killed its
+own driver, which now runs as `creature-agent`), LM 488 s (USD 0.33). The UI's ship waits on the server's, and
+contracts drifted (on L a's draft said port 8080 while its server listened on 8000, settled through the ledger in one
+progress entry), so the first ships on L and M come later than without roles; no roles run made a false claim. The LM
+record is the first with the repositories as bundles: the runner wrote them to world's in-memory `/tmp`, which `docker
+cp` cannot read.

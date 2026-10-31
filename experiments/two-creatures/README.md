@@ -34,6 +34,7 @@ Every call and command goes to `agent-<n>-transcript.jsonl` in the record, and w
 ```bash
 DEEPSEEK_API_KEY=... node experiments/two-creatures/runner/run.mjs --arm DD-L --agents deepseek,deepseek    # a goal-only pair
 DEEPSEEK_API_KEY=... node experiments/two-creatures/runner/run.mjs --arm D-0 --agents deepseek             # alone
+DEEPSEEK_API_KEY=... node experiments/two-creatures/runner/run.mjs --arm DD-L --agents deepseek,deepseek --roles   # the parts written in: a the server (`api`), b the UI (8080)
 ```
 
 On a host whose egress is inspected (a corporate proxy), `TC_CA_FILE=<ca bundle>` mounts the bundle into the
