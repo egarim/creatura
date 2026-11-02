@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Web worlds: an unlabelled checkbox is named by its row** (docs/design-web-worlds.md, the judge as a web world,
+  slice ii). A checkbox, radio or switch with no label takes the text of its row (the other controls' text left out),
+  so a script can tick an item by its name and the id survives a re-render. W35 holds.
 - **Web worlds: `live` and `survives`** (docs/design-web-worlds.md, "The two-creatures judge as a web world",
   slice i). A task may ask that a second browser, open from the start, shows the data without a reload within a
   time (`live`), and that the data outlives a restart the world sends once the run is done (`survives`). Both are

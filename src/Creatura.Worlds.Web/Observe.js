@@ -49,6 +49,21 @@
     }
     if (el.labels && el.labels.length) return clean(Array.from(el.labels).map(l => l.innerText).join(' '));
     const tag = el.tagName.toLowerCase();
+    // An unlabelled checkbox, radio or switch is named by its row, as a person finds it: the row's text without the
+    // other controls in it ("milk", not "milk Delete"). A labelled one keeps its label (above).
+    const r = roleOf(el);
+    if (r === 'checkbox' || r === 'radio' || r === 'switch') {
+      const row = el.closest('li, tr, [role=listitem], [role=row], [role=option]') || el.parentElement;
+      if (row && row !== document.body) {
+        let t = clean(row.innerText);
+        for (const other of row.querySelectorAll('a, button, select, textarea, [role=button], [role=link]')) {
+          if (other === el || other.contains(el)) continue;
+          const ot = clean(other.innerText);
+          if (ot) t = clean(t.replace(ot, ' '));
+        }
+        if (t) return t.slice(0, 80);
+      }
+    }
     if (tag !== 'select' && tag !== 'textarea' && tag !== 'input') {
       const t = clean(el.innerText);
       if (t) return t.slice(0, 80);
