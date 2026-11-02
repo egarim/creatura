@@ -230,7 +230,12 @@ public static class UxCommand
         var lessons = key is null ? [] : memory!.Lessons(key);
         var casesBefore = key is null ? 0 : memory!.Cases(key);
         var store = memory?.ForCell();
-        if (key is not null) output.WriteLine($"memory: {memory!.Mode.ToString().ToLowerInvariant()}, record {key}, {casesBefore} earlier cell{(casesBefore == 1 ? "" : "s")}, {lessons.Count} lesson{(lessons.Count == 1 ? "" : "s")}");
+        if (key is not null)
+        {
+            var (promoted, pruned) = memory!.Standing(key);
+            output.WriteLine($"memory: {memory.Mode.ToString().ToLowerInvariant()}, record {key}, {casesBefore} earlier cell{(casesBefore == 1 ? "" : "s")}, {lessons.Count} lesson{(lessons.Count == 1 ? "" : "s")}"
+                + (promoted + pruned == 0 ? "" : $" ({promoted} promoted, {pruned} pruned)"));
+        }
 
         if (await Launch(options, flags, error) is not { } browser) return 3;
         UxCell cell;

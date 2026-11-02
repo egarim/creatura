@@ -471,3 +471,17 @@ runs are recorded only in the design note.
 - #89: `dotnet test tests/Creatura.Tests --filter CurriculumTests; CREATURA_CHROMIUM=... dotnet test tests/Creatura.Worlds.Web.Tests; dotnet test Creatura.slnx`
 
 </details>
+
+## Step R4
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 90 | 2026-11-02 22:10 | `64da76a`* | test | — | Ratings R4: memory credit for the persona lessons | Built memory credit (docs/design-ratings.md, slice R4), the last slice of the ratings note. Not a rating: a persona's memories are not opponents and never beat each other, so each is credited on its own (Creatura.Ratings.MemoryCredit). Every run counts the memories it retrieved and is credited to each as ended well or not; the persona's own runs give its base rate. A memory retrieved three times (PruneAfter) and never followed by a good run is pruned; one retrieved at least twice (PromoteAfter) and followed by good runs more often than the base rate is promoted. Order shown: promoted first (best rate first), then the rest as given, pruned left out. Applied to the web-world persona memory: UxMemory keeps the credit as a record part (ux:credit) beside the lessons; Remember credits the lessons the cell was shown (UxCell.Remembered) with whether the data said done, drops the lessons now pruned from the record, then adds the cell's lesson; Lessons hands the next cell the promoted ones first and the pruned ones never; a read memory credits nothing; creatura ux prints how many lessons are promoted and pruned. Checks: MemoryCreditTests G12, G13 (2, Creatura.Tests) and MemoryTests.G14 (1, Worlds.Web, no browser): a persona shown its lie lesson in two cells that both ended done, above its base rate of 3 in 4, sees it first; a lesson shown in three cells that all ended not done is gone from what it sees and from its record; a read memory leaves the record byte-identical. The whole solution: 952 pass (was 949). Not run: memory carry over a model seat for enough cells for the credit to matter (a paid matrix), and the open question whether a promoted lesson helped or was shown in easy cells. With this, R1 to R4 are all built; issue #28 can close. |  |
+
+<details><summary>Commands</summary>
+
+- #90: `dotnet test tests/Creatura.Tests --filter MemoryCreditTests; dotnet test tests/Creatura.Worlds.Web.Tests --filter MemoryTests; dotnet test Creatura.slnx`
+
+</details>

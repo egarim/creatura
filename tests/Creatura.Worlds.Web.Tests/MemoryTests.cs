@@ -1,4 +1,5 @@
 using Creatura.Bench;
+using Creatura.Ratings;
 using Creatura.Worlds.Web;
 
 namespace Creatura.Worlds.Web.Tests;
@@ -51,6 +52,59 @@ public class MemoryTests
         Assert.StartsWith("WHAT YOU REMEMBER FROM USING THIS APP BEFORE", user);
         Assert.True(user.IndexOf("not kept", StringComparison.Ordinal) < user.IndexOf("SCREEN:", StringComparison.Ordinal));
         Assert.DoesNotContain("REMEMBER", PersonaPolicy.User(context, ObservationTests.Screen()));
+    }
+
+    /// <summary>G14 (docs/design-ratings.md, R4): the lessons a persona is shown are the promoted ones first, and a pruned one is not shown.</summary>
+    [Fact]
+    public void G14_ThePromotedLessonsComeFirstAndAPrunedOneIsNotShown()
+    {
+        var store = new InMemoryRecordStore();
+        var carry = new UxMemory(store, UxMemoryMode.Carry);
+        var key = UxMemory.Key("hurried", "model:x", "plain");
+        string[] Shown() => carry.Lessons(key).ToArray();
+
+        // Cell after cell, each shown what the record held before it, as the matrix does.
+        var c1 = ReportTests.Cell("hurried", done: true, ticks: 1) with { Remembered = Shown() };
+        carry.Remember(key, c1, Phone);
+        var l1 = UxMemory.Lesson(c1, Phone);
+        var c2 = ReportTests.Cell("hurried", done: false, pageSaid: true) with { Remembered = Shown() };
+        carry.Remember(key, c2, Phone);
+        var l2 = UxMemory.Lesson(c2, Phone);
+        var c3 = ReportTests.Cell("hurried", done: true, ticks: 3) with { Remembered = Shown() };
+        carry.Remember(key, c3, Phone);
+        var l3 = UxMemory.Lesson(c3, Phone);
+        var c4 = ReportTests.Cell("hurried", done: true, ticks: 4) with { Remembered = Shown() };
+        carry.Remember(key, c4, Phone);
+        var l4 = UxMemory.Lesson(c4, Phone);
+
+        // G12 through the record: every retrieval counted, every cell credited to what it was shown.
+        var credit = carry.Credit(key);
+        Assert.Equal((4, 3), (credit.Runs, credit.Good));
+        Assert.Equal((3, 2), (credit.UseOf(l1)!.Shown, credit.UseOf(l1)!.Good));
+        Assert.Equal((2, 2), (credit.UseOf(l2)!.Shown, credit.UseOf(l2)!.Good));
+        Assert.Equal((1, 1), (credit.UseOf(l3)!.Shown, credit.UseOf(l3)!.Good));
+        Assert.Null(credit.UseOf(l4));
+
+        // The lie's lesson was followed by done cells both times it was shown, above the base rate of 3 in 4: shown first.
+        Assert.Equal(MemoryStanding.Promoted, credit.StandingOf(l2));
+        Assert.Equal([l2, l1, l3, l4], Shown());
+        Assert.Equal([l1, l2, l3, l4], carry.AllLessons(key));
+        Assert.Equal((1, 0), carry.Standing(key));
+
+        // The newest lesson shown three times and never followed by a done cell: pruned, gone from what is shown and from the record.
+        for (var i = 0; i < MemoryCredit.PruneAfter; i++)
+            carry.Remember(key, ReportTests.Cell("hurried", done: false, believed: 2) with { Remembered = [l4] }, Phone);
+        Assert.Equal(MemoryStanding.Pruned, carry.Credit(key).StandingOf(l4));
+        Assert.DoesNotContain(l4, Shown());
+        Assert.DoesNotContain(l4, carry.AllLessons(key));
+        Assert.Equal(l2, Shown()[0]);
+        Assert.Equal((2, 0), carry.Standing(key));                 // l1 (2 of 3) and l2 (2 of 2) are both above a base rate of 3 in 7; l4 is no longer held
+        Assert.True(store.Load(key)!.HasPart(UxMemory.CreditPart));
+
+        // A read memory credits nothing: the record stays as it is.
+        var frozen = store.Load(key)!.ToJson();
+        new UxMemory(store, UxMemoryMode.Read).Remember(key, ReportTests.Cell("hurried", done: false) with { Remembered = Shown() }, Phone);
+        Assert.Equal(frozen, store.Load(key)!.ToJson());
     }
 
     [Fact]
