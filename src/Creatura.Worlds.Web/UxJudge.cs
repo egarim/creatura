@@ -33,6 +33,12 @@ public enum UxFinding
     /// <summary>A save went ahead with a field that did not show what was typed: the app saved what it was given; the input was lost on the way.</summary>
     InputLost,
 
+    /// <summary>The data says done and a second browser, open from the start, did not show it without a reload in time (<see cref="UxTask.Live"/>).</summary>
+    NotLive,
+
+    /// <summary>The data said done, and after the task's restart it no longer does (<see cref="UxTask.Survives"/>).</summary>
+    LostOnRestart,
+
     /// <summary>Done, or not, the hard way: wrong turns, repeats, escalations, a control the persona could not find.</summary>
     Friction,
 }
@@ -65,6 +71,8 @@ public sealed record UxJudgement
         UxFinding.NotDone => "not-done",
         UxFinding.NotRun => "not-run",
         UxFinding.InputLost => "input-lost",
+        UxFinding.NotLive => "not-live",
+        UxFinding.LostOnRestart => "lost-on-restart",
         _ => "friction",
     };
 
@@ -90,6 +98,8 @@ public sealed class UxJudge
           design-missed-lie    a lie was told and the control layer did not block it
           input-lost           a save went ahead with a field that did not show what the person typed
           not-done             the data does not show the task done
+          not-live             the data shows it and a second browser, open from the start, did not show it in time without a reload
+          lost-on-restart      the data showed it, and after the app's restart no longer does
           friction             it took wrong turns, repeated actions, escalations, or a control the person could not find
           ok                   done, and nothing above
         Respond with JSON only, exactly:
@@ -123,6 +133,8 @@ public sealed class UxJudge
         if (cell.BelievedNotDone) found.Add(UxFinding.PersonaOverclaimed);
         if (cell.UncaughtLie) found.Add(UxFinding.DesignMissedLie);
         if (!cell.DataDone) found.Add(UxFinding.NotDone);
+        if (cell.NotLive) found.Add(UxFinding.NotLive);
+        if (cell.LostOnRestart) found.Add(UxFinding.LostOnRestart);
         return found.Count == 0 ? [UxFinding.Ok] : [.. found.OrderBy(f => f)];
     }
 
@@ -131,7 +143,12 @@ public sealed class UxJudge
     {
         var findings = Required(cell);
         var why = cell.Error is not null ? $"The cell did not run: {cell.Error}."
-            : cell.DataDone ? string.Create(CultureInfo.InvariantCulture, $"The data shows it done in {cell.Ticks} ticks.")
+            : cell.DataDone ? string.Join(" ", new[]
+            {
+                string.Create(CultureInfo.InvariantCulture, $"The data shows it done in {cell.Ticks} ticks."),
+                cell.NotLive ? cell.LiveDetail is { } l ? $"Not live: {l}." : "Not live." : null,
+                cell.LostOnRestart ? cell.SurvivedDetail is { } s ? $"Lost on restart: {s}." : "Lost on restart." : null,
+            }.OfType<string>())
             : string.Join(" ", new[]
             {
                 cell.PageSaidNotDone && cell.InputLost > 0 && cell.InputLost >= cell.LiesTold
@@ -152,6 +169,8 @@ public sealed class UxJudge
         sb.AppendLine($"THE DATA SAYS: {(cell.DataDone ? "done" : "NOT done")} ({cell.CheckDetail})");
         sb.AppendLine($"THE PAGE SAID A SAVE WENT THROUGH: {(cell.PageSaidDone ? "yes" : "no")}");
         sb.AppendLine($"THE PERSON SAID THEY WERE DONE: {(cell.BelievedDoneAt is { } t ? $"yes, at tick {t}" : "no")}");
+        if (cell.Live is { } live) sb.AppendLine($"A SECOND BROWSER SHOWED THE DATA WITHOUT A RELOAD IN TIME: {(live ? "yes" : "NO")} ({cell.LiveDetail})");
+        if (cell.Survived is { } survived) sb.AppendLine($"THE DATA SURVIVED THE APP'S RESTART: {(survived ? "yes" : "NO")} ({cell.SurvivedDetail})");
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"LIES TOLD: {cell.LiesTold}; CAUGHT BY THE CONTROL LAYER: {cell.LiesCaught}; OF THEM, SAVES WITH A FIELD THAT DID NOT SHOW WHAT WAS TYPED: {cell.InputLost}"));
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"TICKS: {cell.Ticks}; ESCALATIONS TO A STRONGER MODEL: {cell.Escalations}"));
         if (cell.Remembered.Count > 0) sb.AppendLine("THE PERSON REMEMBERED: " + string.Join(" | ", cell.Remembered));

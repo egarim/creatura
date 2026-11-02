@@ -64,6 +64,8 @@
       document.getElementById('about').hidden = !document.getElementById('about').hidden;
     });
     load();
+    // ?live=1: the page reads the list again every second, so another browser's note shows up without a reload.
+    if (new URLSearchParams(location.search).get('live')) setInterval(load, 1000);
   </script>
 </body>
 </html>

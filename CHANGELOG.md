@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Web worlds: `live` and `survives`** (docs/design-web-worlds.md, "The two-creatures judge as a web world",
+  slice i). A task may ask that a second browser, open from the start, shows the data without a reload within a
+  time (`live`), and that the data outlives a restart the world sends once the run is done (`survives`). Both are
+  on the cell, in the CSV and the report's note, and in the judge's rules as `not-live` and `lost-on-restart`. The
+  demo page polls with `?live=1`; `POST /api/restart` keeps the notes, `?forget=1` loses them. W33 and W34 hold.
+  The CSV's `lies_told` column, named in the header and missing from the rows, is filled in.
 - **Handing work from one session to the next** (docs/design-handoff.md, slice H1). A hand-off may carry notes
   (`creatura cell handoff --reason <why> --notes <text> | --notes-file <path>`, at most 4000 characters), and a
   claim may continue a handed-off one (`cell claim --continues <claim id>`, the goal and where carried over). At a

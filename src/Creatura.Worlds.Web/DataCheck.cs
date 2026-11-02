@@ -32,6 +32,25 @@ public sealed record DataCheck : HttpCall
     /// <summary>Text is compared without case: in <see cref="Is"/>, in <see cref="Contains"/> and in the fields it names.</summary>
     public bool IgnoreCase { get; init; }
 
+    /// <summary>The texts the assertion names: every string in <see cref="Contains"/> and <see cref="Is"/>. What a page that reflects the data must show.</summary>
+    public IReadOnlyList<string> Texts()
+    {
+        var texts = new List<string>();
+        void Walk(JsonNode? node)
+        {
+            switch (node)
+            {
+                case JsonValue v when v.TryGetValue<string>(out var s) && s.Length > 0: texts.Add(s); break;
+                case JsonObject o: foreach (var (_, child) in o) Walk(child); break;
+                case JsonArray a: foreach (var child in a) Walk(child); break;
+            }
+        }
+
+        Walk(Contains);
+        Walk(Is);
+        return texts;
+    }
+
     /// <summary>What is wrong with the check as written, or null.</summary>
     public string? Problem()
     {
