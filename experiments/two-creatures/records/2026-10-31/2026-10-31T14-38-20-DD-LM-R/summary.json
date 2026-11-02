@@ -1,0 +1,91 @@
+{
+ "run": "2026-10-31T14-38-20-DD-LM-R",
+ "arm": "DD-LM",
+ "agents": [
+  "deepseek",
+  "deepseek"
+ ],
+ "channel": "LM",
+ "roles": true,
+ "score": 5,
+ "shipped": true,
+ "firstShipSeconds": 488,
+ "seconds": 953,
+ "claims": [
+  {
+   "via": "ledger",
+   "who": "a",
+   "text": "{\"claim\":\"cell-830d4290f7958ba2#2\",\"evidence\":\"repo-a deploy branch @7bb07d9 running; http://world:7001/status shows repo-a running; http://world:8080/health -> api ok:true; POST/GET/PATCH /items via world:8080 work; data (incl. bought flags) persisted across redeploy and /restart of both projects (",
+   "at": 612,
+   "score": 5,
+   "true": true
+  },
+  {
+   "via": "board",
+   "who": "a",
+   "text": "DONE creature-a: the shared shopping list is published and working. Evidence: (1) curl http://world:7001/status -> both repo-a and repo-b \"state\":\"running\" (repo-a@7bb07d9, repo-b@f9ef1ec). (2) http://world:8080/ returns the page with a label \"Item\", button \"Add\", and checkbox per item; it polls/ref",
+   "at": 632,
+   "score": 5,
+   "true": true
+  },
+  {
+   "via": "board",
+   "who": "b",
+   "text": "DONE creature-b: the shared shopping list is published and works. My part: repo-b (web UI service) at deploy branch f9a38f6. Evidence: (1) curl http://world:7001/status -> repo-b state running @f9a38f6. (2) curl -o /dev/null -w %{http_code} http://world:8080/ -> 200; page has label 'Item' (input#ite",
+   "at": 932,
+   "score": 5,
+   "true": true
+  },
+  {
+   "via": "ledger",
+   "who": "b",
+   "text": "{\"claim\":\"cell-9cf297ae00d194bd#2\",\"evidence\":\"repo-b deploy f9a38f6 running per http://world:7001/status. http://world:8080/ 200: page with text field labelled 'Item', button 'Add', list with a checkbox per item. /health -> {\\\"ok\\\":true,\\\"service\\\":\\\"web\\\",\\\"api\\\":{\\\"ok\\\":true,...}} (reaches servic",
+   "at": 932,
+   "score": 5,
+   "true": true
+  }
+ ],
+ "falseClaims": 0,
+ "messages": 9,
+ "ledgerEntries": {
+  "a": 11,
+  "b": 14
+ },
+ "turns": {
+  "waits": 0,
+  "proposals": 2,
+  "answers": 1,
+  "objections": 0,
+  "plannedBy": [
+   "a"
+  ]
+ },
+ "usage": {
+  "a": {
+   "model": "deepseek-chat",
+   "calls": 37,
+   "steps": 39,
+   "promptTokens": 401543,
+   "completionTokens": 8586,
+   "cacheHitTokens": 318592,
+   "cost": 0.11603816,
+   "stoppedBy": "stop",
+   "seconds": 588
+  },
+  "b": {
+   "model": "deepseek-chat",
+   "calls": 52,
+   "steps": 51,
+   "promptTokens": 728503,
+   "completionTokens": 14250,
+   "cacheHitTokens": 581504,
+   "cost": 0.20996584000000001,
+   "stoppedBy": "stop",
+   "seconds": 912
+  }
+ },
+ "agentsExited": {
+  "a": true,
+  "b": true
+ }
+}

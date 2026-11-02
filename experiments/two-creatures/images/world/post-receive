@@ -1,0 +1,9 @@
+#!/bin/sh
+# A push to the deploy branch queues that commit for the deployer.
+repo=$(basename "$PWD" .git)
+while read -r old new ref; do
+  if [ "$ref" = refs/heads/deploy ] && [ "$new" != 0000000000000000000000000000000000000000 ]; then
+    printf '%s\n' "$new" > "/srv/deploy/queue/$repo"
+    echo "world: queued $repo at ${new%"${new#???????}"} for deploy; see http://world:7001/deploy/$repo/log"
+  fi
+done

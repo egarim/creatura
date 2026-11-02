@@ -1,0 +1,5 @@
+#!/bin/sh
+# cell <command> [options]: the creatura cell CLI as this creature, so its name is never left out.
+# The ledger hub is http://world:5181 (in the arms that have the ledger), e.g. `cell sync --hub http://world:5181`.
+. "$HOME/.creature.env"
+exec creatura cell "$@" --creatura "$NAME" --no-mesh

@@ -5,6 +5,7 @@ return args.FirstOrDefault() switch
 {
     "new" => Creatura.Cli.NewCommand.Run(args, Console.Out, Console.Error, Console.In, !Console.IsInputRedirected),
     "run" => await Creatura.Cli.RunCommand.Run(args, Console.Out, Console.Error),
+    "ux" => await Creatura.Cli.UxCommand.Run(args, Console.Out, Console.Error),
     "doctor" => Creatura.Cli.DoctorCommand.Run(args, Console.Out),
     "--version" => PrintVersion(),
     null or "--help" or "-h" or "help" => Help(args.Length == 0),
@@ -24,6 +25,7 @@ static int Help(bool bare)
 
           new [agent|world|sk]         make a project from a template (creatura new --help)
           run --design <d> --world <w> try a design on a world with no code (creatura run --list)
+          ux run --demo                a persona uses a web app through a browser, judged by the app's data (creatura ux --help)
           doctor                       what is set up and what is missing, with the fix
           cell <command>               the cell on this vessel: claims, the ledger, offers, hooks, sync (creatura cell --help)
           --version                    this tool's version, which is the packages' version it makes projects with

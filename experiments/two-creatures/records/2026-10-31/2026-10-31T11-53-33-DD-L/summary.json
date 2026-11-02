@@ -1,0 +1,75 @@
+{
+ "run": "2026-10-31T11-53-33-DD-L",
+ "arm": "DD-L",
+ "agents": [
+  "deepseek",
+  "deepseek"
+ ],
+ "channel": "L",
+ "score": 5,
+ "shipped": true,
+ "firstShipSeconds": 708,
+ "seconds": 1533,
+ "claims": [
+  {
+   "via": "ledger",
+   "who": "a",
+   "text": "{\"claim\":\"cell-68d477cd6b540759#2\",\"evidence\":\"App published and working at http://world:8080/ (repo-b deploy branch 0b32e5e, state running via http://world:7001/status; repo-a deploy left empty after the plan decision so only one service owns :8080). UI: GET / returns 200 text/html with label 'Item",
+   "at": 863,
+   "score": 5,
+   "true": true
+  },
+  {
+   "via": "ledger",
+   "who": "b",
+   "text": "{\"claim\":\"cell-4a51ac884075b459#2\",\"evidence\":\"Shared shopping list is published and working at http://world:8080/ from repo-b@deploy (final sha 35ddb57, http://world:7001/status state=running). UI: GET / -> 200 text/html with label 'Item' -> text input #item-input, button 'Add' #add-button, and a l",
+   "at": 1496,
+   "score": 5,
+   "true": true
+  }
+ ],
+ "falseClaims": 0,
+ "messages": 0,
+ "ledgerEntries": {
+  "a": 14,
+  "b": 16
+ },
+ "turns": {
+  "waits": 0,
+  "proposals": 3,
+  "answers": 2,
+  "objections": 0,
+  "plannedBy": [
+   "b",
+   "a"
+  ]
+ },
+ "usage": {
+  "a": {
+   "model": "deepseek-chat",
+   "calls": 56,
+   "steps": 57,
+   "promptTokens": 752688,
+   "completionTokens": 14269,
+   "cacheHitTokens": 597376,
+   "cost": 0.21674562000000003,
+   "stoppedBy": "stop",
+   "seconds": 840
+  },
+  "b": {
+   "model": "deepseek-chat",
+   "calls": 80,
+   "steps": 87,
+   "promptTokens": 1623806,
+   "completionTokens": 22096,
+   "cacheHitTokens": 1331584,
+   "cost": 0.4639460000000001,
+   "stoppedBy": "stop",
+   "seconds": 1473
+  }
+ },
+ "agentsExited": {
+  "a": true,
+  "b": true
+ }
+}

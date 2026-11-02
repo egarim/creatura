@@ -214,12 +214,25 @@ public static class ActivityStream
             case EntryKind.Progress:
                 var progress = e.Body<ProgressPayload>();
                 activity["type"] = "Update";
-                activity["summary"] = $"{who}: {progress.Row}{(progress.Blocked == true ? " (blocked)" : "")}";
+                activity["summary"] = progress.WaitingOn is { } waitingOn ? $"{who} waits on {waitingOn}: {progress.Row}"
+                    : progress.Answers is { } answered ? $"{who} {(progress.Verdict == AnswerVerdict.Accept ? "accepted" : "objected to")} {answered}: {progress.Row}"
+                    : progress.Topic is { } topic ? $"{who} proposed on '{topic}': {progress.Row}"
+                    : $"{who}: {progress.Row}{(progress.Blocked == true ? " (blocked)" : "")}";
                 activity["object"] = ClaimId(progress.Claim);
                 activity["content"] = progress.Row;
                 activity["context"] = ClaimId(progress.Claim);
                 if (progress.Stress is { } stress) activity["creatura:stress"] = stress;
                 if (progress.Blocked is { } blocked) activity["creatura:blocked"] = blocked;
+                // Turns (docs/design-turns.md): the wait, the topic and what was seen, the file, the answer and its verdict.
+                if (progress.WaitingOn is not null) activity["creatura:waitingOn"] = progress.WaitingOn;
+                if (progress.Topic is not null) activity["creatura:topic"] = progress.Topic;
+                if (progress.Seen is not null) activity["creatura:seen"] = new JsonArray([.. progress.Seen.Select(id => (JsonNode?)JsonValue.Create($"urn:creatura:entry:{id}"))]);
+                if (progress.Artifact is not null) activity["creatura:artifact"] = $"urn:creatura:entry:{progress.Artifact}";
+                if (progress.Answers is not null)
+                {
+                    activity["creatura:answers"] = $"urn:creatura:entry:{progress.Answers}";
+                    activity["creatura:verdict"] = progress.Verdict?.ToString().ToLowerInvariant();
+                }
                 break;
 
             case EntryKind.HandOff when e.Body<HandOffPayload>().Offer is { } declined:

@@ -3,7 +3,19 @@ using System.Text.RegularExpressions;
 
 namespace Creatura.Seats;
 
-public sealed record ChatMessage(string Role, string Content, string? ToolCallId = null, string? Name = null);
+/// <summary>
+/// One message. <paramref name="Images"/> go to a model that can see (a screenshot, when a web persona is stuck): sent as
+/// content parts on the OpenAI shape and as <c>images</c> on Ollama's, and never written to a call log, which keeps their
+/// sizes in its note instead.
+/// </summary>
+public sealed record ChatMessage(string Role, string Content, string? ToolCallId = null, string? Name = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] IReadOnlyList<ChatImage>? Images = null);
+
+/// <summary>An image in a message: its media type (<c>image/png</c>, <c>image/jpeg</c>) and its bytes.</summary>
+public sealed record ChatImage(string MediaType, byte[] Data)
+{
+    public string DataUrl => $"data:{MediaType};base64,{Convert.ToBase64String(Data)}";
+}
 
 /// <summary>A function the model may call. Parameters is a JSON schema object; empty means no arguments.</summary>
 public sealed record ToolSpec(string Name, string Description, JsonObject Parameters);

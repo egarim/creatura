@@ -1,0 +1,28 @@
+#!/usr/bin/env node
+// listen [--all] [--wait <seconds>]: the board's messages this creature hasn't seen yet (or all of them), one per line.
+// With --wait, waits up to that long for at least one new message. Only in arms with messages.
+const { existsSync, readFileSync, writeFileSync } = require("node:fs");
+
+(async () => {
+  const env = Object.fromEntries(readFileSync(`${process.env.HOME}/.creature.env`, "utf8").split("\n").filter((l) => l.includes("=")).map((l) => l.split("=", 2)));
+  const args = process.argv.slice(2);
+  const all = args.includes("--all");
+  const wait = Number(args[args.indexOf("--wait") + 1] ?? 0) * (args.includes("--wait") ? 1 : 0);
+  const cursorFile = `${process.env.HOME}/.listen-cursor`;
+  const since = all ? 0 : existsSync(cursorFile) ? Number(readFileSync(cursorFile, "utf8")) || 0 : 0;
+
+  const deadline = Date.now() + wait * 1000;
+  let messages = [];
+  for (;;) {
+    const res = await fetch(`http://${env.WORLD ?? "world"}:7000/listen?since=${since}`).catch(() => null);
+    if (!res?.ok) {
+      console.error("listen: no message board in this arm, or world is not reachable");
+      return void (process.exitCode = 1);
+    }
+    messages = await res.json();
+    if (messages.length || Date.now() >= deadline) break;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  for (const m of messages) console.log(`#${m.n} ${m.at} ${m.from}: ${m.text}`);
+  if (messages.length) writeFileSync(cursorFile, String(messages[messages.length - 1].n));
+})();

@@ -1,0 +1,515 @@
+[2026-10-31T13:13:17.062Z] deploying 0923ead
+[2026-10-31T13:13:18.709Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 450B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 1.0s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [api 1/4] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [api 2/4] WORKDIR /app
+#5 CACHED
+
+#6 [api internal] load build context
+#6 transferring context: 7.60kB done
+#6 DONE 0.0s
+
+#7 [api 3/4] COPY package.json server.js ./
+#7 DONE 0.0s
+
+#8 [api 4/4] RUN mkdir -p /data && chown -R node:node /data /app
+#8 DONE 0.2s
+
+#9 [api] exporting to image
+#9 exporting layers 0.0s done
+#9 writing image sha256:46b027a7f4d8f75d3e5280d1c93a7e5d7d1e3b4d995ddcafcda0b81ed1b151c8 done
+#9 naming to docker.io/library/shopping-api:local done
+#9 DONE 0.0s
+
+#10 [api] resolving provenance for metadata file
+#10 DONE 0.0s
+ api  Built
+network shared declared as external, but could not be found
+[2026-10-31T13:13:18.710Z] FAILED: docker compose up failed (exit 1)
+[2026-10-31T13:13:53.095Z] deploying 8d8d635
+[2026-10-31T13:13:54.216Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 450B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.3s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [api 1/4] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [api internal] load build context
+#5 transferring context: 7.60kB done
+#5 DONE 0.0s
+
+#6 [api 2/4] WORKDIR /app
+#6 CACHED
+
+#7 [api 3/4] COPY package.json server.js ./
+#7 CACHED
+
+#8 [api 4/4] RUN mkdir -p /data && chown -R node:node /data /app
+#8 CACHED
+
+#9 [api] exporting to image
+#9 exporting layers done
+#9 writing image sha256:46b027a7f4d8f75d3e5280d1c93a7e5d7d1e3b4d995ddcafcda0b81ed1b151c8 done
+#9 naming to docker.io/library/shopping-api:local done
+#9 DONE 0.0s
+
+#10 [api] resolving provenance for metadata file
+#10 DONE 0.0s
+ api  Built
+ Network shared  Creating
+ Network shared  Created
+ Network pub-repo-a_default  Creating
+ Network pub-repo-a_default  Created
+ Volume "pub-repo-a_api-data"  Creating
+ Volume "pub-repo-a_api-data"  Created
+ Container api  Creating
+ Container api  Created
+ Container api  Starting
+ Container api  Started
+[2026-10-31T13:13:54.216Z] running 8d8d635
+[2026-10-31T13:16:26.242Z] deploying 763727a
+[2026-10-31T13:16:28.480Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 450B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 2.0s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [api 1/4] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [api internal] load build context
+#5 transferring context: 7.60kB done
+#5 DONE 0.0s
+
+#6 [api 2/4] WORKDIR /app
+#6 CACHED
+
+#7 [api 3/4] COPY package.json server.js ./
+#7 CACHED
+
+#8 [api 4/4] RUN mkdir -p /data && chown -R node:node /data /app
+#8 CACHED
+
+#9 [api] exporting to image
+#9 exporting layers done
+#9 writing image sha256:46b027a7f4d8f75d3e5280d1c93a7e5d7d1e3b4d995ddcafcda0b81ed1b151c8 done
+#9 naming to docker.io/library/shopping-api:local done
+#9 DONE 0.0s
+
+#10 [api] resolving provenance for metadata file
+#10 DONE 0.0s
+ api  Built
+ Container api  Running
+[2026-10-31T13:16:28.480Z] running 763727a
+[2026-10-31T13:16:37.248Z] deploying 8c3968b
+[2026-10-31T13:16:37.771Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 450B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.2s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 58B done
+#3 DONE 0.0s
+
+#4 [api 1/4] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [api internal] load build context
+#5 transferring context: 7.60kB done
+#5 DONE 0.0s
+
+#6 [api 2/4] WORKDIR /app
+#6 CACHED
+
+#7 [api 3/4] COPY package.json server.js ./
+#7 CACHED
+
+#8 [api 4/4] RUN mkdir -p /data && chown -R node:node /data /app
+#8 CACHED
+
+#9 [api] exporting to image
+#9 exporting layers done
+#9 writing image sha256:46b027a7f4d8f75d3e5280d1c93a7e5d7d1e3b4d995ddcafcda0b81ed1b151c8 done
+#9 naming to docker.io/library/shopping-api:local done
+#9 DONE 0.0s
+
+#10 [api] resolving provenance for metadata file
+#10 DONE 0.0s
+ api  Built
+ Container api  Running
+[2026-10-31T13:16:37.772Z] running 8c3968b
+[2026-10-31T13:16:45.254Z] deploying 801e5cb
+[2026-10-31T13:16:46.907Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 505B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.3s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 58B done
+#3 DONE 0.0s
+
+#4 [api 1/5] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 CACHED
+
+#5 [api internal] load build context
+#5 transferring context: 7.60kB done
+#5 DONE 0.0s
+
+#6 [api 2/5] RUN echo "build deploy" > /app-build-stamp
+#6 DONE 0.2s
+
+#7 [api 3/5] WORKDIR /app
+#7 DONE 0.0s
+
+#8 [api 4/5] COPY package.json server.js ./
+#8 DONE 0.0s
+
+#9 [api 5/5] RUN mkdir -p /data && chown -R node:node /data /app
+#9 DONE 0.2s
+
+#10 [api] exporting to image
+#10 exporting layers 0.1s done
+#10 writing image sha256:cb0fd3ab9880d48170733e22552270e80d4f35a42e38b02e602de00542d11fbd done
+#10 naming to docker.io/library/shopping-api:local done
+#10 DONE 0.1s
+
+#11 [api] resolving provenance for metadata file
+#11 DONE 0.0s
+ api  Built
+ Container api  Recreate
+ Container api  Recreated
+ Container api  Starting
+ Container api  Started
+[2026-10-31T13:16:46.907Z] running 801e5cb
+[2026-10-31T13:17:00.265Z] deploying 3b1937b
+[2026-10-31T13:17:00.812Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 DONE 0.0s
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 505B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.3s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 58B done
+#3 DONE 0.0s
+
+#4 [api 1/5] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [api internal] load build context
+#5 transferring context: 7.60kB done
+#5 DONE 0.0s
+
+#6 [api 4/5] COPY package.json server.js ./
+#6 CACHED
+
+#7 [api 2/5] RUN echo "build deploy" > /app-build-stamp
+#7 CACHED
+
+#8 [api 3/5] WORKDIR /app
+#8 CACHED
+
+#9 [api 5/5] RUN mkdir -p /data && chown -R node:node /data /app
+#9 CACHED
+
+#10 [api] exporting to image
+#10 exporting layers done
+#10 writing image sha256:cb0fd3ab9880d48170733e22552270e80d4f35a42e38b02e602de00542d11fbd done
+#10 naming to docker.io/library/shopping-api:local done
+#10 DONE 0.0s
+
+#11 [api] resolving provenance for metadata file
+#11 DONE 0.0s
+ api  Built
+ Container api  Running
+[2026-10-31T13:17:00.812Z] running 3b1937b
+[2026-10-31T13:17:44.306Z] deploying 6923ca2
+[2026-10-31T13:17:44.741Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 505B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.2s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 58B done
+#3 DONE 0.0s
+
+#4 [api 1/5] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [api internal] load build context
+#5 transferring context: 7.60kB done
+#5 DONE 0.0s
+
+#6 [api 3/5] WORKDIR /app
+#6 CACHED
+
+#7 [api 4/5] COPY package.json server.js ./
+#7 CACHED
+
+#8 [api 2/5] RUN echo "build deploy" > /app-build-stamp
+#8 CACHED
+
+#9 [api 5/5] RUN mkdir -p /data && chown -R node:node /data /app
+#9 CACHED
+
+#10 [api] exporting to image
+#10 exporting layers done
+#10 writing image sha256:cb0fd3ab9880d48170733e22552270e80d4f35a42e38b02e602de00542d11fbd done
+#10 naming to docker.io/library/shopping-api:local done
+#10 DONE 0.0s
+
+#11 [api] resolving provenance for metadata file
+#11 DONE 0.0s
+ api  Built
+ Container api  Running
+[2026-10-31T13:17:44.741Z] running 6923ca2
+[2026-10-31T13:17:58.318Z] deploying e543026
+[2026-10-31T13:17:59.883Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 505B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.2s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 58B done
+#3 DONE 0.0s
+
+#4 [api 1/5] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 CACHED
+
+#5 [api internal] load build context
+#5 transferring context: 7.60kB done
+#5 DONE 0.0s
+
+#6 [api 2/5] RUN echo "build dev" > /app-build-stamp
+#6 DONE 0.2s
+
+#7 [api 3/5] WORKDIR /app
+#7 DONE 0.0s
+
+#8 [api 4/5] COPY package.json server.js ./
+#8 DONE 0.0s
+
+#9 [api 5/5] RUN mkdir -p /data && chown -R node:node /data /app
+#9 DONE 0.1s
+
+#10 [api] exporting to image
+#10 exporting layers 0.1s done
+#10 writing image sha256:77c8843c21cf2072f65b95cab6b70580b45ae07ab4f73e84ef62bbd715bac437 done
+#10 naming to docker.io/library/shopping-api:local done
+#10 DONE 0.1s
+
+#11 [api] resolving provenance for metadata file
+#11 DONE 0.0s
+ api  Built
+ Container api  Recreate
+ Container api  Recreated
+ Container api  Starting
+ Container api  Started
+[2026-10-31T13:17:59.883Z] running e543026
+[2026-10-31T13:18:21.338Z] deploying ad91c35
+[2026-10-31T13:18:21.899Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 505B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.3s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 58B done
+#3 DONE 0.0s
+
+#4 [api 1/5] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [api internal] load build context
+#5 transferring context: 7.60kB done
+#5 DONE 0.0s
+
+#6 [api 4/5] COPY package.json server.js ./
+#6 CACHED
+
+#7 [api 3/5] WORKDIR /app
+#7 CACHED
+
+#8 [api 2/5] RUN echo "build dev" > /app-build-stamp
+#8 CACHED
+
+#9 [api 5/5] RUN mkdir -p /data && chown -R node:node /data /app
+#9 CACHED
+
+#10 [api] exporting to image
+#10 exporting layers done
+#10 writing image sha256:77c8843c21cf2072f65b95cab6b70580b45ae07ab4f73e84ef62bbd715bac437 done
+#10 naming to docker.io/library/shopping-api:local done
+#10 DONE 0.0s
+
+#11 [api] resolving provenance for metadata file
+#11 DONE 0.0s
+ api  Built
+ Container api  Running
+[2026-10-31T13:18:21.900Z] running ad91c35
+[2026-10-31T13:18:37.350Z] deploying ead758d
+[2026-10-31T13:18:37.957Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 505B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.3s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 58B done
+#3 DONE 0.0s
+
+#4 [api 1/5] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [api internal] load build context
+#5 transferring context: 7.60kB done
+#5 DONE 0.0s
+
+#6 [api 4/5] COPY package.json server.js ./
+#6 CACHED
+
+#7 [api 2/5] RUN echo "build dev" > /app-build-stamp
+#7 CACHED
+
+#8 [api 3/5] WORKDIR /app
+#8 CACHED
+
+#9 [api 5/5] RUN mkdir -p /data && chown -R node:node /data /app
+#9 CACHED
+
+#10 [api] exporting to image
+#10 exporting layers done
+#10 writing image sha256:77c8843c21cf2072f65b95cab6b70580b45ae07ab4f73e84ef62bbd715bac437 done
+#10 naming to docker.io/library/shopping-api:local done
+#10 DONE 0.0s
+
+#11 [api] resolving provenance for metadata file
+#11 DONE 0.0s
+ api  Built
+ Container api  Running
+[2026-10-31T13:18:37.957Z] running ead758d
+[2026-10-31T13:18:49.357Z] deploying 2a4fab8
+[2026-10-31T13:18:50.452Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 505B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.3s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 58B done
+#3 DONE 0.0s
+
+#4 [api 1/5] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [api internal] load build context
+#5 transferring context: 7.60kB done
+#5 DONE 0.0s
+
+#6 [api 3/5] WORKDIR /app
+#6 CACHED
+
+#7 [api 4/5] COPY package.json server.js ./
+#7 CACHED
+
+#8 [api 2/5] RUN echo "build dev" > /app-build-stamp
+#8 CACHED
+
+#9 [api 5/5] RUN mkdir -p /data && chown -R node:node /data /app
+#9 CACHED
+
+#10 [api] exporting to image
+#10 exporting layers done
+#10 writing image sha256:77c8843c21cf2072f65b95cab6b70580b45ae07ab4f73e84ef62bbd715bac437 done
+#10 naming to docker.io/library/shopping-api:local done
+#10 DONE 0.0s
+
+#11 [api] resolving provenance for metadata file
+#11 DONE 0.0s
+ api  Built
+ Container api  Recreate
+ Container api  Recreated
+ Container api  Starting
+ Container api  Started
+[2026-10-31T13:18:50.452Z] running 2a4fab8

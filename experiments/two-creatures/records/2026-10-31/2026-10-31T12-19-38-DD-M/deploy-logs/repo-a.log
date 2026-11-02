@@ -1,0 +1,106 @@
+[2026-10-31T12:24:03.698Z] deploying 5be72b7
+[2026-10-31T12:24:04.675Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [shopping internal] load build definition from Dockerfile
+#1 transferring dockerfile: 320B done
+#1 DONE 0.0s
+
+#2 [shopping internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.3s
+
+#3 [shopping internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [shopping 1/4] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [shopping 2/4] WORKDIR /app
+#5 CACHED
+
+#6 [shopping internal] load build context
+#6 transferring context: 12.89kB done
+#6 DONE 0.0s
+
+#7 [shopping 3/4] COPY server.js ./
+#7 DONE 0.0s
+
+#8 [shopping 4/4] COPY public ./public
+#8 DONE 0.0s
+
+#9 [shopping] exporting to image
+#9 exporting layers 0.0s done
+#9 writing image sha256:a9f523277095dbc1f5f0265cfabba0e8c01e14fd5f6022502c844fb619891ff4 done
+#9 naming to docker.io/library/shopping-list-a:latest done
+#9 DONE 0.0s
+
+#10 [shopping] resolving provenance for metadata file
+#10 DONE 0.0s
+ shopping  Built
+ Network pub-repo-a_default  Creating
+ Network pub-repo-a_default  Created
+ Volume "pub-repo-a_shopping-data"  Creating
+ Volume "pub-repo-a_shopping-data"  Created
+ Container pub-repo-a-shopping-1  Creating
+ Container pub-repo-a-shopping-1  Created
+ Container pub-repo-a-shopping-1  Starting
+Error response from daemon: driver failed programming external connectivity on endpoint pub-repo-a-shopping-1 (75846d7490d648e9f16c61e5d8a2e96fb823ff0372c0dfc3a02b2be4123d2da1): Bind for 0.0.0.0:8080 failed: port is already allocated
+[2026-10-31T12:24:04.676Z] FAILED: docker compose up failed (exit 1)
+[2026-10-31T12:29:12.120Z] deploying f9ee523
+[2026-10-31T12:29:19.147Z]  proxy Pulling 
+ 7b229517ed22 Already exists 
+ 8776aa3d2ba7 Already exists 
+ 7246d4c6a55d Already exists 
+ 304511616d6a Already exists 
+ proxy Pulled 
+Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [shopping internal] load build definition from Dockerfile
+#1 transferring dockerfile: 320B done
+#1 DONE 0.0s
+
+#2 [shopping internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.0s
+
+#3 [shopping internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [shopping 1/4] FROM docker.io/library/node:22-alpine
+#4 DONE 0.0s
+
+#5 [shopping internal] load build context
+#5 transferring context: 12.89kB done
+#5 DONE 0.0s
+
+#6 [shopping 2/4] WORKDIR /app
+#6 CACHED
+
+#7 [shopping 3/4] COPY server.js ./
+#7 CACHED
+
+#8 [shopping 4/4] COPY public ./public
+#8 CACHED
+
+#9 [shopping] exporting to image
+#9 exporting layers done
+#9 writing image sha256:a9f523277095dbc1f5f0265cfabba0e8c01e14fd5f6022502c844fb619891ff4 done
+#9 naming to docker.io/library/shopping-list-a:latest done
+#9 DONE 0.0s
+
+#10 [shopping] resolving provenance for metadata file
+#10 DONE 0.0s
+ shopping  Built
+ Container pub-repo-a-shopping-1  Recreate
+ Container pub-repo-a-shopping-1  Recreated
+ Container pub-repo-a-proxy-1  Creating
+ Container pub-repo-a-proxy-1  Created
+ Container pub-repo-a-shopping-1  Starting
+ Container pub-repo-a-shopping-1  Started
+ Container pub-repo-a-proxy-1  Starting
+ Container pub-repo-a-proxy-1  Started
+[2026-10-31T12:29:19.147Z] running f9ee523

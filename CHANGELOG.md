@@ -1,5 +1,70 @@
 # Changelog
 
+## Unreleased
+
+- **Turns, so two cells neither wait on each other nor both lead** (docs/design-turns.md, slice T0): a cell says it
+  waits (`creatura cell wait --on <cell or entry id>`), proposes on a topic (`propose --topic`, with `--file` to share
+  the proposal as a file first) and answers (`answer --accept | --object`); `creatura cell turn` reads the verified
+  ledger and says whose move it is, act or wait, with the rule and one reason, as text or `--json`, exit 0 or 3. A
+  wait stands until the cell's next entry; a cycle of waits has one mover, the latest wait; competing proposals are
+  settled by the lowest entry hash, never by clock, and a proposal that saw the other is a counter, not a competitor;
+  a proposal is settled by every party's acceptance or, past the quiet time (10 minutes, `--quiet`, or the offer's
+  `--quiet`), by silence, and `turn` says which. All of it is optional fields on Progress entries: an un-upgraded hub
+  stores them (tested against the hub of the commit before), and a ledger without them reads as before. C30 to C37
+  hold; three deliberate breaks each fail a check.
+- **Two fake pairs with no roles in the two-creatures harness** (slice T1): `--agents polite,polite` claim the same
+  goal and each waits on the other, `simultaneous,simultaneous` both propose at once; `cell turn` picks the mover or
+  the winner, the settled plan says who builds which half, and the halves find each other by service name whichever
+  repository holds them. Both ship 5 of 5 on a Docker host; the X0 pairs score as before. The run's `summary.json`
+  counts the waits, proposals and answers and names whose plan was accepted.
+- **A creature driven by DeepSeek** in the two-creatures harness (`agents/model.mjs`, `--agents deepseek,deepseek`):
+  the goal of `agents/goal.md` (now with `wait`, `propose`, `answer` and `turn`), a shell, a step and dollar budget,
+  a transcript and the spend in `summary.json`; the key stays out of the shell and the record. The goal-only run of
+  docs/design-turns.md (T2) runs this way for API tokens, after two cloud-session attempts stopped at their
+  permission classifier.
+- **Web worlds, phase 1** (docs/design-web-worlds.md): a real web app as a Creatura world, the idea of Singular
+  Framework's uxkit on the control layer. `Creatura.Worlds.Web` (new, takes Microsoft.Playwright) has `WebWorld`: the
+  page read into the visible text and numbered controls, a tool per control with an id that survives re-renders, the
+  task's done fact granted only by a declared check of the app's own data, and barriers as Playwright routes (`lie`,
+  `fail`, `slow`). Two seats: `PersonaPolicy` (a catalogued model as a persona, one action per tick, escalation to a
+  stronger model when stuck, a cost cap) and `WebScriptPolicy` (offline, by control name). `creatura ux run` runs one
+  cell; `--demo` serves a bundled notes app and runs offline. W1 to W8 hold; not yet run with a real model or a real
+  app. `Creatura.Cli` now references `Creatura.Worlds.Web`, and the cells' purity test allows it.
+- **Web worlds, phase 2a**: `creatura ux matrix` runs every task × persona × environment × tester and writes a report
+  (`report.json`, `cells.csv`, `report.md`, a trace per cell); `creatura ux compare` joins two reports cell by cell;
+  `creatura ux gate` (or `matrix --gate`) holds a report to the adapter's `gate` and exits 1 naming each threshold
+  broken. The report counts apart the three gaps: believed done, the page said done, and a lie not caught. A cell
+  that cannot run is recorded and the matrix goes on; a cost cap stops new cells. W11 to W14 hold.
+- **Web worlds, phase 2b**: accounts and a declared sign-in in the adapter (credentials as `env:NAME`); each account
+  signs in once (`UxSessions`), its storage state and sessionStorage are kept and put back in every later context, an
+  expired session signs in again, and `--sessions <dir>` keeps sessions in owner-only files between runs. The demo
+  signs in like the Singular starter (a token in sessionStorage only); `samples/ux/singular-starter.adapter.json` is a
+  template. W15 to W17 hold. The demo's barriers now match `**/notes`.
+- **Web worlds: persona memory and the design axis**: `ux matrix --designs a,b` runs every cell once per design, keys
+  cells by design and splits the report's totals by design; `--memory carry|read --records <dir>` keeps one Creatura
+  record per persona, tester and design (the design's carry and the persona's lessons, written from verdicts), carried
+  cell after cell or read frozen. Lies in a web cell are now counted by the world's truth (told) and the trace's blocked
+  row (caught), so the orienting agent's catches count; a save refused again on a page still showing its error is no
+  longer read as a success; Playwright's `TimeoutException` fails the action instead of the cell. W18 to W20 hold.
+- **Web worlds, phase 2c: the judge and the summary writer.** `UxJudge` answers a closed set of findings per cell. The
+  rules (no model) find every finding the verdicts decide; a model judge reads the verdicts and the trace, may add
+  `friction`, and is held to the rules, with each correction recorded. `UxSummary` writes the facts by code and an
+  optional model paragraph beneath them. Every matrix is judged (`judgements.json`, `summary.md`, a findings column in
+  `report.md`); `creatura ux judge <report> [--judge model:<name>] [--summary model:<name>]` judges again. W21 and
+  W22 hold with stub models.
+- **Web worlds, the rest of 2c: vision and the stuck alarm.** `UxStuckAlarm`, an extension on every design, fires
+  when the screen has not changed after `limits.stuckPatience` actions (default 2). It tells the seat, which asks its
+  stronger model at once: the vision model (`limits.models.vision`, `--vision`) with a screenshot, else the escalation
+  model. At `limits.stuckLimit` (default 6) it takes the controls away, and the design hands off by its own rule.
+  `Creatura.Seats`: `ChatMessage` takes images (`ChatImage`), sent as content parts on the OpenAI shape and as
+  `images` on Ollama's, never written to a call log. W23 to W25 hold.
+- **Web worlds, phase 3: barriers on the page.** `dodge`, `cover` and `drop-letter` (`PageBarriers`), scripts put into
+  every page before the app's own, counted through a function the world exposes. The world reports them honestly: a
+  covered control is shown covered and refused at once; a save the page did not answer is an honest failure, never a
+  lie; typing promises the field shows what was typed (`typed:<id>`), which fixes a phase 1 gap where a field that
+  dropped a letter passed as landed in most designs; a save after lost input is judged `input-lost`, not `app-lied`.
+  W26 to W29 hold.
+
 ## 0.2.0-preview.3 (2026-10-30)
 
 - **One culture for every text** (the owner's decision, issue #5): traces, notes, self-descriptions and model prompts

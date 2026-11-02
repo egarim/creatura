@@ -1,0 +1,10 @@
+Port 22
+HostKey /etc/ssh/ssh_host_ed25519_key
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+AllowUsers git
+AuthorizedKeysFile .ssh/authorized_keys
+PermitTTY no
+AllowTcpForwarding no
+X11Forwarding no

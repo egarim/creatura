@@ -1,0 +1,19 @@
+services:
+  api:
+    build: ./repo-a
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      DATA_DIR: /data
+    volumes:
+      - api-data:/data
+  web:
+    build: ./repo-b
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      API_BASE: "http://api:8080"
+volumes:
+  api-data:

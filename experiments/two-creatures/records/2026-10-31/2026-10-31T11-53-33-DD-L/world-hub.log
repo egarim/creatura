@@ -1,0 +1,2 @@
+hub at http://100.127.200.10:5181/sync/, trusting 1 owner key from /srv/setup/owners.txt, deltas in /srv/hub/hub.db
+2026-10-31T12:07:36.7618188+00:00 stored file eda9092dd1d83752a8967a7ba0f13cb7a9048f992df359c57e6dedf670a70b0c (1,300 bytes) from cell-68d477cd6b540759

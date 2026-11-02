@@ -1,0 +1,247 @@
+[2026-10-31T13:28:41.029Z] deploying 2dc1f78
+[2026-10-31T13:29:15.367Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 475B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 3.6s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [api internal] load build context
+#4 transferring context: 11.13kB done
+#4 DONE 0.0s
+
+#5 [api 1/6] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#5 resolve docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 0.0s done
+#5 sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788 0B / 3.85MB 0.1s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 0B / 56.22MB 0.1s
+#5 sha256:7246d4c6a55dd0f8dd00d2e63aece3a68d91e6a5d04c4e748fc2706897d96312 0B / 1.26MB 0.1s
+#5 sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 6.41kB / 6.41kB done
+#5 sha256:025b8e975a61d94e33abeafaad1255ef44e4898cf1a1b6446860009c72e6d284 1.72kB / 1.72kB done
+#5 sha256:ae59e9992c6b3e963dd9dac9c476287048177ad8f90ac646669afb738705f56d 6.71kB / 6.71kB done
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 3.15MB / 56.22MB 2.1s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 6.29MB / 56.22MB 2.7s
+#5 sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788 0B / 3.85MB 5.3s
+#5 sha256:7246d4c6a55dd0f8dd00d2e63aece3a68d91e6a5d04c4e748fc2706897d96312 0B / 1.26MB 5.3s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 6.29MB / 56.22MB 7.8s
+#5 sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788 1.05MB / 3.85MB 8.0s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 10.49MB / 56.22MB 8.0s
+#5 sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788 2.10MB / 3.85MB 8.4s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 13.63MB / 56.22MB 8.6s
+#5 sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788 3.15MB / 3.85MB 8.7s
+#5 sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788 3.85MB / 3.85MB 8.8s
+#5 extracting sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788
+#5 sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788 3.85MB / 3.85MB 8.8s done
+#5 sha256:304511616d6a6d472222f696b9045e20dc90e8043b2a8ba2acb61746595781f3 0B / 442B 8.9s
+#5 extracting sha256:7b229517ed222597277036d94892173207d01a731ab3a88eeb1de2e963a2c788 0.2s done
+#5 sha256:7246d4c6a55dd0f8dd00d2e63aece3a68d91e6a5d04c4e748fc2706897d96312 0B / 1.26MB 10.3s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 15.73MB / 56.22MB 13.8s
+#5 sha256:304511616d6a6d472222f696b9045e20dc90e8043b2a8ba2acb61746595781f3 0B / 442B 13.9s
+#5 sha256:304511616d6a6d472222f696b9045e20dc90e8043b2a8ba2acb61746595781f3 442B / 442B 14.4s done
+#5 sha256:7246d4c6a55dd0f8dd00d2e63aece3a68d91e6a5d04c4e748fc2706897d96312 1.05MB / 1.26MB 14.8s
+#5 sha256:7246d4c6a55dd0f8dd00d2e63aece3a68d91e6a5d04c4e748fc2706897d96312 1.26MB / 1.26MB 15.0s done
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 19.92MB / 56.22MB 15.3s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 23.07MB / 56.22MB 15.8s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 26.21MB / 56.22MB 16.4s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 29.36MB / 56.22MB 16.8s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 32.51MB / 56.22MB 17.1s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 36.70MB / 56.22MB 17.6s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 39.85MB / 56.22MB 18.5s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 47.19MB / 56.22MB 23.4s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 50.33MB / 56.22MB 23.8s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 53.48MB / 56.22MB 24.1s
+#5 sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 56.22MB / 56.22MB 28.1s done
+#5 extracting sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 0.1s
+#5 extracting sha256:8776aa3d2ba7247a375d06dcec03856b99dbb0e16e904a5672d3bf08c852d4f1 0.9s done
+#5 extracting sha256:7246d4c6a55dd0f8dd00d2e63aece3a68d91e6a5d04c4e748fc2706897d96312 0.0s done
+#5 extracting sha256:304511616d6a6d472222f696b9045e20dc90e8043b2a8ba2acb61746595781f3
+#5 extracting sha256:304511616d6a6d472222f696b9045e20dc90e8043b2a8ba2acb61746595781f3 done
+#5 DONE 29.2s
+
+#6 [api 2/6] WORKDIR /app
+#6 DONE 0.7s
+
+#7 [api 3/6] COPY package.json ./
+#7 DONE 0.0s
+
+#8 [api 4/6] COPY server.js ./
+#8 DONE 0.0s
+
+#9 [api 5/6] COPY test ./test
+#9 DONE 0.0s
+
+#10 [api 6/6] RUN mkdir -p /data
+#10 DONE 0.2s
+
+#11 [api] exporting to image
+#11 exporting layers 0.1s done
+#11 writing image sha256:b947c95e7f46c86b320512ad7a3be96335636e95a04b604dadbaea9bdfef734b done
+#11 naming to docker.io/library/repo-a-api:latest done
+#11 DONE 0.1s
+
+#12 [api] resolving provenance for metadata file
+#12 DONE 0.0s
+ api  Built
+ Network pub-repo-a_default  Creating
+ Network pub-repo-a_default  Created
+network shared declared as external, but could not be found
+[2026-10-31T13:29:15.367Z] FAILED: docker compose up failed (exit 1)
+[2026-10-31T13:29:39.071Z] deploying a434839
+[2026-10-31T13:29:39.573Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 475B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.3s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [api 1/6] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [api internal] load build context
+#5 transferring context: 11.13kB done
+#5 DONE 0.0s
+
+#6 [api 5/6] COPY test ./test
+#6 CACHED
+
+#7 [api 2/6] WORKDIR /app
+#7 CACHED
+
+#8 [api 3/6] COPY package.json ./
+#8 CACHED
+
+#9 [api 4/6] COPY server.js ./
+#9 CACHED
+
+#10 [api 6/6] RUN mkdir -p /data
+#10 CACHED
+
+#11 [api] exporting to image
+#11 exporting layers done
+#11 writing image sha256:b947c95e7f46c86b320512ad7a3be96335636e95a04b604dadbaea9bdfef734b done
+#11 naming to docker.io/library/repo-a-api:latest done
+#11 DONE 0.0s
+
+#12 [api] resolving provenance for metadata file
+#12 DONE 0.0s
+ api  Built
+network shared declared as external, but could not be found
+[2026-10-31T13:29:39.573Z] FAILED: docker compose up failed (exit 1)
+[2026-10-31T13:30:23.116Z] deploying b63ea41
+[2026-10-31T13:30:23.934Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 475B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.3s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [api 1/6] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [api internal] load build context
+#5 transferring context: 11.13kB done
+#5 DONE 0.0s
+
+#6 [api 5/6] COPY test ./test
+#6 CACHED
+
+#7 [api 2/6] WORKDIR /app
+#7 CACHED
+
+#8 [api 3/6] COPY package.json ./
+#8 CACHED
+
+#9 [api 4/6] COPY server.js ./
+#9 CACHED
+
+#10 [api 6/6] RUN mkdir -p /data
+#10 CACHED
+
+#11 [api] exporting to image
+#11 exporting layers done
+#11 writing image sha256:b947c95e7f46c86b320512ad7a3be96335636e95a04b604dadbaea9bdfef734b done
+#11 naming to docker.io/library/repo-a-api:latest done
+#11 DONE 0.0s
+
+#12 [api] resolving provenance for metadata file
+#12 DONE 0.0s
+ api  Built
+ Volume "pub-repo-a_api-data"  Creating
+ Volume "pub-repo-a_api-data"  Created
+ Container pub-repo-a-api-1  Creating
+ Container pub-repo-a-api-1  Created
+ Container pub-repo-a-api-1  Starting
+ Container pub-repo-a-api-1  Started
+[2026-10-31T13:30:23.934Z] running b63ea41
+[2026-10-31T13:49:54.246Z] deploying 76fbbe3
+[2026-10-31T13:49:56.552Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [api internal] load build definition from Dockerfile
+#1 transferring dockerfile: 475B done
+#1 DONE 0.0s
+
+#2 [api internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 2.0s
+
+#3 [api internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [api 1/6] FROM docker.io/library/node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+#4 DONE 0.0s
+
+#5 [api internal] load build context
+#5 transferring context: 11.13kB done
+#5 DONE 0.0s
+
+#6 [api 5/6] COPY test ./test
+#6 CACHED
+
+#7 [api 4/6] COPY server.js ./
+#7 CACHED
+
+#8 [api 2/6] WORKDIR /app
+#8 CACHED
+
+#9 [api 3/6] COPY package.json ./
+#9 CACHED
+
+#10 [api 6/6] RUN mkdir -p /data
+#10 CACHED
+
+#11 [api] exporting to image
+#11 exporting layers done
+#11 writing image sha256:b947c95e7f46c86b320512ad7a3be96335636e95a04b604dadbaea9bdfef734b done
+#11 naming to docker.io/library/repo-a-api:latest done
+#11 DONE 0.0s
+
+#12 [api] resolving provenance for metadata file
+#12 DONE 0.0s
+ api  Built
+ Container pub-repo-a-api-1  Running
+[2026-10-31T13:49:56.552Z] running 76fbbe3
