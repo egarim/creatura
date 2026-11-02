@@ -2,7 +2,6 @@
 
 ## Unreleased
 
-<<<<<<< HEAD
 - **Turns, so two cells neither wait on each other nor both lead** (docs/design-turns.md, slice T0): a cell says it
   waits (`creatura cell wait --on <cell or entry id>`), proposes on a topic (`propose --topic`, with `--file` to share
   the proposal as a file first) and answers (`answer --accept | --object`); `creatura cell turn` reads the verified
@@ -23,7 +22,6 @@
   a transcript and the spend in `summary.json`; the key stays out of the shell and the record. The goal-only run of
   docs/design-turns.md (T2) runs this way for API tokens, after two cloud-session attempts stopped at their
   permission classifier.
-=======
 - **Web worlds, phase 1** (docs/design-web-worlds.md): a real web app as a Creatura world, the idea of Singular
   Framework's uxkit on the control layer. `Creatura.Worlds.Web` (new, takes Microsoft.Playwright) has `WebWorld`: the
   page read into the visible text and numbered controls, a tool per control with an id that survives re-renders, the
@@ -66,7 +64,6 @@
   lie; typing promises the field shows what was typed (`typed:<id>`), which fixes a phase 1 gap where a field that
   dropped a letter passed as landed in most designs; a save after lost input is judged `input-lost`, not `app-lied`.
   W26 to W29 hold.
->>>>>>> origin/main
 
 ## 0.2.0-preview.3 (2026-10-30)
 
