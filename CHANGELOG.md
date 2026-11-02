@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Ratings** (docs/design-ratings.md, slice R1; issue #28). `Creatura.Ratings`, package-free: a Weng-Lin rating
+  (the open TrueSkill-style model, Bradley-Terry full pairing) per seat on three axes, the model, the design and the
+  prompt, read from the rows that exist: the bench's `scoreboard.csv` and `results.csv`, a matrix's `report.json`,
+  a two-creatures run's `summary.json`. A seat is rated only against the seats that ran the same job with the other
+  axes held fixed; a leaderboard prints μ, σ, the ordinal and the games, and says whether the order is settled or
+  which adjacent pairs need more runs. `creatura rate <path>... [--by model|design|prompt] [--json]`. G1 to G5 hold.
 - **Codex sessions as cells** (docs/design-handoff.md, slice H2; issue #7). A newer Codex joins through its hooks,
   which carry the same JSON as Claude Code's: `creatura cell install-hooks --settings ~/.codex/hooks.json --creatura
   codex`; the claim names the tool Codex, its rollout is read for the turns a Stop never landed (tools, and the files

@@ -286,6 +286,8 @@ public class CellsPurityTest
             || name is "netstandard" or "Creatura" or "Creatura.Cells" || (project == "Creatura.Cli" && name is "Creatura.Cells.Sqlite" or "Creatura.Cells.Sync"
                 // creatura run: the catalogs and the seats, Creatura projects that are package-free themselves (CorePurityTest)
                 or "Creatura.Worlds" or "Creatura.Seats" or "Creatura.Bench"
+                // creatura rate: the ratings, package-free as well (docs/design-ratings.md)
+                or "Creatura.Ratings"
                 // creatura ux: web worlds; Microsoft.Playwright comes through it, as Microsoft.Data.Sqlite comes through Creatura.Cells.Sqlite
                 or "Creatura.Worlds.Web"),
             $"{project} references {name}"));

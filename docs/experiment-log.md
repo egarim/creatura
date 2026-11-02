@@ -429,3 +429,17 @@ runs are recorded only in the design note.
 - #85: `node experiments/two-creatures/runner/run.mjs --reference; node experiments/two-creatures/runner/run.mjs --arm CC-LM --agents fake,liar --check-every 30`
 
 </details>
+
+## Step R1
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 87 | 2026-11-02 18:21 | `7ff315e`* | build | — | Ratings (docs/design-ratings.md, R1): Creatura.Ratings with Weng-Lin ratings per model, design and prompt from the bench's CSVs, a matrix's report.json and a pair's summary.json; creatura rate; G1 to G5 hold | Issue #28, relayed from another session; the note written first with four slices (R1 seat ratings, R2 cell reputation, R3 barrier curriculum, R4 memory credit) and G1 to G14 pre-registered. Built: WengLin (Bradley-Terry full pairing: mu += sum sigma^2/c (s - p), sigma^2 *= max(1 - sum gamma sigma^2/c^2 p(1-p), eps); mu 25, sigma 25/3, beta 25/6; ordinal mu - 3 sigma), Contest (a job is everything but the rated axis; games round by round, the k-th run of every seat), Sources (scoreboard.csv and results.csv through LegacyCsv, told apart by header; report.json and summary.json with the JSON reader alone; the order of outcomes per source as the note states), Leaderboard (three axes, w-t-l per seat, unmet seats at the prior and marked, adjacent pairs settled at p >= 0.95 or named as open with their games together, text and JSON), creatura rate <path>... [--by] [--json] [--out]. Package-free, added to CorePurityTest's list and to the creatura command's allowed references. Checks: RatingsTests (6): the worked example (mu 27.63518 / 22.36482, sigma 8.06551 after one game between equals), a tie moves nothing but shrinks sigma, sigma never grows over 200 random games; a contest never mixes jobs or axes and an unmet seat keeps the prior; a sweep settles the pair and alternating wins leave it open and named; any order of the rows gives the same board; the command reads the three sources and --json carries the same numbers. Found on the way: with beta 25/6 a sweep of 12 games between two seats leaves p about 0.90, under the 0.95 bar; 40 settle it. So 'more runs are not needed' is a demanding verdict by design, and the stopping rule with a cost stays an open point. Real rows: creatura rate experiments/two-creatures/records reads 7 runs (the reference has no seats). Models: deepseek+deepseek met nobody, the prior. Designs (the channels, the model held fixed), 2 games (the no-roles trio and the roles trio): channel-LM ordinal 7.89 (mu 29.86, 3-0-1), channel-L 6.74 (28.80, 3-0-1), channel-M -5.71 (16.35, 0-0-4; its false claims and the 0/5 first try rank it last); the order is open: LM and L at p 0.52, L and M at p 0.74, after 2 games together each, so more runs are needed between them, which is the honest reading of seven runs. |  |
+
+<details><summary>Commands</summary>
+
+- #87: `dotnet test tests/Creatura.Tests --filter RatingsTests; dotnet run --project src/Creatura.Cli -- rate experiments/two-creatures/records`
+
+</details>

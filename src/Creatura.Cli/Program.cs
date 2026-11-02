@@ -7,6 +7,7 @@ return args.FirstOrDefault() switch
     "run" => await Creatura.Cli.RunCommand.Run(args, Console.Out, Console.Error),
     "ux" => await Creatura.Cli.UxCommand.Run(args, Console.Out, Console.Error),
     "doctor" => Creatura.Cli.DoctorCommand.Run(args, Console.Out),
+    "rate" => Creatura.Cli.RateCommand.Run(args, Console.Out, Console.Error),
     "--version" => PrintVersion(),
     null or "--help" or "-h" or "help" => Help(args.Length == 0),
     _ => Creatura.Cells.CellCommand.Run(args, Console.Out, Console.Error),
@@ -27,6 +28,7 @@ static int Help(bool bare)
           run --design <d> --world <w> try a design on a world with no code (creatura run --list)
           ux run --demo                a persona uses a web app through a browser, judged by the app's data (creatura ux --help)
           doctor                       what is set up and what is missing, with the fix
+          rate <path>...               the leaderboards of models, designs and prompts from the rows under the paths (creatura rate --help)
           cell <command>               the cell on this vessel: claims, the ledger, offers, hooks, sync (creatura cell --help)
           --version                    this tool's version, which is the packages' version it makes projects with
         """);
