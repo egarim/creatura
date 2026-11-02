@@ -379,3 +379,17 @@ runs are recorded only in the design note.
 - #78: `cd js/creatura-js && npm ci && npm run build && npm test; cd ../creatura-tutor && npm ci && npm test && npm run summary; eleven deliberate breaks of src/ (world checks, retract rule, payload rule, goal, decimal parsing, hint index, generator soundness), each run with npm test`
 
 </details>
+
+## Step R (web)
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 80 | 2026-11-02 15:33 | `111b9b2`* | build | — | Web worlds: record and replay (--record, replay.jsonl with a JPEG per screen, tools/web-viewer); W30 to W32 hold; a password field is secret | Issue #15. UxRecorder is an IAgentExtension: BeforeRun writes the start screen as frame 0, AfterAction writes a frame for the screen after the action and a tick line (the frame it was decided on, the persona's answer read from the design's decision row for that tick, the control and what was typed, the outcome, the verdict, whether the world's lie list names this tick, the frame it led to); Finish writes every trace row and note and the cell's numbers. The runner takes a UxRecordTo (folder, header); the matrix records every cell under --record <dir>, a folder per cell named as its trace file; the cell carries Recording. Screens are world.Screenshot() (JPEG q60 of the viewport). The observation gained Secret (type=password): shown as (filled) or (empty) to the persona and in a frame, never its value; nothing typed into one is written; the world still judges typing by the field. The viewer is one static page: pick the folder or the files (or drop them), step with buttons, slider or keys, the image left, what the persona read, answered and got right, the tick's trace rows, the cell's end. Checks: RecordShapeTests (3, no browser) and RecordTests (3, Chromium): the demo on the phone viewport leaves 3 frames, 2 ticks, 3 JPEGs (48 KB); with save-lies the second tick is marked lie and judged lied; without --record nothing is written; the viewer opened from file:// with the files set on its picker shows the cell, both ticks and the end and the image decodes. Whole solution: 923 tests pass (Worlds.Web 107, was 101). The laptop's Playwright build (1208) is older than the package's (1243): CREATURA_CHROMIUM pointed at the headless shell on disk. Not run: a model persona, a real app. |  |
+
+<details><summary>Commands</summary>
+
+- #80: `CREATURA_CHROMIUM=... dotnet test Creatura.slnx -c Debug; dotnet run --project src/Creatura.Cli -- ux run --demo --record /tmp/rec`
+
+</details>

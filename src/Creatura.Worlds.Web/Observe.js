@@ -102,6 +102,7 @@
       options: kind === 'choose' ? Array.from(el.options).map(o => clean(o.text)) : [],
       inViewport: r.bottom > 0 && r.right > 0 && r.top < vh && r.left < vw,
       covered: coveredAt(el, r),
+      secret: tag === 'input' && el.type === 'password',
       top: Math.round(r.top + window.scrollY), left: Math.round(r.left + window.scrollX),
     };
   });
@@ -118,7 +119,7 @@
     text,
     controls: rows.map((row, i) => ({
       ref: i, role: row.role, kind: row.kind, tag: row.tag, name: row.name, value: row.value,
-      checked: row.checked, options: row.options, inViewport: row.inViewport, covered: row.covered,
+      checked: row.checked, options: row.options, inViewport: row.inViewport, covered: row.covered, secret: row.secret,
     })),
   };
 }

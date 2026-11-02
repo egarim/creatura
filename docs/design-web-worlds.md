@@ -1,6 +1,6 @@
 # Design: web worlds, where a persona uses a real app and the app's data is the judge
 
-**Status:** design note, with phases 1, 2a, 2b and 2c, persona memory, a design axis and phase 3's page barriers built (below). Written 2026-10-31. Nothing here has been run against a real
+**Status:** design note, with phases 1, 2a, 2b and 2c, persona memory, a design axis, phase 3's page barriers and record and replay built (below). Written 2026-10-31. Nothing here has been run against a real
 model or a real app yet; what was run is the bundled demo, offline, in a real Chromium.
 
 **Built:** phase 1, `src/Creatura.Worlds.Web` (`WebWorld`, the observation, the tools, the declarative check, the
@@ -10,8 +10,8 @@ phase 2b, sign-in once per account with the session kept and reused, sessionStor
 Singular adapter template (`samples/ux/singular-starter.adapter.json`, not run against an app); persona memory and the
 design axis (`UxMemory`, `UxDesigns`, `--designs`, `--memory`); phase 2c's judge and summary writer (`UxJudge`,
 `UxSummary`, `creatura ux judge`); the rest of 2c, vision on the triggers and the stuck alarm in the loop (`UxStuckAlarm`,
-`limits.models.vision`, `--vision`); phase 3's barriers on the page (`dodge`, `cover`, `drop-letter`). `scroll` and record
-and replay are still a design.
+`limits.models.vision`, `--vision`); phase 3's barriers on the page (`dodge`, `cover`, `drop-letter`); record and replay
+(`UxRecorder`, `--record`, `tools/web-viewer`). `scroll` is still a design.
 
 ## The problem
 
@@ -204,6 +204,34 @@ Making these honest took four changes to the world. They apply with or without a
   not `app-lied`, because the app saved what it was given. This closes the ambiguity noted in phase 1 (a dropped write
   against a write of the wrong thing), for the case where the world can see it.
 
+## Record and replay (built)
+
+A matrix leaves each cell's trace, which says what the loop did and not what the persona saw. To watch a web run back,
+as the convoy viewer plays a convoy, `--record <dir>` (on `run` and `matrix`) writes a folder per cell under it,
+named as the cell's trace is: `replay.jsonl` and a JPEG of the viewport for every screen. The lines, in order:
+
+| line | when | what it holds |
+|---|---|---|
+| `header` | once | the app, task, persona, environment, tester, design; the viewport; the barriers; the task in the persona's words; `format: creatura.web-replay/1` |
+| `frame` | the start page, and after every action | the screen as the persona read it (address, title, visible text, the numbered controls with their lines), the data's check then, the image's file name |
+| `tick` | after every action | the frame it was decided on (`saw`), the persona's answer in its own words (the design's decision row), the control and what was typed, the outcome, the control layer's verdict, whether the world lied here, the frame it led to (`now`) |
+| `row`, `note` | at the end | every trace row and note of the run, so the replay is complete on its own |
+| `end` | last | the cell's numbers: frames, images, ticks, the data's verdict, lies told and caught, escalations, cost |
+
+The recorder (`UxRecorder`) is an extension, so it rides every design unchanged: it writes the start screen before the
+first tick and a frame and a tick after each action; a tick the loop spent without acting (no route, a refused tool, a
+hold) has rows and no frame. A reader ignores what it does not know, so later versions can add to it.
+`tools/web-viewer/index.html` is the viewer: one page, no build, opened from disk; pick the cell's folder (or drop
+it on the page) and step through it, the screen as an image on the left, what the persona read, answered and got on
+the right, the trace rows of the tick beneath, the cell's verdict at the end.
+
+**What a frame does not hold.** A password field (`type=password`) is secret: the observation shows it to the persona
+as "(filled)" or "(empty)", never as its value, the frame keeps the same, and nothing typed into it is written to a
+tick. The world still judges typing into it by the field (W28). The sign-in happens before the world opens, so no
+sign-in page is a frame; no model call is in a recording (the call log is `--log`). Recording is the owner's choice:
+a screen of a real app shows whatever the app showed, so `--record` is off unless asked for, and a recording stays
+out of the repository (the default folder is not under `runs/`; name one).
+
 ## Persona memory and the design axis (built)
 
 The owner asked whether a persona can run under different control mechanisms and keep what it felt and thought
@@ -392,6 +420,9 @@ another judge, or after the fact, reading each cell's trace back from `traces/`.
 | W28 | typing promises the field shows what was typed: a field that drops a letter is a typing that did not land, in every design | a design that passes it as landed | holds (plain and Bach) |
 | W29 | a save after lost input is judged `input-lost`, not `app-lied`; a persistent persona gets the task done under each page barrier with no lie told | anything else | holds |
 | W14 | the gate exits 1 naming every threshold broken, 0 when none is; with the lie barrier the demo breaks `minDone`, and holds `maxUncaughtLies 0` under Bach | anything else | holds |
+| W30 | a recorded run has a frame for every screen the persona saw (the start page and one after each action), a tick for every action with the persona's answer, the control, the outcome, the verdict and the data's check, a JPEG for every frame, and the cell's numbers at the end; a lie is marked on the tick it was told; without `--record` nothing is written | a screen, a tick or an image missing, a tick on the wrong frame, a lie unmarked, or a file written unasked | holds |
+| W31 | a frame holds what the persona saw and nothing else: a password field is "(filled)" or "(empty)" to the persona and in the frame, its value in neither, and nothing typed into it is in a tick; the world still judges typing into it by the field | the value, or the typed text, anywhere in the recording | holds |
+| W32 | the viewer opens a recording from disk and steps through it: the cell named, the start screen, each tick's answer and verdict, the data's check, the end, and the image shown | anything else | holds (Chromium, from file://) |
 
 ## Results (phase 1, 2026-10-31)
 
@@ -483,6 +514,16 @@ Run the same way, offline, in a real Chromium. W26 to W29 hold: `PageBarrierAdap
 Not verified: these barriers against a real app's own layout (a banner that is not a `role=dialog`, a button that moves
 by animation rather than at once), and a model persona finding Accept on its own.
 
+## Results (record and replay, 2026-11-02)
+
+Run the same way, offline, in a real Chromium. W30 to W32 hold: `RecordShapeTests` (3, no browser) and `RecordTests`
+(3). The bundled script on the phone viewport leaves 3 frames, 2 ticks and 3 images (48 KB in all); with `save-lies`
+the second tick is marked as the lie and judged `lied`. The viewer, opened from `file://` with the cell's files set
+on its picker, shows the cell, the start screen, both ticks and the end, and the image decodes.
+
+Not verified: a recording of a model persona (the answer field then holds the model's own sentence, from the same
+decision row), a recording on a real app, and the viewer on a run with ticks the loop spent without acting.
+
 ## Decisions for the owner
 
 | | decision | options | recommendation |
@@ -502,7 +543,8 @@ by animation rather than at once), and a model persona finding Accept on its own
 | 2b+ | persona memory (records and lessons, carry or read) and the design axis | W18 to W20 (done) |
 | 2c | the summary writer and the judge as seats; vision on the triggers; the stuck alarm in the loop | W21 to W25 (done); W10 and the judge against W9's person are still open |
 | 3 | barriers on the page: `dodge`, `cover`, `drop-letter` | W26 to W29 (done) |
-| 3+ | `scroll`, record and replay of web runs, more page barriers (a modal, a slow render, a reordered list) | a design's catch rate per barrier, per viewport |
+| R | record and replay of web runs: `--record`, `replay.jsonl` with a JPEG per screen, the viewer | W30 to W32 (done) |
+| 3+ | `scroll`, more page barriers (a modal, a slow render, a reordered list) | a design's catch rate per barrier, per viewport |
 
 ## What this note does not cover
 

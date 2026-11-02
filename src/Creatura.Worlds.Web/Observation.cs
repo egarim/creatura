@@ -33,6 +33,8 @@ public sealed record RawControl
     public bool InViewport { get; init; } = true;
 
     public bool Covered { get; init; }
+
+    public bool Secret { get; init; }
 }
 
 /// <summary>The page as the script reports it.</summary>
@@ -57,12 +59,15 @@ public sealed record Control(int Number, string Id, int Ref, string Role, Contro
     /// <summary>Something else is on top of it (a banner, a dialog's veil): it can be seen and not pressed.</summary>
     public bool Covered { get; init; }
 
+    /// <summary>A password field: what it holds is shown as filled or empty, never as its value, to the persona and in a recording.</summary>
+    public bool Secret { get; init; }
+
     /// <summary>The line the persona reads: <c>3. [button] Save</c>, with the value typed so far or the option chosen.</summary>
     public string Line()
     {
         var sb = new StringBuilder();
         sb.Append(Number).Append(". [").Append(Role).Append("] ").Append(Name.Length == 0 ? "(no label)" : Name);
-        if (Kind == ControlKind.Type) sb.Append(Value.Length == 0 ? " (empty)" : $" (contains \"{Value}\")");
+        if (Kind == ControlKind.Type) sb.Append(Value.Length == 0 ? " (empty)" : Secret ? " (filled)" : $" (contains \"{Value}\")");
         if (Kind == ControlKind.Choose) sb.Append($" (chosen: \"{Value}\"; options: {string.Join(" | ", Options)})");
         if (Checked is { } on) sb.Append(on ? " (checked)" : " (not checked)");
         if (!InViewport) sb.Append(" (below, scroll to reach)");
@@ -117,7 +122,7 @@ public sealed record Observation(string Url, string Title, string Text, IReadOnl
             else seen[id] = n = 1;
             if (n > 1) id = $"{id}-{n}";
             var kind = c.Kind switch { "type" => ControlKind.Type, "choose" => ControlKind.Choose, _ => ControlKind.Click };
-            controls.Add(new Control(number, id, c.Ref, c.Role, kind, c.Name, c.Value, c.Checked, c.Options, c.InViewport) { Covered = c.Covered });
+            controls.Add(new Control(number, id, c.Ref, c.Role, kind, c.Name, c.Value, c.Checked, c.Options, c.InViewport) { Covered = c.Covered, Secret = c.Secret });
         }
 
         return new Observation(raw.Url, raw.Title, raw.Text, controls);

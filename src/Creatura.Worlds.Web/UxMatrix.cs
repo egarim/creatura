@@ -30,6 +30,9 @@ public sealed record UxMatrixSpec
 
     /// <summary>What the whole matrix may spend; a cell is not started once the cells before it spent this much. The adapter's gate <c>maxCost</c> when null.</summary>
     public decimal? CostCap { get; init; }
+
+    /// <summary>Record every cell's run to watch back, a folder per cell under this one (<see cref="UxRecorder"/>); null records nothing.</summary>
+    public string? RecordTo { get; init; }
 }
 
 /// <summary>
@@ -82,7 +85,9 @@ public static class UxMatrix
                 {
                     cell = await UxRunner.RunAsync(browser, adapter, task, persona, environment, w => seats.Build(tester, adapter, task, persona, environment, w, lessons),
                         (p, t, extra) => UxDesigns.Make(design, p, t, store, key, extra),
-                        new WebWorldOptions { Barriers = spec.Barriers, Sessions = sessions }, spec.MaxTicks, stuckAlarm: true, cancellationToken).ConfigureAwait(false);
+                        new WebWorldOptions { Barriers = spec.Barriers, Sessions = sessions }, spec.MaxTicks, stuckAlarm: true,
+                        record: spec.RecordTo is null ? null : new UxRecordTo(UxRecorder.FolderFor(spec.RecordTo, task.Id, persona.Id, environment.Id, tester, design), new UxRecordingHeader(adapter.App, task.Id, persona.Id, environment.Id, tester, design)),
+                        cancellationToken: cancellationToken).ConfigureAwait(false);
                     cell = cell with { Tester = tester, Design = design, Memory = key, CasesBefore = casesBefore, Remembered = lessons };
                     spent += cell.Cost ?? 0;
                     if (key is not null) memory!.Remember(key, cell, environment);

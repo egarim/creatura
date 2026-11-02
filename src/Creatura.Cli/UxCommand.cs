@@ -63,6 +63,9 @@ public static class UxCommand
                                        that hold tokens: keep the folder out of the repository); default: this run only
           --browser <path>             a Chromium to launch instead of Playwright's own
           --headed                     show the browser
+          --record <dir>               write each cell's run to watch back: <dir>/<cell>/replay.jsonl and a JPEG of every
+                                       screen (open tools/web-viewer/index.html and pick the folder). Your choice to make:
+                                       the screens hold whatever the app showed, so keep the folder out of the repository
 
         judge (a matrix is always judged by the rules, offline; a model adds a reading of the trace, held to the verdicts):
           --judge rules|model:<name>   who reads each cell for findings (default rules)
@@ -107,9 +110,9 @@ public static class UxCommand
 
         string[] known = verb switch
         {
-            "run" => ["--adapter", "--base-url", "--task", "--persona", "--env", "--barriers", "--seat", "--escalate", "--vision", "--design", "--ticks", "--log", "--browser", "--sessions", "--memory", "--records"],
+            "run" => ["--adapter", "--base-url", "--task", "--persona", "--env", "--barriers", "--seat", "--escalate", "--vision", "--design", "--ticks", "--log", "--browser", "--sessions", "--memory", "--records", "--record"],
             "matrix" => ["--adapter", "--base-url", "--tasks", "--personas", "--envs", "--testers", "--barriers", "--escalate", "--vision", "--design", "--designs", "--memory", "--records", "--ticks", "--log",
-                         "--browser", "--max-cost", "--out", "--baseline", "--sessions", "--judge", "--summary"],
+                         "--browser", "--max-cost", "--out", "--baseline", "--sessions", "--judge", "--summary", "--record"],
             "gate" => ["--baseline", .. Thresholds],
             "judge" => ["--judge", "--summary", "--log"],
             "compare" => [],
@@ -231,7 +234,10 @@ public static class UxCommand
             {
                 cell = await InCulture(() => UxRunner.RunAsync(browser, adapter, task, persona, environment, w => seats.Build(seat, adapter, task, persona, environment, w, lessons),
                     (p, t, extra) => UxDesigns.Make(design, p, t, store, key, extra),
-                    new WebWorldOptions { Barriers = barriers, Sessions = Sessions(options) }, ticks, stuckAlarm: true));
+                    new WebWorldOptions { Barriers = barriers, Sessions = Sessions(options) }, ticks, stuckAlarm: true,
+                    record: options.TryGetValue("--record", out var recordDir)
+                        ? new UxRecordTo(UxRecorder.FolderFor(recordDir, task.Id, persona.Id, environment.Id, seat, design), new UxRecordingHeader(adapter.App, task.Id, persona.Id, environment.Id, seat, design))
+                        : null));
                 cell = cell with { Tester = seat, Design = design, Memory = key, CasesBefore = casesBefore, Remembered = lessons };
                 if (key is not null) memory!.Remember(key, cell, environment);
             }
@@ -252,6 +258,7 @@ public static class UxCommand
         output.WriteLine();
         output.WriteLine(cell.Summary());
         if (cell.FalseDone) output.WriteLine("  · said done, not done: the gap a judge reads");
+        if (cell.Recording is { } recording) output.WriteLine($"recording: {Path.Combine(recording, UxRecorder.FileName)} (open tools/web-viewer/index.html and pick that folder)");
         return 0;
     }
 
@@ -271,7 +278,7 @@ public static class UxCommand
         var spec = new UxMatrixSpec
         {
             Tasks = Ids(options.GetValueOrDefault("--tasks")), Personas = Ids(options.GetValueOrDefault("--personas")), Environments = Ids(options.GetValueOrDefault("--envs")),
-            Testers = testers, Barriers = barriers, MaxTicks = ticks, CostCap = maxCost, Designs = designs, Memory = memory,
+            Testers = testers, Barriers = barriers, MaxTicks = ticks, CostCap = maxCost, Designs = designs, Memory = memory, RecordTo = options.GetValueOrDefault("--record"),
         };
 
         IReadOnlyList<(UxTask Task, UxPersona Persona, UxEnvironment Environment, string Tester, string Design)> cells;
@@ -334,6 +341,7 @@ public static class UxCommand
         }
 
         output.WriteLine($"report: {json} (and cells.csv, report.md, traces/ beside it)");
+        if (spec.RecordTo is { } recorded) output.WriteLine($"recordings: {report.Cells.Count(c => c.Recording is not null)} under {recorded} (open tools/web-viewer/index.html and pick a cell's folder)");
         if (baseline is not null)
         {
             var comparison = UxComparison.Of(baseline, report);
