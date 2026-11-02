@@ -393,3 +393,17 @@ runs are recorded only in the design note.
 - #80: `CREATURA_CHROMIUM=... dotnet test Creatura.slnx -c Debug; dotnet run --project src/Creatura.Cli -- ux run --demo --record /tmp/rec`
 
 </details>
+
+## Step handoff
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 81 | 2026-11-02 15:58 | `11fb522`* | build | — | Handing work from one session to the next (docs/design-handoff.md, H1): notes on a hand-off, a claim that continues it, shown at the next session's start; C38 to C41 hold | The owner's direction: the ledger should be the hand-off between his sessions, which today travels as a pasted note (the two-creatures runs of 2026-10-31 moved from a cloud session to a local one that way). Built: HandOffPayload.Notes (at most 4000 characters; creatura cell handoff --notes \| --notes-file) and ClaimPayload.Continues (cell claim --continues <claim id>, goal and where carried over unless given; a released claim refused); WorkLedger.ContinuedBy, ChainOf and PathOfChain; cell ledger --path prints the whole chain with the notes under each hand-off, --open names who continued a claim; the Claude Code hook shows, at a new session's start, the claims handed off in this folder or repository that nobody continued (newest first, at most three, the reason and the notes' first line) beside the owner's offers, in the same systemMessage for the person; the first prompt continues one with 'continue cell-...#n' and the claim cites it; a session that wrote its own hand-off is not handed off again at SessionEnd (its late turns are still recorded); the stream links a continuing claim (creatura:continues) and carries a hand-off's notes (creatura:notes). Checks: HandoffTests C38 to C41 (4), written before the code; the cells tests 157 pass (was 153); the hook and offer tests unchanged. One test-bed lesson: the hook tests' fake clock runs a minute ahead of the real one the cell commands use, and the ledger orders by time, so a test that mixes the two must use the real clock. H2, Codex sessions as cells (issue #7), waits for the owner's yes. Not run: a real hand-off between two machines; the next cloud-to-local hand-off is the test. |  |
+
+<details><summary>Commands</summary>
+
+- #81: `dotnet test tests/Creatura.Cells.Tests; CREATURA_CHROMIUM=... dotnet test Creatura.slnx`
+
+</details>

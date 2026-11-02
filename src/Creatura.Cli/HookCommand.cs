@@ -34,6 +34,9 @@ public sealed class HookSession
     /// <summary>The offers shown to the person at this session's start; the first prompt may take one by its id.</summary>
     public List<string> Offered { get; set; } = [];
 
+    /// <summary>The handed-off claims shown to the person at this session's start; the first prompt may continue one by its id (docs/design-handoff.md).</summary>
+    public List<string> HandedOff { get; set; } = [];
+
     /// <summary>
     /// How far into the session's transcript the ledger has recorded: its length at the claim and at each recorded Stop.
     /// SessionEnd reads on from here for turns whose Stop never landed (<see cref="HookTranscript"/>).
@@ -77,6 +80,9 @@ public sealed record HookEvent
     public List<string> OffersNamed { get; init; } = [];
 
     public string? PromptGoal { get; init; }
+
+    /// <summary>The claim the first prompt continues (<c>continue cell-…#n</c>), when it names one.</summary>
+    public string? Continues { get; init; }
 
     /// <summary>The mesh position, read at a session's start.</summary>
     public Position? Mesh { get; init; }
@@ -204,26 +210,35 @@ public static partial class HookCommand
                 session.Source = hook.Source ?? session.Source;
                 session.Model = hook.Model ?? session.Model;
                 if (hook.Cwd is { } cwd && cwd != session.Cwd) Locate(session, cwd, env);
-                // A new conversation, not a resumed or compacted one, is told what the owner has offered here.
-                if (say is not null && session.Source is not ("resume" or "compact") && Pending(home, creatura, env) is { Count: > 0 } offers)
+                // A new conversation, not a resumed or compacted one, is told what the owner has offered here and what
+                // was handed off here (docs/design-handoff.md); the person, not the model, reads it.
+                if (say is not null && session.Source is not ("resume" or "compact"))
                 {
+                    var offers = Pending(home, creatura, env);
+                    var handedOff = HandedOffHere(home, creatura, env, session);
                     session.Offered = offers.Select(o => o.Id).ToList();
-                    say(JsonSerializer.Serialize(new Dictionary<string, string> { ["systemMessage"] = OfferMessage(offers) }));
+                    session.HandedOff = handedOff.Select(h => h.Claim.Id).ToList();
+                    var parts = new List<string>();
+                    if (offers.Count > 0) parts.Add(OfferMessage(offers));
+                    if (handedOff.Count > 0) parts.Add(HandedOffMessage(handedOff));
+                    if (parts.Count > 0) say(JsonSerializer.Serialize(new Dictionary<string, string> { ["systemMessage"] = string.Join("\n\n", parts) }));
                 }
                 break;
 
             case "UserPromptSubmit":
                 if (session.ClaimId is not null) break;
                 var taken = TakenOffer(hook.OffersNamed, session, Pending(home, creatura, env));
-                var goal = taken?.Goal ?? hook.PromptGoal ?? FolderGoal(session);
+                var continued = taken is null ? ContinuedClaim(hook.Continues, session, home, creatura, env) : null;
+                var goal = taken?.Goal ?? continued?.Goal.Goal ?? hook.PromptGoal ?? FolderGoal(session);
                 written = Write(home, creatura, env, new ClaimPayload(goal)
                 {
-                    Repo = taken?.Repo ?? session.Repo,
-                    Branch = taken?.Branch ?? session.Branch,
-                    Folder = taken?.Folder ?? session.Cwd,
+                    Repo = taken?.Repo ?? session.Repo ?? continued?.Goal.Repo,
+                    Branch = taken?.Branch ?? session.Branch ?? continued?.Goal.Branch,
+                    Folder = taken?.Folder ?? session.Cwd ?? continued?.Goal.Folder,
                     Tool = ToolName,
                     Session = hook.Session,
                     Offer = taken?.Id,
+                    Continues = continued?.Claim.Id,
                 });
                 if (written is not null)
                 {
@@ -259,8 +274,16 @@ public static partial class HookCommand
                         rows.Add(new ProgressPayload(session.ClaimId, TurnRow(session.Turns, turn.Tools, turn.Files)));
                     }
                     var reason = hook.Reason ?? "other";
-                    written = Write(home, creatura, env, rows, new HandOffPayload(session.ClaimId,
-                        $"session ended ({reason}) after {session.Turns} turn{(session.Turns == 1 ? "" : "s")}"));
+                    // A session that wrote its own hand-off, with notes, is not handed off twice; its late turns are still recorded.
+                    if (ReadLedger(home, creatura, env)?.Ledger.StateOf(session.ClaimId) == ClaimState.HandedOff)
+                    {
+                        if (rows.Count > 0) written = Write(home, creatura, env, rows.GetRange(0, rows.Count - 1), rows[^1]);
+                    }
+                    else
+                    {
+                        written = Write(home, creatura, env, rows, new HandOffPayload(session.ClaimId,
+                            $"session ended ({reason}) after {session.Turns} turn{(session.Turns == 1 ? "" : "s")}"));
+                    }
                 }
                 DeleteSession(home, hook.Session);
                 return written;
@@ -299,11 +322,15 @@ public static partial class HookCommand
             Files = files,
             OffersNamed = string.IsNullOrEmpty(prompt) ? [] : OfferNamed().Matches(prompt).Select(m => m.Groups[1].Value).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             PromptGoal = goalMode == "prompt" ? Scrubber.GoalFromPrompt(prompt) : null,
+            Continues = string.IsNullOrEmpty(prompt) ? null : ContinueNamed().Match(prompt) is { Success: true } m ? m.Groups[1].Value : null,
         };
     }
 
     [System.Text.RegularExpressions.GeneratedRegex(@"\boffer\s+([A-Za-z0-9][A-Za-z0-9_-]*)", System.Text.RegularExpressions.RegexOptions.IgnoreCase)]
     private static partial System.Text.RegularExpressions.Regex OfferNamed();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"\bcontinue\s+(cell-[0-9a-f]+#[0-9]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase)]
+    private static partial System.Text.RegularExpressions.Regex ContinueNamed();
 
     private static string WaitingFolder(CellHome home) => Path.Combine(home.Root, "hooks-waiting");
 
@@ -348,6 +375,68 @@ public static partial class HookCommand
     {
         if (named.Count == 0 || session.Offered.Count == 0) return null;
         return pending.FirstOrDefault(o => session.Offered.Contains(o.Id) && named.Contains(o.Id, StringComparer.OrdinalIgnoreCase));
+    }
+
+    /// <summary>The verified ledger of this home's cell of <paramref name="creatura"/>, with the cell's ids; null when it is not endorsed.</summary>
+    private static (WorkLedger Ledger, string Cell, string Vessel)? ReadLedger(CellHome home, string creatura, HookEnvironment env)
+    {
+        using var cell = home.OpenCell(env.Vessel, LoadPosition(home), creatura);
+        if (!cell.Identity.IsEndorsed) return null;
+        using var owner = home.LoadOwner();
+        var ledger = new WorkLedger(new[] { owner?.PublicKey, cell.Identity.Endorsement?.OwnerPublicKey }.OfType<string>().Distinct());
+        home.ApplyRevocations(ledger);
+        LedgerStores.LoadInto(home, home.Ledger, ledger);
+        return (ledger, cell.Id, cell.Identity.Hardware.VesselId);
+    }
+
+    /// <summary>
+    /// The claims handed off here, in this session's folder or repository, that nobody has continued: newest first, at
+    /// most three (docs/design-handoff.md, C39). A claim with no folder and no repository is nowhere in particular and is not shown.
+    /// </summary>
+    private static IReadOnlyList<WorkItem> HandedOffHere(CellHome home, string creatura, HookEnvironment env, HookSession session)
+    {
+        if (ReadLedger(home, creatura, env) is not { } read) return [];
+        var ledger = read.Ledger;
+        return ledger.WhoIsWorkingOn(activeOnly: false)
+            .Where(w => w.State == ClaimState.HandedOff && ledger.ContinuedBy(w.Claim.Id).Count == 0 && Here(w.Goal, session))
+            .OrderByDescending(w => w.Claim.Timestamp)
+            .Take(3)
+            .ToList();
+    }
+
+    private static bool Here(ClaimPayload claim, HookSession session) =>
+        (claim.Folder is { Length: > 0 } folder && session.Cwd is { Length: > 0 } cwd && SameFolder(folder, cwd))
+        || (claim.Repo is { Length: > 0 } repo && session.Repo is { Length: > 0 } here && string.Equals(repo, here, StringComparison.OrdinalIgnoreCase));
+
+    private static bool SameFolder(string a, string b) =>
+        string.Equals(a.TrimEnd('/', '\\'), b.TrimEnd('/', '\\'), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
+    public static string HandedOffMessage(IReadOnlyList<WorkItem> items)
+    {
+        var lines = items.Select(w =>
+        {
+            var handOff = w.Latest.Kind == EntryKind.HandOff ? w.Latest.Body<HandOffPayload>() : null;
+            var when = w.Latest.Timestamp.UtcDateTime.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+            var notes = handOff?.Notes is { } n ? $"\n  notes: {FirstLine(n)}" : "";
+            return $"- \"{w.Goal.Goal}\" (claim {w.Claim.Id}, by {w.Creatura} on {w.VesselId}, {when} UTC): {handOff?.Reason ?? "handed off"}{notes}";
+        });
+        var noun = items.Count == 1 ? "a piece of work was" : $"{items.Count} pieces of work were";
+        return $"Creatura: {noun} handed off here:\n{string.Join("\n", lines)}\nTo continue one, name it in your first message, e.g. \"continue {items[0].Claim.Id}\". Nothing is continued unless you do.";
+    }
+
+    private static string FirstLine(string s)
+    {
+        var line = s.Split('\n')[0].Trim();
+        return line.Length <= 160 ? line : line[..160] + "…";
+    }
+
+    /// <summary>The handed-off claim the first prompt continues: one shown at this session's start, still handed off and not yet continued.</summary>
+    private static WorkItem? ContinuedClaim(string? named, HookSession session, CellHome home, string creatura, HookEnvironment env)
+    {
+        if (named is null || !session.HandedOff.Contains(named, StringComparer.OrdinalIgnoreCase)) return null;
+        if (ReadLedger(home, creatura, env) is not { } read) return null;
+        var ledger = read.Ledger;
+        return ledger.WhoIsWorkingOn(activeOnly: false).FirstOrDefault(w => string.Equals(w.Claim.Id, named, StringComparison.OrdinalIgnoreCase) && w.State == ClaimState.HandedOff && ledger.ContinuedBy(w.Claim.Id).Count == 0);
     }
 
     /// <summary>The offers waiting for this home's cell of <paramref name="creatura"/>; none when it is not endorsed.</summary>

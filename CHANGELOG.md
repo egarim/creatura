@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Handing work from one session to the next** (docs/design-handoff.md, slice H1). A hand-off may carry notes
+  (`creatura cell handoff --reason <why> --notes <text> | --notes-file <path>`, at most 4000 characters), and a
+  claim may continue a handed-off one (`cell claim --continues <claim id>`, the goal and where carried over). At a
+  new Claude Code session's start the hook shows the claims handed off in this folder or repository that nobody
+  continued, with the reason and the notes' first line, beside the owner's offers, to the person only; the first
+  prompt continues one with `continue <claim id>`. A session that wrote its own hand-off is not handed off again at
+  its end. `cell ledger --path` prints the whole chain across sessions and `--open` names who continued a claim;
+  the stream links a continuing claim to what it continues and carries a hand-off's notes. C38 to C41 hold.
 - **Web worlds: record and replay** (docs/design-web-worlds.md, "Record and replay"). `creatura ux run | matrix --record
   <dir>` writes a folder per cell: `replay.jsonl` (the header, a frame for every screen the persona saw with the text
   and the numbered controls and the data's check, a tick for every action with the persona's answer, the control, the

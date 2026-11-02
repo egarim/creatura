@@ -16,6 +16,8 @@ agent tools around it, as hosts and as cells.
   the learned judge, each pre-registered before it was built.
 - [Identity, vessel and the cell network](design-cells.md): cells, the signed work ledger and the hub.
 - [Sharing files between cells](design-shared-files.md).
+- [Handing work from one session to the next](design-handoff.md): a hand-off with notes, a claim that continues it,
+  shown to the person at the next session's start (H1 built; H2, Codex sessions as cells, waits for the owner).
 - [The control layer on the phone](design-mobile.md): a TypeScript port beside an on-device model, for Expo apps,
   and a router, world model and adapter trained from big models in the app's emulated world (S1, the port, and T0, the
   maths tutor's emulated world, built; the rest proposed).
