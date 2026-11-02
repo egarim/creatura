@@ -49,7 +49,10 @@ wait. There is no separate "stop waiting" entry.
 **Competing proposals** are proposals on one topic in which **neither saw the other**. Among competitors, **the one
 whose entry hash (`SignedEntry.Hash()`) is lowest wins**. That is clock-free, so a cell can't win by backdating its
 timestamp, and every home computes it the same way. A proposal that saw an earlier one is a **counter-proposal**, not
-a competitor: it replaces the earlier one only once it is accepted.
+a competitor: it replaces the earlier one only once it is accepted. Since 2026-11-02 (docs/design-ratings.md, R2) a
+reputation can break the tie first: when every competitor's cell was rated by the owner before any of them proposed
+and one proposer stands above the rest, that proposal is live; otherwise the hash, as above. The topic's `liveBy` says
+which rule picked it.
 
 **Settled:** the winning (or only) proposal on a topic is settled when every other party has answered `--accept`. If
 a party objects, the proposal is not settled and the proposer has the move. If a party is silent past the quiet time

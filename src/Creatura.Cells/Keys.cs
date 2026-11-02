@@ -123,6 +123,13 @@ public sealed class OwnerKey : IDisposable
         return unsigned with { Signature = _key.Sign(unsigned.SignedBytes()) };
     }
 
+    /// <summary>Signs a cell's reputation after a shared job (docs/design-ratings.md, R2): the rating as the owner computed it and what the job showed.</summary>
+    public CellReputation Rate(string cell, string job, double mu, double sigma, int games, bool shipped, int falseClaims, bool contractKept, DateTimeOffset at)
+    {
+        var unsigned = new CellReputation(cell, job, mu, sigma, games, shipped, falseClaims, contractKept, at.ToUniversalTime(), PublicKey, "");
+        return unsigned with { Signature = _key.Sign(unsigned.SignedBytes()) };
+    }
+
     /// <summary>Signs a goal offered to a cell or a vessel (<paramref name="to"/>), open for <paramref name="lifetime"/>; <paramref name="quiet"/> sets the quiet time of docs/design-turns.md, in minutes.</summary>
     public GoalOffer Offer(string to, string goal, DateTimeOffset at, TimeSpan lifetime, string? repo = null, string? branch = null, string? folder = null, int? quiet = null)
     {

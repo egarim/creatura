@@ -308,6 +308,16 @@ public static class ActivityStream
                 activity["object"] = OfferId(withdrawal.Offer);
                 break;
 
+            case EntryKind.Reputation:
+                var reputation = e.Body<ReputationPayload>().Reputation;
+                activity["type"] = "creatura:Rate";
+                activity["actor"] = OwnerId(reputation.OwnerFingerprint);
+                activity["summary"] = string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"the owner rated {names.GetValueOrDefault(reputation.Cell, reputation.Cell)} after '{reputation.Job}': {reputation.Mu:0.0} ± {reputation.Sigma:0.0} over {reputation.Games} job{(reputation.Games == 1 ? "" : "s")}{(reputation.Shipped ? ", shipped" : ", not shipped")}{(reputation.FalseClaims > 0 ? $", {reputation.FalseClaims} false claim{(reputation.FalseClaims == 1 ? "" : "s")}" : "")}");
+                activity["object"] = ActorId(reputation.Cell);
+                activity["creatura:reputation"] = new JsonObject { ["mu"] = reputation.Mu, ["sigma"] = reputation.Sigma, ["games"] = reputation.Games, ["job"] = reputation.Job, ["shipped"] = reputation.Shipped, ["falseClaims"] = reputation.FalseClaims, ["contractKept"] = reputation.ContractKept };
+                break;
+
             default:
                 activity["type"] = "Activity";
                 activity["summary"] = $"{who}: {e.Kind}";

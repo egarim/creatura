@@ -443,3 +443,17 @@ runs are recorded only in the design note.
 - #87: `dotnet test tests/Creatura.Tests --filter RatingsTests; dotnet run --project src/Creatura.Cli -- rate experiments/two-creatures/records`
 
 </details>
+
+## Step R2
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 88 | 2026-11-02 18:48 | `22b28eb`* | build | — | Cell reputation (docs/design-ratings.md, R2): an owner-signed Reputation entry per cell after a shared job, cell rate and reputations, turn breaking a competing-proposal tie by reputation; G6 to G8 hold | Built: EntryKind.Reputation and CellReputation (cell, job, mu, sigma, games, shipped, falseClaims, contractKept, the owner's signature; purpose creatura cell reputation v1), OwnerKey.Rate, ReputationLedger.ReputationOf(cell, before) and Reputations(); WorkLedger.Verify refuses a reputation from an untrusted owner, with a bad signature, carried by the rated cell, or carried by a cell that holds a claim (a worker never rates: the one-line rule for itself or its peer); Turns.Topics picks the live proposal among competitors by the higher reputation when every competitor's cell was rated before any of them proposed and one stands above the rest, else by hash, and says which (TopicState.LiveBy, in the JSON and in T6's reason); the stream shows a rating as creatura:Rate by the owner on the cell; creatura cell rate --job --results (ranks by shipped, fewer false claims, the contract; R1's WengLin update from each cell's latest; one entry per cell; refused on a worker's cell) and cell reputations; the two-creatures runner rates the creatures at the end of a ledger arm from the run's verdicts and keeps reputation.jsonl in the record. Checks: ReputationTests G6 to G8 (3); the cells tests 163 pass (was 160). The runner: CC-LM with fake,liar, 5/5 at 190 s, ends with "rated 2 cells"; reputation.jsonl holds the honest creature rank 1 at mu 27.64 and the liar rank 2 at mu 22.36 with its 2 false claims, both shipped, neither with a contract kept since the fake pair proposes no plan; the images were rebuilt so the owner shell in the creature image has cell rate. The creatures of a run never see their reputations (the world is torn down); the arm that carries the owner's ledger into the next run (X-D11) is the one that would show whether a rated pair settles faster. Next: R3, worlds and barriers as opponents. |  |
+
+<details><summary>Commands</summary>
+
+- #88: `dotnet test tests/Creatura.Cells.Tests; node experiments/two-creatures/runner/run.mjs --arm CC-LM --agents fake,liar --check-every 30`
+
+</details>
