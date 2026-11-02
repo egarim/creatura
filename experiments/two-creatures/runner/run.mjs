@@ -20,8 +20,10 @@ import { fileURLToPath } from "node:url";
 
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const NET = "tc-sandbox";
-const SUBNET = "100.127.200.0/24";
-const IP = { world: "100.127.200.10", a: "100.127.200.21", b: "100.127.200.22" };
+// 10.127.200.0/24, not 100.127.200.0/24 as before 2026-11-02: Tailscale drops input from 100.64.0.0/10 that does not
+// arrive on its own interface, which kept a judge on the host (--judge ux) from reaching world.
+const SUBNET = "10.127.200.0/24";
+const IP = { world: "10.127.200.10", a: "10.127.200.21", b: "10.127.200.22" };
 const HUB = `http://world:5181`;
 
 // ---- arguments ----------------------------------------------------------------------------------------------
@@ -34,7 +36,12 @@ const arm = reference ? `REF${breakWhat ? "-" + breakWhat : ""}` : opt("--arm");
 const minutes = Number(opt("--minutes", reference ? 5 : 120));
 const checkEvery = Number(opt("--check-every", 600));
 const keep = argv.includes("--keep");
-const roles = argv.includes("--roles"); // the parts written in: a the server, b the UI (goal.md)
+const roles = argv.includes("--roles");
+// --judge ux: the judge is a web world (docs/design-web-worlds.md, "The two-creatures judge as a web world") run on this
+// host with `creatura ux run` over judge/shopping-list.adapter.json, two cells per check; the default is the script
+// judge in its container. TC_CREATURA names the creatura command (default: dotnet run on this repository's CLI).
+const uxJudge = (opt("--judge", "script") === "ux");
+if (!["script", "ux"].includes(opt("--judge", "script"))) usage("--judge takes script (the container) or ux (the web world on this host)"); // the parts written in: a the server, b the UI (goal.md)
 if (!arm) usage("--arm is required");
 const channel = reference ? "none" : arm.split("-")[1];
 const solo = channel === "0";
@@ -186,8 +193,56 @@ function join_(n) {
 
 // ---- the judge and the claims -------------------------------------------------------------------------------
 
+let judgeRuns = 0;
+
+/**
+ * The judge as a web world: the adapter in judge/ filled with a fresh item and the world's address, two cells run in
+ * order (add-item, then tick-item) with the script seats, read back from cell.json. The five steps are read off the
+ * cells: 1 the page loads (add-item ran), 2 the item is in the data (add-item done), 3 a second browser showed it in
+ * time (add-item live), 4 ticked in the data and shown ticked (tick-item done and live), 5 still there after the
+ * restart (tick-item survived). Steps stop at the first failure, as the script judge's do.
+ */
+function judgeUx() {
+  const n = ++judgeRuns;
+  const item = `milk ${Date.now().toString(36)}`;
+  const dir = join(state, "judge", String(n));
+  mkdirSync(dir, { recursive: true });
+  const fill = (text) => text.replaceAll("{{item}}", item).replaceAll("{{world}}", IP.world);
+  const judgeDir = join(HERE, "judge");
+  writeFileSync(join(dir, "adapter.json"), fill(readFileSync(join(judgeDir, "shopping-list.adapter.json"), "utf8")));
+  for (const task of ["add-item", "tick-item"]) writeFileSync(join(dir, `${task}.script`), fill(readFileSync(join(judgeDir, `${task}.script`), "utf8")));
+  const creatura = (process.env.TC_CREATURA ?? `dotnet run -v q --project ${join(HERE, "..", "..", "src", "Creatura.Cli")} --`).split(/\s+/);
+  const cells = {};
+  for (const task of ["add-item", "tick-item"]) {
+    const out = join(dir, task);
+    const t0 = Date.now();
+    let text = "";
+    try {
+      text = execFileSync(creatura[0], [...creatura.slice(1), "ux", "run", "--adapter", join(dir, "adapter.json"), "--base-url", `http://${IP.world}:8080/`,
+        "--task", task, "--persona", "judge", "--env", "desktop", "--seat", `script:${join(dir, `${task}.script`)}`, "--ticks", "6", "--out", out],
+        { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 180000 });
+    } catch (e) {
+      text = `${e.stdout ?? ""}\n${e.stderr ?? ""}`;
+    }
+    const cellFile = join(out, "cell.json");
+    cells[task] = existsSync(cellFile) ? JSON.parse(readFileSync(cellFile, "utf8")) : { error: `no cell.json: ${text.trim().split("\n").filter((l) => l.trim() && !l.startsWith("   at ") && !l.startsWith("---")).slice(-3).join(" | ").slice(0, 300)}` };
+    cells[task].ms = Date.now() - t0;
+    if (cells[task].error || !cells[task].dataDone) break;   // the next step needs this one
+  }
+  const add = cells["add-item"] ?? {}, tick = cells["tick-item"] ?? {};
+  const steps = [];
+  const step = (k, title, pass, detail) => { steps.push({ n: k, title, pass: Boolean(pass), ms: (k <= 3 ? add : tick).ms ?? 0, ...(pass ? {} : { detail: String(detail ?? "").slice(0, 300) }) }); return Boolean(pass); };
+  step(1, "the page loads", !add.error, add.error)
+    && step(2, "adding an item shows it", add.dataDone, add.checkDetail)
+    && step(3, "the other browser shows it within 5 s, without a reload", add.live, add.liveDetail)
+    && step(4, "checked in one browser, the other shows it checked within 5 s", tick.dataDone && tick.live, tick.error ?? (!tick.dataDone ? tick.checkDetail : tick.liveDetail))
+    && step(5, "after a restart it is still there and still checked", tick.survived, tick.survivedDetail);
+  const score = steps.filter((s) => s.pass).length;
+  return JSON.stringify({ at: new Date().toISOString(), app: `http://${IP.world}:8080/`, item, judge: "ux", score, shipped: score === 5, steps });
+}
+
 function judge(why) {
-  const text = docker(["run", "--rm", "--network", NET, "--add-host", `world:${IP.world}`, "tc-judge"], { allowFail: true }) ?? "";
+  const text = uxJudge ? judgeUx() : docker(["run", "--rm", "--network", NET, "--add-host", `world:${IP.world}`, "tc-judge"], { allowFail: true }) ?? "";
   const line = text.trim().split("\n").pop();
   let result;
   try { result = JSON.parse(line); } catch { result = { score: 0, shipped: false, steps: [{ n: 0, pass: false, detail: `the judge printed no result: ${text.slice(-300)}` }] }; }
@@ -373,7 +428,7 @@ async function main() {
   if (last.shipped && firstShip === null) firstShip = last.elapsed;
 
   const summary = {
-    run: runId, arm, agents: agentKinds, channel, roles: roles || undefined, reference: reference ? breakWhat || "intact" : undefined,
+    run: runId, arm, agents: agentKinds, channel, roles: roles || undefined, reference: reference ? breakWhat || "intact" : undefined, judge: uxJudge ? "ux" : "script",
     score: last.score, shipped: last.shipped, firstShipSeconds: firstShip,
     seconds: Math.round((Date.now() - t0) / 1000),
     claims: claims.map(({ key, ...c }) => c), falseClaims: claims.filter((c) => !c.true).length,

@@ -1,0 +1,3 @@
+# The judge, step 2: add the item with the field labelled Item and the button Add (the runner fills {{item}}).
+type Item: {{item}}
+click Add

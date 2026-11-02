@@ -17,6 +17,7 @@ Needs Docker, the .NET 10 SDK (to publish the cells CLI and the hub from this ch
 experiments/two-creatures/build.sh                                      # the three images
 node experiments/two-creatures/runner/run.mjs --reference                # the reference app: must score 5/5
 node experiments/two-creatures/runner/run.mjs --reference live           # one feature broken: must fail step 3
+node experiments/two-creatures/runner/run.mjs --reference --judge ux     # the judge as a web world (judge/, creatura ux on this host)
 node experiments/two-creatures/runner/run.mjs --arm CC-L --agents fake,fake --check-every 30
 node experiments/two-creatures/runner/run.mjs --arm CC-L --agents polite,polite          # no roles: both wait, turn picks one
 node experiments/two-creatures/runner/run.mjs --arm CC-L --agents simultaneous,simultaneous   # no roles: both propose at once
@@ -48,7 +49,7 @@ machines up afterwards (`docker exec -it tc-creature-a bash`).
 
 | container | address | what it is |
 |---|---|---|
-| `tc-world` | 100.127.200.10, `world` | the sandbox's outside: git over ssh with push-to-deploy, its own Docker for the published app, the message board on 7000, the deployer on 7001, the ledger hub on 5181 |
+| `tc-world` | 10.127.200.10, `world` | the sandbox's outside: git over ssh with push-to-deploy, its own Docker for the published app, the message board on 7000, the deployer on 7001, the ledger hub on 5181 |
 | `tc-creature-a`, `tc-creature-b` | .21, .22 | the creatures: Node, git, `sudo`, the `creatura` CLI with a `cell` wrapper, `say` and `listen` |
 | `tc-judge` | one-shot | the outside test (Playwright), which no creature can see |
 
@@ -71,6 +72,7 @@ start one creature that owns both repositories.
 | `images/world/` | world: Docker in Docker, sshd, `git-acl.sh` (who may push where), the deploy hook, `deployer.mjs`, `board.mjs` |
 | `images/creature/` | a creature's body and its channel tools (`cell`, `say`, `listen`) |
 | `images/judge/test.mjs` | the outside test: five steps, two browsers, a restart |
+| `judge/` | the same test as a web world (docs/design-web-worlds.md): the shopping-list adapter and the two scripts the runner fills in for `--judge ux`; needs the .NET SDK and a Chromium on the host (`TC_CREATURA`, `CREATURA_CHROMIUM`) |
 | `reference/` | a reference shopping list split in two repositories, with `BREAK` switches that each break one step |
 | `agents/fake.mjs` | the scripted fake agents: server, UI, or both alone; and the turn-driven pairs, polite and simultaneous |
 | `agents/model.mjs` | a creature driven by a hosted model (DeepSeek): the goal, a shell, a step and dollar budget, a transcript |

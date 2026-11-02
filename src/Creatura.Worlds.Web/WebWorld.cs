@@ -464,8 +464,12 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
         return fresh.Count == 0 ? $"{where}; nothing new on screen" : $"{where}; new: {string.Join(" / ", fresh)}";
     }
 
-    /// <summary>The page answered an action: it went to another page, or text appeared that was not there before (a line shown once more counts).</summary>
-    public static bool Responded(Observation before, Observation after) => after.Path != before.Path || Fresh(before, after).Any();
+    /// <summary>
+    /// The page answered an action: it went to another page, text appeared that was not there before (a line shown once
+    /// more counts), or a control changed state (a box ticked, a value changed): a tick writes without a word.
+    /// </summary>
+    public static bool Responded(Observation before, Observation after) =>
+        after.Path != before.Path || Fresh(before, after).Any() || after.Controls.Any(c => before.ById(c.Id) is { } was && (was.Checked != c.Checked || was.Value != c.Value));
 
     /// <summary>The lines on screen after that were not before, counted as a multiset: a second "buy milk" in a list is new.</summary>
     private static IEnumerable<string> Fresh(Observation before, Observation after)
@@ -529,15 +533,18 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
             if (Current.ById(id) is { Kind: ControlKind.Type } field && field.Value == text) _facts.Add(WebTools.Typed(id));
         }
 
-        // The first time the data says done: does the second browser show it, without a reload, within the time?
-        if (LastCheck.Done && !_doneSeen)
+        // The first time the data says done after an action: does the second browser show it, without a reload, within the time?
+        if (LastCheck.Done && !_doneSeen && Ticks > 0)
         {
             _doneSeen = true;
             if (_task.Live is { } live && _watcher is not null) Live = await WatchAsync(live, cancellationToken).ConfigureAwait(false);
         }
     }
 
-    /// <summary>Reads the second browser's page, never reloading it, until it shows the texts or the time is up.</summary>
+    /// <summary>
+    /// Reads the second browser's page, never reloading it, until it shows the texts or the time is up. The screen is read
+    /// as the persona reads it (the visible text and the control lines), so a text may name a control's state: "milk (checked)".
+    /// </summary>
     private async Task<UxLiveResult> WatchAsync(UxLive live, CancellationToken cancellationToken)
     {
         IReadOnlyList<string> texts = live.Text is { Length: > 0 } t ? new[] { t } : _task.Check?.Texts() ?? [];
@@ -548,7 +555,7 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
         {
             try
             {
-                seen = (await ObserveAsync(_watcher!, _options.MaxText).ConfigureAwait(false)).Text;
+                seen = (await ObserveAsync(_watcher!, _options.MaxText).ConfigureAwait(false)).Render();
             }
             catch (Exception e) when (e is PlaywrightException or TimeoutException)
             {
@@ -574,13 +581,16 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
         var started = System.Environment.TickCount64;
         try
         {
-            using var response = await Http.SendAsync(_http, _adapter, survives.Restart, cancellationToken).ConfigureAwait(false);
+            // A restart can take longer than the world's own client allows (containers stop in their own time): its own client, with the patience.
+            using var slow = new HttpClient { Timeout = TimeSpan.FromMilliseconds(Math.Max(survives.PatienceMs, 15000)) };
+            using var response = await Http.SendAsync(slow, _adapter, survives.Restart, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
                 return Survived = new UxSurviveResult(false, 0, string.Create(CultureInfo.InvariantCulture, $"the restart {survives.Restart.Method} {survives.Restart.Url} answered {(int)response.StatusCode}"));
         }
-        catch (HttpRequestException e)
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or OperationCanceledException)
         {
-            return Survived = new UxSurviveResult(false, 0, $"the restart {survives.Restart.Method} {survives.Restart.Url} failed: {FirstLine(e.Message)}");
+            if (cancellationToken.IsCancellationRequested) throw;
+            return Survived = new UxSurviveResult(false, (int)(System.Environment.TickCount64 - started), $"the restart {survives.Restart.Method} {survives.Restart.Url} failed: {FirstLine(e.Message)}");
         }
 
         CheckResult check;

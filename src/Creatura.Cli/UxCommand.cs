@@ -36,6 +36,7 @@ public static class UxCommand
                                        the tester: a script of actions by control name, or a catalogued model
                                        (default for --demo: script:demo; an adapter needs one named)
           --trace                      every row of the trace
+          --out <dir>                  write the cell as cell.json and its trace as trace.jsonl there, for a program
 
         matrix (every cell named; default: all of each):
           --tasks <ids> --personas <ids> --envs <ids>
@@ -110,7 +111,7 @@ public static class UxCommand
 
         string[] known = verb switch
         {
-            "run" => ["--adapter", "--base-url", "--task", "--persona", "--env", "--barriers", "--seat", "--escalate", "--vision", "--design", "--ticks", "--log", "--browser", "--sessions", "--memory", "--records", "--record"],
+            "run" => ["--adapter", "--base-url", "--task", "--persona", "--env", "--barriers", "--seat", "--escalate", "--vision", "--design", "--ticks", "--log", "--browser", "--sessions", "--memory", "--records", "--record", "--out"],
             "matrix" => ["--adapter", "--base-url", "--tasks", "--personas", "--envs", "--testers", "--barriers", "--escalate", "--vision", "--design", "--designs", "--memory", "--records", "--ticks", "--log",
                          "--browser", "--max-cost", "--out", "--baseline", "--sessions", "--judge", "--summary", "--record"],
             "gate" => ["--baseline", .. Thresholds],
@@ -259,6 +260,14 @@ public static class UxCommand
         output.WriteLine(cell.Summary());
         if (cell.FalseDone) output.WriteLine("  · said done, not done: the gap a judge reads");
         if (cell.Recording is { } recording) output.WriteLine($"recording: {Path.Combine(recording, UxRecorder.FileName)} (open tools/web-viewer/index.html and pick that folder)");
+        if (options.GetValueOrDefault("--out") is { } outDir)
+        {
+            Directory.CreateDirectory(outDir);
+            File.WriteAllText(Path.Combine(outDir, "cell.json"), System.Text.Json.JsonSerializer.Serialize(cell, UxAdapter.Json));
+            run.WriteJsonl(Path.Combine(outDir, "trace.jsonl"));
+            output.WriteLine($"cell: {Path.Combine(outDir, "cell.json")}");
+        }
+
         return 0;
     }
 
