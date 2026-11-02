@@ -69,6 +69,9 @@ public sealed record UxCell
     /// <summary>The lessons the persona was shown from earlier cells.</summary>
     public IReadOnlyList<string> Remembered { get; init; } = [];
 
+    /// <summary>The folder the cell's run was recorded in, to be watched back (<see cref="UxRecorder"/>); null when it was not.</summary>
+    public string? Recording { get; init; }
+
     /// <summary>The cell's identity across runs, for compare: task, persona, environment, tester and design.</summary>
     public string Key => $"{Task}|{Persona}|{Environment}|{(Tester.Length == 0 ? Seat : Tester)}|{Design}";
 
@@ -147,6 +150,9 @@ public sealed record UxCell
     }
 }
 
+/// <summary>Where a cell's recording goes and what its header says (<see cref="UxRecorder"/>).</summary>
+public sealed record UxRecordTo(string Folder, UxRecordingHeader Header);
+
 /// <summary>Runs one cell: opens the world, seats the persona, runs the agent, reads the data.</summary>
 public static class UxRunner
 {
@@ -155,30 +161,35 @@ public static class UxRunner
     public static Task<UxCell> RunAsync(WebBrowser browser, UxAdapter adapter, UxTask task, UxPersona persona, UxEnvironment environment,
         Func<WebWorld, IPolicy> seat, Func<IPolicy, AgentTask, IAgent>? agent = null, WebWorldOptions? options = null, int? maxTicks = null,
         CancellationToken cancellationToken = default) =>
-        RunAsync(browser, adapter, task, persona, environment, seat, (p, t, _) => (agent ?? PlainLoop.Make)(p, t), options, maxTicks, stuckAlarm: false, cancellationToken);
+        RunAsync(browser, adapter, task, persona, environment, seat, (p, t, _) => (agent ?? PlainLoop.Make)(p, t), options, maxTicks, stuckAlarm: false, cancellationToken: cancellationToken);
 
     /// <param name="agent">Builds the agent around the seat and the task, with the extensions the runner adds (the stuck alarm).</param>
     /// <param name="stuckAlarm">Put the stuck alarm (<see cref="UxStuckAlarm"/>) in the loop, with the adapter's patience and limit; off when the patience is 0.</param>
+    /// <param name="record">Record the run to watch back (<see cref="UxRecorder"/>): the folder and the header; null records nothing.</param>
     public static async Task<UxCell> RunAsync(WebBrowser browser, UxAdapter adapter, UxTask task, UxPersona persona, UxEnvironment environment,
         Func<WebWorld, IPolicy> seat, Func<IPolicy, AgentTask, IReadOnlyList<IAgentExtension>, IAgent> agent, WebWorldOptions? options, int? maxTicks,
-        bool stuckAlarm = true, CancellationToken cancellationToken = default)
+        bool stuckAlarm = true, UxRecordTo? record = null, CancellationToken cancellationToken = default)
     {
         options ??= new WebWorldOptions();
         await using var world = await WebWorld.OpenAsync(browser, adapter, task, environment, options, cancellationToken).ConfigureAwait(false);
         var policy = seat(world);
         var alarm = stuckAlarm && adapter.Limits.StuckPatience > 0 ? new UxStuckAlarm(world, adapter.Limits.StuckPatience, adapter.Limits.StuckLimit) : null;
-        var loop = agent(policy, WebTask.For(task), alarm is null ? [] : [alarm]);
+        var recorder = record is null ? null : new UxRecorder(record.Folder, world, record.Header with { Width = environment.Width, Height = environment.Height, Mobile = environment.Mobile, Barriers = options.Barriers, Prompt = task.Prompt });
+        IAgentExtension[] extras = [.. alarm is null ? [] : new IAgentExtension[] { alarm }, .. recorder is null ? [] : new IAgentExtension[] { recorder }];
+        var loop = agent(policy, WebTask.For(task), extras);
         var run = await loop.RunAsync(world, maxTicks ?? adapter.Limits.Steps, cancellationToken).ConfigureAwait(false);
         await world.RefreshAsync(cancellationToken).ConfigureAwait(false);
         var persona_ = policy as PersonaPolicy;
-        return new UxCell
+        var cell = new UxCell
         {
-            Task = task.Id, Persona = persona.Id, Environment = environment.Id, Seat = policy.Name, Agent = run.Agent,
+            Task = task.Id, Persona = persona.Id, Environment = environment.Id, Seat = policy.Name, Agent = run.Agent, Recording = recorder?.Folder,
             Barriers = options.Barriers, DataDone = world.LastCheck.Done, CheckDetail = world.LastCheck.Detail,
             PageSaidDone = world.PageReportedCommit, BelievedDoneAt = persona_?.Telemetry.BelievedDoneAt,
             Ticks = run.Ticks, LiesTold = world.Lies.Count, InputLost = world.Lies.Count(l => l.InputLost), LiesCaught = world.Lies.Count(l => l.CaughtIn(run)), Escalations = persona_?.Telemetry.Escalations ?? 0,
             Cost = persona_ is null ? 0m : persona_.Telemetry.Cost, BarrierFires = new Dictionary<string, int>(world.BarrierFires), Run = run,
             StuckAlarms = alarm?.Fired ?? 0, ControlsTaken = alarm?.TookControls ?? false, Screenshots = persona_?.Telemetry.Screenshots ?? 0,
         };
+        recorder?.Finish(cell);
+        return cell;
     }
 }

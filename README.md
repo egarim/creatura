@@ -449,11 +449,13 @@ creatura ux run --adapter myapp.json --seat model:deepseek-chat --escalate deeps
 creatura ux matrix --demo --out runs/ux/main --gate      # every task × persona × viewport × tester; the gate exits 1 if broken
 creatura ux compare runs/ux/main runs/ux/branch          # cell by cell: regressed, fixed, new gaps, slower
 creatura ux gate runs/ux/branch --baseline runs/ux/main  # thresholds from the adapter's gate, or flags
+creatura ux run --demo --record rec                      # and watch it back: open tools/web-viewer/index.html, pick rec/<cell>
 ```
 
 The demo runs offline with no model. It needs a Chromium Playwright can launch (`PLAYWRIGHT_BROWSERS_PATH`, Playwright's
 own `playwright.ps1 install chromium`, or `--browser <path>`). A matrix leaves a folder: `report.json`, `cells.csv`,
-`report.md` and each cell's trace. The report counts three gaps apart: the persona believed it was done and the data
+`report.md` and each cell's trace; with `--record <dir>`, also a folder per cell to watch back (`replay.jsonl` with a
+JPEG per screen, played by `tools/web-viewer/index.html`). The report counts three gaps apart: the persona believed it was done and the data
 says not; the page said done and the data says not; and a lie the run did not catch. An account signs in once, by steps
 declared in the adapter. Its session (cookies, localStorage, and sessionStorage, where the Singular starter keeps its
 Keycloak token) is reused by every later cell, and with `--sessions <dir>` by the next run.

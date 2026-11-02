@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Web worlds: record and replay** (docs/design-web-worlds.md, "Record and replay"). `creatura ux run | matrix --record
+  <dir>` writes a folder per cell: `replay.jsonl` (the header, a frame for every screen the persona saw with the text
+  and the numbered controls and the data's check, a tick for every action with the persona's answer, the control, the
+  outcome, the verdict and whether the world lied, then the trace rows and the cell's numbers) and a JPEG of every
+  screen. `UxRecorder` is an extension, so it rides every design. `tools/web-viewer/index.html` plays a cell back
+  from disk. A password field is now secret: shown as "(filled)" or "(empty)" to the persona and in a recording, never
+  its value. W30 to W32 hold.
 - **Two-creatures runner: a board message claims done only when it starts with DONE** (#21), as the goal asks; a
   message that mentions DONE on the way is talk. The old rule (DONE anywhere) had taken 6 such messages on the DD-M
   board of 2026-10-31 and 1 on the DD-M rerun with roles as claims (log #79). And the one-shot shells on the experiment

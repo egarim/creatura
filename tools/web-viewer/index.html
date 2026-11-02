@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Replay</title>
+<style>
+/* The web-world replay viewer: one cell of a web run, watched back (docs/design-web-worlds.md, record and replay).
+   Reads a recording folder: replay.jsonl and its tick-N.jpg images, written by UxRecorder. Nothing leaves the browser. */
+:root {
+  --bg: #071b2b; --panel: #0b2537; --line: #1c3a4f; --fg: #ece5d3; --muted: #8fa2ad;
+  --gold: #b49345; --gold-hi: #d9bb6c; --danger: #e0664f; --good: #7db58c; --mark: #2a4f66;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #e9eeec; --panel: #f6f8f6; --line: #c7d2d0; --fg: #071b2b; --muted: #4f6470;
+    --gold: #8a6a22; --gold-hi: #6f5418; --danger: #b83c27; --good: #2f7a47; --mark: #d7e3dc; color-scheme: light;
+  }
+}
+:root[data-theme="dark"] { --bg: #071b2b; --panel: #0b2537; --line: #1c3a4f; --fg: #ece5d3; --muted: #8fa2ad; --mark: #2a4f66; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--body); display: flex; flex-direction: column; gap: 12px; padding: 12px 16px; }
+h1 { margin: 0; font-size: 20px; font-weight: 500; }
+h1 small { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 10px; }
+.bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.bar .pick { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.btn, input[type=range] { font: inherit; color: inherit; }
+.btn { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.btn:hover { border-color: var(--gold); }
+.btn.primary { background: var(--gold); color: var(--bg); border-color: var(--gold); font-weight: 600; }
+.btn[disabled] { opacity: .5; cursor: default; }
+input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.stage { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(280px, 2fr) minmax(300px, 3fr); gap: 12px; }
+.screen { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); display: flex; align-items: flex-start; justify-content: center; overflow: auto; padding: 8px; }
+.screen img { max-width: 100%; height: auto; border-radius: 4px; }
+.screen .none { color: var(--muted); padding: 24px; }
+.side { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: auto; }
+.card { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 10px 12px; }
+.card h2 { margin: 0 0 6px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+pre { margin: 0; font: 12.5px/1.45 var(--mono); white-space: pre-wrap; word-break: break-word; }
+.controls div { font: 12.5px/1.5 var(--mono); padding: 1px 6px; border-radius: 4px; }
+.controls .hit { background: var(--mark); outline: 1px solid var(--gold); }
+.kv { display: grid; grid-template-columns: 110px 1fr; gap: 2px 10px; }
+.kv b { color: var(--muted); font-weight: 500; }
+.verdict-landed { color: var(--good); } .verdict-lied { color: var(--danger); } .verdict-honestfailure { color: var(--gold-hi); }
+.lie { color: var(--danger); font-weight: 600; }
+.transport { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.transport input[type=range] { flex: 1; min-width: 160px; }
+.transport .where { font-family: var(--mono); font-size: 13px; min-width: 140px; }
+.rows div { font: 12px/1.45 var(--mono); color: var(--muted); }
+.rows div.mine { color: var(--fg); }
+.end { font-family: var(--mono); font-size: 12.5px; }
+@media (max-width: 760px) { .stage { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1>Web replay <small id="who">pick a recording folder (replay.jsonl and its images)</small></h1>
+  <div class="pick">
+    <label class="btn primary" for="folder">Open a folder</label>
+    <input id="folder" type="file" webkitdirectory multiple>
+    <label class="btn" for="files">Open files</label>
+    <input id="files" type="file" multiple accept=".jsonl,.jpg,.jpeg">
+  </div>
+</header>
+
+<main class="stage">
+  <section class="screen" id="screen" aria-label="The screen as an image"><div class="none">No recording loaded.</div></section>
+  <aside class="side">
+    <div class="card">
+      <h2 id="tick-title">Tick</h2>
+      <div class="kv" id="tick"></div>
+    </div>
+    <div class="card">
+      <h2>What the persona saw</h2>
+      <pre id="text"></pre>
+      <div class="controls" id="controls"></div>
+      <div id="check" style="margin-top:6px"></div>
+    </div>
+    <div class="card">
+      <h2>Trace rows this tick</h2>
+      <div class="rows" id="rows"></div>
+    </div>
+    <div class="card">
+      <h2>The cell</h2>
+      <div class="end" id="end"></div>
+    </div>
+  </aside>
+</main>
+
+<footer class="transport">
+  <button class="btn" id="first" title="First (Home)">⏮</button>
+  <button class="btn" id="prev" title="Back (←)">◀</button>
+  <button class="btn" id="play" title="Play (space)">▶</button>
+  <button class="btn" id="next" title="Forward (→)">▶|</button>
+  <input id="slider" type="range" min="0" max="0" value="0" aria-label="Tick">
+  <span class="where" id="where">—</span>
+</footer>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+let rec = null;      // { header, frames[], ticks[], rows[], notes[], end, images: Map<name, objectURL> }
+let at = 0;          // the step shown: 0 is the start screen, n is after tick n
+let timer = null;
+
+async function load(fileList) {
+  const files = [...fileList];
+  const jsonl = files.find((f) => f.name === 'replay.jsonl') ?? files.find((f) => f.name.endsWith('.jsonl'));
+  if (!jsonl) { $('who').textContent = 'no replay.jsonl among the files'; return; }
+  const text = await jsonl.text();
+  const lines = text.split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  const r = { header: null, frames: [], ticks: [], rows: [], notes: [], end: null, images: new Map() };
+  for (const o of lines) {
+    if (o.type === 'header') r.header = o;
+    else if (o.type === 'frame') r.frames[o.frame] = o;
+    else if (o.type === 'tick') r.ticks.push(o);
+    else if (o.type === 'row') r.rows.push(o);
+    else if (o.type === 'note') r.notes.push(o.text);
+    else if (o.type === 'end') r.end = o;
+  }
+  for (const [, url] of rec?.images ?? []) URL.revokeObjectURL(url);
+  for (const f of files) if (/\.jpe?g$/i.test(f.name)) r.images.set(f.name, URL.createObjectURL(f));
+  rec = r;
+  const h = r.header ?? {};
+  $('who').textContent = `${h.app ?? '?'}: ${h.task ?? '?'} × ${h.persona ?? '?'} × ${h.environment ?? '?'} (${h.width ?? '?'}×${h.height ?? '?'}${h.mobile ? ', mobile' : ''}); tester ${h.tester ?? '?'}; design ${h.design ?? '?'}` +
+    (h.barriers?.length ? `; barriers ${h.barriers.join(', ')}` : '');
+  $('slider').max = String(r.ticks.length);
+  show(0);
+}
+
+function frameFor(step) {
+  // Step 0 shows frame 0; step n shows the frame tick n led to.
+  if (!rec) return null;
+  if (step === 0) return rec.frames[0] ?? null;
+  const t = rec.ticks[step - 1];
+  return rec.frames[t?.now] ?? null;
+}
+
+function show(step) {
+  if (!rec) return;
+  at = Math.max(0, Math.min(step, rec.ticks.length));
+  $('slider').value = String(at);
+  const frame = frameFor(at);
+  const tick = at === 0 ? null : rec.ticks[at - 1];
+  const saw = tick ? rec.frames[tick.saw] : null;
+
+  // The image: the screen after this tick (the start screen at step 0).
+  const img = frame?.image ? rec.images.get(frame.image) : null;
+  $('screen').innerHTML = img ? `<img src="${img}" alt="the screen after tick ${at}">` : `<div class="none">${frame ? 'no image for this screen' : 'no frame'}</div>`;
+
+  // The tick: what the persona was shown, what it answered, what came of it.
+  $('tick-title').textContent = at === 0 ? 'Start' : `Tick ${tick.tick} of ${rec.ticks.length}`;
+  if (tick) {
+    const a = tick.action ?? {};
+    const verdict = String(tick.verdict ?? '');
+    $('tick').innerHTML =
+      `<b>answer</b><span>${esc(tick.answer || '(no words)')}</span>` +
+      `<b>action</b><span>${esc(a.kind ?? '')} ${a.number ? `#${a.number} ` : ''}${esc(a.name ?? a.tool ?? '')}${a.content != null ? ` — "${esc(a.content)}"` : ''}</span>` +
+      `<b>outcome</b><span>${tick.outcome?.succeeded ? 'went through' : 'failed'}${tick.outcome?.observation ? `: ${esc(tick.outcome.observation)}` : ''}</span>` +
+      `<b>verdict</b><span class="verdict-${verdict}">${esc(verdict)}${tick.lie ? ' <span class="lie">· the world lied here</span>' : ''}</span>`;
+  } else {
+    $('tick').innerHTML = `<b>goal</b><span>${esc(rec.header?.prompt ?? '')}</span>`;
+  }
+
+  // The screen the persona read when it decided this tick (the start screen at step 0), the pressed control marked.
+  const read = tick ? saw : frame;
+  $('text').textContent = read ? read.screen?.text ?? '' : '';
+  $('controls').innerHTML = (read?.screen?.controls ?? []).map((c) => `<div class="${tick && c.id === tick.action?.tool ? 'hit' : ''}">${esc(c.line)}</div>`).join('');
+  const check = frame?.check;
+  $('check').innerHTML = check ? `data after: <span class="${check.done ? 'verdict-landed' : ''}">${check.done ? 'DONE' : 'not done'}</span> <span style="color:var(--muted)">(${esc(check.detail)})</span>` : '';
+
+  const rows = tick ? rec.rows.filter((r) => r.tick === tick.tick) : [];
+  $('rows').innerHTML = rows.length ? rows.map((r) => `<div class="${r.action === tick.action?.tool ? 'mine' : ''}">${esc(r.level)} · ${esc(r.action)} · ${esc(r.kind)} · ${esc(r.detail)}</div>`).join('') : '<div>—</div>';
+
+  const e = rec.end;
+  $('end').innerHTML = e ? `the data says <span class="${e.dataDone ? 'verdict-landed' : 'verdict-lied'}">${e.dataDone ? 'DONE' : 'NOT DONE'}</span> (${esc(e.checkDetail)}); ${e.ticks} ticks; lies told ${e.liesTold}, caught ${e.liesCaught}` +
+    (e.pageSaidDone && !e.dataDone ? '; the page said it was saved' : '') + (e.believedDoneAt != null ? `; the persona believed it was done at tick ${e.believedDoneAt}` : '') +
+    (e.cost ? `; cost ${e.cost}` : '') + (e.error ? `; not run: ${esc(e.error)}` : '') : 'no end line: the run did not finish';
+  $('where').textContent = `step ${at} / ${rec.ticks.length}`;
+  $('prev').disabled = $('first').disabled = at === 0;
+  $('next').disabled = at >= rec.ticks.length;
+}
+
+function play() {
+  if (timer) { clearInterval(timer); timer = null; $('play').textContent = '▶'; return; }
+  if (at >= rec.ticks.length) show(0);
+  $('play').textContent = '⏸';
+  timer = setInterval(() => { if (at >= rec.ticks.length) return play(); show(at + 1); }, 1500);
+}
+
+$('folder').addEventListener('change', (e) => load(e.target.files));
+$('files').addEventListener('change', (e) => load(e.target.files));
+$('first').addEventListener('click', () => show(0));
+$('prev').addEventListener('click', () => show(at - 1));
+$('next').addEventListener('click', () => show(at + 1));
+$('play').addEventListener('click', () => rec && play());
+$('slider').addEventListener('input', (e) => show(Number(e.target.value)));
+document.addEventListener('keydown', (e) => {
+  if (!rec || e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight') show(at + 1); else if (e.key === 'ArrowLeft') show(at - 1);
+  else if (e.key === 'Home') show(0); else if (e.key === 'End') show(rec.ticks.length); else if (e.key === ' ') { e.preventDefault(); play(); }
+});
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', (e) => { e.preventDefault(); if (e.dataTransfer?.files?.length) load(e.dataTransfer.files); });
+</script>
+</body>
+</html>

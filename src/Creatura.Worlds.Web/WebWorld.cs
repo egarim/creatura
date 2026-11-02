@@ -308,6 +308,9 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
 
     public int Ticks { get; private set; }
 
+    /// <summary>The last action asked of the world: the tool and what it was handed (the text typed, the option chosen).</summary>
+    public (string Tool, string? Payload)? LastAct { get; private set; }
+
     public bool Has(string fact) => _facts.Contains(fact);
 
     public Tool? Tool(string id) => _tools.FirstOrDefault(t => t.Id == id);
@@ -322,6 +325,7 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
     public async Task<ActionOutcome> ActAsync(string toolId, string? payload = null, CancellationToken cancellationToken = default)
     {
         Ticks++;
+        LastAct = (toolId, payload);
         var tool = Tool(toolId);
         if (tool is null) return new ActionOutcome(toolId, false, [], "unknown tool");
         var before = Current;
