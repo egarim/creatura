@@ -1,7 +1,7 @@
 # Design: ratings, so the runs say who is best and when to stop running
 
-**Status:** proposed 2026-11-02 (issue #28, from the owner through another session); slices R1, R2 and R3 built the
-same day, results at the end. R4 is a design.
+**Status:** proposed 2026-11-02 (issue #28, from the owner through another session); all four slices built the same
+day, results at the end.
 
 ## The problem, in the owner's words
 
@@ -68,7 +68,7 @@ calibrated stopping rule (how many more, at what cost) is an open point below.
 | R1 | `Creatura.Ratings`: the Weng-Lin update, contests from the three sources, three leaderboards with uncertainty and the settled-or-open verdict; `creatura rate` | G1 to G5 (built) |
 | R2 | cell reputation: a rating per cell identity written into the ledger after each shared job (shipped, false claims, contract kept), as an entry of the experiment owner's cell, signed by the owner key; `cell turn` may break a tie by reputation instead of the entry hash when both parties' ledgers agree on it; who may rate whom: the owner of the experiment rates the cells that ran it, a cell never rates itself or its peer | G6 to G8 (built) |
 | R3 | barrier curriculum: worlds and barriers as opponents with ratings of their own, updated from the same games (a barrier "wins" when the seat loses); the next barrier for a seat is the one rated nearest its level; applied to web worlds' `--barriers` and, if a game-worlds note exists by then, to it | G9 to G11 (built; no game-worlds note exists yet) |
-| R4 | memory credit, not TrueSkill: per memory (a lesson, a record's case), how often it was retrieved and how often the run then ended well; prune what is retrieved and never helps, promote what helps; applied to the web-world persona memory (`UxMemory`) | G12 to G14 |
+| R4 | memory credit, not TrueSkill: per memory (a lesson, a record's case), how often it was retrieved and how often the run then ended well; prune what is retrieved and never helps, promote what helps; applied to the web-world persona memory (`UxMemory`) | G12 to G14 (built) |
 
 R1 and R4 are independent; R2 and R3 need R1. No paid model call is needed by any of them: every slice reads rows
 that exist.
@@ -88,9 +88,9 @@ that exist.
 | G9 | (R3) a barrier's rating rises when seats lose under it and falls when they win, from the same games that rate the seats | anything else | holds |
 | G10 | (R3) the next barrier picked for a seat is the one whose rating is nearest the seat's, never one already settled far above or below it | a farther barrier picked | holds |
 | G11 | (R3) a matrix run with `--barriers next` runs the picked barrier and the report says why it was picked | anything else | holds |
-| G12 | (R4) every retrieval of a memory is counted, and every run that retrieved it is credited to it as ended well or not | a retrieval uncounted | proposed |
-| G13 | (R4) a memory retrieved often and never followed by a good run is pruned; one followed by good runs more than its persona's base rate is promoted (shown first) | anything else | proposed |
-| G14 | (R4) the web-world persona memory applies it: the lessons a persona is shown are the promoted ones first, and a pruned one is not shown | a pruned lesson shown | proposed |
+| G12 | (R4) every retrieval of a memory is counted, and every run that retrieved it is credited to it as ended well or not | a retrieval uncounted | holds |
+| G13 | (R4) a memory retrieved often and never followed by a good run is pruned; one followed by good runs more than its persona's base rate is promoted (shown first) | anything else | holds |
+| G14 | (R4) the web-world persona memory applies it: the lessons a persona is shown are the promoted ones first, and a pruned one is not shown | a pruned lesson shown | holds |
 
 ## Decisions for the owner
 
@@ -169,6 +169,30 @@ G9 to G11 hold: `CurriculumTests` (2, no browser) and `CurriculumBrowserTests` (
 script loses under `save-lies` and wins under none, the lie barrier sits above the seat and "none" below it, and the
 next pick is an unmet barrier at the prior, the least known; the matrix runs it and says so. Not run: a curriculum
 over many reports, where the picks would walk a seat up through the barriers it can still lose to.
+
+## Results (R4, 2026-11-02)
+
+**Credit, not a rating.** A persona's memories are not opponents and never beat each other, so each is credited on
+its own (`MemoryCredit`): every run counts the memories it retrieved and is credited to each as ended well or not,
+and the persona's own runs give its base rate. A memory retrieved three times and never followed by a good run is
+**pruned**; one retrieved at least twice and followed by good runs more often than the base rate is **promoted**. The
+order shown is the promoted ones first (the best rate first), then the rest as they were, the pruned left out. The
+thresholds are constants (`PruneAfter`, `PromoteAfter`), not fitted to anything: three retrievals without a good run
+is the smallest count that is not one bad day, and two is the smallest from which "more often than the base rate" can
+mean anything.
+
+**In the web worlds.** The persona memory keeps the credit as a part of the persona's record (`ux:credit`, beside the
+lessons). After a cell, `UxMemory.Remember` credits the lessons the cell was shown (`UxCell.Remembered`) with
+whether the data said done, drops the lessons that are now pruned from the record, and adds the cell's own lesson;
+`UxMemory.Lessons` hands the next cell the promoted ones first and the pruned ones never. A read memory credits
+nothing, as it saves nothing. `creatura ux` says how many of a record's lessons are promoted and pruned.
+
+G12 to G14 hold: `MemoryCreditTests` (2) and `MemoryTests.G14` (1), no browser: a persona shown its lie lesson
+in two cells that both ended done, above its base rate of three in four, sees it first; the lesson shown in three
+cells that all ended not done is gone from what it sees and from its record. Not run: a persona under memory carry
+over enough cells for the credit to change what a model persona does, which is a paid matrix (`--memory carry`
+over a model seat) and a question of its own: whether a promoted lesson is followed by more done cells because it
+helped or because the cells it was shown in were easy.
 
 ## What this note does not cover
 

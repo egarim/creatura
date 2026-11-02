@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Memory credit** (docs/design-ratings.md, slice R4). A persona's lessons are credited, not rated: every cell counts
+  the lessons it was shown and is credited to each as ended well or not (`MemoryCredit`); a lesson shown three times
+  and never followed by a done cell is pruned, one shown twice or more and followed by done cells more often than the
+  persona's base rate is promoted. The web-world persona memory keeps the credit in the record (`ux:credit`) and
+  shows the promoted lessons first and the pruned ones never. G12 to G14 hold.
 - **The barrier curriculum** (docs/design-ratings.md, slice R3). Worlds and barriers are opponents with ratings on the
   seats' scale: every run is a duel the seat wins when the job was done (`Curriculum.Ratings`), and the next opponent
   for a seat is the one it beats with a probability nearest one half, settled ones passed over (`Curriculum.Next`).

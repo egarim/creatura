@@ -1,5 +1,6 @@
 using System.Globalization;
 using Creatura.Bench;
+using Creatura.Ratings;
 
 namespace Creatura.Worlds.Web;
 
@@ -22,12 +23,18 @@ public enum UxMemoryMode
 /// the map-keeper's territory; the hybrid's cell) and the persona's lessons, one line per cell, written by the harness
 /// from the cell's verdicts, never by the model, and shown to a model persona as what it remembers. Distrust is not
 /// kept (the Core's rule: a new case starts trusting). With <see cref="UxMemoryMode.Carry"/> the cells' order matters: a
-/// persona's later cells know what its earlier ones learned.
+/// persona's later cells know what its earlier ones learned. Each lesson carries its credit (<see cref="MemoryCredit"/>,
+/// docs/design-ratings.md R4): how many cells were shown it and how many of those ended well; a lesson shown often and
+/// never followed by a done cell is pruned, one followed by done cells more often than the persona's base rate is shown
+/// first.
 /// </summary>
 public sealed class UxMemory
 {
     /// <summary>The record part the lessons are kept under.</summary>
     public const string LessonsPart = "ux:lessons";
+
+    /// <summary>The record part the lessons' credit is kept under.</summary>
+    public const string CreditPart = "ux:credit";
 
     /// <summary>How many lessons a persona keeps, newest last.</summary>
     public const int MaxLessons = 8;
@@ -48,20 +55,47 @@ public sealed class UxMemory
     /// <summary>The store a cell's loop loads from and saves to: the store itself to carry, a frozen copy to read.</summary>
     public IRecordStore ForCell() => Mode == UxMemoryMode.Read ? new ReadOnlyRecordStore(Store) : Store;
 
-    /// <summary>The persona's lessons, oldest first.</summary>
-    public IReadOnlyList<string> Lessons(string key) => Store.Load(key)?.GetPart<List<string>>(LessonsPart) ?? [];
+    /// <summary>The lessons the persona is shown: the promoted ones first, then the rest oldest first, the pruned ones left out.</summary>
+    public IReadOnlyList<string> Lessons(string key)
+    {
+        var record = Store.Load(key);
+        var all = record?.GetPart<List<string>>(LessonsPart) ?? [];
+        return record?.GetPart<MemoryCredit>(CreditPart)?.Order(all) ?? all;
+    }
+
+    /// <summary>Every lesson the record holds, oldest first, whatever its standing.</summary>
+    public IReadOnlyList<string> AllLessons(string key) => Store.Load(key)?.GetPart<List<string>>(LessonsPart) ?? [];
+
+    /// <summary>The persona's memory credit: its runs, and each lesson's retrievals and good runs.</summary>
+    public MemoryCredit Credit(string key) => Store.Load(key)?.GetPart<MemoryCredit>(CreditPart) ?? new MemoryCredit();
+
+    /// <summary>How many of the record's lessons are promoted and how many pruned.</summary>
+    public (int Promoted, int Pruned) Standing(string key)
+    {
+        var credit = Credit(key);
+        var standings = AllLessons(key).Select(credit.StandingOf).ToList();
+        return (standings.Count(s => s == MemoryStanding.Promoted), standings.Count(s => s == MemoryStanding.Pruned));
+    }
 
     /// <summary>How many cells the record has been carried through.</summary>
     public int Cases(string key) => Store.Load(key)?.Cases ?? 0;
 
-    /// <summary>Adds the cell's lesson to the persona's record (carry only), keeping the newest <see cref="MaxLessons"/>.</summary>
+    /// <summary>
+    /// Credits the lessons the cell was shown (<see cref="UxCell.Remembered"/>) with how it ended, drops the ones that
+    /// credit prunes, and adds the cell's own lesson to the persona's record (carry only), keeping the newest
+    /// <see cref="MaxLessons"/>.
+    /// </summary>
     public void Remember(string key, UxCell cell, UxEnvironment environment)
     {
         if (Mode != UxMemoryMode.Carry) return;
         var record = Store.Load(key) ?? new AgentRecord { Key = key };
         var lessons = record.GetPart<List<string>>(LessonsPart) ?? [];
+        var credit = record.GetPart<MemoryCredit>(CreditPart) ?? new MemoryCredit();
+        credit.Credit(cell.Remembered, cell.DataDone);
+        lessons.RemoveAll(l => credit.StandingOf(l) == MemoryStanding.Pruned);
         lessons.Add(Lesson(cell, environment));
         record.SetPart(LessonsPart, lessons.TakeLast(MaxLessons).ToList());
+        record.SetPart(CreditPart, credit);
         Store.Save(key, record);
     }
 
