@@ -524,6 +524,63 @@ on its picker, shows the cell, the start screen, both ticks and the end, and the
 Not verified: a recording of a model persona (the answer field then holds the model's own sentence, from the same
 decision row), a recording on a real app, and the viewer on a run with ticks the loop spent without acting.
 
+## The two-creatures judge as a web world (proposed, the owner's call)
+
+The two-creatures experiment ([design-two-creatures.md](design-two-creatures.md)) judges the app its agents build
+with its own script: a Node and Playwright test in a container (`images/judge/test.mjs`), five steps, two browsers,
+read from the page alone. Web worlds judge an app by its data and leave a trace, a report and now a recording. The
+owner's direction (2026-11-02) is to make the one the other: the experiment's judge becomes `creatura ux` over an
+adapter written for the goal, so any goal with a data check is a two-creatures experiment, and the judge's runs are
+recorded, compared and gated like any matrix. Read against the five steps, the mapping is not even:
+
+| step | today's judge | as a web world |
+|---|---|---|
+| 1 the page loads | `GET /` answers | the task's start page opens: a cell that cannot open is "not run" |
+| 2 add "milk" with Item and Add; it appears | the page shows it | a task `add-item`: a script persona types Item and presses Add (the commit); **the data check** says the item is there |
+| 3 a second browser, open before, shows it within 5 s with no reload | the page shows it in browser 2 | **not expressible today**: a cell has one persona and one browser context. Proposed: a task may declare `live`: a second context opened at the task's start, read every 500 ms after the commit, must show the check's text within `withinMs` with no reload. The page reflecting the data is the mirror of the data check, a property of the app the world can read |
+| 4 browser 2 ticks it; browser 1 shows it ticked within 5 s | both pages | a task `tick-item` (the persona ticks the checkbox) with the data check `bought: true`, and `live` on the second context again |
+| 5 after a restart, still there and still ticked | the page after `POST world:7001/restart` | **not expressible today**. Proposed: a task may declare `survives`: an `HttpCall` the world sends after the done fact lands (the restart), then the same check again, with a patience; a cell whose data vanished is `lost-on-restart`, a new finding |
+
+Three things follow, and each is a change the owner has to want:
+
+1. **The goal gains a read endpoint.** A data check is one request and one JSON assertion. The goal fixes the UI
+   (a field "Item", a button "Add", a checkbox per item) and nothing of the API, and the pairs so far put the items
+   at `/items` or `/api/items`, with `text` or `name`. For the data to judge, the goal must say one thing more,
+   for instance: *the app answers `GET /items` with a JSON array of `{"text": ..., "bought": true|false}`*. That
+   is a change to the words the experiment keeps the same every run (X-D4), so the runs before it are a baseline of
+   their own; and it gives the pair one thing less to agree on (the read side of the API), which touches the
+   collaboration question itself. The alternative, a judge that reads the page, is today's judge.
+2. **Web worlds gain `live` and `survives`.** Both are app properties a world can read (the page reflects the data;
+   the data outlives a restart), not persona properties, so they belong in the world and the report, not in a
+   seat. They add two findings (`not-live`, `lost-on-restart`) and two columns. Neither is needed by the apps the
+   note was written for (PhotoSet, Cosmos), so they are built for this experiment first.
+3. **The judge's persona is a script, with a fallback the observation does not have.** Today's judge finds an
+   item's checkbox by accessible name and, failing that, by the row that holds the item's text. The observation
+   names a checkbox by its label and gives an unlabelled one no name, so the script seat cannot say "tick milk" to
+   an app that labels nothing. Either the observation learns a row name for an unlabelled checkbox (the nearest
+   text in its row, as the judge does), or the goal asks for the label. The first is the honest one: a person finds
+   the box by the row too.
+
+What the merge buys: one judge for every goal, written as data, not as a script per goal; the judge's own runs as
+cells, so a judge can be a model persona later (does a *person* manage to add an item?) and the same report, compare
+and gate apply; a recording of every judge run; and the convoy's "worlds that lie" barriers available against the
+agents' app. What it costs: the goal change and a new baseline, two web-world features, and the judge's five steps
+split into two tasks and two world checks instead of one script, which a reader of the record must learn.
+
+**Recommendation.** Do it, in this order, each its own slice: (i) `live` and `survives` in web worlds, tested on
+the demo (W33, W34); (ii) the observation's row name for an unlabelled checkbox (W35); (iii) the adapter for the
+shopping list in `experiments/two-creatures/judge/`, run against the reference app and each broken reference
+(the five X0 breaks must still score apart: W36); (iv) the goal's read endpoint and the runner calling
+`creatura ux matrix` in the judge's place, logged as a goal change, and one DD-LM-R run as the new baseline. The
+old judge stays in the record until (iv) lands.
+
+| id | claim | falsifier | status |
+|---|---|---|---|
+| W33 | a task with `live` passes only when a second context opened at the start shows the check's text within the time with no reload; the demo's notes page, which does not refresh, fails it and a page that polls passes | anything else | proposed |
+| W34 | a task with `survives` sends the call after the done fact lands and passes only when the check holds again within the patience; a store that forgets fails as `lost-on-restart` | anything else | proposed |
+| W35 | an unlabelled checkbox in a row is named by the row's text, so a script can tick it by the item's name; a labelled one keeps its label | anything else | proposed |
+| W36 | the shopping-list adapter scores the reference app 5 of 5 and each of the five broken references apart, as the X0 judge does | a break not told apart | proposed |
+
 ## Decisions for the owner
 
 | | decision | options | recommendation |
@@ -532,6 +589,7 @@ decision row), a recording on a real app, and the viewer on a run with ticks the
 | U2 | the CLI | `creatura ux` in the `creatura` tool; a separate `creatura-ux` program | **`creatura ux`**, done; if the release's single file must run it, ship Playwright's driver folder with it, or split it out then |
 | U3 | escalation | in the seat (phase 1); as the stuck alarm in a regulator | **both**, done: the seat's triggers stay (they are about the model's answer); "no change after two steps" is an alarm in the loop. It is an extension rather than a joined regulator, because the catalog's designs build their regulators inside their factories; past its limit it takes the controls away, so each design stops by its own rule |
 | U4 | uxkit itself | keep it; retire it once phase 2 runs the PhotoSet and Cosmos tasks | **retire after W9 holds** on both apps |
+| U5 | the two-creatures judge | (a) keep the script judge; (b) the judge as a web world, with `live` and `survives` added and the goal fixing a read endpoint | **(b)**, in the four slices above; the owner's call because it changes the goal's words (X-D4) and starts a new baseline |
 
 ## Phases
 

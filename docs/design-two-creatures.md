@@ -149,6 +149,7 @@ when every arm produces a scored run with its full record, and the outside test 
 | X-D9 | the small local models and their agent harness | a 4B-class coding model through an open agent harness, on the creature's own VM; on CPU this is slow, so its time limit may need to be longer |
 | X-D10 | where the harness lives | `experiments/two-creatures/` in this repository, generic and free of infrastructure; the host's own details stay out |
 | X-D11 | memory between runs | none in the pilot. A later arm gives a pair the previous run's ledger, to see whether they communicate better the second time: the "learn to communicate" over runs |
+| X-D13 | the judge as a web world | proposed in [design-web-worlds.md](design-web-worlds.md), "The two-creatures judge as a web world": the judge becomes `creatura ux` over an adapter for the goal, which needs `live` and `survives` checks in web worlds and **one more sentence in the goal**, a read endpoint for the data check. The runs before that sentence are a baseline of their own. Recommended, as four slices (W33 to W36), with the old judge kept until the last lands |
 | X-D12 | turns before the pilot | the owner's call (2026-10-31): fix polite waiting and tie-breaking first. [design-turns.md](design-turns.md) builds them into the ledger (slice T0) and then into the fake pair (T1) before the goal-only run (T2) |
 
 ## What gets built first
