@@ -129,6 +129,11 @@ public static partial class HookCommand
 
     public const string ToolName = "Claude Code";
 
+    public const string CodexCreatura = "codex";
+
+    /// <summary>The host tool a creatura stands for, as the claim names it: Claude Code, Codex, or the creatura's own name.</summary>
+    public static string ToolNameOf(string creatura) => creatura == DefaultCreatura ? ToolName : creatura == CodexCreatura ? "Codex" : creatura;
+
     /// <summary>The position used when the mesh is not read: the same one <c>creatura cell</c> commands use, so no new hello is written for it.</summary>
     public static readonly Position Offline = new(PositionKind.InProcess) { Channel = "creatura cell" };
 
@@ -140,8 +145,17 @@ public static partial class HookCommand
         {
             var options = Options(args);
             root = options.GetValueOrDefault("--home") ?? Environment.GetEnvironmentVariable("CREATURA_HOME");
+            var home = new CellHome(root, LedgerStores.Factory(options.GetValueOrDefault("--store")));
+            var creatura = options.GetValueOrDefault("--creatura") ?? DefaultCreatura;
+            if (options.TryGetValue("--notify", out var notified) && notified is not null)
+            {
+                // Codex's notify command (its older builds): the event is the last argument. Nothing is read from stdin.
+                Notify(notified, home, creatura, new HookEnvironment());
+                return 0;
+            }
+
             var json = stdin.ReadToEnd();
-            Handle(json, new CellHome(root, LedgerStores.Factory(options.GetValueOrDefault("--store"))), options.GetValueOrDefault("--goal") ?? "folder", options.GetValueOrDefault("--creatura") ?? DefaultCreatura, new HookEnvironment(), Console.Out.Write);
+            Handle(json, home, options.GetValueOrDefault("--goal") ?? "folder", creatura, new HookEnvironment(), Console.Out.Write);
         }
         catch (Exception e)
         {
@@ -235,7 +249,7 @@ public static partial class HookCommand
                     Repo = taken?.Repo ?? session.Repo ?? continued?.Goal.Repo,
                     Branch = taken?.Branch ?? session.Branch ?? continued?.Goal.Branch,
                     Folder = taken?.Folder ?? session.Cwd ?? continued?.Goal.Folder,
-                    Tool = ToolName,
+                    Tool = ToolNameOf(creatura),
                     Session = hook.Session,
                     Offer = taken?.Id,
                     Continues = continued?.Claim.Id,
@@ -300,11 +314,24 @@ public static partial class HookCommand
     private static HookEvent Read(JsonElement input, string eventName, string sessionId, string goalMode, string creatura)
     {
         var files = new List<string>();
-        if (input.TryGetProperty("tool_input", out var toolInput) && toolInput.ValueKind == JsonValueKind.Object)
+        if (input.TryGetProperty("tool_input", out var toolInput))
         {
-            foreach (var name in new[] { "file_path", "notebook_path" })
+            if (toolInput.ValueKind == JsonValueKind.Object)
             {
-                if (Str(toolInput, name) is { Length: > 0 } file && !files.Contains(file)) files.Add(file);
+                foreach (var name in new[] { "file_path", "notebook_path" })
+                {
+                    if (Str(toolInput, name) is { Length: > 0 } file && !files.Contains(file)) files.Add(file);
+                }
+
+                // Codex's apply_patch: the patch names its files in its headers.
+                foreach (var name in new[] { "input", "patch" })
+                {
+                    if (Str(toolInput, name) is { Length: > 0 } patch) foreach (var file in CodexRollout.PatchFiles(patch)) if (!files.Contains(file)) files.Add(file);
+                }
+            }
+            else if (toolInput.ValueKind == JsonValueKind.String)
+            {
+                foreach (var file in CodexRollout.PatchFiles(toolInput.GetString() ?? "")) if (!files.Contains(file)) files.Add(file);
             }
         }
         var prompt = Str(input, "prompt");
@@ -649,13 +676,14 @@ public static class HookTranscript
         }
     }
 
-    /// <summary>The answered turns after <paramref name="offset"/>, oldest first; none when the transcript cannot be read or is shorter than the offset.</summary>
+    /// <summary>The answered turns after <paramref name="offset"/>, oldest first; none when the transcript cannot be read or is shorter than the offset. A Codex rollout is read as one (<see cref="CodexRollout"/>).</summary>
     public static IReadOnlyList<Turn> TurnsAfter(string? path, long offset)
     {
         var turns = new List<Turn>();
         try
         {
             if (path is null || !File.Exists(path)) return turns;
+            if (CodexRollout.IsRollout(path)) return CodexRollout.TurnsAfter(path, offset);
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             if (offset > stream.Length) return turns;                              // not the transcript the offset was taken from
             stream.Seek(offset, SeekOrigin.Begin);
@@ -713,7 +741,7 @@ public static class HookTranscript
         return turns;
     }
 
-    private static bool True(JsonElement o, string name) => o.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
+    internal static bool True(JsonElement o, string name) => o.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
 
     /// <summary>Text from the person: a string, or blocks none of which is a tool's result.</summary>
     private static bool IsPrompt(JsonElement content) => content.ValueKind switch
@@ -722,4 +750,196 @@ public static class HookTranscript
         JsonValueKind.Array => content.EnumerateArray().All(b => b.ValueKind != JsonValueKind.Object || !b.TryGetProperty("type", out var k) || k.GetString() != "tool_result"),
         _ => false,
     };
+}
+
+/// <summary>
+/// A Codex rollout (<c>~/.codex/sessions/&lt;year&gt;/&lt;month&gt;/&lt;day&gt;/rollout-&lt;time&gt;-&lt;thread id&gt;.jsonl</c>), read the way
+/// <see cref="HookTranscript"/> reads a Claude Code transcript: for tool names and the files a patch named, never for
+/// what was said. A <c>turn_context</c> line starts a turn, a <c>task_complete</c> event ends it; a <c>function_call</c>
+/// (<c>exec_command</c>, ...) and a <c>custom_tool_call</c> (<c>apply_patch</c>) count as tools, and the patch's headers
+/// (<c>*** Update File: path</c>) name its files.
+/// </summary>
+public static partial class CodexRollout
+{
+    /// <summary>Whether the file's first line is a rollout's <c>session_meta</c>.</summary>
+    public static bool IsRollout(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream);
+            var first = reader.ReadLine();
+            return first is not null && first.Contains("\"session_meta\"", StringComparison.Ordinal);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>The rollout of a thread under <paramref name="sessionsRoot"/> (<c>~/.codex/sessions</c>), by the thread id in its name; null when none.</summary>
+    public static string? Find(string sessionsRoot, string threadId)
+    {
+        try
+        {
+            if (!Directory.Exists(sessionsRoot) || threadId.Length == 0 || threadId.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-')) return null;
+            return Directory.EnumerateFiles(sessionsRoot, $"rollout-*-{threadId}.jsonl", SearchOption.AllDirectories).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The files a Codex patch names in its headers (<c>*** Add File:</c>, <c>Update File:</c>, <c>Delete File:</c>, <c>Move to:</c>), in order, each once.</summary>
+    public static IReadOnlyList<string> PatchFiles(string patch)
+    {
+        var files = new List<string>();
+        foreach (System.Text.RegularExpressions.Match m in PatchHeader().Matches(patch))
+        {
+            var file = m.Groups[1].Value.Trim();
+            if (file.Length > 0 && !files.Contains(file)) files.Add(file);
+        }
+
+        return files;
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$", System.Text.RegularExpressions.RegexOptions.Multiline)]
+    private static partial System.Text.RegularExpressions.Regex PatchHeader();
+
+    /// <summary>The answered turns after the offset, as <see cref="HookTranscript.TurnsAfter"/> gives them for Claude Code.</summary>
+    public static IReadOnlyList<HookTranscript.Turn> TurnsAfter(string path, long offset)
+    {
+        var turns = new List<HookTranscript.Turn>();
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            if (offset > stream.Length) return turns;
+            stream.Seek(offset, SeekOrigin.Begin);
+            using var reader = new StreamReader(stream);
+            HookTranscript.Turn? current = null;
+            var answered = false;
+            while (reader.ReadLine() is { } line)
+            {
+                JsonDocument document;
+                try
+                {
+                    document = JsonDocument.Parse(line);
+                }
+                catch (JsonException)
+                {
+                    continue;
+                }
+
+                using (document)
+                {
+                    var o = document.RootElement;
+                    if (o.ValueKind != JsonValueKind.Object || !o.TryGetProperty("type", out var t) || t.ValueKind != JsonValueKind.String) continue;
+                    var type = t.GetString();
+                    var payload = o.TryGetProperty("payload", out var p) && p.ValueKind == JsonValueKind.Object ? p : default;
+                    var kind = payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("type", out var k) && k.ValueKind == JsonValueKind.String ? k.GetString() : null;
+                    if (type == "turn_context")
+                    {
+                        if (current is not null && answered) turns.Add(current);
+                        current = new HookTranscript.Turn(new(StringComparer.Ordinal), []);
+                        answered = false;
+                    }
+                    else if (type == "event_msg" && kind == "task_complete")
+                    {
+                        current ??= new HookTranscript.Turn(new(StringComparer.Ordinal), []);
+                        answered = true;
+                    }
+                    else if (type == "response_item" && kind is "function_call" or "custom_tool_call")
+                    {
+                        current ??= new HookTranscript.Turn(new(StringComparer.Ordinal), []);
+                        var name = payload.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString()! : "tool";
+                        current.Tools[name] = current.Tools.GetValueOrDefault(name) + 1;
+                        var text = payload.TryGetProperty("input", out var i) && i.ValueKind == JsonValueKind.String ? i.GetString()
+                            : payload.TryGetProperty("arguments", out var a) && a.ValueKind == JsonValueKind.String ? a.GetString() : null;
+                        if (text is null) continue;
+                        foreach (var file in PatchFiles(text)) if (!current.Files.Contains(file)) current.Files.Add(file);
+                    }
+                }
+            }
+
+            if (current is not null && answered) turns.Add(current);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+        }
+
+        return turns;
+    }
+}
+
+public static partial class HookCommand
+{
+    /// <summary>Where Codex keeps its rollouts: <c>$CODEX_HOME/sessions</c>, else <c>~/.codex/sessions</c>.</summary>
+    public static string CodexSessions =>
+        Path.Combine(Environment.GetEnvironmentVariable("CODEX_HOME") is { Length: > 0 } codexHome ? codexHome : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex"), "sessions");
+
+    /// <summary>
+    /// The older Codex's <c>notify</c> command (<c>agent-turn-complete</c>, one JSON argument): the thread is the session. Its
+    /// first turn writes the Claim (the folder's goal, where from the event's <c>cwd</c>); every turn writes one Progress per
+    /// turn the rollout shows since the last, read for tool names and patched files only. No event says the session
+    /// ended, so no HandOff is written: <c>creatura cell handoff --session &lt;thread id&gt;</c> does that, or a later
+    /// session continues the claim as it stands. Never throws, prints nothing.
+    /// </summary>
+    public static SignedEntry? Notify(string json, CellHome home, string creatura, HookEnvironment env, string? sessionsRoot = null)
+    {
+        string threadId = "?";
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var input = document.RootElement;
+            if (input.ValueKind != JsonValueKind.Object || Str(input, "type") != "agent-turn-complete") return null;
+            threadId = Str(input, "thread-id") ?? Str(input, "thread_id") ?? "?";
+            if (threadId == "?" || !home.IsInitialized) return null;
+            var rollout = CodexRollout.Find(sessionsRoot ?? CodexSessions, threadId);
+
+            using var held = LedgerLock.TryAcquire(home.Root, env.LockWait);
+            if (held is null)
+            {
+                Log(home.Root, "notify", threadId, new TimeoutException("the home's lock stayed held; the turn is not recorded"));
+                return null;
+            }
+
+            var session = LoadSession(home, threadId) ?? new HookSession { SessionId = threadId, Started = env.Now() };
+            if (Str(input, "cwd") is { } cwd && cwd != session.Cwd) Locate(session, cwd, env);
+            SignedEntry? written = null;
+            if (session.ClaimId is null)
+            {
+                written = Write(home, creatura, env, new ClaimPayload(FolderGoal(session))
+                {
+                    Repo = session.Repo, Branch = session.Branch, Folder = session.Cwd, Tool = ToolNameOf(creatura), Session = threadId,
+                });
+                if (written is null) return null;
+                session.ClaimId = written.Id;
+            }
+
+            var rows = new List<ProgressPayload>();
+            foreach (var turn in HookTranscript.TurnsAfter(rollout, session.TranscriptOffset))
+            {
+                session.Turns++;
+                rows.Add(new ProgressPayload(session.ClaimId, TurnRow(session.Turns, turn.Tools, turn.Files)));
+            }
+
+            if (rows.Count == 0)
+            {
+                // No rollout to read, or nothing new in it: the turn still counts.
+                session.Turns++;
+                rows.Add(new ProgressPayload(session.ClaimId, TurnRow(session.Turns, new Dictionary<string, int>(StringComparer.Ordinal), [])));
+            }
+
+            session.TranscriptOffset = HookTranscript.Length(rollout);
+            written = Write(home, creatura, env, rows.GetRange(0, rows.Count - 1), rows[^1]) ?? written;
+            SaveSession(home, session);
+            return written;
+        }
+        catch (Exception e)
+        {
+            Log(home.Root, "notify", threadId, e);
+            return null;
+        }
+    }
 }

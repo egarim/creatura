@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Codex sessions as cells** (docs/design-handoff.md, slice H2; issue #7). A newer Codex joins through its hooks,
+  which carry the same JSON as Claude Code's: `creatura cell install-hooks --settings ~/.codex/hooks.json --creatura
+  codex`; the claim names the tool Codex, its rollout is read for the turns a Stop never landed (tools, and the files
+  `apply_patch` named), and a hook's `apply_patch` names its files. An older Codex calls `creatura cell hook
+  --creatura codex --notify` from its `notify` line, with the event as the last argument: a claim per thread and a
+  progress row per turn, no session end. `creatura doctor` checks both. C42 to C44 hold.
 - **The two-creatures goal gains one sentence, and the web-world judge is the default** (slice iv of the judge as a
   web world; docs/design-two-creatures.md, X-D13; log #85). The goal now says the app answers `GET /api/items` with
   the items as `{"name", "bought"}`, so the judge reads the data; `run.mjs` judges with `creatura ux` unless
