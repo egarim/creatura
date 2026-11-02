@@ -201,7 +201,10 @@ public static class ActivityStream
                 if (claim.Tool is not null) thing["creatura:tool"] = claim.Tool;
                 if (claim.Session is not null) thing["creatura:session"] = claim.Session;
                 activity["type"] = "Create";
-                activity["summary"] = $"{who} {(claim.Offer is null ? "" : "took the owner's offer and ")}started '{claim.Goal}'{(where.Length > 0 ? $" in {where}" : "")}";
+                activity["summary"] = claim.Continues is { } continues
+                    ? $"{who} continued '{claim.Goal}' from {continues}{(where.Length > 0 ? $" in {where}" : "")}"
+                    : $"{who} {(claim.Offer is null ? "" : "took the owner's offer and ")}started '{claim.Goal}'{(where.Length > 0 ? $" in {where}" : "")}";
+                if (claim.Continues is not null) activity["creatura:continues"] = ClaimId(claim.Continues);
                 activity["object"] = thing;
                 activity["context"] = ClaimId(e.Id);
                 if (claim.Offer is not null)
@@ -249,6 +252,7 @@ public static class ActivityStream
                 activity["object"] = ClaimId(handOff.Claim);
                 activity["content"] = handOff.Reason;
                 activity["context"] = ClaimId(handOff.Claim);
+                if (handOff.Notes is not null) activity["creatura:notes"] = handOff.Notes;
                 break;
 
             case EntryKind.Release:

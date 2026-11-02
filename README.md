@@ -519,6 +519,10 @@ signed, append-only work ledger that says who is working on what. What is built:
 - **Goals offered to cells.** `offer --to <host> --goal <text>` on the owner's vessel signs an offer with the owner
   key; a cell there sees it (`offers`, or a message at the start of a Claude Code session) and takes it (`take`, or by
   naming it in the session's first prompt) or declines it. The stream shows each offer and who took it.
+- **Hand-offs between sessions** ([docs/design-handoff.md](docs/design-handoff.md)). A session that stops writes what
+  the next one needs (`handoff --reason <why> --notes <text>`), and the next session continues it (`claim --continues
+  <claim id>`, or `continue <claim id>` in the first prompt of a Claude Code session, which is shown what was handed off
+  in its folder or repository at its start). `ledger --path` prints the whole chain across sessions.
 - **Turns** ([docs/design-turns.md](docs/design-turns.md)). Two cells on one goal say when they `wait` on each other,
   `propose` on a topic and `answer`; `turn` reads the verified ledger and says whose move it is (act or wait, exit
   code 0 or 3), the same in every home: a wait-for cycle has one mover, competing proposals are settled by entry hash,

@@ -241,6 +241,46 @@ public sealed class WorkLedger
     public SignedEntry? LatestActiveClaimOf(string cell) =>
         Entries.LastOrDefault(e => e.Kind == EntryKind.Claim && e.Cell == cell && StateOf(e.Id) == ClaimState.Active);
 
+    /// <summary>The claims that continue <paramref name="claimId"/>, in ledger order (docs/design-handoff.md).</summary>
+    public IReadOnlyList<SignedEntry> ContinuedBy(string claimId) =>
+        Entries.Where(e => e.Kind == EntryKind.Claim && e.Body<ClaimPayload>().Continues == claimId).ToList();
+
+    /// <summary>
+    /// The whole chain a claim is part of: back to the first claim it continues, then forward through every claim
+    /// that continues one of them. The claim ids, in ledger order; empty for an unknown claim.
+    /// </summary>
+    public IReadOnlyList<string> ChainOf(string claimId)
+    {
+        var claims = Entries.Where(e => e.Kind == EntryKind.Claim).ToDictionary(e => e.Id, e => e.Body<ClaimPayload>().Continues, StringComparer.Ordinal);
+        if (!claims.ContainsKey(claimId)) return [];
+        var root = claimId;
+        var seen = new HashSet<string>(StringComparer.Ordinal) { root };
+        while (claims[root] is { } earlier && claims.ContainsKey(earlier) && seen.Add(earlier)) root = earlier;
+        var chain = new HashSet<string>(StringComparer.Ordinal) { root };
+        bool grew;
+        do
+        {
+            grew = false;
+            foreach (var (id, continues) in claims)
+            {
+                if (!chain.Contains(id) && continues is { } c && chain.Contains(c))
+                {
+                    chain.Add(id);
+                    grew = true;
+                }
+            }
+        }
+        while (grew);
+        return Entries.Where(e => e.Kind == EntryKind.Claim && chain.Contains(e.Id)).Select(e => e.Id).ToList();
+    }
+
+    /// <summary>The path of the whole chain (<see cref="ChainOf"/>): every claim of it and every entry about any of them, in ledger order.</summary>
+    public IReadOnlyList<SignedEntry> PathOfChain(string claimId)
+    {
+        var chain = new HashSet<string>(ChainOf(claimId), StringComparer.Ordinal);
+        return Entries.Where(e => (e.Kind == EntryKind.Claim && chain.Contains(e.Id)) || (e.ClaimRef is { } r && chain.Contains(r))).ToList();
+    }
+
     /// <summary>The cell's latest hello, or null when it has not said one here.</summary>
     public SignedEntry? HelloOf(string cell) => Entries.LastOrDefault(e => e.Kind == EntryKind.Hello && e.Cell == cell);
 

@@ -69,6 +69,9 @@ public sealed record ClaimPayload(string Goal) : IEntryPayload
 
     /// <summary>The offer this claim takes (<see cref="GoalOffer.Id"/>), when it takes one.</summary>
     public string? Offer { get; init; }
+
+    /// <summary>The claim this one continues (its entry id), when it takes up work a session handed off (docs/design-handoff.md).</summary>
+    public string? Continues { get; init; }
 }
 
 /// <summary>A step of a claim's work. <see cref="Claim"/> is the claim entry's id (<see cref="SignedEntry.Id"/>).</summary>
@@ -112,6 +115,11 @@ public sealed record HandOffPayload(string Claim, string Reason) : IEntryPayload
 
     /// <summary>The offer this hand-off declines, when it declines one.</summary>
     public string? Offer { get; init; }
+
+    /// <summary>What the next session needs, in this session's own words, when the cell wrote them (at most <see cref="MaxNotes"/> characters).</summary>
+    public string? Notes { get; init; }
+
+    public const int MaxNotes = 4000;
 }
 
 public sealed record ReleasePayload(string Claim, string Evidence) : IEntryPayload

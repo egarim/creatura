@@ -18,11 +18,15 @@ public static class CellCommand
           init                         create the owner key if absent, endorse this vessel's cell, say hello (idempotent)
           whoami                       creatura id, vessel id (hashed), hardware, position, key fingerprint, endorsement
           claim --goal <text>          claim work; where with --repo --branch --folder --tool --session
+                                       --continues <claim id>: take up a handed-off claim; its goal and where are
+                                       carried over unless given (docs/design-handoff.md)
           progress --row <text>        a step of the latest active claim (--claim <id>, --stress <0..1>, --blocked)
           release --evidence <text>    done, with evidence (--claim <id>)
-          handoff --reason <text>      stopping, and why (--claim <id>)
+          handoff --reason <text>      stopping, and why (--claim <id>); --notes <text> | --notes-file <path>: what the
+                                       next session needs, in your words, at most 4000 characters (docs/design-handoff.md)
           heartbeat                    still alive (--load <number>)
-          ledger                       every entry; --open: the claims not released; --path <claim>: one claim's path
+          ledger                       every entry; --open: the claims not released; --path <claim>: one claim's path,
+                                       with every claim that continues it and the one it continues
           activity [--out <file>]      the ledger as an Activity Streams 2.0 collection (docs/design-activity-stream.md)
           stream [--port <n>] [--no-open]
                                        serve the activity stream as a page on 127.0.0.1 only, read-only, and open it
@@ -123,7 +127,7 @@ public static class CellCommand
                     Blocked = options.ContainsKey("--blocked") ? true : null,
                 }),
                 "release" => OnClaim(context, "--evidence", (claim, evidence) => new ReleasePayload(claim, evidence)),
-                "handoff" => OnClaim(context, "--reason", (claim, reason) => new HandOffPayload(claim, reason)),
+                "handoff" => OnClaim(context, "--reason", (claim, reason) => new HandOffPayload(claim, reason) { Notes = Notes(context) }),
                 "heartbeat" => Heartbeat(context),
                 "ledger" => Ledger(context),
                 "activity" => Activity(context),
@@ -215,22 +219,44 @@ public static class CellCommand
 
     private static int Claim(Context c)
     {
-        var goal = Required(c, "--goal");
+        var continues = c.Options.GetValueOrDefault("--continues");
+        if (continues is null && !c.Options.ContainsKey("--goal")) throw new ArgumentException("--goal <text> is required (or --continues <claim id>, whose goal is carried over)");
         using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
         using var cell = OpenEndorsed(c);
         var (ledger, store) = OpenLedger(c, cell);
         SayHelloIfNeeded(ledger, cell);
+        ClaimPayload? earlier = null;
+        if (continues is not null)
+        {
+            var found = ledger.Entries.FirstOrDefault(e => e.Kind == EntryKind.Claim && e.Id == continues) ?? throw new InvalidOperationException($"no claim {continues} in the ledger");
+            if (ledger.StateOf(continues) == ClaimState.Released) throw new InvalidOperationException($"{continues} is released: there is nothing to continue");
+            earlier = found.Body<ClaimPayload>();
+        }
+
+        var goal = c.Options.GetValueOrDefault("--goal") ?? earlier!.Goal;
         var claim = ledger.Append(cell, new ClaimPayload(goal)
         {
-            Repo = c.Options.GetValueOrDefault("--repo"),
-            Branch = c.Options.GetValueOrDefault("--branch"),
-            Folder = c.Options.GetValueOrDefault("--folder"),
+            Repo = c.Options.GetValueOrDefault("--repo") ?? earlier?.Repo,
+            Branch = c.Options.GetValueOrDefault("--branch") ?? earlier?.Branch,
+            Folder = c.Options.GetValueOrDefault("--folder") ?? earlier?.Folder,
             Tool = c.Options.GetValueOrDefault("--tool"),
             Session = c.Options.GetValueOrDefault("--session"),
+            Continues = continues,
         });
         store.Save(ledger);
-        c.Out.WriteLine($"claimed {claim.Id}: {goal}");
+        c.Out.WriteLine($"claimed {claim.Id}: {goal}{(continues is null ? "" : $" (continues {continues})")}");
         return 0;
+    }
+
+    /// <summary>The hand-off's notes, from <c>--notes</c> or <c>--notes-file</c>: trimmed, at most <see cref="HandOffPayload.MaxNotes"/> characters, or null.</summary>
+    private static string? Notes(Context c)
+    {
+        var text = c.Options.GetValueOrDefault("--notes") ?? (c.Options.GetValueOrDefault("--notes-file") is { } path ? File.ReadAllText(path) : null);
+        if (text is null) return null;
+        text = text.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
+        if (text.Length == 0) return null;
+        if (text.Length > HandOffPayload.MaxNotes) throw new ArgumentException($"the notes are {text.Length} characters; at most {HandOffPayload.MaxNotes}. Share a file for more (cell share --file) and name it in the notes");
+        return text;
     }
 
     /// <summary>A goal offered by the owner to a cell or a vessel, written as an entry of this home's cell with the owner's signature inside.</summary>
@@ -534,10 +560,19 @@ public static class CellCommand
 
         if (c.Options.GetValueOrDefault("--path") is { } claimId)
         {
-            var path = ledger.PathOf(claimId);
-            if (path.Count == 0) throw new InvalidOperationException($"no claim {claimId} in the ledger");
-            c.Out.WriteLine($"{claimId}: {ledger.StateOf(claimId)}");
-            foreach (var entry in path) c.Out.WriteLine(Line(entry));
+            var chain = ledger.ChainOf(claimId);
+            if (chain.Count == 0) throw new InvalidOperationException($"no claim {claimId} in the ledger");
+            var continued = ledger.ContinuedBy(claimId);
+            c.Out.WriteLine($"{claimId}: {ledger.StateOf(claimId)}{(continued.Count > 0 ? $", continued by {string.Join(", ", continued.Select(e => e.Id))}" : "")}{(chain.Count > 1 ? $"; a chain of {chain.Count} claims" : "")}");
+            foreach (var entry in ledger.PathOfChain(claimId))
+            {
+                c.Out.WriteLine(Line(entry));
+                if (entry.Kind == EntryKind.HandOff && entry.Body<HandOffPayload>().Notes is { } notes)
+                {
+                    foreach (var line in notes.Split('\n')) c.Out.WriteLine($"{"",-54}| {line}");
+                }
+            }
+
             return 0;
         }
 
@@ -548,7 +583,8 @@ public static class CellCommand
             foreach (var item in open)
             {
                 var where = Where(item.Goal);
-                c.Out.WriteLine($"{item.Claim.Id}  {(item.State == ClaimState.Active ? "active" : "handed off"),-10}  creatura {item.Creatura} on {item.VesselId}");
+                var continued = item.State == ClaimState.HandedOff ? ledger.ContinuedBy(item.Claim.Id) : [];
+                c.Out.WriteLine($"{item.Claim.Id}  {(item.State == ClaimState.Active ? "active" : "handed off"),-10}  creatura {item.Creatura} on {item.VesselId}{(continued.Count > 0 ? $"  (continued by {string.Join(", ", continued.Select(e => e.Id))})" : "")}");
                 c.Out.WriteLine($"    goal    {item.Goal.Goal}{(where.Length > 0 ? $"  ({where})" : "")}");
                 c.Out.WriteLine($"    latest  {Line(item.Latest).Trim()}");
             }
@@ -662,10 +698,10 @@ public static class CellCommand
         var summary = e.Kind switch
         {
             EntryKind.Hello => e.Body<HelloPayload>().Cell is var id ? $"creatura {id.Creatura} on {id.Hardware.VesselId}, {id.Position.Render()}, key {id.Fingerprint}" : "",
-            EntryKind.Claim => e.Body<ClaimPayload>() is var claim ? claim.Goal + (Where(claim) is { Length: > 0 } w ? $"  ({w})" : "") : "",
+            EntryKind.Claim => e.Body<ClaimPayload>() is var claim ? claim.Goal + (Where(claim) is { Length: > 0 } w ? $"  ({w})" : "") + (claim.Continues is { } cont ? $"  (continues {cont})" : "") : "",
             EntryKind.Progress => e.Body<ProgressPayload>() is var p
                 ? $"on {p.Claim}: {p.Row}{(p.Stress is { } s ? $" (stress {s.ToString("0.##", CultureInfo.InvariantCulture)})" : "")}{(p.Blocked == true ? " [blocked]" : "")}{Turns(p)}" : "",
-            EntryKind.HandOff => e.Body<HandOffPayload>() is var h ? $"on {h.Claim}: {h.Reason}" : "",
+            EntryKind.HandOff => e.Body<HandOffPayload>() is var h ? $"on {h.Claim}: {h.Reason}{(h.Notes is null ? "" : " (with notes)")}" : "",
             EntryKind.Release => e.Body<ReleasePayload>() is var r ? $"on {r.Claim}: {r.Evidence}" : "",
             EntryKind.Heartbeat => e.Body<HeartbeatPayload>().Load is { } load ? $"load {load.ToString("0.##", CultureInfo.InvariantCulture)}" : "alive",
             EntryKind.Warning => e.Body<WarningPayload>() is var warning ? $"{warning.Subject}: {warning.Evidence}" : "",
