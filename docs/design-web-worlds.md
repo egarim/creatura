@@ -580,7 +580,7 @@ old judge stays in the record until (iv) lands.
 |---|---|---|---|
 | W33 | a task with `live` passes only when a second context opened at the start shows the check's text within the time with no reload; the demo's notes page, which does not refresh, fails it and a page that polls passes | anything else | holds |
 | W34 | a task with `survives` sends the call after the done fact lands and passes only when the check holds again within the patience; a store that forgets fails as `lost-on-restart` | anything else | holds |
-| W35 | an unlabelled checkbox in a row is named by the row's text, so a script can tick it by the item's name; a labelled one keeps its label | anything else | proposed |
+| W35 | an unlabelled checkbox in a row is named by the row's text, so a script can tick it by the item's name; a labelled one keeps its label | anything else | holds |
 | W36 | the shopping-list adapter scores the reference app 5 of 5 and each of the five broken references apart, as the X0 judge does | a break not told apart | proposed |
 
 ### Live and survives (slice i, built 2026-11-02)
@@ -600,6 +600,15 @@ W33 and W34 hold: `LiveShapeTests` (2, no browser) and `LiveTests` (2, Chromium)
 does not refresh, is not live; served with `?live=1` it polls every second and is live in about a second. The
 demo's `POST /api/restart` keeps the notes and `?forget=1` loses them: the first survives, the second is
 `lost-on-restart`. Not run: a real app.
+
+### A row name for an unlabelled checkbox (slice ii, built 2026-11-02)
+
+The observation names a checkbox, radio or switch with no label, no `aria-label` and no `aria-labelledby` by its row:
+the nearest `li`, `tr`, list item, row or option (else its parent), the row's visible text with the other controls'
+text taken out ("milk", not "milk Delete"), at most 80 characters, so its id is `checkbox-milk` and a script's
+`click milk` finds it. A labelled one keeps its label, and a page with nothing to name it by still gets
+"(no label)". This is the honest half of the two choices the mapping named: a person finds the box by the row too,
+and the goal need not ask the agents for a label. W35 holds: `RowNameTests` (1, Chromium).
 
 ## Decisions for the owner
 
