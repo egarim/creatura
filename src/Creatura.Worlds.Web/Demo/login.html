@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in</title>
+  <style>body { font-family: system-ui, sans-serif; margin: 1.5rem; max-width: 30rem; } label, input, button { display: block; margin: .3rem 0; font-size: 1rem; }</style>
+</head>
+<body>
+  <h1>Sign in</h1>
+  <form id="form">
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username">
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password">
+    <button type="submit">Sign in</button>
+  </form>
+  <p id="status" role="status"></p>
+  <script>
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const r = await fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: document.getElementById('email').value, password: document.getElementById('password').value }) });
+      if (!r.ok) { document.getElementById('status').textContent = 'Error: wrong email or password.'; return; }
+      const { token, email } = await r.json();
+      // As the Singular starter keeps its Keycloak refresh token: in sessionStorage, which a browser's storage state does not carry.
+      sessionStorage.setItem('refresh_token', token);
+      localStorage.setItem('last_user', email);
+      location.href = '/private';
+    });
+  </script>
+</body>
+</html>

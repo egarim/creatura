@@ -14,3 +14,6 @@ datasets/
 /run*.jsonl
 /record*.jsonl
 /replay*.jsonl
+
+# Web-world reports and kept sessions (the sessions hold tokens)
+/runs/

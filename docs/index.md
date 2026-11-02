@@ -21,10 +21,17 @@ agent tools around it, as hosts and as cells.
 - [The operating system as the creature's body](design-embodiment.md): senses, limbs, inner senses, set points and a
   skin on Windows, Linux and macOS, with Telekinesis as senses and limbs (proposed, nothing built).
 - [Two creatures build and publish an app](design-two-creatures.md): an experiment with two agents on their own VMs,
+<<<<<<< HEAD
   three pairings and three channels, judged by an outside test (slice X0, the local harness, built).
 - [Turns, so two cells neither wait on each other nor both lead](design-turns.md): waits, proposals and answers in
   the ledger, and `creatura cell turn`, which says whose move it is, the same in every home (T0 built; T1, the fake
   pairs with no roles, built).
+=======
+  three pairings and three channels, judged by an outside test (designed, nothing built).
+- [Web worlds](design-web-worlds.md): a persona uses a real web app through Playwright, sees only the visible text
+  and the numbered controls, and is judged by the app's own data; barriers between the browser and the app (phase 1
+  built, with an offline demo).
+>>>>>>> origin/main
 - [Setting up a model for the convoy](convoy-models.md).
 - [The replay format](replay-format.md): how a UI watches a run.
 - [Sources](sources.md): whose public work the designs read, in the author's words.
