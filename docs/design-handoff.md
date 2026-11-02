@@ -1,6 +1,7 @@
 # Design: handing work from one session to the next
 
-**Status:** proposed and built 2026-11-02 (slice H1, below); H2, Codex sessions as cells, waits for the owner's yes.
+**Status:** proposed and built 2026-11-02: slice H1 (the hand-off with notes and the claim that continues it) and
+slice H2 (Codex sessions as cells, after the owner's yes the same day).
 
 ## The problem, in the owner's words
 
@@ -47,6 +48,36 @@ cells, or, on one machine, between two claims of one cell.
 progress row. The hook never reads the conversation for them. A note that must hold more than 4000 characters is a
 shared file (`cell share --file`, design-shared-files.md) named from the notes.
 
+## Codex sessions as cells (H2)
+
+Codex was the other host tool named in design-cells.md ("How host tools join"; issue #7); only Claude Code was
+built. Two Codex generations are in use here: the laptop's 0.111 knows only the `notify` command of its
+`config.toml` (one program, run after each finished turn with one JSON argument, `agent-turn-complete`, carrying
+`thread-id`, `turn-id`, `cwd`, the turn's prompts and the last answer); the current builds (0.163 and later) have
+a hooks system whose events and stdin JSON are Claude Code's, key for key: `SessionStart` (`session_id`, `cwd`,
+`transcript_path`, `source`), `UserPromptSubmit` (`prompt`), `PostToolUse` (`tool_name`, `tool_input`),
+`Stop` (`stop_hook_active`), `SessionEnd` (`reason`), declared in `~/.codex/hooks.json` in the shape of Claude
+Code's `hooks` block (verified in the generated schemas of openai/codex, `codex-rs/hooks/schema`). So:
+
+- **The newer Codex joins through the same hook**, as a `codex` cell: `creatura cell install-hooks --settings
+  ~/.codex/hooks.json --creatura codex`, endorsed like `claude-code`. The claim names the tool `Codex`. What
+  differs is read, not said: the transcript is a Codex rollout, and the files come from `apply_patch`.
+- **A Codex rollout** (`~/.codex/sessions/<y>/<m>/<d>/rollout-<time>-<thread id>.jsonl`) is read the way a Claude
+  Code transcript is, for the turns whose `Stop` never landed: a `turn_context` line starts a turn, a
+  `task_complete` event ends it, a `function_call` (`exec_command`) or `custom_tool_call` (`apply_patch`) is a
+  tool, and the patch's headers (`*** Update File: path`) name its files. Never a prompt, an answer or a command.
+- **The older Codex's `notify`** calls `creatura cell hook --creatura codex --notify`, and Codex appends the
+  event as the last argument. The thread is the session: its first turn writes the Claim (the folder's goal, where
+  from the event's `cwd`), and every turn writes one Progress per turn the rollout shows since the last (found by
+  the thread id in the rollout's name). No event says the session ended, so no HandOff is written: `creatura cell
+  handoff --session <thread id>` does that, or the next session continues the claim as it stands (H1).
+- **The doctor** says whether Codex reaches the ledger: through `hooks.json`, through the `notify` line (turns
+  only), or not at all, with the command that would fix it.
+
+Codex's hooks run only once the person has trusted them in Codex's own interface; the doctor cannot see that.
+`SessionStart`'s offer and hand-off messages reach the person the same way as in Claude Code when Codex shows a
+hook's `systemMessage`; whether it does is not verified here.
+
 ## Pre-registered tests, written before the code
 
 | id | claim | falsifier | status |
@@ -55,13 +86,16 @@ shared file (`cell share --file`, design-shared-files.md) named from the notes.
 | C39 | at a new session's start the hook shows the claims handed off in this folder or repository that nobody continued, each with its reason and the notes' first line, to the person only; a resumed session is shown nothing; a continued claim is shown to no one after | a claim from elsewhere shown, a continued one shown again, anything reaching the model's context | holds |
 | C40 | a first prompt naming `continue <claim>` writes a claim that cites it and carries its goal; `cell claim --continues` does the same from a terminal, carrying repository, branch and folder unless given; continuing a released claim is refused | a claim without the citation or the goal, or a released claim continued | holds |
 | C41 | `cell ledger --path` of any claim in a chain prints the whole chain in ledger order; the stream's continuing claim names what it continues and the hand-off carries its notes | an entry of the chain missing, or the stream without the link or the notes | holds |
+| C42 | a Codex session through its hooks is a claim of the Codex tool with a progress row per turn and a hand-off at its end; the turns whose Stop never landed are read from its rollout with the tools and the files its patches named; a hook's `apply_patch` names its files; never a word of the conversation | another tool name, a turn or a file missing, or a word of a prompt, an answer or a command in the ledger | holds |
+| C43 | the older Codex's `notify`, one JSON argument per finished turn: the first writes the claim (the Codex tool, the thread as the session, the folder from the event), each writes a progress row per turn the rollout shows since the last, nothing ends the session; another kind of event writes nothing | anything else | holds |
+| C44 | the doctor says whether Codex reaches the ledger: through its hooks file, through its notify line, or not at all, naming the command that would fix it | a wrong or missing line | holds |
 
 ## Slices
 
 | slice | what | passes when |
 |---|---|---|
 | H1 | notes on a hand-off, `--continues`, the hook's "handed off here" message and `continue <claim>`, the path across sessions, the stream's link | C38 to C41 (built) |
-| H2 | Codex sessions as cells (issue #7): a `codex` cell endorsed like `claude-code`, Codex's `notify` command calling `creatura cell hook --creatura codex`, the rollout file read for names and files only, `creatura doctor` checking it | the owner's yes first; the hook tests of design-cells.md repeated for Codex |
+| H2 | Codex sessions as cells (issue #7): a `codex` cell through Codex's hooks (the same JSON as Claude Code's) or, on an older Codex, its `notify` command; the rollout read for names and files only; `creatura doctor` checking both | C42 to C44 (built) |
 
 ## Results (H1, 2026-11-02)
 
@@ -71,7 +105,17 @@ chain, `--open` naming the continuer), the hook (`HandedOffHere`, `continue <cla
 hand-off at `SessionEnd`) and the stream. C38 to C41 hold: `HandoffTests` (4). Not run: a real pair of sessions on
 two machines; the next cloud-to-local hand-off is the test.
 
+## Results (H2, 2026-11-02)
+
+Built in the hook command (`ToolNameOf`, `CodexRollout`, `Notify`, files from `apply_patch` in a hook's
+`tool_input`), the doctor (`CodexHooks`, `CodexConfig`) and the cell command's usage. C42 to C44 hold: `CodexTests`
+(3), with rollouts written by the tests in the shape read from a real one on the laptop (Codex 0.111.0: `session_meta`,
+`turn_context`, `event_msg`, `response_item` with `function_call` and `custom_tool_call`). Not run: a live Codex
+session on either machine. The laptop's Codex (0.111.0) has no hooks, so its line is `notify = ["creatura", "cell",
+"hook", "--creatura", "codex", "--notify"]` in `~/.codex/config.toml`; the next live Codex session there is the test.
+
 ## What this note does not cover
 
 Putting the handed-off work into the model's context so an unwatched session continues it alone (open decision 3 of
-design-activity-stream.md, the same question); choosing between two claims that continue the same one; Codex (H2).
+design-activity-stream.md, the same question); choosing between two claims that continue the same one; a Codex
+session seen live.

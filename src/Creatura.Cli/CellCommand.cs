@@ -49,8 +49,12 @@ public static class CellCommand
           decline --offer <id> --reason <text>
                                        say no to an offer waiting for this cell
 
-        joining Claude Code (docs/design-cells.md, "How host tools join"):
+        joining Claude Code, or Codex (docs/design-cells.md, "How host tools join"; docs/design-handoff.md, H2):
           hook                         one hook event on stdin; prints nothing, always exits 0 (--goal folder|prompt)
+                                       --creatura codex for a Codex session: the same hooks (install-hooks --settings
+                                       ~/.codex/hooks.json --creatura codex); an older Codex calls it from config.toml's
+                                       notify = ["creatura", "cell", "hook", "--creatura", "codex", "--notify"] with the
+                                       event as the last argument (turns only; no session end)
           hooks-config                 the "hooks" block for ~/.claude/settings.json (--command <path to creatura>)
           install-hooks --settings <f> merge that block into a settings file, backing it up first (--dry-run: report only)
           uninstall-hooks --settings <f>  remove exactly that block again (--dry-run: report only)

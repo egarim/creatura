@@ -23,6 +23,13 @@ public sealed record DoctorEnvironment
 
     public string ClaudeSettings { get; init; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "settings.json");
 
+    /// <summary>Codex's hooks file (its newer builds) and its config (the older builds' <c>notify</c> command).</summary>
+    public string CodexHooks { get; init; } = Path.Combine(CodexHome, "hooks.json");
+
+    public string CodexConfig { get; init; } = Path.Combine(CodexHome, "config.toml");
+
+    private static string CodexHome => Environment.GetEnvironmentVariable("CODEX_HOME") is { Length: > 0 } home ? home : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex");
+
     /// <summary>Where <c>creatura cell install-launchd</c> puts its agents (macOS).</summary>
     public string LaunchAgents { get; init; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "LaunchAgents");
 
@@ -189,12 +196,41 @@ public static class DoctorCommand
 
     private static IEnumerable<Check> Hooks(DoctorEnvironment env)
     {
-        if (!File.Exists(env.ClaudeSettings))
+        foreach (var check in HooksIn(env.ClaudeSettings, "Claude Code", "claude-code", "no settings at")) yield return check;
+        foreach (var check in CodexHooks(env)) yield return check;
+    }
+
+    /// <summary>Codex: the hooks file of its newer builds, else the notify line of its config (turns only), else nothing.</summary>
+    private static IEnumerable<Check> CodexHooks(DoctorEnvironment env)
+    {
+        if (File.Exists(env.CodexHooks))
         {
-            yield return new Check(Level.Info, $"Claude Code: no settings at {env.ClaudeSettings}");
+            foreach (var check in HooksIn(env.CodexHooks, "Codex", "codex", "no hooks file at")) yield return check;
             yield break;
         }
-        var settings = JsonNode.Parse(File.ReadAllText(env.ClaudeSettings)) as JsonObject;
+
+        if (File.Exists(env.CodexConfig))
+        {
+            var notify = File.ReadLines(env.CodexConfig).FirstOrDefault(l => l.TrimStart().StartsWith("notify", StringComparison.Ordinal));
+            if (notify is not null && notify.Contains("cell", StringComparison.Ordinal) && notify.Contains("hook", StringComparison.Ordinal))
+            {
+                yield return new Check(Level.Ok, "Codex: its notify command calls creatura cell hook, so each finished turn reaches the ledger (its newer builds take the hooks: install-hooks --settings " + env.CodexHooks + " --creatura codex)");
+                yield break;
+            }
+        }
+
+        yield return new Check(Level.Info, "Codex: no hooks, so its sessions do not reach the ledger",
+            $"creatura cell install-hooks --settings {env.CodexHooks} --creatura codex (or, for an older Codex, notify in {env.CodexConfig})");
+    }
+
+    private static IEnumerable<Check> HooksIn(string file, string tool, string creatura, string absent)
+    {
+        if (!File.Exists(file))
+        {
+            yield return new Check(Level.Info, $"{tool}: {absent} {file}");
+            yield break;
+        }
+        var settings = JsonNode.Parse(File.ReadAllText(file)) as JsonObject;
         var commands = new List<(string Event, string Command)>();
         if (settings?["hooks"] is JsonObject hooks)
         {
@@ -211,16 +247,16 @@ public static class DoctorCommand
         }
         if (commands.Count == 0)
         {
-            yield return new Check(Level.Info, "Claude Code: the hooks are not installed, so its sessions do not reach the ledger",
-                $"creatura cell install-hooks --settings {env.ClaudeSettings} --creatura claude-code");
+            yield return new Check(Level.Info, $"{tool}: the hooks are not installed, so its sessions do not reach the ledger",
+                $"creatura cell install-hooks --settings {file} --creatura {creatura}");
             yield break;
         }
         var programs = commands.Select(c => Program(c.Command)).Distinct().ToList();
         var missing = programs.Where(p => !File.Exists(p)).ToList();
         var events = string.Join(", ", commands.Select(c => c.Event).Distinct());
         yield return missing.Count == 0
-            ? new Check(Level.Ok, $"Claude Code: hooks on {events}, calling {string.Join(", ", programs)}")
-            : new Check(Level.Fail, $"Claude Code: the hooks call {string.Join(", ", missing)}, which is not there, so they do nothing",
+            ? new Check(Level.Ok, $"{tool}: hooks on {events}, calling {string.Join(", ", programs)}")
+            : new Check(Level.Fail, $"{tool}: the hooks call {string.Join(", ", missing)}, which is not there, so they do nothing",
                 "creatura cell publish-bin, or install-hooks again with --command <path to creatura>");
     }
 
