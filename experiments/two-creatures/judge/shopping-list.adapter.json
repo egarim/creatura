@@ -1,7 +1,8 @@
 {
   // The two-creatures judge as a web world (docs/design-web-worlds.md, "The two-creatures judge as a web world",
   // slice iii): the shopping-list goal as an adapter. The runner fills {{item}} with a fresh item per check ("milk <n>",
-  // so repeated checks never see each other's items) and {{world}} with the world's address, and sets the base url.
+  // so repeated checks never see each other's items) and {{restart}} with the deployer's restart on this host, and sets
+  // the base url to the app as world publishes it on this host's loopback.
   // Two tasks stand for the five steps of images/judge/test.mjs: add-item (steps 1 to 3: the page loads, the item is in
   // the data after Add, a second browser shows it within 5 s with no reload) and tick-item (steps 4 and 5: ticked in
   // the data, shown ticked in a second browser, and still there and ticked after a restart). The read endpoint is the
@@ -30,7 +31,7 @@
       "commits": [ "{{item}}" ],
       "check": { "method": "GET", "url": "/api/items", "path": "", "contains": { "name": "{{item}}", "bought": true } },
       "live": { "withinMs": 5000, "text": "{{item}}" },
-      "survives": { "restart": { "method": "POST", "url": "http://{{world}}:7001/restart" }, "patienceMs": 60000 }
+      "survives": { "restart": { "method": "POST", "url": "{{restart}}" }, "patienceMs": 60000 }
     }
   ],
   "limits": { "steps": 6, "escalations": 0, "stuckPatience": 0, "testers": [] },
