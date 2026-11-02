@@ -60,7 +60,11 @@ public sealed record TopicState(
     IReadOnlyList<string> Silent,
     bool Settled,
     bool BySilence,
-    Proposal? Plan);
+    Proposal? Plan)
+{
+    /// <summary>How the live proposal was picked among competitors: <c>hash</c> (the lowest wins), or <c>reputation</c> (the proposer with the higher reputation, when every competitor's cell had one before any of them proposed; docs/design-ratings.md, R2).</summary>
+    public string LiveBy { get; init; } = "hash";
+}
 
 /// <summary>
 /// The answer of <c>creatura cell turn</c>: act or wait, the rule that decided it (T1 to T7 of docs/design-turns.md),
@@ -92,6 +96,7 @@ public sealed record TurnResult(Move Move, string Rule, string Reason, StandingW
                 ["settled"] = t.Settled,
                 ["bySilence"] = t.BySilence,
                 ["plan"] = t.Plan?.Id,
+                ["liveBy"] = t.LiveBy,
             };
             if (t.Live.Payload.Artifact is { } artifact) topic["artifact"] = artifact;
             topics.Add(topic);
@@ -267,6 +272,23 @@ public static class TurnLedger
             if (frontier.Count == 0) frontier = all;
             var competitors = frontier.Count > 1 ? frontier.OrderBy(p => p.Hash, StringComparer.Ordinal).ToList() : [];
             var live = frontier.MinBy(p => p.Hash, StringComparer.Ordinal)!;
+            var liveBy = "hash";
+            if (competitors.Count > 1)
+            {
+                // Reputation breaks the tie when every competitor's cell was rated before any of them proposed (so every home
+                // that holds those entries reads the same), and one proposer stands above the rest; else the hash, as before.
+                var first = competitors.Min(p => p.Entry.Timestamp);
+                var rated = competitors.Select(p => (Proposal: p, Reputation: ledger.ReputationOf(p.Cell, first))).ToList();
+                if (rated.All(r => r.Reputation is not null))
+                {
+                    var best = rated.OrderByDescending(r => r.Reputation!.Ordinal).ToList();
+                    if (best[0].Reputation!.Ordinal > best[1].Reputation!.Ordinal)
+                    {
+                        live = best[0].Proposal;
+                        liveBy = "reputation";
+                    }
+                }
+            }
 
             var of = PartiesOf(live);
             var accepted = of.Where(party => Accepted(live, party)).ToList();
@@ -276,7 +298,7 @@ public static class TurnLedger
             var settled = unanswered.Count == 0 && objected.Count == 0;
             var bySilence = !settled && objected.Count == 0 && unanswered.All(silent.Contains);
             var plan = all.LastOrDefault(p => PartiesOf(p).All(party => Accepted(p, party)));
-            topics.Add(new TopicState(group.Key, live, competitors, of, accepted, objected, unanswered, silent, settled, bySilence, plan));
+            topics.Add(new TopicState(group.Key, live, competitors, of, accepted, objected, unanswered, silent, settled, bySilence, plan) { LiveBy = liveBy });
         }
         return topics;
     }
@@ -307,7 +329,7 @@ public static class TurnLedger
             var lost = t.Competitors.FirstOrDefault(p => p.Cell == cell);
             return lost is null
                 ? Result(Move.Act, "T1", $"answer {t.Live.Id} on '{t.Topic}' by {t.Live.Cell}: {t.Live.Payload.Row}")
-                : Result(Move.Act, "T6", $"your proposal {lost.Id} on '{t.Topic}' lost to {t.Live.Id} by {t.Live.Cell} (the lower hash): answer it");
+                : Result(Move.Act, "T6", $"your proposal {lost.Id} on '{t.Topic}' lost to {t.Live.Id} by {t.Live.Cell} (the {(t.LiveBy == "reputation" ? "higher reputation" : "lower hash")}): answer it");
         }
 
         // T2: this cell's proposal was objected to.

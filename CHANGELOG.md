@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Cell reputation** (docs/design-ratings.md, slice R2). After a shared job the experiment's owner rates the cells
+  that ran it: `creatura cell rate --job <text> --results <file.json>` applies the Weng-Lin update to each cell's
+  latest reputation and writes one owner-signed `Reputation` entry per cell; a ledger refuses a reputation not signed
+  by a trusted owner, carried by the rated cell, or carried by a cell that holds a claim (a worker never rates).
+  `cell reputations` lists them. `cell turn` breaks a competing-proposal tie by reputation when every competitor
+  was rated before any proposed (`liveBy` says which rule), else by the hash. The two-creatures runner rates the
+  creatures at the end of a ledger arm and keeps `reputation.jsonl` in the record. G6 to G8 hold.
 - **Ratings** (docs/design-ratings.md, slice R1; issue #28). `Creatura.Ratings`, package-free: a Weng-Lin rating
   (the open TrueSkill-style model, Bradley-Terry full pairing) per seat on three axes, the model, the design and the
   prompt, read from the rows that exist: the bench's `scoreboard.csv` and `results.csv`, a matrix's `report.json`,

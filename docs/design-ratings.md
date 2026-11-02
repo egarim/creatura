@@ -1,7 +1,7 @@
 # Design: ratings, so the runs say who is best and when to stop running
 
-**Status:** proposed 2026-11-02 (issue #28, from the owner through another session); slice R1 built the same day,
-results at the end. R2 to R4 are designs.
+**Status:** proposed 2026-11-02 (issue #28, from the owner through another session); slices R1 and R2 built the same
+day, results at the end. R3 and R4 are designs.
 
 ## The problem, in the owner's words
 
@@ -66,7 +66,7 @@ calibrated stopping rule (how many more, at what cost) is an open point below.
 | slice | what | passes when |
 |---|---|---|
 | R1 | `Creatura.Ratings`: the Weng-Lin update, contests from the three sources, three leaderboards with uncertainty and the settled-or-open verdict; `creatura rate` | G1 to G5 (built) |
-| R2 | cell reputation: a rating per cell identity written into the ledger after each shared job (shipped, false claims, contract kept), as an entry of the experiment owner's cell, signed by the owner key; `cell turn` may break a tie by reputation instead of the entry hash when both parties' ledgers agree on it; who may rate whom: the owner of the experiment rates the cells that ran it, a cell never rates itself or its peer | G6 to G8 |
+| R2 | cell reputation: a rating per cell identity written into the ledger after each shared job (shipped, false claims, contract kept), as an entry of the experiment owner's cell, signed by the owner key; `cell turn` may break a tie by reputation instead of the entry hash when both parties' ledgers agree on it; who may rate whom: the owner of the experiment rates the cells that ran it, a cell never rates itself or its peer | G6 to G8 (built) |
 | R3 | barrier curriculum: worlds and barriers as opponents with ratings of their own, updated from the same games (a barrier "wins" when the seat loses); the next barrier for a seat is the one rated nearest its level; applied to web worlds' `--barriers` and, if a game-worlds note exists by then, to it | G9 to G11 |
 | R4 | memory credit, not TrueSkill: per memory (a lesson, a record's case), how often it was retrieved and how often the run then ended well; prune what is retrieved and never helps, promote what helps; applied to the web-world persona memory (`UxMemory`) | G12 to G14 |
 
@@ -82,9 +82,9 @@ that exist.
 | G3 | a seat that wins every game against another ends above it with the pair settled; alternating wins leave the pair open, and the leaderboard names it and says more runs are needed between the two | a settled pair with alternating wins, or an open pair with a sweep | holds |
 | G4 | the same files given in any order, and the same rows split across files, give the same leaderboard | any difference | holds |
 | G5 | `creatura rate` reads the three sources (the bench's two CSV shapes, a matrix's `report.json`, a pair's `summary.json`), prints the three leaderboards with μ, σ, the ordinal, games played and the verdict, and `--json` round-trips the same numbers | a source unread, a number missing, or a difference between the text and the JSON | holds |
-| G6 | (R2) after a shared job the owner's cell writes one reputation entry per cell that ran it, signed by the owner key; a cell cannot write one for itself or its peer, and a ledger refuses one not signed by an owner it trusts | a self-rating accepted, or an unsigned one | proposed |
-| G7 | (R2) `cell turn` with reputation on breaks a competing-proposal tie by the higher reputation when both ledgers hold the same entries, and by the hash as before when they do not | a tie broken differently in the two homes | proposed |
-| G8 | (R2) a reputation rises with shipped runs and no false claims and falls with false claims, by the same update as R1's | anything else | proposed |
+| G6 | (R2) after a shared job the owner's cell writes one reputation entry per cell that ran it, signed by the owner key; a cell cannot write one for itself or its peer, and a ledger refuses one not signed by an owner it trusts | a self-rating accepted, or an unsigned one | holds |
+| G7 | (R2) `cell turn` with reputation on breaks a competing-proposal tie by the higher reputation when both ledgers hold the same entries, and by the hash as before when they do not | a tie broken differently in the two homes | holds |
+| G8 | (R2) a reputation rises with shipped runs and no false claims and falls with false claims, by the same update as R1's | anything else | holds |
 | G9 | (R3) a barrier's rating rises when seats lose under it and falls when they win, from the same games that rate the seats | anything else | proposed |
 | G10 | (R3) the next barrier picked for a seat is the one whose rating is nearest the seat's, never one already settled far above or below it | a farther barrier picked | proposed |
 | G11 | (R3) a matrix run with `--barriers next` runs the picked barrier and the report says why it was picked | anything else | proposed |
@@ -122,6 +122,31 @@ demanding verdict by design, and the stopping rule with a cost (open points) is 
 `creatura rate experiments/two-creatures/records` over the seven runs of 2026-10-31, in the log (#87). The research
 rows live on the owner's other machine and the laptop keeps no matrix `report.json` yet; `creatura rate <those
 folders>` is the next thing to run.
+
+## Results (R2, 2026-11-02)
+
+**What a reputation is.** A `Reputation` entry (`CellReputation`): the rated cell, the job, μ, σ and how many jobs
+so far, what the job showed (shipped, the false claims, the contract kept), and the owner's signature over all of it,
+carried by one of the owner's cells like an offer. A ledger refuses it when the owner inside is not one it trusts, when
+the signature does not verify, when the carrying cell is the rated one, or when the carrying cell holds a claim: **a
+worker never rates**, which is the rule for "itself or its peer" in one line, since the creatures are the cells with
+claims and the owner's cell has none.
+
+**Who rates, and how.** `creatura cell rate --job <text> --results <file.json>` on the owner's vessel reads
+`[{"cell", "shipped", "falseClaims", "contractKept"}]`, ranks the cells (shipped, then fewer false claims, then the
+contract), applies R1's Weng-Lin update to each cell's latest reputation (the prior for a first job) and writes one
+entry per cell; `cell reputations` lists the latest per cell, best first. The two-creatures runner does it at the end
+of every ledger arm from the run's own verdicts (shipped; a creature's false claims; the contract kept when a plan was
+accepted and the app shipped), and keeps the lines in the record as `reputation.jsonl`. This run's creatures never see
+them, since their world is torn down; the later arm that carries the owner's ledger into the next run (X-D11) will.
+
+**The tie-break.** Among competing proposals, `turn` now picks the proposer with the higher reputation when every
+competitor's cell was rated **before any of them proposed** (so every home that holds those entries reads the same)
+and one stands above the rest; else the hash, as before. The topic says which (`liveBy`), and T6's reason names it.
+A rating written after the proposals, or held by one home only, changes nothing: both homes still pick by hash.
+
+G6 to G8 hold: `ReputationTests` (3). The runner: the free pair CC-LM with fake,liar (log #88) ends with `rated 2 cells` and its record's `reputation.jsonl` holds two owner-signed entries, the honest creature rank 1 at μ 27.64 and the liar rank 2 at μ 22.36 with its 2 false claims, both shipped, neither with a contract kept (the fake pair's roles are written in, so no plan was proposed). Not run: a pair whose next run starts with the
+reputations in its ledgers, which is the arm that would show whether a rated pair settles faster.
 
 ## What this note does not cover
 

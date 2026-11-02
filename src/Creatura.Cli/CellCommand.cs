@@ -40,6 +40,14 @@ public static class CellCommand
           turn [--json] [--quiet <minutes>]
                                        act or wait, with the reason, from the verified ledger: exit 0 to act, 3 to wait
 
+        reputation, after a shared job (docs/design-ratings.md, R2):
+          rate --job <text> --results <file.json>
+                                       on the owner's vessel: rate the cells that ran the job, from a file of
+                                       [{"cell", "shipped", "falseClaims", "contractKept"}], one owner-signed entry each;
+                                       the job is one game, ranked by shipped, then fewer false claims, then the contract
+          reputations                  every rated cell's latest reputation, best first; `turn` breaks a competing-proposal
+                                       tie by it when every competitor was rated before any proposed
+
         goals offered to cells (docs/design-activity-stream.md):
           offer --to <cell, vessel or host name> --goal <text> [--repo --branch --folder] [--expires <24h|3d>] [--quiet <minutes>]
                                        on the owner's vessel: offer a goal, signed with the owner key
@@ -141,6 +149,8 @@ public static class CellCommand
                 "answer" => Answer(context),
                 "turn" => Turn(context),
                 "offer" => Offer(context),
+                "rate" => Rate(context),
+                "reputations" => Reputations(context),
                 "withdraw" => Withdraw(context),
                 "offers" => Offers(context),
                 "take" => Take(context),
@@ -283,6 +293,64 @@ public static class CellCommand
         store.Save(ledger);
         c.Out.WriteLine($"offered      {offer.Id} to {name}: {goal}{(quiet is { } q ? $" (quiet time {q} min)" : "")}");
         c.Out.WriteLine($"open until   {CellJson.Stamp(offer.ExpiresAt)[..16]}Z; it reaches the other vessels with the next sync");
+        return 0;
+    }
+
+    /// <summary>One game among the cells that ran a job, on the owner's vessel: each cell's reputation moves by the Weng-Lin update from its latest, and one owner-signed entry per cell is written (docs/design-ratings.md, R2).</summary>
+    private static int Rate(Context c)
+    {
+        var job = Required(c, "--job");
+        var file = Required(c, "--results");
+        var results = JsonSerializer.Deserialize<List<RateResult>>(File.ReadAllText(file), CellJson.Options) ?? [];
+        if (results.Count < 2) throw new ArgumentException("--results needs at least two cells to rank against each other");
+        if (results.Any(r => string.IsNullOrWhiteSpace(r.Cell))) throw new ArgumentException("every result names a cell");
+        using var locked = LedgerLock.Acquire(c.Home.Root, InteractiveLockWait);
+        using var owner = c.Home.LoadOwner() ?? throw new InvalidOperationException("only the owner's vessel can rate: this home has no owner key");
+        using var cell = OpenEndorsed(c);
+        var (ledger, store) = OpenLedger(c, cell);
+        SayHelloIfNeeded(ledger, cell);
+        if (ledger.Entries.Any(e => e.Cell == cell.Id && e.Kind == EntryKind.Claim)) throw new InvalidOperationException($"{cell.Id} holds a claim: a worker never rates (use the owner's own cell)");
+        var ordered = results.OrderByDescending(r => r.Shipped).ThenBy(r => r.FalseClaims).ThenByDescending(r => r.ContractKept).ThenBy(r => r.Cell, StringComparer.Ordinal).ToList();
+        var players = new List<(Creatura.Ratings.Rating Rating, int Rank)>();
+        var rank = 0;
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            if (i == 0 || ordered[i].Shipped != ordered[i - 1].Shipped || ordered[i].FalseClaims != ordered[i - 1].FalseClaims || ordered[i].ContractKept != ordered[i - 1].ContractKept) rank = i + 1;
+            var before = ledger.ReputationOf(ordered[i].Cell);
+            players.Add((before is null ? Creatura.Ratings.Rating.Prior : new Creatura.Ratings.Rating(before.Mu, before.Sigma), rank));
+        }
+
+        var after = Creatura.Ratings.WengLin.Update(players);
+        var now = DateTimeOffset.UtcNow;
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            var r = ordered[i];
+            var games = (ledger.ReputationOf(r.Cell)?.Games ?? 0) + 1;
+            var reputation = owner.Rate(r.Cell, job, after[i].Mu, after[i].Sigma, games, r.Shipped, r.FalseClaims, r.ContractKept, now);
+            ledger.Append(cell, new ReputationPayload(reputation));
+            c.Out.WriteLine(JsonSerializer.Serialize(new { cell = r.Cell, job, rank = players[i].Rank, mu = after[i].Mu, sigma = after[i].Sigma, ordinal = reputation.Ordinal, games, shipped = r.Shipped, falseClaims = r.FalseClaims, contractKept = r.ContractKept }, CellJson.Options));
+        }
+
+        store.Save(ledger);
+        return 0;
+    }
+
+    private sealed record RateResult(string Cell, bool Shipped, int FalseClaims, bool ContractKept);
+
+    private static int Reputations(Context c)
+    {
+        if (!c.Home.IsInitialized)
+        {
+            c.Err.WriteLine($"no cell under {c.Home.Root}: run `creatura cell init`");
+            return 1;
+        }
+
+        using var cell = c.Home.OpenCell(c.Source, Position(c), c.Creatura);
+        var (ledger, _) = OpenLedger(c, cell);
+        var all = ledger.Reputations();
+        c.Out.WriteLine($"{all.Count} rated cell{(all.Count == 1 ? "" : "s")}");
+        foreach (var r in all)
+            c.Out.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{r.Cell}  ordinal {r.Ordinal,7:0.00}  mu {r.Mu,6:0.00}  sigma {r.Sigma,5:0.00}  {r.Games} job{(r.Games == 1 ? "" : "s")}; last '{r.Job}': {(r.Shipped ? "shipped" : "not shipped")}, {r.FalseClaims} false claim{(r.FalseClaims == 1 ? "" : "s")}, contract {(r.ContractKept ? "kept" : "broken")}"));
         return 0;
     }
 

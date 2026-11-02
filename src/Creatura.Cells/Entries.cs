@@ -37,6 +37,9 @@ public enum EntryKind
 
     /// <summary>The owner taking an offer back, signed by the owner inside the entry.</summary>
     Withdraw,
+
+    /// <summary>A cell's reputation after a shared job, computed and signed by the experiment's owner inside the entry (docs/design-ratings.md, R2).</summary>
+    Reputation,
 }
 
 /// <summary>A payload of one entry kind. The kind is the type's, so a payload cannot be filed under another.</summary>

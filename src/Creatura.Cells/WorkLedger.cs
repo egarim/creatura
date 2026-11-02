@@ -205,6 +205,14 @@ public sealed class WorkLedger
                     if (!_owners.Contains(withdrawal.OwnerPublicKey)) return "a withdrawal from an owner this ledger does not trust";
                     if (checkSignatures && !withdrawal.Verify()) return "a withdrawal whose owner signature does not verify";
                     break;
+                case EntryKind.Reputation:
+                    // Owner-signed inside, like an offer; carried by a cell that is neither the one rated nor a worker (a cell with a claim never rates).
+                    var reputation = entry.Body<ReputationPayload>().Reputation;
+                    if (!_owners.Contains(reputation.OwnerPublicKey)) return "a reputation from an owner this ledger does not trust";
+                    if (checkSignatures && !reputation.Verify()) return "a reputation whose owner signature does not verify";
+                    if (reputation.Cell == entry.Cell) return "a cell rating itself";
+                    if (Entries.Any(e => e.Cell == entry.Cell && e.Kind == EntryKind.Claim)) return "a reputation written by a cell that holds a claim: a worker never rates";
+                    break;
                 default: return "an unknown kind";
             }
         }

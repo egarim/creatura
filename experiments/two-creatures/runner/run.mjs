@@ -386,6 +386,31 @@ function agentUsage() {
 
 const finished = (n) => docker(["exec", `tc-creature-${n}`, "test", "-f", "/home/creature/agent.exit"], { allowFail: true }) !== null;
 
+/**
+ * The cells' reputation after the job (docs/design-ratings.md, R2): the experiment owner rates each creature's cell on
+ * the ledger arms, from the run's own verdicts (shipped, its false claims, the contract kept when a plan was accepted
+ * and the app shipped), one owner-signed entry each, written in the owner's home and kept in the record as
+ * reputation.jsonl. This run's creatures never see them (their world is torn down); a later arm that carries the
+ * owner's ledger into the next run does (X-D11).
+ */
+function rate(summary) {
+  if (reference || !ledger || Object.keys(cells).length < 2) return;
+  const results = Object.entries(cells).map(([cellId, n]) => ({
+    cell: cellId,
+    shipped: Boolean(summary.shipped),
+    falseClaims: summary.claims.filter((c) => c.who === n && !c.true).length,
+    contractKept: Boolean(summary.shipped) && (summary.turns?.plannedBy?.length ?? 0) > 0,
+  }));
+  try {
+    writeFileSync(`${state}/owner/results.json`, JSON.stringify(results));
+    const lines = asOwner(`creatura cell rate ${own()} --job ${runId} --results /owner/results.json`);
+    writeFileSync(`${out}/reputation.jsonl`, (lines ?? "").trim() + "\n");
+    say(`rated ${results.length} cells (reputation.jsonl)`);
+  } catch (e) {
+    say(`rating failed: ${String(e.message ?? e).split("\n")[0]}`);
+  }
+}
+
 function collect(summary) {
   const cp = (from, to) => docker(["cp", from, `${out}/${to}`], { allowFail: true });
   cp("tc-world:/srv/deploy/logs", "deploy-logs");
@@ -450,6 +475,7 @@ async function main() {
     agentsExited: Object.fromEntries(names.map((n) => [n, finished(n)])),
   };
   collect(summary);
+  rate(summary);
   say(`result: ${summary.score}/5${summary.shipped ? ", shipped" : ""}; record in ${out}`);
   return summary;
 }
