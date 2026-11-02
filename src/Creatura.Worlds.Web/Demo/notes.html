@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notes</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1.5rem; max-width: 40rem; }
+    form { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+    input { padding: .4rem; font-size: 1rem; }
+    button { padding: .4rem .9rem; font-size: 1rem; }
+    .chip { display: inline-block; padding: .2rem .6rem; border: 1px solid #999; border-radius: 1rem; cursor: pointer; }
+    #status { min-height: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Notes</h1>
+  <p>Things to remember, kept for you.</p>
+  <form id="form">
+    <label for="note">Note</label>
+    <input id="note" name="note" autocomplete="off">
+    <button type="submit">Save</button>
+    <span class="chip" id="clear">Clear</span>
+  </form>
+  <p id="status" role="status"></p>
+  <h2>Your notes</h2>
+  <ul id="list"></ul>
+  <p><a href="#about" id="about-link">About</a></p>
+  <section id="about" hidden><p>A tiny notes app: Creatura's web-world demo.</p></section>
+  <script>
+    const list = document.getElementById('list');
+    const note = document.getElementById('note');
+    const status = document.getElementById('status');
+    function show(items) {
+      list.innerHTML = '';
+      for (const item of items) { const li = document.createElement('li'); li.textContent = item.text; list.appendChild(li); }
+      if (!items.length) { const li = document.createElement('li'); li.textContent = 'Nothing yet.'; list.appendChild(li); }
+    }
+    let shown = [];
+    async function load() {
+      const r = await fetch('/api/notes');
+      shown = (await r.json()).items;
+      show(shown);
+    }
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = note.value.trim();
+      if (!text) { status.textContent = 'Write something first.'; return; }
+      status.textContent = '';
+      const r = await fetch('/api/notes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) });
+      if (r.ok) {
+        // The page believes the answer: it shows the note as kept without reading the list again.
+        shown = shown.concat([{ text }]);
+        show(shown);
+        status.textContent = 'Saved.';
+        note.value = '';
+      } else {
+        status.textContent = 'Error: the note could not be saved.';
+      }
+    });
+    document.getElementById('clear').addEventListener('click', () => { note.value = ''; status.textContent = ''; });
+    document.getElementById('about-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('about').hidden = !document.getElementById('about').hidden;
+    });
+    load();
+  </script>
+</body>
+</html>
