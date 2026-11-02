@@ -105,9 +105,15 @@ function inSandbox(script, mounts = []) {
   return docker(["run", "--rm", "--network", NET, "--add-host", `world:${IP.world}`, ...mounts.flatMap((m) => ["-v", m]), "--entrypoint", "sh", "tc-creature", "-c", script]);
 }
 
-/** A one-shot shell on the experiment owner's vessel (the same machine-id every time). */
+/**
+ * A one-shot shell on the experiment owner's vessel (the same machine-id every time). It runs as root in the container,
+ * so what it writes under state/<run>/owner is given back to the user running this runner before it returns; otherwise
+ * the run's cleanup cannot remove the directory (#20).
+ */
+const hostIds = process.getuid ? `${process.getuid()}:${process.getgid()}` : null;
 function asOwner(script, mounts = []) {
-  return docker(["run", "--rm", "-v", `${state}/owner:/owner`, ...mounts.flatMap((m) => ["-v", m]), "--entrypoint", "sh", "tc-creature", "-c", `cp /owner/machine-id /etc/machine-id; ${script}`]);
+  const giveBack = hostIds ? `; s=$?; chown -R ${hostIds} /owner; exit $s` : "";
+  return docker(["run", "--rm", "-v", `${state}/owner:/owner`, ...mounts.flatMap((m) => ["-v", m]), "--entrypoint", "sh", "tc-creature", "-c", `cp /owner/machine-id /etc/machine-id; (${script})${giveBack}`]);
 }
 
 const own = (n) => `--home /owner --creatura owner --no-mesh`;
@@ -229,12 +235,18 @@ function turns() {
 const seen = new Set();
 const claims = [];
 
-/** New claims of done since the last look: a message saying DONE, or a Release entry. */
+/**
+ * A board message claims done only when it starts with DONE, as the goal asks, after an optional "creature-b:" or "b:".
+ * A message that mentions DONE on the way ("I'll say DONE when...") is talk, not a claim (#21).
+ */
+const saysDone = (text) => /^DONE\b/.test(String(text).replace(/^\s*(?:creature-)?[ab]\s*:\s*/i, "").trimStart());
+
+/** New claims of done since the last look: a message that starts with DONE, or a Release entry. */
 function newClaims() {
   const found = [];
   for (const m of boardMessages()) {
     const key = `board:${m.n}`;
-    if (!seen.has(key) && /\bDONE\b/.test(m.text)) found.push({ key, via: "board", who: m.from, text: m.text.slice(0, 300) });
+    if (!seen.has(key) && saysDone(m.text)) found.push({ key, via: "board", who: m.from, text: m.text.slice(0, 300) });
     seen.add(key);
   }
   for (const n of names) {
@@ -383,5 +395,8 @@ main()
   })
   .finally(() => {
     if (!keep) teardown();
-    if (!keep) rmSync(state, { recursive: true, force: true });
+    if (!keep) {
+      try { rmSync(state, { recursive: true, force: true }); }
+      catch (e) { console.error(`run: could not remove ${state} (${e.code}); the record is complete, remove it by hand`); }
+    }
   });

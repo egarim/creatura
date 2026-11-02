@@ -292,15 +292,17 @@ runs are recorded only in the design note.
 
 ## Step X0
 
-1 entries; 0 touched the battery's seeds 0 to 49.
+2 entries; 0 touched the battery's seeds 0 to 49.
 
 | # | when | commit | kind | seeds | what | result | used for |
 |---|---|---|---|---|---|---|---|
 | 65 | 2026-10-31 | `2a6f2d6`* | build | — | Two creatures: the X0 harness, run locally in containers with scripted fake agents | Judge holds: reference 5/5; one break each scores down 0, label 1, live 2, check 3, persist 4. Honest pairs ship 5/5 in every channel (first ship CC-L 82 s, CC-M 38 s, CC-LM 44 s, C-0 39 s). Liar pairs: every early DONE judged 0/5 and counted false (CC-LM 2, CC-L 1, CC-M 1); the later true claim judged 5/5. C-0 has no channel, so its claims cannot be seen (claims = 0). Earlier failures fixed on the way: claims judged one at a time scored on a later state (now batched), no final look after agents stop, a release closes its claim so the liar must re-claim, repo bundles need safe.directory. | colima Docker (aarch64, 2 CPU, 4 GB), docker:27-dind world, Playwright 1.49.1 judge; no model tokens |
+| 79 | 2026-11-02 15:12 | `031ab81`* | test | — | Runner fixes for #20 and #21: the owner's files given back to the user, a board message claims done only when it starts with DONE; CC-LM with fake,liar 5/5 and a clean exit | #21 was misdiagnosed in the issue: the runner never judged every message, it judged every message containing the word DONE anywhere, while the goal says a claim is a message that starts with DONE. On the 2026-10-31 boards that rule had taken 6 talk messages on DD-M (#3 'I'll confirm DONE after...', #4, #5, #7, #8, #9) and 1 on the DD-M rerun with roles as claims; the LM boards lose nothing. The rule is now 'starts with DONE', after an optional creature-b: or b: prefix. #20: the one-shot shells on the experiment owner's vessel run as root in the container and left root-owned files under state/<run>/owner; they now chown what they wrote back to the runner's uid:gid before returning, and the final rmSync warns instead of failing the run if it still cannot. Check: CC-LM with fake,liar, 5/5 shipped, first ship 133 s, run 184 s, exit 0, state/<run> gone; claims: the liar's early DONE on the board and its early release on the ledger both false (16 s, 0/5), its later release (133 s) and DONE (159 s) true; 6 messages, ledger a 8, b 9. Record results/2026-11-02T12-08-53-CC-LM. |  |
 
 <details><summary>Commands</summary>
 
 - #65: `node experiments/two-creatures/runner/run.mjs --reference [down\|label\|live\|check\|persist]; --arm {CC-L,CC-M,CC-LM} --agents fake,{fake,liar}; --arm C-0 --agents fake`
+- #79: `node experiments/two-creatures/runner/run.mjs --arm CC-LM --agents fake,liar --check-every 30`
 
 </details>
 
