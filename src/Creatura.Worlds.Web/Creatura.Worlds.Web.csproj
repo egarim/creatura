@@ -21,6 +21,8 @@
     <ProjectReference Include="../Creatura.Seats/Creatura.Seats.csproj" />
     <!-- The designs by name, for the matrix's design axis (package-free). -->
     <ProjectReference Include="../Creatura.Worlds/Creatura.Worlds.csproj" />
+    <!-- The barrier curriculum: the next barrier for a tester from the ratings (package-free; docs/design-ratings.md, R3). -->
+    <ProjectReference Include="../Creatura.Ratings/Creatura.Ratings.csproj" />
   </ItemGroup>
 
   <ItemGroup>

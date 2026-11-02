@@ -49,6 +49,9 @@ public static class UxCommand
 
         both:
           --barriers none|<ids>        barriers between the browser and the app, joined with +, e.g. save-lies
+                                       matrix: --barriers next picks the barrier rated nearest the first tester's level
+                                       from the runs under --rated <paths> (earlier reports), and the report says why
+          --rated <paths>              where earlier reports are, joined with +, for --barriers next (docs/design-ratings.md, R3)
           --escalate <name>            the stronger model asked when a persona is stuck (default: limits.models.escalate)
           --vision <name>              a model that sees: asked with a screenshot when a persona is stuck, before --escalate
                                        (default: limits.models.vision). The stuck alarm (limits.stuckPatience, stuckLimit)
@@ -113,7 +116,7 @@ public static class UxCommand
         {
             "run" => ["--adapter", "--base-url", "--task", "--persona", "--env", "--barriers", "--seat", "--escalate", "--vision", "--design", "--ticks", "--log", "--browser", "--sessions", "--memory", "--records", "--record", "--out"],
             "matrix" => ["--adapter", "--base-url", "--tasks", "--personas", "--envs", "--testers", "--barriers", "--escalate", "--vision", "--design", "--designs", "--memory", "--records", "--ticks", "--log",
-                         "--browser", "--max-cost", "--out", "--baseline", "--sessions", "--judge", "--summary", "--record"],
+                         "--browser", "--max-cost", "--out", "--baseline", "--sessions", "--judge", "--summary", "--record", "--rated"],
             "gate" => ["--baseline", .. Thresholds],
             "judge" => ["--judge", "--summary", "--log"],
             "compare" => [],
@@ -175,7 +178,9 @@ public static class UxCommand
         else if (options.ContainsKey("--records")) return Fail(error, "--records needs --memory carry or --memory read");
 
         var set = options.GetValueOrDefault("--barriers") ?? "none";
-        var barriers = set == "none" ? new List<string>() : set.Split('+').ToList();
+        var barriersNext = set == "next";
+        if (barriersNext && verb != "matrix") return Fail(error, "--barriers next is for ux matrix");
+        var barriers = set is "none" or "next" ? new List<string>() : set.Split('+').ToList();
         var seats = new UxSeats(log: options.TryGetValue("--log", out var logPath) ? new CallLog(logPath) : null)
         {
             Escalate = options.GetValueOrDefault("--escalate"), Vision = options.GetValueOrDefault("--vision"),
@@ -282,13 +287,30 @@ public static class UxCommand
             maxCost = m;
         }
 
+        // The curriculum (docs/design-ratings.md, R3): --barriers next picks from the runs under --rated.
+        var barriersNext = options.GetValueOrDefault("--barriers") == "next";
+        IReadOnlyList<Creatura.Ratings.Run> rated = [];
+        if (options.TryGetValue("--rated", out var ratedPaths) && ratedPaths is not null)
+        {
+            var problems = new List<string>();
+            rated = Creatura.Ratings.Sources.Read(ratedPaths.Split('+', StringSplitOptions.RemoveEmptyEntries), problems);
+            foreach (var problem in problems) error.WriteLine($"skipped {problem}");
+        }
+
         var testers = options.TryGetValue("--testers", out var ts) ? ts.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList()
             : adapter.Limits.Testers.Count == 0 && demo ? [UxSeats.BundledScript] : [];
         var spec = new UxMatrixSpec
         {
             Tasks = Ids(options.GetValueOrDefault("--tasks")), Personas = Ids(options.GetValueOrDefault("--personas")), Environments = Ids(options.GetValueOrDefault("--envs")),
             Testers = testers, Barriers = barriers, MaxTicks = ticks, CostCap = maxCost, Designs = designs, Memory = memory, RecordTo = options.GetValueOrDefault("--record"),
+            BarriersNext = barriersNext, Rated = rated,
         };
+        var pick = barriersNext ? UxMatrix.Pick(adapter, spec) : null;
+        if (pick is not null)
+        {
+            barriers = pick.Value.Barriers.ToList();
+            output.WriteLine(pick.Value.Why);
+        }
 
         IReadOnlyList<(UxTask Task, UxPersona Persona, UxEnvironment Environment, string Tester, string Design)> cells;
         try
@@ -349,6 +371,7 @@ public static class UxCommand
             foreach (var d in report.ByDesign()) output.WriteLine("  " + d.Line());
         }
 
+        if (report.BarrierPick is { } why) output.WriteLine(why);
         output.WriteLine($"report: {json} (and cells.csv, report.md, traces/ beside it)");
         if (spec.RecordTo is { } recorded) output.WriteLine($"recordings: {report.Cells.Count(c => c.Recording is not null)} under {recorded} (open tools/web-viewer/index.html and pick a cell's folder)");
         if (baseline is not null)

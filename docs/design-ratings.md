@@ -1,7 +1,7 @@
 # Design: ratings, so the runs say who is best and when to stop running
 
-**Status:** proposed 2026-11-02 (issue #28, from the owner through another session); slices R1 and R2 built the same
-day, results at the end. R3 and R4 are designs.
+**Status:** proposed 2026-11-02 (issue #28, from the owner through another session); slices R1, R2 and R3 built the
+same day, results at the end. R4 is a design.
 
 ## The problem, in the owner's words
 
@@ -67,7 +67,7 @@ calibrated stopping rule (how many more, at what cost) is an open point below.
 |---|---|---|
 | R1 | `Creatura.Ratings`: the Weng-Lin update, contests from the three sources, three leaderboards with uncertainty and the settled-or-open verdict; `creatura rate` | G1 to G5 (built) |
 | R2 | cell reputation: a rating per cell identity written into the ledger after each shared job (shipped, false claims, contract kept), as an entry of the experiment owner's cell, signed by the owner key; `cell turn` may break a tie by reputation instead of the entry hash when both parties' ledgers agree on it; who may rate whom: the owner of the experiment rates the cells that ran it, a cell never rates itself or its peer | G6 to G8 (built) |
-| R3 | barrier curriculum: worlds and barriers as opponents with ratings of their own, updated from the same games (a barrier "wins" when the seat loses); the next barrier for a seat is the one rated nearest its level; applied to web worlds' `--barriers` and, if a game-worlds note exists by then, to it | G9 to G11 |
+| R3 | barrier curriculum: worlds and barriers as opponents with ratings of their own, updated from the same games (a barrier "wins" when the seat loses); the next barrier for a seat is the one rated nearest its level; applied to web worlds' `--barriers` and, if a game-worlds note exists by then, to it | G9 to G11 (built; no game-worlds note exists yet) |
 | R4 | memory credit, not TrueSkill: per memory (a lesson, a record's case), how often it was retrieved and how often the run then ended well; prune what is retrieved and never helps, promote what helps; applied to the web-world persona memory (`UxMemory`) | G12 to G14 |
 
 R1 and R4 are independent; R2 and R3 need R1. No paid model call is needed by any of them: every slice reads rows
@@ -85,9 +85,9 @@ that exist.
 | G6 | (R2) after a shared job the owner's cell writes one reputation entry per cell that ran it, signed by the owner key; a cell cannot write one for itself or its peer, and a ledger refuses one not signed by an owner it trusts | a self-rating accepted, or an unsigned one | holds |
 | G7 | (R2) `cell turn` with reputation on breaks a competing-proposal tie by the higher reputation when both ledgers hold the same entries, and by the hash as before when they do not | a tie broken differently in the two homes | holds |
 | G8 | (R2) a reputation rises with shipped runs and no false claims and falls with false claims, by the same update as R1's | anything else | holds |
-| G9 | (R3) a barrier's rating rises when seats lose under it and falls when they win, from the same games that rate the seats | anything else | proposed |
-| G10 | (R3) the next barrier picked for a seat is the one whose rating is nearest the seat's, never one already settled far above or below it | a farther barrier picked | proposed |
-| G11 | (R3) a matrix run with `--barriers next` runs the picked barrier and the report says why it was picked | anything else | proposed |
+| G9 | (R3) a barrier's rating rises when seats lose under it and falls when they win, from the same games that rate the seats | anything else | holds |
+| G10 | (R3) the next barrier picked for a seat is the one whose rating is nearest the seat's, never one already settled far above or below it | a farther barrier picked | holds |
+| G11 | (R3) a matrix run with `--barriers next` runs the picked barrier and the report says why it was picked | anything else | holds |
 | G12 | (R4) every retrieval of a memory is counted, and every run that retrieved it is credited to it as ended well or not | a retrieval uncounted | proposed |
 | G13 | (R4) a memory retrieved often and never followed by a good run is pruned; one followed by good runs more than its persona's base rate is promoted (shown first) | anything else | proposed |
 | G14 | (R4) the web-world persona memory applies it: the lessons a persona is shown are the promoted ones first, and a pruned one is not shown | a pruned lesson shown | proposed |
@@ -147,6 +147,28 @@ A rating written after the proposals, or held by one home only, changes nothing:
 
 G6 to G8 hold: `ReputationTests` (3). The runner: the free pair CC-LM with fake,liar (log #88) ends with `rated 2 cells` and its record's `reputation.jsonl` holds two owner-signed entries, the honest creature rank 1 at μ 27.64 and the liar rank 2 at μ 22.36 with its 2 false claims, both shipped, neither with a contract kept (the fake pair's roles are written in, so no plan was proposed). Not run: a pair whose next run starts with the
 reputations in its ledgers, which is the arm that would show whether a rated pair settles faster.
+
+## Results (R3, 2026-11-02)
+
+**Opponents.** Every run is a duel: the seat (the model axis) against its opponent, the job with its barriers (for a
+matrix, `app/task/environment/barriers`; for the bench, the battery's world and arm; for a pair, the arm). The seat
+wins when the run was done (the bench's Real, a matrix's data done, a pair's 5 of 5), the opponent when it was not,
+and R1's update moves both, so seats and opponents share one scale (`Curriculum.Ratings`). A barrier's rating is the
+rating of the job under it; "a barrier wins when the seat loses" is then exact, and a barrier that beats every seat
+rises above them all.
+
+**The pick.** `Curriculum.Next` takes a seat and the candidate opponents (for a matrix: the first task and environment
+under "none" and under each of the adapter's barriers) and picks the one the seat beats with a probability nearest
+one half, the least known outcome; a candidate the seat is settled against (p at or past 0.95 either way) is passed
+over while another is left; an unmet candidate sits at the prior, so with no history every barrier is equally
+unknown and the first by name is picked. `creatura ux matrix --barriers next --rated <paths>` reads the earlier
+reports under the paths, picks for the first tester, runs the matrix under that barrier set, prints why, and keeps
+the reason in `report.json` as `barrierPick`.
+
+G9 to G11 hold: `CurriculumTests` (2, no browser) and `CurriculumBrowserTests` (1, Chromium): after the demo's
+script loses under `save-lies` and wins under none, the lie barrier sits above the seat and "none" below it, and the
+next pick is an unmet barrier at the prior, the least known; the matrix runs it and says so. Not run: a curriculum
+over many reports, where the picks would walk a seat up through the barriers it can still lose to.
 
 ## What this note does not cover
 

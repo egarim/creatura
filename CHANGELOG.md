@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **The barrier curriculum** (docs/design-ratings.md, slice R3). Worlds and barriers are opponents with ratings on the
+  seats' scale: every run is a duel the seat wins when the job was done (`Curriculum.Ratings`), and the next opponent
+  for a seat is the one it beats with a probability nearest one half, settled ones passed over (`Curriculum.Next`).
+  `creatura ux matrix --barriers next --rated <paths>` picks the barrier from the earlier reports under the paths,
+  runs it, prints why and keeps the reason in `report.json` (`barrierPick`). G9 to G11 hold.
 - **Cell reputation** (docs/design-ratings.md, slice R2). After a shared job the experiment's owner rates the cells
   that ran it: `creatura cell rate --job <text> --results <file.json>` applies the Weng-Lin update to each cell's
   latest reputation and writes one owner-signed `Reputation` entry per cell; a ledger refuses a reputation not signed
