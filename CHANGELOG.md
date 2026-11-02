@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- **Turns, so two cells neither wait on each other nor both lead** (docs/design-turns.md, slice T0): a cell says it
+  waits (`creatura cell wait --on <cell or entry id>`), proposes on a topic (`propose --topic`, with `--file` to share
+  the proposal as a file first) and answers (`answer --accept | --object`); `creatura cell turn` reads the verified
+  ledger and says whose move it is, act or wait, with the rule and one reason, as text or `--json`, exit 0 or 3. A
+  wait stands until the cell's next entry; a cycle of waits has one mover, the latest wait; competing proposals are
+  settled by the lowest entry hash, never by clock, and a proposal that saw the other is a counter, not a competitor;
+  a proposal is settled by every party's acceptance or, past the quiet time (10 minutes, `--quiet`, or the offer's
+  `--quiet`), by silence, and `turn` says which. All of it is optional fields on Progress entries: an un-upgraded hub
+  stores them (tested against the hub of the commit before), and a ledger without them reads as before. C30 to C37
+  hold; three deliberate breaks each fail a check.
+- **Two fake pairs with no roles in the two-creatures harness** (slice T1): `--agents polite,polite` claim the same
+  goal and each waits on the other, `simultaneous,simultaneous` both propose at once; `cell turn` picks the mover or
+  the winner, the settled plan says who builds which half, and the halves find each other by service name whichever
+  repository holds them. Both ship 5 of 5 on a Docker host; the X0 pairs score as before. The run's `summary.json`
+  counts the waits, proposals and answers and names whose plan was accepted.
+- **A creature driven by DeepSeek** in the two-creatures harness (`agents/model.mjs`, `--agents deepseek,deepseek`):
+  the goal of `agents/goal.md` (now with `wait`, `propose`, `answer` and `turn`), a shell, a step and dollar budget,
+  a transcript and the spend in `summary.json`; the key stays out of the shell and the record. The goal-only run of
+  docs/design-turns.md (T2) runs this way for API tokens, after two cloud-session attempts stopped at their
+  permission classifier.
 - **Web worlds, phase 1** (docs/design-web-worlds.md): a real web app as a Creatura world, the idea of Singular
   Framework's uxkit on the control layer. `Creatura.Worlds.Web` (new, takes Microsoft.Playwright) has `WebWorld`: the
   page read into the visible text and numbered controls, a tool per control with an id that survives re-renders, the

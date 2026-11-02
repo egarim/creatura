@@ -41,6 +41,23 @@ When you think the app is published and works, say so {{done}}, with the evidenc
 alone:
 > You are working alone.
 
+**`{{together}}`**, in a pair with roles (`--roles`), creature-a:
+> You are one of two agents given this same goal, on two machines. Your peer is `creature-b`. The work is split in
+> two parts and you build one of them: **the server**, the HTTP API and the durable storage, in `repo-a`, as a
+> service named `api` that publishes no port. `creature-b` builds the other part, **the web UI**, in `repo-b`: the
+> service that publishes 8080 and calls your `api` by that name. Do not build the UI and do not publish 8080. The
+> app works only when both parts are deployed and agree on the API, so agree on it with your peer, through the
+> channel below, before you count on it. You can reach your peer only through that channel.
+
+with roles, creature-b:
+> You are one of two agents given this same goal, on two machines. Your peer is `creature-a`. The work is split in
+> two parts and you build one of them: **the web UI**, in `repo-b`, as the service that publishes port 8080, serves
+> the page and talks to the service named `api` for every read and write. `creature-a` builds the other part, **the
+> server**, in `repo-a`: the HTTP API and the durable storage, as `api`, with no published port. Do not build the
+> server or the storage; keep no items of your own. The app works only when both parts are deployed and agree on
+> the API, so agree on it with your peer, through the channel below, before you count on it. You can reach your
+> peer only through that channel.
+
 **`{{repos}}`**: in a pair, "you own `repo-{{name}}` and can push only to it; you can read `repo-{{peer}}`"; alone,
 "you own both and can push to both".
 
@@ -53,6 +70,15 @@ alone:
 > can open and `cell fetch --artifact <id> --out <path>` opens one. `cell sync --hub http://world:5181` sends your
 > entries and brings your peer's; `cell ledger` shows them all. A file is sealed for the cells your ledger knows, so
 > sync until you see your peer's hello before you share one. There is no direct message.
+> Whose move it is: `cell wait --on <your peer's cell id> --row <why>` says you are waiting for your peer, and
+> stands until your next entry; `cell propose --topic <name> --row <text>` (or `--file <path> --hub
+> http://world:5181`, which shares the file first) proposes, say, a plan or an API; `cell answer --proposal <entry
+> id> --accept` or `--object --row <why>` answers your peer's. `cell turn` reads the ledger and says whose move it
+> is, act (exit 0) or wait (exit 3), with the reason (`--json` for a script): two cells waiting on each other get one
+> mover, two proposals that saw nothing of each other are settled by entry hash, the same in both ledgers, and a
+> proposal is settled when your peer accepts it or has written nothing for 10 minutes. Run it after every sync and
+> do what it says. Your peer's cell is the other hello in the ledger. Claim the goal in the words above, so the
+> ledger knows you are both on it (or name your peer with `--with <cell id>` when you propose).
 
 messages (M):
 > ## Your channel: the message board

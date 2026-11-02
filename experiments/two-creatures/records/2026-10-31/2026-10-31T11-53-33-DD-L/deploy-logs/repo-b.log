@@ -1,0 +1,307 @@
+[2026-10-31T12:03:59.416Z] deploying 98a89f0
+[2026-10-31T12:04:04.183Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [app internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.92kB done
+#1 DONE 0.0s
+
+#2 [app internal] load metadata for docker.io/library/node:22-slim
+#2 DONE 3.4s
+
+#3 [app internal] load .dockerignore
+#3 transferring context: 63B done
+#3 DONE 0.0s
+
+#4 [app 1/6] FROM docker.io/library/node:22-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da
+#4 resolve docker.io/library/node:22-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da 0.0s done
+#4 DONE 0.1s
+
+#5 [app internal] load build context
+#5 transferring context: 13.32kB done
+#5 DONE 0.1s
+
+#6 [app 2/6] WORKDIR /app
+#6 DONE 0.1s
+
+#7 [app 3/6] COPY server.js ./
+#7 DONE 0.0s
+
+#8 [app 4/6] COPY public ./public
+#8 DONE 0.0s
+
+#9 [app 5/6] RUN set -e;     have_sqlite() { node -e "const {DatabaseSync}=require('node:sqlite'); const d=new DatabaseSync(':memory:'); d.exec('create table t(a)'); d.prepare('insert into t values (1)').run(); if(d.prepare('select count(*) c from t').get().c!==1) process.exit(1)" 2>/dev/null; };     if have_sqlite; then echo "node:sqlite ok on $(node --version)";     else       echo "base node lacks node:sqlite, trying package nodejs";       if command -v apt-get >/dev/null 2>&1; then apt-get update -qq && apt-get install -y -qq --no-install-recommends nodejs ca-certificates >/dev/null && rm -rf /var/lib/apt/lists/*;       elif command -v apk >/dev/null 2>&1; then apk add --no-cache nodejs >/dev/null; fi;       if have_sqlite; then echo "node:sqlite ok on $(node --version)";       else         echo "package node too old, installing Node 22 tarball";         arch="$(dpkg --print-architecture 2>/dev/null || echo amd64)"; case "$arch" in arm64) a=arm64;; *) a=x64;; esac;         for base in https://nodejs.org/dist https://mirrors.kernel.org/nodejs/ https://npm.taobao.org/mirrors/node; do           if command -v curl >/dev/null 2>&1; then curl -fsSL "$base/latest-v22.x/SHASUMS256.txt" -o /tmp/sums 2>/dev/null || continue;           elif command -v wget >/dev/null 2>&1; then wget -qO /tmp/sums "$base/latest-v22.x/SHASUMS256.txt" 2>/dev/null || continue;           else continue; fi;           f=$(grep -o "node-v22[^ ]*-linux-$a\.tar\.gz" /tmp/sums | head -1) || true; [ -n "$f" ] || continue;           if command -v curl >/dev/null 2>&1; then curl -fsSL "$base/latest-v22.x/$f" -o /tmp/node.tgz || continue; else wget -qO /tmp/node.tgz "$base/latest-v22.x/$f" || continue; fi;           tar -xzf /tmp/node.tgz -C /usr/local --strip-components=1 --exclude=CHANGELOG.md --exclude=LICENSE --exclude=README.md && rm -f /tmp/node.tgz && break;         done;         have_sqlite || { echo "ERROR: could not obtain a Node with node:sqlite" >&2; exit 1; };         echo "node:sqlite ok on $(node --version)";       fi;     fi
+#9 0.139 node:sqlite ok on v22.23.4
+#9 DONE 0.1s
+
+#10 [app 6/6] RUN mkdir -p /data && chown node:node /data && chmod 1777 /tmp
+#10 DONE 0.2s
+
+#11 [app] exporting to image
+#11 exporting layers 0.1s done
+#11 writing image sha256:04d7affe57e870910b47fd90d5ec63d80163d3b311d5b7356f6d40d788bc8c5b done
+#11 naming to docker.io/library/shared-shopping-list:latest done
+#11 DONE 0.1s
+
+#12 [app] resolving provenance for metadata file
+#12 DONE 0.0s
+ app  Built
+ Network pub-repo-b_default  Creating
+ Network pub-repo-b_default  Created
+ Volume "pub-repo-b_shop-data"  Creating
+ Volume "pub-repo-b_shop-data"  Created
+ Container pub-repo-b-app-1  Creating
+ Container pub-repo-b-app-1  Created
+ Container pub-repo-b-app-1  Starting
+ Container pub-repo-b-app-1  Started
+[2026-10-31T12:04:04.183Z] running 98a89f0
+[2026-10-31T12:05:09.478Z] deploying 73413b1
+[2026-10-31T12:05:10.739Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [app internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.92kB done
+#1 DONE 0.0s
+
+#2 [app internal] load metadata for docker.io/library/node:22-slim
+#2 DONE 1.0s
+
+#3 [app internal] load .dockerignore
+#3 transferring context: 63B done
+#3 DONE 0.0s
+
+#4 [app 1/6] FROM docker.io/library/node:22-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da
+#4 DONE 0.0s
+
+#5 [app internal] load build context
+#5 transferring context: 13.32kB done
+#5 DONE 0.0s
+
+#6 [app 4/6] COPY public ./public
+#6 CACHED
+
+#7 [app 5/6] RUN set -e;     have_sqlite() { node -e "const {DatabaseSync}=require('node:sqlite'); const d=new DatabaseSync(':memory:'); d.exec('create table t(a)'); d.prepare('insert into t values (1)').run(); if(d.prepare('select count(*) c from t').get().c!==1) process.exit(1)" 2>/dev/null; };     if have_sqlite; then echo "node:sqlite ok on $(node --version)";     else       echo "base node lacks node:sqlite, trying package nodejs";       if command -v apt-get >/dev/null 2>&1; then apt-get update -qq && apt-get install -y -qq --no-install-recommends nodejs ca-certificates >/dev/null && rm -rf /var/lib/apt/lists/*;       elif command -v apk >/dev/null 2>&1; then apk add --no-cache nodejs >/dev/null; fi;       if have_sqlite; then echo "node:sqlite ok on $(node --version)";       else         echo "package node too old, installing Node 22 tarball";         arch="$(dpkg --print-architecture 2>/dev/null || echo amd64)"; case "$arch" in arm64) a=arm64;; *) a=x64;; esac;         for base in https://nodejs.org/dist https://mirrors.kernel.org/nodejs/ https://npm.taobao.org/mirrors/node; do           if command -v curl >/dev/null 2>&1; then curl -fsSL "$base/latest-v22.x/SHASUMS256.txt" -o /tmp/sums 2>/dev/null || continue;           elif command -v wget >/dev/null 2>&1; then wget -qO /tmp/sums "$base/latest-v22.x/SHASUMS256.txt" 2>/dev/null || continue;           else continue; fi;           f=$(grep -o "node-v22[^ ]*-linux-$a\.tar\.gz" /tmp/sums | head -1) || true; [ -n "$f" ] || continue;           if command -v curl >/dev/null 2>&1; then curl -fsSL "$base/latest-v22.x/$f" -o /tmp/node.tgz || continue; else wget -qO /tmp/node.tgz "$base/latest-v22.x/$f" || continue; fi;           tar -xzf /tmp/node.tgz -C /usr/local --strip-components=1 --exclude=CHANGELOG.md --exclude=LICENSE --exclude=README.md && rm -f /tmp/node.tgz && break;         done;         have_sqlite || { echo "ERROR: could not obtain a Node with node:sqlite" >&2; exit 1; };         echo "node:sqlite ok on $(node --version)";       fi;     fi
+#7 CACHED
+
+#8 [app 2/6] WORKDIR /app
+#8 CACHED
+
+#9 [app 3/6] COPY server.js ./
+#9 CACHED
+
+#10 [app 6/6] RUN mkdir -p /data && chown node:node /data && chmod 1777 /tmp
+#10 CACHED
+
+#11 [app] exporting to image
+#11 exporting layers done
+#11 writing image sha256:04d7affe57e870910b47fd90d5ec63d80163d3b311d5b7356f6d40d788bc8c5b done
+#11 naming to docker.io/library/shared-shopping-list:latest done
+#11 DONE 0.0s
+
+#12 [app] resolving provenance for metadata file
+#12 DONE 0.0s
+ app  Built
+ Container pub-repo-b-app-1  Running
+[2026-10-31T12:05:10.739Z] running 73413b1
+[2026-10-31T12:05:43.511Z] deploying 4b5e063
+[2026-10-31T12:05:44.037Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [app internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.92kB done
+#1 DONE 0.0s
+
+#2 [app internal] load metadata for docker.io/library/node:22-slim
+#2 DONE 0.2s
+
+#3 [app internal] load .dockerignore
+#3 transferring context: 63B done
+#3 DONE 0.0s
+
+#4 [app 1/6] FROM docker.io/library/node:22-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da
+#4 DONE 0.0s
+
+#5 [app internal] load build context
+#5 transferring context: 13.32kB done
+#5 DONE 0.0s
+
+#6 [app 2/6] WORKDIR /app
+#6 CACHED
+
+#7 [app 3/6] COPY server.js ./
+#7 CACHED
+
+#8 [app 5/6] RUN set -e;     have_sqlite() { node -e "const {DatabaseSync}=require('node:sqlite'); const d=new DatabaseSync(':memory:'); d.exec('create table t(a)'); d.prepare('insert into t values (1)').run(); if(d.prepare('select count(*) c from t').get().c!==1) process.exit(1)" 2>/dev/null; };     if have_sqlite; then echo "node:sqlite ok on $(node --version)";     else       echo "base node lacks node:sqlite, trying package nodejs";       if command -v apt-get >/dev/null 2>&1; then apt-get update -qq && apt-get install -y -qq --no-install-recommends nodejs ca-certificates >/dev/null && rm -rf /var/lib/apt/lists/*;       elif command -v apk >/dev/null 2>&1; then apk add --no-cache nodejs >/dev/null; fi;       if have_sqlite; then echo "node:sqlite ok on $(node --version)";       else         echo "package node too old, installing Node 22 tarball";         arch="$(dpkg --print-architecture 2>/dev/null || echo amd64)"; case "$arch" in arm64) a=arm64;; *) a=x64;; esac;         for base in https://nodejs.org/dist https://mirrors.kernel.org/nodejs/ https://npm.taobao.org/mirrors/node; do           if command -v curl >/dev/null 2>&1; then curl -fsSL "$base/latest-v22.x/SHASUMS256.txt" -o /tmp/sums 2>/dev/null || continue;           elif command -v wget >/dev/null 2>&1; then wget -qO /tmp/sums "$base/latest-v22.x/SHASUMS256.txt" 2>/dev/null || continue;           else continue; fi;           f=$(grep -o "node-v22[^ ]*-linux-$a\.tar\.gz" /tmp/sums | head -1) || true; [ -n "$f" ] || continue;           if command -v curl >/dev/null 2>&1; then curl -fsSL "$base/latest-v22.x/$f" -o /tmp/node.tgz || continue; else wget -qO /tmp/node.tgz "$base/latest-v22.x/$f" || continue; fi;           tar -xzf /tmp/node.tgz -C /usr/local --strip-components=1 --exclude=CHANGELOG.md --exclude=LICENSE --exclude=README.md && rm -f /tmp/node.tgz && break;         done;         have_sqlite || { echo "ERROR: could not obtain a Node with node:sqlite" >&2; exit 1; };         echo "node:sqlite ok on $(node --version)";       fi;     fi
+#8 CACHED
+
+#9 [app 4/6] COPY public ./public
+#9 CACHED
+
+#10 [app 6/6] RUN mkdir -p /data && chown node:node /data && chmod 1777 /tmp
+#10 CACHED
+
+#11 [app] exporting to image
+#11 exporting layers done
+#11 writing image sha256:04d7affe57e870910b47fd90d5ec63d80163d3b311d5b7356f6d40d788bc8c5b done
+#11 naming to docker.io/library/shared-shopping-list:latest done
+#11 DONE 0.0s
+
+#12 [app] resolving provenance for metadata file
+#12 DONE 0.0s
+ app  Built
+ Container pub-repo-b-app-1  Running
+[2026-10-31T12:05:44.037Z] running 4b5e063
+[2026-10-31T12:06:22.552Z] deploying 0b32e5e
+[2026-10-31T12:06:23.130Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [app internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.92kB done
+#1 DONE 0.0s
+
+#2 [app internal] load metadata for docker.io/library/node:22-slim
+#2 DONE 0.4s
+
+#3 [app internal] load .dockerignore
+#3 transferring context: 63B done
+#3 DONE 0.0s
+
+#4 [app 1/6] FROM docker.io/library/node:22-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da
+#4 DONE 0.0s
+
+#5 [app internal] load build context
+#5 transferring context: 13.32kB done
+#5 DONE 0.0s
+
+#6 [app 2/6] WORKDIR /app
+#6 CACHED
+
+#7 [app 4/6] COPY public ./public
+#7 CACHED
+
+#8 [app 3/6] COPY server.js ./
+#8 CACHED
+
+#9 [app 5/6] RUN set -e;     have_sqlite() { node -e "const {DatabaseSync}=require('node:sqlite'); const d=new DatabaseSync(':memory:'); d.exec('create table t(a)'); d.prepare('insert into t values (1)').run(); if(d.prepare('select count(*) c from t').get().c!==1) process.exit(1)" 2>/dev/null; };     if have_sqlite; then echo "node:sqlite ok on $(node --version)";     else       echo "base node lacks node:sqlite, trying package nodejs";       if command -v apt-get >/dev/null 2>&1; then apt-get update -qq && apt-get install -y -qq --no-install-recommends nodejs ca-certificates >/dev/null && rm -rf /var/lib/apt/lists/*;       elif command -v apk >/dev/null 2>&1; then apk add --no-cache nodejs >/dev/null; fi;       if have_sqlite; then echo "node:sqlite ok on $(node --version)";       else         echo "package node too old, installing Node 22 tarball";         arch="$(dpkg --print-architecture 2>/dev/null || echo amd64)"; case "$arch" in arm64) a=arm64;; *) a=x64;; esac;         for base in https://nodejs.org/dist https://mirrors.kernel.org/nodejs/ https://npm.taobao.org/mirrors/node; do           if command -v curl >/dev/null 2>&1; then curl -fsSL "$base/latest-v22.x/SHASUMS256.txt" -o /tmp/sums 2>/dev/null || continue;           elif command -v wget >/dev/null 2>&1; then wget -qO /tmp/sums "$base/latest-v22.x/SHASUMS256.txt" 2>/dev/null || continue;           else continue; fi;           f=$(grep -o "node-v22[^ ]*-linux-$a\.tar\.gz" /tmp/sums | head -1) || true; [ -n "$f" ] || continue;           if command -v curl >/dev/null 2>&1; then curl -fsSL "$base/latest-v22.x/$f" -o /tmp/node.tgz || continue; else wget -qO /tmp/node.tgz "$base/latest-v22.x/$f" || continue; fi;           tar -xzf /tmp/node.tgz -C /usr/local --strip-components=1 --exclude=CHANGELOG.md --exclude=LICENSE --exclude=README.md && rm -f /tmp/node.tgz && break;         done;         have_sqlite || { echo "ERROR: could not obtain a Node with node:sqlite" >&2; exit 1; };         echo "node:sqlite ok on $(node --version)";       fi;     fi
+#9 CACHED
+
+#10 [app 6/6] RUN mkdir -p /data && chown node:node /data && chmod 1777 /tmp
+#10 CACHED
+
+#11 [app] exporting to image
+#11 exporting layers done
+#11 writing image sha256:04d7affe57e870910b47fd90d5ec63d80163d3b311d5b7356f6d40d788bc8c5b done
+#11 naming to docker.io/library/shared-shopping-list:latest done
+#11 DONE 0.0s
+
+#12 [app] resolving provenance for metadata file
+#12 DONE 0.0s
+ app  Built
+ Container pub-repo-b-app-1  Running
+[2026-10-31T12:06:23.131Z] running 0b32e5e
+[2026-10-31T12:16:54.157Z] deploying 591c47e
+[2026-10-31T12:16:57.178Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [app internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.92kB done
+#1 DONE 0.0s
+
+#2 [app internal] load metadata for docker.io/library/node:22-slim
+#2 DONE 1.9s
+
+#3 [app internal] load .dockerignore
+#3 transferring context: 63B done
+#3 DONE 0.0s
+
+#4 [app 1/6] FROM docker.io/library/node:22-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da
+#4 DONE 0.0s
+
+#5 [app internal] load build context
+#5 transferring context: 13.33kB done
+#5 DONE 0.0s
+
+#6 [app 2/6] WORKDIR /app
+#6 CACHED
+
+#7 [app 3/6] COPY server.js ./
+#7 DONE 0.1s
+
+#8 [app 4/6] COPY public ./public
+#8 DONE 0.0s
+
+#9 [app 5/6] RUN set -e;     have_sqlite() { node -e "const {DatabaseSync}=require('node:sqlite'); const d=new DatabaseSync(':memory:'); d.exec('create table t(a)'); d.prepare('insert into t values (1)').run(); if(d.prepare('select count(*) c from t').get().c!==1) process.exit(1)" 2>/dev/null; };     if have_sqlite; then echo "node:sqlite ok on $(node --version)";     else       echo "base node lacks node:sqlite, trying package nodejs";       if command -v apt-get >/dev/null 2>&1; then apt-get update -qq && apt-get install -y -qq --no-install-recommends nodejs ca-certificates >/dev/null && rm -rf /var/lib/apt/lists/*;       elif command -v apk >/dev/null 2>&1; then apk add --no-cache nodejs >/dev/null; fi;       if have_sqlite; then echo "node:sqlite ok on $(node --version)";       else         echo "package node too old, installing Node 22 tarball";         arch="$(dpkg --print-architecture 2>/dev/null || echo amd64)"; case "$arch" in arm64) a=arm64;; *) a=x64;; esac;         for base in https://nodejs.org/dist https://mirrors.kernel.org/nodejs/ https://npm.taobao.org/mirrors/node; do           if command -v curl >/dev/null 2>&1; then curl -fsSL "$base/latest-v22.x/SHASUMS256.txt" -o /tmp/sums 2>/dev/null || continue;           elif command -v wget >/dev/null 2>&1; then wget -qO /tmp/sums "$base/latest-v22.x/SHASUMS256.txt" 2>/dev/null || continue;           else continue; fi;           f=$(grep -o "node-v22[^ ]*-linux-$a\.tar\.gz" /tmp/sums | head -1) || true; [ -n "$f" ] || continue;           if command -v curl >/dev/null 2>&1; then curl -fsSL "$base/latest-v22.x/$f" -o /tmp/node.tgz || continue; else wget -qO /tmp/node.tgz "$base/latest-v22.x/$f" || continue; fi;           tar -xzf /tmp/node.tgz -C /usr/local --strip-components=1 --exclude=CHANGELOG.md --exclude=LICENSE --exclude=README.md && rm -f /tmp/node.tgz && break;         done;         have_sqlite || { echo "ERROR: could not obtain a Node with node:sqlite" >&2; exit 1; };         echo "node:sqlite ok on $(node --version)";       fi;     fi
+#9 0.144 node:sqlite ok on v22.23.4
+#9 DONE 0.1s
+
+#10 [app 6/6] RUN mkdir -p /data && chown node:node /data && chmod 1777 /tmp
+#10 DONE 0.1s
+
+#11 [app] exporting to image
+#11 exporting layers 0.0s done
+#11 writing image sha256:72fb7b66bcc2cb0aeab52467f5a83dc5b23f07cbf54a5d297a07252c3292c8c3 done
+#11 naming to docker.io/library/shared-shopping-list:latest done
+#11 DONE 0.1s
+
+#12 [app] resolving provenance for metadata file
+#12 DONE 0.0s
+ app  Built
+ Container pub-repo-b-app-1  Recreate
+ Container pub-repo-b-app-1  Recreated
+ Container pub-repo-b-app-1  Starting
+ Container pub-repo-b-app-1  Started
+[2026-10-31T12:16:57.179Z] running 591c47e
+[2026-10-31T12:17:35.197Z] deploying 35ddb57
+[2026-10-31T12:17:35.708Z] Compose now can delegate build to bake for better performances
+Just set COMPOSE_BAKE=true
+#0 building with "default" instance using docker driver
+
+#1 [app internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.92kB done
+#1 DONE 0.0s
+
+#2 [app internal] load metadata for docker.io/library/node:22-slim
+#2 DONE 0.2s
+
+#3 [app internal] load .dockerignore
+#3 transferring context: 63B done
+#3 DONE 0.0s
+
+#4 [app 1/6] FROM docker.io/library/node:22-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da
+#4 DONE 0.0s
+
+#5 [app internal] load build context
+#5 transferring context: 13.33kB done
+#5 DONE 0.0s
+
+#6 [app 3/6] COPY server.js ./
+#6 CACHED
+
+#7 [app 5/6] RUN set -e;     have_sqlite() { node -e "const {DatabaseSync}=require('node:sqlite'); const d=new DatabaseSync(':memory:'); d.exec('create table t(a)'); d.prepare('insert into t values (1)').run(); if(d.prepare('select count(*) c from t').get().c!==1) process.exit(1)" 2>/dev/null; };     if have_sqlite; then echo "node:sqlite ok on $(node --version)";     else       echo "base node lacks node:sqlite, trying package nodejs";       if command -v apt-get >/dev/null 2>&1; then apt-get update -qq && apt-get install -y -qq --no-install-recommends nodejs ca-certificates >/dev/null && rm -rf /var/lib/apt/lists/*;       elif command -v apk >/dev/null 2>&1; then apk add --no-cache nodejs >/dev/null; fi;       if have_sqlite; then echo "node:sqlite ok on $(node --version)";       else         echo "package node too old, installing Node 22 tarball";         arch="$(dpkg --print-architecture 2>/dev/null || echo amd64)"; case "$arch" in arm64) a=arm64;; *) a=x64;; esac;         for base in https://nodejs.org/dist https://mirrors.kernel.org/nodejs/ https://npm.taobao.org/mirrors/node; do           if command -v curl >/dev/null 2>&1; then curl -fsSL "$base/latest-v22.x/SHASUMS256.txt" -o /tmp/sums 2>/dev/null || continue;           elif command -v wget >/dev/null 2>&1; then wget -qO /tmp/sums "$base/latest-v22.x/SHASUMS256.txt" 2>/dev/null || continue;           else continue; fi;           f=$(grep -o "node-v22[^ ]*-linux-$a\.tar\.gz" /tmp/sums | head -1) || true; [ -n "$f" ] || continue;           if command -v curl >/dev/null 2>&1; then curl -fsSL "$base/latest-v22.x/$f" -o /tmp/node.tgz || continue; else wget -qO /tmp/node.tgz "$base/latest-v22.x/$f" || continue; fi;           tar -xzf /tmp/node.tgz -C /usr/local --strip-components=1 --exclude=CHANGELOG.md --exclude=LICENSE --exclude=README.md && rm -f /tmp/node.tgz && break;         done;         have_sqlite || { echo "ERROR: could not obtain a Node with node:sqlite" >&2; exit 1; };         echo "node:sqlite ok on $(node --version)";       fi;     fi
+#7 CACHED
+
+#8 [app 2/6] WORKDIR /app
+#8 CACHED
+
+#9 [app 4/6] COPY public ./public
+#9 CACHED
+
+#10 [app 6/6] RUN mkdir -p /data && chown node:node /data && chmod 1777 /tmp
+#10 CACHED
+
+#11 [app] exporting to image
+#11 exporting layers done
+#11 writing image sha256:72fb7b66bcc2cb0aeab52467f5a83dc5b23f07cbf54a5d297a07252c3292c8c3 done
+#11 naming to docker.io/library/shared-shopping-list:latest done
+#11 DONE 0.0s
+
+#12 [app] resolving provenance for metadata file
+#12 DONE 0.0s
+ app  Built
+ Container pub-repo-b-app-1  Running
+[2026-10-31T12:17:35.708Z] running 35ddb57

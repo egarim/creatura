@@ -75,7 +75,10 @@ Every pairing on every channel, plus each strong agent alone as the control (dec
 - **Ledger:** Creatura's cells and nothing else: `claim`, `progress`, `handoff`, `release` with evidence, shared
   files (`share`, `files`, `fetch`), all signed and synced through the hub on `world`. Text fields exist, but they
   are tied to a claim, short (200 characters), and addressed to no one: there is no direct message. Any protocol
-  beyond that, such as an API description shared as a file, the agents have to invent.
+  beyond that, such as an API description shared as a file, the agents have to invent. Two failures a goal-only
+  pair is likely to meet on this channel, politely waiting on each other and both leading at once, are the subject
+  of [design-turns.md](design-turns.md): `wait`, `propose`, `answer` and `creatura cell turn`, which says whose move
+  it is, the same in every home.
 - **Messages:** a plain message board on `world`: `say <text>` and `listen`, like a shared chat, with no structure.
 - **Ledger + messages:** both.
 
@@ -146,6 +149,7 @@ when every arm produces a scored run with its full record, and the outside test 
 | X-D9 | the small local models and their agent harness | a 4B-class coding model through an open agent harness, on the creature's own VM; on CPU this is slow, so its time limit may need to be longer |
 | X-D10 | where the harness lives | `experiments/two-creatures/` in this repository, generic and free of infrastructure; the host's own details stay out |
 | X-D11 | memory between runs | none in the pilot. A later arm gives a pair the previous run's ledger, to see whether they communicate better the second time: the "learn to communicate" over runs |
+| X-D12 | turns before the pilot | the owner's call (2026-10-31): fix polite waiting and tie-breaking first. [design-turns.md](design-turns.md) builds them into the ledger (slice T0) and then into the fake pair (T1) before the goal-only run (T2) |
 
 ## What gets built first
 
@@ -162,6 +166,17 @@ Scripted honest pairs ship 5 of 5 through each channel, L, M and LM, and so does
 scripted liar's early "done" is judged 0 of 5 and counted as a false claim every time, and its later true claim
 5 of 5. One gap shows: in C-0 the creature has no channel, so a claim of done cannot be seen there; that arm is
 scored by the outside test alone.
+
+**T1 of [design-turns.md](design-turns.md), built 2026-10-31:** two more fake pairs, with no roles. Both claim the
+goal word for word; the polite pair then waits on each other and the simultaneous pair proposes at once, and
+`creatura cell turn` settles who moves and whose plan stands. Both ship 5 of 5, and the plan decides which creature
+builds which half: in the runs so far the halves went the other way round from X0's written-in roles.
+
+**The first real agent (2026-10-31):** `agents/model.mjs`, a creature driven by a hosted model (DeepSeek, the
+convoy's seat) with the goal above, filled in for its arm, and a shell. `--agents deepseek,deepseek` runs a pair on a
+Docker host for API tokens; the model's key never reaches the shell it runs, the transcript or the record. The
+Claude Code and Codex pairings of the arms table still wait for X1's VMs: cloud sessions could not build or run the
+CLI past their permission classifier (design-turns.md, "Attempted T2").
 
 ## What this note does not cover
 

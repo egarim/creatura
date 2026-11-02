@@ -1,0 +1,139 @@
+[2026-10-31T13:59:44.746Z] deploying 2fe45f2
+[2026-10-31T14:00:10.595Z]  api Pulling 
+ 7b229517ed22 Pulling fs layer 
+ 8776aa3d2ba7 Pulling fs layer 
+ 7246d4c6a55d Pulling fs layer 
+ 304511616d6a Pulling fs layer 
+ 304511616d6a Waiting 
+ 7246d4c6a55d Downloading [>                                                  ]  15.79kB/1.262MB
+ 7b229517ed22 Downloading [>                                                  ]  48.55kB/3.853MB
+ 7246d4c6a55d Downloading [=>                                                 ]  48.55kB/1.262MB
+ 7b229517ed22 Downloading [=>                                                 ]  97.71kB/3.853MB
+ 7246d4c6a55d Downloading [===>                                               ]  81.32kB/1.262MB
+ 7246d4c6a55d Downloading [=====>                                             ]  146.9kB/1.262MB
+ 7b229517ed22 Downloading [==>                                                ]    196kB/3.853MB
+ 7246d4c6a55d Downloading [=========>                                         ]  228.8kB/1.262MB
+ 7b229517ed22 Downloading [====>                                              ]  343.5kB/3.853MB
+ 8776aa3d2ba7 Downloading [>                                                  ]  540.1kB/56.22MB
+ 7246d4c6a55d Downloading [==============>                                    ]  376.2kB/1.262MB
+ 7b229517ed22 Downloading [=======>                                           ]  589.2kB/3.853MB
+ 7246d4c6a55d Downloading [======================>                            ]  572.8kB/1.262MB
+ 7b229517ed22 Downloading [============>                                      ]  982.4kB/3.853MB
+ 8776aa3d2ba7 Downloading [>                                                  ]  1.081MB/56.22MB
+ 7246d4c6a55d Downloading [================================>                  ]  818.6kB/1.262MB
+ 7b229517ed22 Downloading [==================>                                ]  1.425MB/3.853MB
+ 8776aa3d2ba7 Downloading [=>                                                 ]  1.621MB/56.22MB
+ 7246d4c6a55d Downloading [=========================================>         ]  1.048MB/1.262MB
+ 7b229517ed22 Downloading [========================>                          ]  1.916MB/3.853MB
+ 8776aa3d2ba7 Downloading [=>                                                 ]  2.162MB/56.22MB
+ 7246d4c6a55d Downloading [=================================================> ]  1.261MB/1.262MB
+ 7246d4c6a55d Verifying Checksum 
+ 7246d4c6a55d Download complete 
+ 7b229517ed22 Downloading [===============================>                   ]  2.457MB/3.853MB
+ 8776aa3d2ba7 Downloading [==>                                                ]  2.703MB/56.22MB
+ 7b229517ed22 Downloading [======================================>            ]  2.998MB/3.853MB
+ 8776aa3d2ba7 Downloading [==>                                                ]  3.243MB/56.22MB
+ 7b229517ed22 Downloading [=============================================>     ]  3.538MB/3.853MB
+ 7b229517ed22 Verifying Checksum 
+ 7b229517ed22 Download complete 
+ 7b229517ed22 Extracting [>                                                  ]  65.54kB/3.853MB
+ 8776aa3d2ba7 Downloading [===>                                               ]  3.784MB/56.22MB
+ 7b229517ed22 Extracting [===============>                                   ]   1.18MB/3.853MB
+ 8776aa3d2ba7 Downloading [====>                                              ]  4.865MB/56.22MB
+ 7b229517ed22 Extracting [==================================================>]  3.853MB/3.853MB
+ 7b229517ed22 Extracting [==================================================>]  3.853MB/3.853MB
+ 7b229517ed22 Pull complete 
+ 8776aa3d2ba7 Downloading [=====>                                             ]  5.947MB/56.22MB
+ 8776aa3d2ba7 Downloading [======>                                            ]  7.028MB/56.22MB
+ 8776aa3d2ba7 Downloading [=======>                                           ]  8.109MB/56.22MB
+ 8776aa3d2ba7 Downloading [========>                                          ]  9.731MB/56.22MB
+ 8776aa3d2ba7 Downloading [=========>                                         ]  10.81MB/56.22MB
+ 8776aa3d2ba7 Downloading [==========>                                        ]  11.89MB/56.22MB
+ 8776aa3d2ba7 Downloading [===========>                                       ]  12.98MB/56.22MB
+ 8776aa3d2ba7 Downloading [=============>                                     ]  15.14MB/56.22MB
+ 304511616d6a Downloading [==================================================>]     442B/442B
+ 304511616d6a Verifying Checksum 
+ 304511616d6a Download complete 
+ 8776aa3d2ba7 Downloading [=================>                                 ]  19.46MB/56.22MB
+ 8776aa3d2ba7 Downloading [==================>                                ]  21.09MB/56.22MB
+ 8776aa3d2ba7 Downloading [====================>                              ]  22.71MB/56.22MB
+ 8776aa3d2ba7 Downloading [======================>                            ]  25.41MB/56.22MB
+ 8776aa3d2ba7 Downloading [========================>                          ]  27.57MB/56.22MB
+ 8776aa3d2ba7 Downloading [=========================>                         ]  28.11MB/56.22MB
+ 8776aa3d2ba7 Downloading [=========================>                         ]  28.66MB/56.22MB
+ 8776aa3d2ba7 Downloading [==========================>                        ]  29.74MB/56.22MB
+ 8776aa3d2ba7 Downloading [==========================>                        ]  30.28MB/56.22MB
+ 8776aa3d2ba7 Downloading [===========================>                       ]  30.82MB/56.22MB
+ 8776aa3d2ba7 Downloading [============================>                      ]   31.9MB/56.22MB
+ 8776aa3d2ba7 Downloading [============================>                      ]  32.44MB/56.22MB
+ 8776aa3d2ba7 Downloading [=============================>                     ]  32.98MB/56.22MB
+ 8776aa3d2ba7 Downloading [==============================>                    ]  34.06MB/56.22MB
+ 8776aa3d2ba7 Downloading [==============================>                    ]   34.6MB/56.22MB
+ 8776aa3d2ba7 Downloading [=================================>                 ]  37.85MB/56.22MB
+ 8776aa3d2ba7 Downloading [====================================>              ]  40.55MB/56.22MB
+ 8776aa3d2ba7 Downloading [=====================================>             ]  41.63MB/56.22MB
+ 8776aa3d2ba7 Downloading [=====================================>             ]  42.17MB/56.22MB
+ 8776aa3d2ba7 Downloading [========================================>          ]  45.42MB/56.22MB
+ 8776aa3d2ba7 Downloading [=========================================>         ]  47.04MB/56.22MB
+ 8776aa3d2ba7 Downloading [===========================================>       ]   49.2MB/56.22MB
+ 8776aa3d2ba7 Downloading [============================================>      ]  49.74MB/56.22MB
+ 8776aa3d2ba7 Downloading [============================================>      ]  50.28MB/56.22MB
+ 8776aa3d2ba7 Downloading [=============================================>     ]  50.82MB/56.22MB
+ 8776aa3d2ba7 Downloading [=============================================>     ]  51.36MB/56.22MB
+ 8776aa3d2ba7 Downloading [==============================================>    ]   51.9MB/56.22MB
+ 8776aa3d2ba7 Downloading [==============================================>    ]  52.44MB/56.22MB
+ 8776aa3d2ba7 Downloading [===============================================>   ]  52.99MB/56.22MB
+ 8776aa3d2ba7 Downloading [===============================================>   ]  53.53MB/56.22MB
+ 8776aa3d2ba7 Downloading [================================================>  ]  54.07MB/56.22MB
+ 8776aa3d2ba7 Downloading [================================================>  ]  54.61MB/56.22MB
+ 8776aa3d2ba7 Downloading [=================================================> ]  55.15MB/56.22MB
+ 8776aa3d2ba7 Downloading [=================================================> ]  55.69MB/56.22MB
+ 8776aa3d2ba7 Downloading [==================================================>]  56.22MB/56.22MB
+ 8776aa3d2ba7 Verifying Checksum 
+ 8776aa3d2ba7 Download complete 
+ 8776aa3d2ba7 Extracting [>                                                  ]  557.1kB/56.22MB
+ 8776aa3d2ba7 Extracting [======>                                            ]  7.242MB/56.22MB
+ 8776aa3d2ba7 Extracting [===============>                                   ]  17.83MB/56.22MB
+ 8776aa3d2ba7 Extracting [=======================>                           ]  26.74MB/56.22MB
+ 8776aa3d2ba7 Extracting [==================================>                ]  38.44MB/56.22MB
+ 8776aa3d2ba7 Extracting [==========================================>        ]  47.35MB/56.22MB
+ 8776aa3d2ba7 Extracting [=============================================>     ]  50.69MB/56.22MB
+ 8776aa3d2ba7 Extracting [==============================================>    ]  51.81MB/56.22MB
+ 8776aa3d2ba7 Extracting [===============================================>   ]  53.48MB/56.22MB
+ 8776aa3d2ba7 Extracting [==================================================>]  56.22MB/56.22MB
+ 8776aa3d2ba7 Pull complete 
+ 7246d4c6a55d Extracting [=>                                                 ]  32.77kB/1.262MB
+ 7246d4c6a55d Extracting [==================================================>]  1.262MB/1.262MB
+ 7246d4c6a55d Extracting [==================================================>]  1.262MB/1.262MB
+ 7246d4c6a55d Pull complete 
+ 304511616d6a Extracting [==================================================>]     442B/442B
+ 304511616d6a Extracting [==================================================>]     442B/442B
+ 304511616d6a Pull complete 
+ api Pulled 
+ Network pub-repo-a_default  Creating
+ Network pub-repo-a_default  Created
+ Volume "pub-repo-a_api_data"  Creating
+ Volume "pub-repo-a_api_data"  Created
+ Container pub-repo-a-api-1  Creating
+ Container pub-repo-a-api-1  Created
+ Container pub-repo-a-api-1  Starting
+ Container pub-repo-a-api-1  Started
+[2026-10-31T14:00:10.595Z] running 2fe45f2
+[2026-10-31T14:06:34.140Z] deploying dd67e40
+[2026-10-31T14:06:34.349Z]  Container pub-repo-a-api-1  Running
+[2026-10-31T14:06:34.349Z] running dd67e40
+[2026-10-31T14:22:27.044Z] deploying 8836768
+[2026-10-31T14:22:27.147Z]  Container pub-repo-a-api-1  Running
+[2026-10-31T14:22:27.147Z] running 8836768
+[2026-10-31T14:25:15.207Z] deploying 94f25d7
+[2026-10-31T14:25:15.381Z]  Container pub-repo-a-api-1  Running
+[2026-10-31T14:25:15.381Z] running 94f25d7
+[2026-10-31T14:29:33.456Z] deploying 88f93e3
+[2026-10-31T14:29:33.555Z]  Container pub-repo-a-api-1  Running
+[2026-10-31T14:29:33.555Z] running 88f93e3
+[2026-10-31T14:32:04.596Z] deploying 4c6c846
+[2026-10-31T14:32:04.755Z]  Container pub-repo-a-api-1  Running
+[2026-10-31T14:32:04.755Z] running 4c6c846
+[2026-10-31T14:32:50.641Z] deploying c2a3fc1
+[2026-10-31T14:32:50.807Z]  Container pub-repo-a-api-1  Running
+[2026-10-31T14:32:50.808Z] running c2a3fc1

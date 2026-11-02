@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shared shopping list</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 36rem; margin: 2rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; }
+  form { display: flex; gap: .5rem; align-items: center; margin-bottom: 1rem; }
+  form label { font-weight: 600; }
+  #item { flex: 1; padding: .5rem; font-size: 1rem; }
+  button { padding: .5rem .9rem; font-size: 1rem; cursor: pointer; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { display: flex; align-items: center; gap: .6rem; padding: .45rem .2rem; border-bottom: 1px solid rgba(128,128,128,.3); }
+  li label { font-weight: 400; flex: 1; cursor: pointer; padding: .2rem 0; }
+  li.bought label { text-decoration: line-through; opacity: .55; }
+  input[type=checkbox] { width: 1.2rem; height: 1.2rem; cursor: pointer; }
+  .status { font-size: .8rem; opacity: .7; min-height: 1.2em; margin-top: 1rem; }
+  .empty { opacity: .6; padding: .5rem .2rem; }
+</style>
+</head>
+<body>
+  <h1>Shared shopping list</h1>
+  <form id="add-form" autocomplete="off">
+    <label for="item">Item</label>
+    <input id="item" name="item" type="text" placeholder="What to buy?" required>
+    <button id="add" type="submit">Add</button>
+  </form>
+  <ul id="list" aria-live="polite"></ul>
+  <div class="status" id="status"></div>
+<script>
+(function () {
+  'use strict';
+  var listEl = document.getElementById('list');
+  var statusEl = document.getElementById('status');
+  var form = document.getElementById('add-form');
+  var input = document.getElementById('item');
+  var POLL_MS = 2000;
+
+  var rows = Object.create(null);   // id -> { id, text, bought, li, cb, label, busy }
+  var order = [];                   // ids in display order
+  var pending = Object.create(null); // id -> last bought value the user asked for
+  var adding = false;
+
+  function setStatus(s) { statusEl.textContent = s || ''; }
+
+  // api returns a bare array [{id,text,bought}]; tolerate {items:[...]} or {item:{...}}
+  function normalize(raw) {
+    var arr = raw;
+    if (arr && !Array.isArray(arr)) arr = Array.isArray(arr.items) ? arr.items : (arr.item ? [arr.item] : []);
+    if (!Array.isArray(arr)) return [];
+    var out = [], seen = Object.create(null);
+    arr.forEach(function (it) {
+      if (!it || it.id === undefined || it.id === null) return;
+      var id = String(it.id);
+      if (seen[id]) return;
+      seen[id] = true;
+      out.push({ id: id, text: String(it.text != null ? it.text : ''), bought: !!(it.bought != null ? it.bought : it.done) });
+    });
+    return out;
+  }
+
+  function makeRow(it) {
+    var li = document.createElement('li');
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = 'item-' + it.id;
+    cb.setAttribute('aria-label', 'Bought');
+    var label = document.createElement('label');
+    label.setAttribute('for', cb.id);
+    li.appendChild(cb);
+    li.appendChild(label);
+    var row = { id: it.id, text: it.text, bought: it.bought, li: li, cb: cb, label: label, busy: false };
+    cb.addEventListener('change', function () { return toggle(row, cb.checked); });
+    label.addEventListener('click', function (ev) {
+      // explicit: clicking the text toggles too, even if the label/for wiring is odd
+      ev.preventDefault();
+      if (row.busy) return;
+      cb.checked = !cb.checked;
+      toggle(row, cb.checked);
+    });
+    return row;
+  }
+
+  function paintRow(row, it) {
+    row.text = it.text;
+    row.bought = it.bought;
+    row.label.textContent = it.text;
+    row.cb.checked = row.busy && row.id in pending ? pending[row.id] : it.bought;
+    row.li.className = it.bought ? 'bought' : '';
+  }
+
+  function render(items) {
+    // remove rows that vanished
+    var keep = Object.create(null);
+    items.forEach(function (it) { keep[it.id] = true; });
+    order.forEach(function (id) { if (!keep[id]) { listEl.removeChild(rows[id].li); delete rows[id]; } });
+
+    var empty = document.getElementById('empty-row');
+    if (!items.length) {
+      if (!empty) { empty = document.createElement('li'); empty.id = 'empty-row'; empty.className = 'empty'; empty.textContent = 'Nothing yet — add an item.'; listEl.appendChild(empty); }
+    } else if (empty) { listEl.removeChild(empty); }
+
+    var ordered = [];
+    items.forEach(function (it) {
+      var row = rows[it.id];
+      if (!row) { row = makeRow(it); rows[it.id] = row; listEl.appendChild(row.li); }
+      paintRow(row, it);
+      ordered.push(it.id);
+    });
+    // keep DOM order in sync
+    for (var i = 0; i < ordered.length; i++) {
+      var node = rows[ordered[i]].li;
+      var at = listEl.children[i];
+      if (at !== node) listEl.insertBefore(node, at || null);
+    }
+    order = ordered;
+  }
+
+  function refresh() {
+    return fetch('/items', { cache: 'no-store', headers: { Accept: 'application/json' } })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (raw) {
+        render(normalize(raw));
+        setStatus('Updated ' + new Date().toLocaleTimeString());
+      })
+      .catch(function (e) { setStatus('Could not load list (' + e.message + '), retrying…'); });
+  }
+
+  function toggle(row, value) {
+    if (row.busy) { row.cb.checked = row.bought; return; }
+    row.busy = true;
+    pending[row.id] = value;
+    row.cb.checked = value;
+    row.li.className = value ? 'bought' : '';
+    fetch('/items/' + encodeURIComponent(row.id), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bought: value })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json().catch(function () { return null; });
+    }).then(function (saved) {
+      row.busy = false;
+      if (saved && saved.id !== undefined) { var it = normalize([saved])[0]; if (it) paintRow(row, it); }
+      delete pending[row.id];
+      return refresh();
+    }).catch(function (e) {
+      row.busy = false;
+      delete pending[row.id];
+      row.cb.checked = row.bought;              // revert to last known server value
+      row.li.className = row.bought ? 'bought' : '';
+      setStatus('Could not save change (' + e.message + ')');
+      return refresh();
+    });
+  }
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var text = input.value.trim();
+    if (!text || adding) return;
+    adding = true;
+    fetch('/items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text })
+    }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json().catch(function () { return null; }); })
+      .then(function () { input.value = ''; input.focus(); return refresh(); })
+      .catch(function (e) { setStatus('Could not add item (' + e.message + ')'); })
+      .then(function () { adding = false; });
+  });
+
+  refresh();
+  setInterval(refresh, POLL_MS);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
+  window.addEventListener('focus', refresh);
+})();
+</script>
+</body>
+</html>

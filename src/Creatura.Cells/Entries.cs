@@ -80,6 +80,29 @@ public sealed record ProgressPayload(string Claim, string Row) : IEntryPayload
     public double? Stress { get; init; }
 
     public bool? Blocked { get; init; }
+
+    /// <summary>
+    /// The cell or entry this cell waits on (docs/design-turns.md): a wait, which stands until this cell's next entry
+    /// that is not one. An entry id names its writer's cell.
+    /// </summary>
+    public string? WaitingOn { get; init; }
+
+    /// <summary>The topic this entry proposes on (plan, api, free text): a proposal, whose text is <see cref="Row"/>.</summary>
+    public string? Topic { get; init; }
+
+    /// <summary>The proposal entry ids on the same topic its cell held when it proposed, which tells a counter-proposal from a competing one.</summary>
+    public IReadOnlyList<string>? Seen { get; init; }
+
+    /// <summary>The cells a proposal names as its parties, when no claim on a shared goal says who they are.</summary>
+    public IReadOnlyList<string>? With { get; init; }
+
+    /// <summary>The Artifact entry id of the file a proposal was shared as, when it was.</summary>
+    public string? Artifact { get; init; }
+
+    /// <summary>The proposal entry id this entry answers: an answer, with its <see cref="Verdict"/>.</summary>
+    public string? Answers { get; init; }
+
+    public AnswerVerdict? Verdict { get; init; }
 }
 
 /// <summary>Stopping work on a claim. A decline is a hand-off of an offer never started: <see cref="Claim"/> is the offer's entry id and <see cref="Offer"/> its id.</summary>

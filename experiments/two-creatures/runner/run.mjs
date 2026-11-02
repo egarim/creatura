@@ -5,9 +5,12 @@
 //   node runner/run.mjs --reference [label|live|check|persist|down]     the reference app, no agents
 //
 // Arms: <pairing>-<channel>, channel L (ledger only), LM (ledger + messages), M (messages only), or C-0 / X-0 for one
-// agent alone. --agents names what drives each creature: fake (agents/fake.mjs, scripted), or the real agents of
-// slice X1 (claude, codex, small), which this runner refuses until they are wired. liar is a fake that also
-// claims done before anything is published, to test the false-claim path.
+// agent alone. --agents names what drives each creature: fake (agents/fake.mjs, scripted, the roles written in),
+// liar (a fake that also claims done before anything is published, to test the false-claim path), polite and
+// simultaneous (slice T1 of docs/design-turns.md: no roles, the plan settled through `cell turn`, so they need the
+// ledger), deepseek (agents/model.mjs: a model given the goal of agents/goal.md and a shell, DeepSeek through its API,
+// DEEPSEEK_API_KEY on this host), or the real agents of slice X1 (claude, codex, small), which this runner refuses
+// until they are wired.
 // It talks to whatever Docker host `docker` points at; the sandbox is one network with fixed addresses inside
 // 100.64.0.0/10, which the ledger hub accepts as mesh addresses.
 import { execFileSync, spawnSync } from "node:child_process";
@@ -31,25 +34,49 @@ const arm = reference ? `REF${breakWhat ? "-" + breakWhat : ""}` : opt("--arm");
 const minutes = Number(opt("--minutes", reference ? 5 : 120));
 const checkEvery = Number(opt("--check-every", 600));
 const keep = argv.includes("--keep");
+const roles = argv.includes("--roles"); // the parts written in: a the server, b the UI (goal.md)
 if (!arm) usage("--arm is required");
 const channel = reference ? "none" : arm.split("-")[1];
 const solo = channel === "0";
 if (!reference && !["L", "LM", "M", "0"].includes(channel)) usage(`unknown channel in ${arm}`);
 const agentKinds = reference ? [] : (opt("--agents") ?? usage("--agents is required")).split(",");
 if (!reference && agentKinds.length !== (solo ? 1 : 2)) usage(solo ? "an arm alone takes one agent" : "a pair takes two agents, a,b");
-for (const k of agentKinds) if (!["fake", "liar"].includes(k)) usage(`agent '${k}' is wired in slice X1; X0 runs fake agents only (fake, liar)`);
+const TURN_KINDS = ["polite", "simultaneous"];
+const MODEL_KINDS = ["deepseek"];
+for (const k of agentKinds) if (!["fake", "liar", ...TURN_KINDS, ...MODEL_KINDS].includes(k)) usage(`agent '${k}' is wired in slice X1; this runner takes fake, liar, polite, simultaneous and deepseek`);
 const ledger = channel === "L" || channel === "LM";
 const board = channel === "M" || channel === "LM";
+if (agentKinds.some((k) => TURN_KINDS.includes(k))) {
+  if (!ledger) usage(`${agentKinds.join(",")} settle the plan through the ledger: an arm with channel L or LM`);
+  if (solo) usage("polite and simultaneous are pairs");
+  if (!agentKinds.every((k) => TURN_KINDS.includes(k))) usage("a turn-driven pair takes two of polite, simultaneous; fake and liar have their roles written in");
+}
+if (agentKinds.some((k) => MODEL_KINDS.includes(k))) {
+  if (!agentKinds.every((k) => MODEL_KINDS.includes(k))) usage("a model-driven run takes deepseek for every creature; the scripted kinds have their parts written in");
+  if (!(process.env.DEEPSEEK_API_KEY || process.env.deepseek)) usage("deepseek needs DEEPSEEK_API_KEY (or deepseek) in this shell's environment; it is passed to the creatures and never written to the record");
+}
+if (roles && (reference || solo || !agentKinds.every((k) => MODEL_KINDS.includes(k)))) usage("--roles splits the goal for a model-driven pair: a builds the server, b the UI");
+/** What a model-driven creature gets from this host: the key and model, its limits, and a CA bundle when this host's egress is inspected (TC_CA_FILE). */
+const agentEnv = () => ({
+  DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY || process.env.deepseek || "",
+  DEEPSEEK_MODEL: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+  DEEPSEEK_BASE_URL: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
+  AGENT_MINUTES: String(Number(opt("--minutes", 120))),
+  AGENT_STEPS: opt("--steps", "200"),
+  AGENT_BUDGET: opt("--budget", "2"),
+  ...(roles ? { AGENT_ROLES: "1" } : {}),
+  ...(process.env.TC_CA_FILE ? { NODE_EXTRA_CA_CERTS: "/etc/tc-ca.crt" } : {}),
+});
 const names = reference ? [] : solo ? ["a"] : ["a", "b"];
 
 function usage(why) {
-  console.error(`run: ${why}\nusage: run.mjs --arm <CC-L|...|C-0> --agents <kind>[,<kind>] [--minutes n] [--check-every s] [--keep]\n       run.mjs --reference [label|live|check|persist|down]`);
+  console.error(`run: ${why}\nusage: run.mjs --arm <CC-L|...|C-0> --agents <kind>[,<kind>] [--minutes n] [--check-every s] [--keep] [--steps n] [--budget usd] [--roles]\n       run.mjs --reference [label|live|check|persist|down]`);
   process.exit(2);
 }
 
 // ---- helpers ------------------------------------------------------------------------------------------------
 
-const runId = `${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}-${arm}`;
+const runId = `${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}-${arm}${roles ? "-R" : ""}`;
 const state = join(HERE, "state", runId);
 const out = join(HERE, "results", runId);
 mkdirSync(state, { recursive: true });
@@ -130,7 +157,8 @@ async function setUp() {
     writeFileSync(`${setup}/creature.env`, `NAME=${n}\nPEER=${solo ? "none" : n === "a" ? "b" : "a"}\nCHANNEL=${channel}\nWORLD=world\n`);
     say(`creature-${n}`);
     docker(["run", "-d", "--name", `tc-creature-${n}`, "--hostname", `creature-${n}`, "--network", NET, "--ip", IP[n],
-      "--add-host", `world:${IP.world}`, "-v", `${setup}:/setup:ro`, "-v", `${HERE}:/x:ro`, "tc-creature"]);
+      "--add-host", `world:${IP.world}`, "-v", `${setup}:/setup:ro`, "-v", `${HERE}:/x:ro`,
+      ...(process.env.TC_CA_FILE ? ["-v", `${resolve(process.env.TC_CA_FILE)}:/etc/tc-ca.crt:ro`] : []), "tc-creature"]);
     await until(`creature-${n} ready`, () => docker(["exec", `tc-creature-${n}`, "test", "-f", "/run/creature-ready"], { allowFail: true }) !== null, 60);
     if (ledger) join_(n);
   }
@@ -182,6 +210,22 @@ function ledgerEntries(n) {
 
 const kindOf = (e) => String(e.kind ?? e.Kind ?? "");
 const cells = {}; // cell id -> creature name, from each creature's accept
+
+/** What the turns of docs/design-turns.md left in the ledgers: the waits, proposals and answers, and whose plan was accepted. */
+function turns() {
+  if (!ledger) return undefined;
+  const entries = new Map();
+  for (const n of names) for (const e of ledgerEntries(n)) entries.set(`${e.cell}#${e.sequence}`, e);
+  const progress = [...entries.values()].filter((e) => kindOf(e) === "Progress").map((e) => e.payload ?? {});
+  const accepted = progress.filter((p) => p.answers && p.verdict === "Accept").map((p) => p.answers);
+  return {
+    waits: progress.filter((p) => p.waitingOn).length,
+    proposals: progress.filter((p) => p.topic && !p.answers).length,
+    answers: progress.filter((p) => p.answers).length,
+    objections: progress.filter((p) => p.answers && p.verdict === "Object").length,
+    plannedBy: [...new Set(accepted.map((id) => cells[id.split("#")[0]] ?? id.split("#")[0]))],
+  };
+}
 const seen = new Set();
 const claims = [];
 
@@ -239,11 +283,26 @@ function deployStatus() {
 
 function startAgents() {
   names.forEach((n, i) => {
-    // liar: the fake agent that also claims done before anything is published, to test the false-claim path
-    const cmd = `${agentKinds[i] === "liar" ? "LIE=1 " : ""}node /x/agents/fake.mjs`;
-    docker(["exec", "-d", "-u", "creature", "-w", "/home/creature", `tc-creature-${n}`, "sh", "-c", `${cmd} > /home/creature/agent.log 2>&1; echo $? > /home/creature/agent.exit`]);
-    say(`agent on creature-${n}: ${agentKinds[i]}`);
+    // KIND picks the part (fake.mjs); liar is the fake that also claims done before anything is published; a model
+    // kind runs model.mjs with the key and limits in its environment, never on its command line
+    const model = MODEL_KINDS.includes(agentKinds[i]);
+    // a model-driven agent runs under its own process name, so the model's own clean-ups (`pkill node`, `pkill -x
+    // node`) kill its test servers and not the driver (DD-M with roles, 2026-10-31: creature-b killed itself that way)
+    if (model) docker(["exec", `tc-creature-${n}`, "sh", "-c", 'cp -n "$(command -v node)" /usr/local/bin/creature-agent']);
+    const cmd = model ? "creature-agent /x/agents/model.mjs" : `KIND=${agentKinds[i]} ${agentKinds[i] === "liar" ? "LIE=1 " : ""}node /x/agents/fake.mjs`;
+    const env = model ? Object.entries(agentEnv()).flatMap(([k, v]) => ["-e", `${k}=${v}`]) : [];
+    docker(["exec", "-d", "-u", "creature", "-w", "/home/creature", ...env, `tc-creature-${n}`, "sh", "-c", `${cmd} > /home/creature/agent.log 2>&1; echo $? > /home/creature/agent.exit`]);
+    say(`agent on creature-${n}: ${agentKinds[i]}${model ? ` (${agentEnv().DEEPSEEK_MODEL})` : ""}`);
   });
+}
+
+/** What each model-driven creature spent, from the file its agent writes at the end. */
+function agentUsage() {
+  if (!agentKinds.some((k) => MODEL_KINDS.includes(k))) return undefined;
+  return Object.fromEntries(names.map((n) => {
+    const text = docker(["exec", `tc-creature-${n}`, "cat", "/home/creature/agent-usage.json"], { allowFail: true });
+    try { return [n, text ? JSON.parse(text) : null]; } catch { return [n, null]; }
+  }));
 }
 
 const finished = (n) => docker(["exec", `tc-creature-${n}`, "test", "-f", "/home/creature/agent.exit"], { allowFail: true }) !== null;
@@ -253,10 +312,12 @@ function collect(summary) {
   cp("tc-world:/srv/deploy/logs", "deploy-logs");
   if (board) cp("tc-world:/srv/board/messages.jsonl", "messages.jsonl");
   for (const r of ["repo-a", "repo-b"]) {
-    if (docker(["exec", "tc-world", "git", "-c", "safe.directory=*", "--git-dir", `/srv/git/${r}.git`, "bundle", "create", `/tmp/${r}.bundle`, "--all"], { allowFail: true }) !== null) cp(`tc-world:/tmp/${r}.bundle`, `${r}.bundle`);
+    // written under /srv, not /tmp: world's /tmp is a tmpfs, which `docker cp` cannot read (no bundle in any record before 2026-10-31)
+    if (docker(["exec", "tc-world", "git", "-c", "safe.directory=*", "--git-dir", `/srv/git/${r}.git`, "bundle", "create", `/srv/${r}.bundle`, "--all"], { allowFail: true }) !== null) cp(`tc-world:/srv/${r}.bundle`, `${r}.bundle`);
   }
   for (const n of names) {
     cp(`tc-creature-${n}:/home/creature/agent.log`, `agent-${n}.log`);
+    cp(`tc-creature-${n}:/home/creature/agent-transcript.jsonl`, `agent-${n}-transcript.jsonl`);
     if (ledger) cp(`tc-creature-${n}:/home/creature/.creatura/ledger.json`, `ledger-${n}.json`);
   }
   for (const f of ["deployer", "hub", "board", "sshd"]) cp(`tc-world:/var/log/${f}.log`, `world-${f}.log`);
@@ -300,11 +361,13 @@ async function main() {
   if (last.shipped && firstShip === null) firstShip = last.elapsed;
 
   const summary = {
-    run: runId, arm, agents: agentKinds, channel, reference: reference ? breakWhat || "intact" : undefined,
+    run: runId, arm, agents: agentKinds, channel, roles: roles || undefined, reference: reference ? breakWhat || "intact" : undefined,
     score: last.score, shipped: last.shipped, firstShipSeconds: firstShip,
     seconds: Math.round((Date.now() - t0) / 1000),
     claims: claims.map(({ key, ...c }) => c), falseClaims: claims.filter((c) => !c.true).length,
     messages: boardMessages().length, ledgerEntries: Object.fromEntries(names.map((n) => [n, ledgerEntries(n).length])),
+    turns: turns(),
+    usage: agentUsage(),
     agentsExited: Object.fromEntries(names.map((n) => [n, finished(n)])),
   };
   collect(summary);

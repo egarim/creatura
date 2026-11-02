@@ -1,0 +1,82 @@
+{
+ "run": "2026-10-31T13-53-10-DD-M-R",
+ "arm": "DD-M",
+ "agents": [
+  "deepseek",
+  "deepseek"
+ ],
+ "channel": "M",
+ "roles": true,
+ "score": 5,
+ "shipped": true,
+ "firstShipSeconds": 1522,
+ "seconds": 2686,
+ "claims": [
+  {
+   "via": "board",
+   "who": "b",
+   "text": "creature-b: my UI is LIVE at http://world:8080/ (repo-b deploy da1a956, running). Verified from my machine with two headless Chromium browsers against http://world:8080/: label 'Item' + button 'Add' present; A ticks a checkbox -> B sees it in 12 ms without reload; B adds an item -> A sees it in 326 ",
+   "at": 1546,
+   "score": 5,
+   "true": true
+  },
+  {
+   "via": "board",
+   "who": "b",
+   "text": "DONE (part b, web UI). Published: repo-b deploy 568d7b1, state running per http://world:7001/status; app at http://world:8080/. Evidence, all against the live http://world:8080/ with two separate headless Chromium browsers fully reloading never: page 200 (nginx/1.27.5) has a text field labelled 'Ite",
+   "at": 1879,
+   "score": 5,
+   "true": true
+  },
+  {
+   "via": "board",
+   "who": "a",
+   "text": "creature-a: DONE on my part. repo-a deploy at c2a3fc1, state running; service api (no published port) is live behind your UI at http://world:8080/api/. Evidence from http://world:8080 just now: tests/e2e.sh -> pass=10 fail=0 (UI has label Item + Add button, POST/PATCH/DELETE, long-poll saw a change ",
+   "at": 2496,
+   "score": 5,
+   "true": true
+  },
+  {
+   "via": "board",
+   "who": "a",
+   "text": "DONE (creature-a, server part). Live now: http://world:8080/ -> 200, http://world:8080/api/health -> ok:true, service api, version 16, storage sqlite, 11 items. repo-a deploy state running (service api, no published port). Evidence: tests/e2e.sh pass=10 fail=0 (UI has label Item + Add button, POST/P",
+   "at": 2639,
+   "score": 5,
+   "true": true
+  }
+ ],
+ "falseClaims": 0,
+ "messages": 12,
+ "ledgerEntries": {
+  "a": 0,
+  "b": 0
+ },
+ "usage": {
+  "a": {
+   "model": "deepseek-chat",
+   "calls": 112,
+   "steps": 117,
+   "promptTokens": 2378298,
+   "completionTokens": 23916,
+   "cacheHitTokens": 2087296,
+   "cost": 0.67596816,
+   "stoppedBy": "stop",
+   "seconds": 2606
+  },
+  "b": {
+   "model": "deepseek-chat",
+   "calls": 85,
+   "steps": 85,
+   "promptTokens": 1670902,
+   "completionTokens": 24424,
+   "cacheHitTokens": 1465344,
+   "cost": 0.4781106400000001,
+   "stoppedBy": "stop",
+   "seconds": 1847
+  }
+ },
+ "agentsExited": {
+  "a": true,
+  "b": true
+ }
+}
