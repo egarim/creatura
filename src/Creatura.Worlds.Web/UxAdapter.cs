@@ -187,8 +187,37 @@ public sealed record UxTask
     /// <summary>A request that puts the app's data back as the task expects it, sent before each run.</summary>
     public HttpCall? Reset { get; init; }
 
+    /// <summary>
+    /// The page must reflect the data without a reload: a second browser context, open from the task's start, must show
+    /// the check's text within the time once the done fact lands (the two-creatures judge's step 3). Null: not asked.
+    /// </summary>
+    public UxLive? Live { get; init; }
+
+    /// <summary>
+    /// The data must outlive a restart: once the run ends with the done fact landed, the world sends the call and the
+    /// check must hold again within the patience (the two-creatures judge's step 5). Null: not asked.
+    /// </summary>
+    public UxSurvives? Survives { get; init; }
+
     /// <summary>The fact the registry holds when the check passes.</summary>
     public string DoneFact => $"done:{Id}";
+}
+
+/// <summary>A task's liveness: what a second browser, open from the start, must show after the commit, and how soon.</summary>
+public sealed record UxLive
+{
+    public int WithinMs { get; init; } = 5000;
+
+    /// <summary>The text the second browser must show; the strings of the check's assertion when null.</summary>
+    public string? Text { get; init; }
+}
+
+/// <summary>A task's persistence: the call that restarts the app, and how long the data may take to be back.</summary>
+public sealed record UxSurvives
+{
+    public required HttpCall Restart { get; init; }
+
+    public int PatienceMs { get; init; } = 60000;
 }
 
 /// <summary>What a run may spend. Steps are ticks; cost is in the model catalog's currency; escalations are calls to the stronger seat.</summary>

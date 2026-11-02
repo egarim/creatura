@@ -80,6 +80,12 @@ public interface IUxHooks
     Task SignInAsync(IPage page, string account, CancellationToken cancellationToken) => Task.CompletedTask;
 }
 
+/// <summary>Whether the page reflected the data in a second browser without a reload, and how soon (<see cref="UxTask.Live"/>).</summary>
+public sealed record UxLiveResult(bool Shown, int Ms, string Detail);
+
+/// <summary>Whether the data was still there after the restart, and how soon (<see cref="UxTask.Survives"/>).</summary>
+public sealed record UxSurviveResult(bool Held, int Ms, string Detail);
+
 /// <summary>How a web world is opened.</summary>
 public sealed record WebWorldOptions
 {
@@ -134,6 +140,9 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
     private readonly List<WebLie> _lies = [];
     private readonly Dictionary<string, string> _typed = new(StringComparer.Ordinal);
     private int _loopTick;
+    private bool _doneSeen;
+    private IBrowserContext? _watcherContext;
+    private IPage? _watcher;
     private int _inFlight;
     private long _lastNetwork = System.Environment.TickCount64;
 
@@ -186,6 +195,12 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
     /// <summary>The account whose kept session this world was opened with, if any.</summary>
     public string? SignedInAs { get; private set; }
 
+    /// <summary>What the second browser showed after the done fact landed; null when the task asks for no liveness, or it has not landed.</summary>
+    public UxLiveResult? Live { get; private set; }
+
+    /// <summary>What the check said after the restart; null when the task asks for none, or <see cref="SurviveAsync"/> has not run.</summary>
+    public UxSurviveResult? Survived { get; private set; }
+
     /// <summary>Opens the task's start page in a new browser context with the environment's viewport, the barriers routed, the data reset, the account signed in.</summary>
     public static Task<WebWorld> OpenAsync(WebBrowser browser, UxAdapter adapter, UxTask task, UxEnvironment environment, WebWorldOptions? options = null, CancellationToken cancellationToken = default) =>
         OpenAsync(browser, adapter, task, environment, options ?? new WebWorldOptions(), retried: false, cancellationToken);
@@ -228,6 +243,22 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
             if (task.Account is { } account && adapter.SignIn is null && options.Hooks is { } hooks) await hooks.SignInAsync(page, account, cancellationToken).ConfigureAwait(false);
             await page.GotoAsync(adapter.Resolve(task.Start)).ConfigureAwait(false);
             await world.SettleAsync().ConfigureAwait(false);
+            // The second browser, for liveness: the same session, the same page, open before the persona acts, never reloaded.
+            if (task.Live is not null)
+            {
+                world._watcherContext = await browser.Browser.NewContextAsync(new BrowserNewContextOptions
+                {
+                    ViewportSize = new ViewportSize { Width = environment.Width, Height = environment.Height },
+                    IsMobile = environment.Mobile,
+                    HasTouch = environment.Mobile,
+                    StorageState = session?.StorageState,
+                }).ConfigureAwait(false);
+                if (session is not null && adapter.SignIn!.SessionStorage) await UxSessions.RestoreAsync(world._watcherContext, session).ConfigureAwait(false);
+                world._watcher = await world._watcherContext.NewPageAsync().ConfigureAwait(false);
+                await world._watcher.GotoAsync(adapter.Resolve(task.Start)).ConfigureAwait(false);
+                await Task.Delay(300, cancellationToken).ConfigureAwait(false);
+            }
+
             await world.RefreshAsync(cancellationToken).ConfigureAwait(false);
             if (session is null || await world.ShowsAsync(adapter.SignIn!.SignedInText, Math.Min(adapter.SignIn.TimeoutMs, 5000), cancellationToken).ConfigureAwait(false))
             {
@@ -497,6 +528,71 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
         {
             if (Current.ById(id) is { Kind: ControlKind.Type } field && field.Value == text) _facts.Add(WebTools.Typed(id));
         }
+
+        // The first time the data says done: does the second browser show it, without a reload, within the time?
+        if (LastCheck.Done && !_doneSeen)
+        {
+            _doneSeen = true;
+            if (_task.Live is { } live && _watcher is not null) Live = await WatchAsync(live, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Reads the second browser's page, never reloading it, until it shows the texts or the time is up.</summary>
+    private async Task<UxLiveResult> WatchAsync(UxLive live, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<string> texts = live.Text is { Length: > 0 } t ? new[] { t } : _task.Check?.Texts() ?? [];
+        if (texts.Count == 0) return new UxLiveResult(false, 0, "nothing to look for: the task's live check names no text and the data check asserts none");
+        var started = System.Environment.TickCount64;
+        string seen = "";
+        while (true)
+        {
+            try
+            {
+                seen = (await ObserveAsync(_watcher!, _options.MaxText).ConfigureAwait(false)).Text;
+            }
+            catch (Exception e) when (e is PlaywrightException or TimeoutException)
+            {
+                seen = "";
+            }
+
+            var elapsed = (int)(System.Environment.TickCount64 - started);
+            if (texts.All(x => seen.Contains(x, StringComparison.OrdinalIgnoreCase)))
+                return new UxLiveResult(true, elapsed, string.Create(CultureInfo.InvariantCulture, $"the second browser showed \"{texts[0]}\" after {elapsed} ms, with no reload"));
+            if (elapsed >= live.WithinMs)
+                return new UxLiveResult(false, elapsed, string.Create(CultureInfo.InvariantCulture, $"the second browser did not show \"{texts[0]}\" within {live.WithinMs} ms (no reload)"));
+            await Task.Delay(250, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// The task's restart, once the data says done: sends <see cref="UxSurvives.Restart"/>, then asks the data again until
+    /// it holds or the patience is up. Null when the task asks for none or the data never said done.
+    /// </summary>
+    public async Task<UxSurviveResult?> SurviveAsync(CancellationToken cancellationToken = default)
+    {
+        if (_task.Survives is not { } survives || !LastCheck.Done) return null;
+        var started = System.Environment.TickCount64;
+        try
+        {
+            using var response = await Http.SendAsync(_http, _adapter, survives.Restart, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                return Survived = new UxSurviveResult(false, 0, string.Create(CultureInfo.InvariantCulture, $"the restart {survives.Restart.Method} {survives.Restart.Url} answered {(int)response.StatusCode}"));
+        }
+        catch (HttpRequestException e)
+        {
+            return Survived = new UxSurviveResult(false, 0, $"the restart {survives.Restart.Method} {survives.Restart.Url} failed: {FirstLine(e.Message)}");
+        }
+
+        CheckResult check;
+        while (true)
+        {
+            await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+            check = await CheckAsync(cancellationToken).ConfigureAwait(false);
+            var elapsed = (int)(System.Environment.TickCount64 - started);
+            if (check.Done) return Survived = new UxSurviveResult(true, elapsed, string.Create(CultureInfo.InvariantCulture, $"after the restart the data still shows it ({check.Detail}), {elapsed} ms"));
+            if (elapsed >= survives.PatienceMs) return Survived = new UxSurviveResult(false, elapsed, string.Create(CultureInfo.InvariantCulture, $"after the restart the data no longer shows it within {survives.PatienceMs} ms ({check.Detail})"));
+            await Task.Delay(1500, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private async Task<CheckResult> CheckAsync(CancellationToken cancellationToken)
@@ -537,6 +633,7 @@ public sealed class WebWorld : ITickedWorld, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (_watcherContext is not null) await _watcherContext.DisposeAsync().ConfigureAwait(false);
         await _context.DisposeAsync().ConfigureAwait(false);
         if (_ownsHttp) _http.Dispose();
     }

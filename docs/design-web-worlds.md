@@ -363,6 +363,8 @@ uxkit's last two model roles. Both read the report, never the app.
 | `not-done` | the data does not show the task done |
 | `not-run` | the cell could not run |
 | `input-lost` | a save went ahead with a field that did not show what was typed: the app saved what it was given (phase 3) |
+| `not-live` | the data says done and a second browser, open from the start, did not show it in time without a reload (the task's `live`) |
+| `lost-on-restart` | the data said done, and after the task's `survives` restart it no longer does |
 | `friction` | wrong turns, repeated actions, escalations, a control the persona could not find |
 | `ok` | done, and nothing above |
 
@@ -576,10 +578,28 @@ old judge stays in the record until (iv) lands.
 
 | id | claim | falsifier | status |
 |---|---|---|---|
-| W33 | a task with `live` passes only when a second context opened at the start shows the check's text within the time with no reload; the demo's notes page, which does not refresh, fails it and a page that polls passes | anything else | proposed |
-| W34 | a task with `survives` sends the call after the done fact lands and passes only when the check holds again within the patience; a store that forgets fails as `lost-on-restart` | anything else | proposed |
+| W33 | a task with `live` passes only when a second context opened at the start shows the check's text within the time with no reload; the demo's notes page, which does not refresh, fails it and a page that polls passes | anything else | holds |
+| W34 | a task with `survives` sends the call after the done fact lands and passes only when the check holds again within the patience; a store that forgets fails as `lost-on-restart` | anything else | holds |
 | W35 | an unlabelled checkbox in a row is named by the row's text, so a script can tick it by the item's name; a labelled one keeps its label | anything else | proposed |
 | W36 | the shopping-list adapter scores the reference app 5 of 5 and each of the five broken references apart, as the X0 judge does | a break not told apart | proposed |
+
+### Live and survives (slice i, built 2026-11-02)
+
+The owner said yes to the merge (U5). Slice (i) is built: a task may declare `live` (`{"withinMs": 5000, "text":
+...}`; the text defaults to the strings the data check asserts) and `survives` (`{"restart": <an HttpCall>,
+"patienceMs": 60000}`). For `live` the world opens a second browser context at the task's start, with the same
+session and viewport, on the same page, and never reloads it; the first time the data says done it reads that page
+every 250 ms until the text is there or the time is up (`WebWorld.Live`). For `survives` the runner, once the loop
+ends with the done fact landed, sends the restart and asks the data again every 2 s until it holds or the patience is
+up (`WebWorld.SurviveAsync`, `Survived`). Both are app properties, so they are on the cell (`Live`, `Survived`,
+with a detail each), in the CSV (two columns; the `lies_told` column the header named and the rows left out is
+filled in too), in the report's note, in the judge's prompt and in its rules as `not-live` and `lost-on-restart`.
+Neither is asked for by default; a task that asks and never reaches done is judged `not-done` alone.
+
+W33 and W34 hold: `LiveShapeTests` (2, no browser) and `LiveTests` (2, Chromium). The demo's notes page, which
+does not refresh, is not live; served with `?live=1` it polls every second and is live in about a second. The
+demo's `POST /api/restart` keeps the notes and `?forget=1` loses them: the first survives, the second is
+`lost-on-restart`. Not run: a real app.
 
 ## Decisions for the owner
 

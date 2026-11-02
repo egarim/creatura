@@ -203,7 +203,7 @@ public sealed record UxReport
         sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|" + (findings.Count > 0 ? "---|" : ""));
         foreach (var c in Cells)
         {
-            var note = c.Error ?? (c.UncaughtLie ? "lie not caught" : c.BelievedNotDone ? "believed done, not done" : c.PageSaidNotDone ? "page said done, not done" : "");
+            var note = c.Error ?? (c.UncaughtLie ? "lie not caught" : c.BelievedNotDone ? "believed done, not done" : c.PageSaidNotDone ? "page said done, not done" : c.NotLive ? "not live" : c.LostOnRestart ? "lost on restart" : "");
             sb.AppendLine(string.Create(TraceText.Culture,
                 $"| {c.Task} | {c.Persona} | {c.Environment} | {c.Tester} | {c.Design} | {(c.Error is not null ? "not run" : c.DataDone ? "done" : "not done")} | {(c.PageSaidDone ? "yes" : "")} | {(c.BelievedDoneAt is { } t ? $"tick {t}" : "")} | {c.Ticks} | {c.LiesCaught} | {c.Escalations} | {(c.Cost is { } k && k > 0 ? k.ToString("0.####", TraceText.Culture) : "")} | {note} |") + (findings.Count > 0 ? $" {findings.GetValueOrDefault(c.Key, "")} |" : ""));
         }
@@ -220,13 +220,14 @@ public sealed record UxReport
             ran.Sum(c => c.LiesCaught), done.Count == 0 ? null : done.Average(c => c.Ticks), ran.Any(c => c.Cost is null) ? null : ran.Sum(c => c.Cost ?? 0));
     }).ToList();
 
-    public const string CsvHeader = "task,persona,environment,tester,design,seat,agent,barriers,data_done,page_said_done,believed_done_at,ticks,lies_told,lies_caught,escalations,cost,uncaught_lie,error,check";
+    public const string CsvHeader = "task,persona,environment,tester,design,seat,agent,barriers,data_done,page_said_done,believed_done_at,ticks,lies_told,lies_caught,escalations,cost,uncaught_lie,error,check,live,survived";
 
     public IEnumerable<string> CsvLines() => Cells.Select(c => string.Join(',', new[]
     {
         c.Task, c.Persona, c.Environment, c.Tester, c.Design, c.Seat, c.Agent, string.Join('+', c.Barriers), c.DataDone ? "1" : "0", c.PageSaidDone ? "1" : "0",
-        c.BelievedDoneAt?.ToString(TraceText.Culture) ?? "", c.Ticks.ToString(TraceText.Culture), c.LiesCaught.ToString(TraceText.Culture),
+        c.BelievedDoneAt?.ToString(TraceText.Culture) ?? "", c.Ticks.ToString(TraceText.Culture), c.LiesTold.ToString(TraceText.Culture), c.LiesCaught.ToString(TraceText.Culture),
         c.Escalations.ToString(TraceText.Culture), c.Cost?.ToString(TraceText.Culture) ?? "", c.UncaughtLie ? "1" : "0", c.Error ?? "", c.CheckDetail,
+        c.Live is { } live ? (live ? "1" : "0") : "", c.Survived is { } survived ? (survived ? "1" : "0") : "",
     }.Select(Csv)));
 
     private static string Csv(string s) => s.IndexOfAny([',', '"', '\n', '\r']) < 0 ? s : "\"" + s.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";

@@ -9,7 +9,9 @@ namespace Creatura.Worlds.Web;
 /// <summary>
 /// The bundled offline demo: a notes app served on 127.0.0.1 from this process, so a web world can be run and tested
 /// with no backend and no model. <c>GET /</c> is the page; <c>GET /api/notes</c> the notes; <c>POST /api/notes</c>
-/// adds one (<c>{"text": ...}</c>); <c>POST /api/reset</c> empties them. With <see cref="DropWrites"/> the app itself
+/// adds one (<c>{"text": ...}</c>); <c>POST /api/reset</c> empties them; <c>POST /api/restart</c> stands for a restart
+/// that keeps the notes, and <c>POST /api/restart?forget=1</c> for one that loses them (a store that was never durable);
+/// <c>GET /?live=1</c> serves the page polling the list every second. With <see cref="DropWrites"/> the app itself
 /// lies: it answers a save with success and keeps nothing (the barrier <c>save-lies</c> does the same from the
 /// browser's side, without the app knowing).
 /// <para>
@@ -219,6 +221,14 @@ public sealed class DemoApp : IAsyncDisposable
                     }
 
                     await WriteAsync(response, 200, "application/json", """{"ok":true}""").ConfigureAwait(false);
+                    break;
+                case ("POST", "/api/restart"):
+                    if (request.QueryString["forget"] is { Length: > 0 })
+                    {
+                        lock (_notes) _notes.Clear();
+                    }
+
+                    await WriteAsync(response, 200, "application/json", """{"ok":true,"restarted":true}""").ConfigureAwait(false);
                     break;
                 default:
                     await WriteAsync(response, 404, "text/plain", "not found").ConfigureAwait(false);

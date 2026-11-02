@@ -407,3 +407,17 @@ runs are recorded only in the design note.
 - #81: `dotnet test tests/Creatura.Cells.Tests; CREATURA_CHROMIUM=... dotnet test Creatura.slnx`
 
 </details>
+
+## Step J (web)
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 82 | 2026-11-02 16:13 | `3c591dc`* | build | — | Web worlds: live and survives, the two app properties the two-creatures judge reads and a web world could not (slice i of the judge as a web world); W33 and W34 hold | The owner said yes to the merge (U5, X-D13). A task may declare live ({withinMs, text}; the text defaults to the strings the data check asserts, DataCheck.Texts) and survives ({restart: an HttpCall, patienceMs}). Live: the world opens a second browser context at the task's start (same session, viewport and page), never reloads it, and the first time the data says done reads it every 250 ms until the text is there or the time is up (WebWorld.Live, a UxLiveResult with the ms). Survives: once the loop ends with the done fact landed, the runner sends the restart and asks the data again every 2 s until it holds or the patience is up (WebWorld.SurviveAsync, Survived). On the cell as Live and Survived with a detail each, in the CSV as two columns, in the report's note, in the judge's prompt and rules as not-live and lost-on-restart; a task that asks and never reaches done is judged not-done alone. The demo page polls with ?live=1; POST /api/restart keeps the notes and ?forget=1 loses them. Checks: LiveShapeTests (2) and LiveTests (2, Chromium): the plain notes page is not live within 2.5 s and the polling page is live in about a second; the keeping restart survives and the forgetting one is lost-on-restart. Found and fixed on the way: the CSV header named lies_told and the rows left it out, so every column after it was shifted by one. Next: slice ii, a row name for an unlabelled checkbox (W35); slice iii, the shopping-list adapter against the reference app (W36); slice iv, the goal's read endpoint and the runner calling creatura ux matrix as the judge, with one DD-LM-R run as the new baseline, paid, after the owner's go. |  |
+
+<details><summary>Commands</summary>
+
+- #82: `CREATURA_CHROMIUM=... dotnet test tests/Creatura.Worlds.Web.Tests --filter LiveTests; dotnet test Creatura.slnx`
+
+</details>

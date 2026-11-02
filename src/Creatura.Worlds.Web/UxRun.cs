@@ -102,6 +102,22 @@ public sealed record UxCell
     /// <summary>Of <see cref="LiesTold"/>, the ones the run blocked on the tick they were told, in any design's words.</summary>
     public required int LiesCaught { get; init; }
 
+    /// <summary>Whether a second browser, open from the start, showed the data without a reload within the task's time; null when not asked, or the data never said done.</summary>
+    public bool? Live { get; init; }
+
+    public string? LiveDetail { get; init; }
+
+    /// <summary>Whether the data was still there after the task's restart; null when not asked, or the data never said done.</summary>
+    public bool? Survived { get; init; }
+
+    public string? SurvivedDetail { get; init; }
+
+    /// <summary>The page did not reflect the data in time: the app is not live.</summary>
+    public bool NotLive => Live == false;
+
+    /// <summary>The data did not outlive the restart.</summary>
+    public bool LostOnRestart => Survived == false;
+
     public required int Escalations { get; init; }
 
     /// <summary>What the seat's calls cost: 0 for a script, null for a model whose price the catalog does not know.</summary>
@@ -140,6 +156,8 @@ public sealed record UxCell
         sb.Append(string.Create(CultureInfo.InvariantCulture, $"; {Ticks} tick{(Ticks == 1 ? "" : "s")}, {LiesCaught} lie{(LiesCaught == 1 ? "" : "s")} caught"));
         if (PageSaidDone && !DataDone) sb.Append(InputLost > 0 && InputLost >= LiesTold ? "; the page saved what the field held, not what was typed" : "; the page said it was saved");
         if (BelievedDoneAt is { } t) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; the persona believed it was done at tick {t}"));
+        if (Live is { } live) sb.Append(live ? "; live in a second browser" : "; NOT live: the second browser did not show it in time");
+        if (Survived is { } survived) sb.Append(survived ? "; survived a restart" : "; LOST on restart");
         if (Escalations > 0) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; {Escalations} escalation{(Escalations == 1 ? "" : "s")}"));
         if (Cost is { } cost && cost > 0) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; cost {cost:0.####}"));
         if (StuckAlarms > 0) sb.Append(string.Create(CultureInfo.InvariantCulture, $"; stuck alarm ×{StuckAlarms}{(ControlsTaken ? ", controls taken" : "")}"));
@@ -179,6 +197,7 @@ public static class UxRunner
         var loop = agent(policy, WebTask.For(task), extras);
         var run = await loop.RunAsync(world, maxTicks ?? adapter.Limits.Steps, cancellationToken).ConfigureAwait(false);
         await world.RefreshAsync(cancellationToken).ConfigureAwait(false);
+        await world.SurviveAsync(cancellationToken).ConfigureAwait(false);
         var persona_ = policy as PersonaPolicy;
         var cell = new UxCell
         {
@@ -188,6 +207,7 @@ public static class UxRunner
             Ticks = run.Ticks, LiesTold = world.Lies.Count, InputLost = world.Lies.Count(l => l.InputLost), LiesCaught = world.Lies.Count(l => l.CaughtIn(run)), Escalations = persona_?.Telemetry.Escalations ?? 0,
             Cost = persona_ is null ? 0m : persona_.Telemetry.Cost, BarrierFires = new Dictionary<string, int>(world.BarrierFires), Run = run,
             StuckAlarms = alarm?.Fired ?? 0, ControlsTaken = alarm?.TookControls ?? false, Screenshots = persona_?.Telemetry.Screenshots ?? 0,
+            Live = world.Live?.Shown, LiveDetail = world.Live?.Detail, Survived = world.Survived?.Held, SurvivedDetail = world.Survived?.Detail,
         };
         recorder?.Finish(cell);
         return cell;
