@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Two-creatures runner: a board message claims done only when it starts with DONE** (#21), as the goal asks; a
+  message that mentions DONE on the way is talk. The old rule (DONE anywhere) had taken 6 such messages on the DD-M
+  board of 2026-10-31 and 1 on the DD-M rerun with roles as claims (log #79). And the one-shot shells on the experiment
+  owner's vessel give the files they write under `state/<run>/owner` back to the user running the runner, so the
+  run's cleanup no longer fails with EACCES (#20); if it still cannot remove the directory it says so and keeps the
+  record.
 - **Turns, so two cells neither wait on each other nor both lead** (docs/design-turns.md, slice T0): a cell says it
   waits (`creatura cell wait --on <cell or entry id>`), proposes on a topic (`propose --topic`, with `--file` to share
   the proposal as a file first) and answers (`answer --accept | --object`); `creatura cell turn` reads the verified
