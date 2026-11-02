@@ -40,6 +40,8 @@
     <ProjectReference Include="..\Creatura.Seats\Creatura.Seats.csproj" />
     <!-- creatura ux: web worlds, through Playwright (Microsoft.Playwright comes with this project; a browser is found at run time). -->
     <ProjectReference Include="..\Creatura.Worlds.Web\Creatura.Worlds.Web.csproj" />
+    <!-- creatura rate: the leaderboards from the rows (package-free, docs/design-ratings.md). -->
+    <ProjectReference Include="..\Creatura.Ratings\Creatura.Ratings.csproj" />
   </ItemGroup>
 
 </Project>

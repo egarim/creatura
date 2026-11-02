@@ -28,6 +28,9 @@
     <ProjectReference Include="..\..\src\Creatura.Worlds\Creatura.Worlds.csproj" />
     <ProjectReference Include="..\..\src\Creatura.Bench\Creatura.Bench.csproj" />
     <ProjectReference Include="..\..\src\Creatura.Seats\Creatura.Seats.csproj" />
+    <ProjectReference Include="..\..\src\Creatura.Ratings\Creatura.Ratings.csproj" />
+    <!-- creatura rate is tested here beside the ratings it prints. -->
+    <ProjectReference Include="..\..\src\Creatura.Cli\Creatura.Cli.csproj" />
   </ItemGroup>
 
 </Project>

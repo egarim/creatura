@@ -19,6 +19,9 @@ agent tools around it, as hosts and as cells.
 - [Handing work from one session to the next](design-handoff.md): a hand-off with notes, a claim that continues it,
   shown to the person at the next session's start; Codex sessions as cells through its hooks or its notify command
   (H1 and H2 built).
+- [Ratings](design-ratings.md): a Weng-Lin rating per seat (model, design, prompt) read from the rows the bench, the
+  matrices and the two-creatures runs write, with its uncertainty and whether more runs would change the order (R1
+  built; R2 to R4, cell reputation, a barrier curriculum and memory credit, designed).
 - [The control layer on the phone](design-mobile.md): a TypeScript port beside an on-device model, for Expo apps,
   and a router, world model and adapter trained from big models in the app's emulated world (S1, the port, and T0, the
   maths tutor's emulated world, built; the rest proposed).

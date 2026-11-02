@@ -10,6 +10,7 @@
     <Project Path="src/Creatura.Cells.Sync/Creatura.Cells.Sync.csproj" />
     <Project Path="src/Creatura.Cells.Hub/Creatura.Cells.Hub.csproj" />
     <Project Path="src/Creatura.Scenarios/Creatura.Scenarios.csproj" />
+    <Project Path="src/Creatura.Ratings/Creatura.Ratings.csproj" />
     <Project Path="src/Creatura.Cli/Creatura.Cli.csproj" />
     <Project Path="src/Creatura.Hosts.AgentFramework/Creatura.Hosts.AgentFramework.csproj" />
     <Project Path="src/Creatura.Hosts.SemanticKernel/Creatura.Hosts.SemanticKernel.csproj" />
