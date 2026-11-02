@@ -2,15 +2,18 @@
 
 The runner fills in the `{{...}}` parts and gives this to each real agent as its only instruction. The fake agents
 of slice X0 don't read it. Changing these words after the pilot changes the experiment: record why in the
-experiment log.
+experiment log. Changed once, 2026-11-02 (log #85): the sentence on `GET /api/items`, so the judge can read the
+app's data (docs/design-web-worlds.md, "The two-creatures judge as a web world"); the runs before it (log #71 to
+#77) are a baseline of their own.
 
 ---
 
 Build and publish a **shared shopping list**: a server with an HTTP API and durable storage, and a web UI served at
 `http://world:8080/`. The UI has a text field labelled "Item", a button "Add", and the list, each item with a checkbox
 to mark it bought. Two people using it at the same time see each other's changes within 5 seconds without
-reloading. Items and their checkboxes survive a restart of the server. Publish it by pushing to the `deploy` branch
-of a repository you own; `world` runs that branch's `compose.yaml`.
+reloading. Items and their checkboxes survive a restart of the server. At the same address the app answers
+`GET /api/items` with a JSON array of the items, each `{"name": <the item's text>, "bought": true|false}`. Publish it
+by pushing to the `deploy` branch of a repository you own; `world` runs that branch's `compose.yaml`.
 
 {{together}}
 

@@ -20,10 +20,13 @@ import { fileURLToPath } from "node:url";
 
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const NET = "tc-sandbox";
-// 10.127.200.0/24, not 100.127.200.0/24 as before 2026-11-02: Tailscale drops input from 100.64.0.0/10 that does not
-// arrive on its own interface, which kept a judge on the host (--judge ux) from reaching world.
-const SUBNET = "10.127.200.0/24";
-const IP = { world: "10.127.200.10", a: "10.127.200.21", b: "10.127.200.22" };
+// The sandbox is inside the mesh's range on purpose: the ledger hub answers only loopback and 100.64.0.0/10 (C18). A
+// judge on this host cannot reach those addresses when Tailscale runs here (it drops input from that range on any
+// interface but its own), so it goes through the door: a forwarder container on Docker's default bridge, joined to the
+// sandbox too, publishing world's 8080 and 7001 on this host's loopback (HOST below; runner/door.mjs).
+const SUBNET = "100.127.200.0/24";
+const IP = { world: "100.127.200.10", a: "100.127.200.21", b: "100.127.200.22" };
+const HOST = { app: Number(process.env.TC_APP_PORT ?? 18080), deployer: Number(process.env.TC_DEPLOYER_PORT ?? 17001) };
 const HUB = `http://world:5181`;
 
 // ---- arguments ----------------------------------------------------------------------------------------------
@@ -37,11 +40,12 @@ const minutes = Number(opt("--minutes", reference ? 5 : 120));
 const checkEvery = Number(opt("--check-every", 600));
 const keep = argv.includes("--keep");
 const roles = argv.includes("--roles");
-// --judge ux: the judge is a web world (docs/design-web-worlds.md, "The two-creatures judge as a web world") run on this
-// host with `creatura ux run` over judge/shopping-list.adapter.json, two cells per check; the default is the script
-// judge in its container. TC_CREATURA names the creatura command (default: dotnet run on this repository's CLI).
-const uxJudge = (opt("--judge", "script") === "ux");
-if (!["script", "ux"].includes(opt("--judge", "script"))) usage("--judge takes script (the container) or ux (the web world on this host)"); // the parts written in: a the server, b the UI (goal.md)
+// The judge is a web world (docs/design-web-worlds.md, "The two-creatures judge as a web world") run on this host with
+// `creatura ux run` over judge/shopping-list.adapter.json, two cells per check (--judge ux, the default since 2026-11-02);
+// --judge script runs the browser test in its container instead. TC_CREATURA names the creatura command (default:
+// dotnet run on this repository's CLI); CREATURA_CHROMIUM names the browser when Playwright's own is not installed.
+const uxJudge = (opt("--judge", "ux") === "ux");
+if (!["script", "ux"].includes(opt("--judge", "ux"))) usage("--judge takes ux (the web world on this host, the default) or script (the container)"); // the parts written in: a the server, b the UI (goal.md)
 if (!arm) usage("--arm is required");
 const channel = reference ? "none" : arm.split("-")[1];
 const solo = channel === "0";
@@ -77,7 +81,7 @@ const agentEnv = () => ({
 const names = reference ? [] : solo ? ["a"] : ["a", "b"];
 
 function usage(why) {
-  console.error(`run: ${why}\nusage: run.mjs --arm <CC-L|...|C-0> --agents <kind>[,<kind>] [--minutes n] [--check-every s] [--keep] [--steps n] [--budget usd] [--roles]\n       run.mjs --reference [label|live|check|persist|down]`);
+  console.error(`run: ${why}\nusage: run.mjs --arm <CC-L|...|C-0> --agents <kind>[,<kind>] [--minutes n] [--check-every s] [--keep] [--steps n] [--budget usd] [--roles] [--judge ux|script]\n       run.mjs --reference [label|live|check|persist|down]`);
   process.exit(2);
 }
 
@@ -126,7 +130,7 @@ function asOwner(script, mounts = []) {
 const own = (n) => `--home /owner --creatura owner --no-mesh`;
 
 function teardown() {
-  docker(["rm", "-f", "tc-world", "tc-creature-a", "tc-creature-b"], { allowFail: true });
+  docker(["rm", "-f", "tc-world", "tc-creature-a", "tc-creature-b", "tc-door"], { allowFail: true });
   docker(["network", "rm", NET], { allowFail: true });
 }
 
@@ -156,6 +160,14 @@ async function setUp() {
   if (!existsSync(`${preload}/node-22.tar`)) {
     say("saving node:22-bookworm-slim for world's preload (once)");
     docker(["save", "-o", `${preload}/node-22.tar`, "node:22-bookworm-slim"]);
+  }
+
+  if (uxJudge) {
+    // The door (see HOST): on the default bridge first, so its published ports answer from an address this host can
+    // talk to, then joined to the sandbox, where it forwards to world.
+    docker(["run", "-d", "--name", "tc-door", "--network", "bridge", "-p", `127.0.0.1:${HOST.app}:8080`, "-p", `127.0.0.1:${HOST.deployer}:7001`,
+      "-e", `TARGET=${IP.world}`, "-v", `${HERE}/runner/door.mjs:/door.mjs:ro`, "node:22-bookworm-slim", "node", "/door.mjs"]);
+    docker(["network", "connect", NET, "tc-door"]);
   }
 
   say(`world (board ${board ? "on" : "off"}, hub ${ledger ? "on" : "off"})`);
@@ -207,7 +219,7 @@ function judgeUx() {
   const item = `milk ${Date.now().toString(36)}`;
   const dir = join(state, "judge", String(n));
   mkdirSync(dir, { recursive: true });
-  const fill = (text) => text.replaceAll("{{item}}", item).replaceAll("{{world}}", IP.world);
+  const fill = (text) => text.replaceAll("{{item}}", item).replaceAll("{{restart}}", `http://127.0.0.1:${HOST.deployer}/restart`);
   const judgeDir = join(HERE, "judge");
   writeFileSync(join(dir, "adapter.json"), fill(readFileSync(join(judgeDir, "shopping-list.adapter.json"), "utf8")));
   for (const task of ["add-item", "tick-item"]) writeFileSync(join(dir, `${task}.script`), fill(readFileSync(join(judgeDir, `${task}.script`), "utf8")));
@@ -218,7 +230,7 @@ function judgeUx() {
     const t0 = Date.now();
     let text = "";
     try {
-      text = execFileSync(creatura[0], [...creatura.slice(1), "ux", "run", "--adapter", join(dir, "adapter.json"), "--base-url", `http://${IP.world}:8080/`,
+      text = execFileSync(creatura[0], [...creatura.slice(1), "ux", "run", "--adapter", join(dir, "adapter.json"), "--base-url", `http://127.0.0.1:${HOST.app}/`,
         "--task", task, "--persona", "judge", "--env", "desktop", "--seat", `script:${join(dir, `${task}.script`)}`, "--ticks", "6", "--out", out],
         { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 180000 });
     } catch (e) {
@@ -238,7 +250,7 @@ function judgeUx() {
     && step(4, "checked in one browser, the other shows it checked within 5 s", tick.dataDone && tick.live, tick.error ?? (!tick.dataDone ? tick.checkDetail : tick.liveDetail))
     && step(5, "after a restart it is still there and still checked", tick.survived, tick.survivedDetail);
   const score = steps.filter((s) => s.pass).length;
-  return JSON.stringify({ at: new Date().toISOString(), app: `http://${IP.world}:8080/`, item, judge: "ux", score, shipped: score === 5, steps });
+  return JSON.stringify({ at: new Date().toISOString(), app: `http://127.0.0.1:${HOST.app}/ (world:8080)`, item, judge: "ux", score, shipped: score === 5, steps });
 }
 
 function judge(why) {

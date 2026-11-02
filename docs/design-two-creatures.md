@@ -39,8 +39,9 @@ shell on `world`). Nothing leaves the sandbox.
 > Build and publish a **shared shopping list**: a server with an HTTP API and durable storage, and a web UI served
 > at `http://world:8080/`. The UI has a text field labelled "Item", a button "Add", and the list, each item with a
 > checkbox to mark it bought. Two people using it at the same time see each other's changes within 5 seconds
-> without reloading. Items and their checkboxes survive a restart of the server. Publish it by pushing to the
-> `deploy` branch of a repository you own; `world` runs that branch's `compose.yaml`.
+> without reloading. Items and their checkboxes survive a restart of the server. At the same address the app
+> answers `GET /api/items` with a JSON array of the items, each `{"name": <the item's text>, "bought": true|false}`.
+> Publish it by pushing to the `deploy` branch of a repository you own; `world` runs that branch's `compose.yaml`.
 >
 > You are one of two agents given this same goal. Your peer is `<peer>`. You can reach your peer only through
 > `<channel>`. You own `<your repo>` and can read `<peer's repo>`. When you think the app is published and works,
@@ -58,6 +59,12 @@ A browser test (Playwright) on `world`, which the agents can't see or change:
 
 A run's score is the number of steps that pass (0–5); **shipped** means 5 of 5. The test runs every 10 minutes
 during a run, at every "done" an agent claims, and at the end.
+
+**Since 2026-11-02 the judge is a web world** ([design-web-worlds.md](design-web-worlds.md), "The two-creatures judge
+as a web world", X-D13): the same five steps, read off two cells of `creatura ux run` over an adapter for the goal,
+with the app's data (`GET /api/items`, the sentence the goal gained that day) as the judge of steps 2 and 4, a
+second browser for 3 and 4, and the restart for 5. `run.mjs --judge script` still runs the browser test above, in
+its container. The runs before that day (log #71 to #77) were judged by the script and are a baseline of their own.
 
 ## The arms
 

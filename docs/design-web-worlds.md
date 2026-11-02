@@ -626,9 +626,14 @@ Three things the run taught. **A tick writes without a word:** the world called 
 appeared on screen, and a ticked box changes no text; a control that changed state (checked, or its value) now counts
 as the page's answer. **A restart takes longer than a request:** the world's own client gives up at 15 s and the
 deployer stops containers in their own time, so `survives` sends its call on a client with the task's patience and
-a timeout is a failed restart, not a crash. **Tailscale and the sandbox:** the harness's subnet was in 100.64.0.0/10,
-and Tailscale drops input from that range on any interface but its own, so a judge on the host could not reach
-`world`; the sandbox is 10.127.200.0/24 now.
+a timeout is a failed restart, not a crash. **Tailscale and the sandbox:** the harness's subnet is in 100.64.0.0/10
+on purpose (the hub answers only loopback and the mesh range, C18), and Tailscale drops input from that range on any
+interface but its own, so a judge on the host could not reach `world` by its sandbox address (the SYN-ACK came back
+on the bridge and the host never answered), and publishing `world`'s ports on the host does not help, since the
+reply still comes from that range. The runner starts a door instead (`runner/door.mjs`): a forwarder container on
+Docker's default bridge, joined to the sandbox too, publishing `world`'s 8080 and 7001 on the host's loopback
+(`127.0.0.1:18080` and `:17001`; `TC_APP_PORT`, `TC_DEPLOYER_PORT`), and the judge uses those. Nothing on the
+host changes, and the creatures see one more quiet address on their network.
 
 W36 holds, on the Docker host of the 2026-10-31 runs: intact 5/5; down 0/5; label 1/5; live 2/5; check 3/5; persist 4/5. Each break fails at the step the script judge
 fails it at: `down` cannot open the page, `label` has no field named Item, `live` never shows the item in the

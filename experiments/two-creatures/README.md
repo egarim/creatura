@@ -17,7 +17,7 @@ Needs Docker, the .NET 10 SDK (to publish the cells CLI and the hub from this ch
 experiments/two-creatures/build.sh                                      # the three images
 node experiments/two-creatures/runner/run.mjs --reference                # the reference app: must score 5/5
 node experiments/two-creatures/runner/run.mjs --reference live           # one feature broken: must fail step 3
-node experiments/two-creatures/runner/run.mjs --reference --judge ux     # the judge as a web world (judge/, creatura ux on this host)
+node experiments/two-creatures/runner/run.mjs --reference --judge script # the browser test in its container instead of the web world
 node experiments/two-creatures/runner/run.mjs --arm CC-L --agents fake,fake --check-every 30
 node experiments/two-creatures/runner/run.mjs --arm CC-L --agents polite,polite          # no roles: both wait, turn picks one
 node experiments/two-creatures/runner/run.mjs --arm CC-L --agents simultaneous,simultaneous   # no roles: both propose at once
@@ -49,9 +49,10 @@ machines up afterwards (`docker exec -it tc-creature-a bash`).
 
 | container | address | what it is |
 |---|---|---|
-| `tc-world` | 10.127.200.10, `world` | the sandbox's outside: git over ssh with push-to-deploy, its own Docker for the published app, the message board on 7000, the deployer on 7001, the ledger hub on 5181 |
+| `tc-world` | 100.127.200.10, `world` | the sandbox's outside: git over ssh with push-to-deploy, its own Docker for the published app, the message board on 7000, the deployer on 7001, the ledger hub on 5181 |
 | `tc-creature-a`, `tc-creature-b` | .21, .22 | the creatures: Node, git, `sudo`, the `creatura` CLI with a `cell` wrapper, `say` and `listen` |
-| `tc-judge` | one-shot | the outside test (Playwright), which no creature can see |
+| `tc-judge` | one-shot | the outside test as a container (`--judge script`); the default judge runs on the host as a web world (`judge/`) |
+| `tc-door` | the run | the judge's door (`runner/door.mjs`): forwards this host's 127.0.0.1:18080 and :17001 to world's 8080 and 7001 from the default bridge, the one address range the host can answer |
 
 The sandbox network is inside 100.64.0.0/10 because the ledger hub only answers mesh and loopback addresses; on
 VMs, give the sandbox a subnet in that range too.

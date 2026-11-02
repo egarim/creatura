@@ -2,12 +2,17 @@
 
 ## Unreleased
 
+- **The two-creatures goal gains one sentence, and the web-world judge is the default** (slice iv of the judge as a
+  web world; docs/design-two-creatures.md, X-D13; log #85). The goal now says the app answers `GET /api/items` with
+  the items as `{"name", "bought"}`, so the judge reads the data; `run.mjs` judges with `creatura ux` unless
+  `--judge script`. The runs before 2026-11-02 are a baseline of their own.
 - **The two-creatures judge as a web world** (docs/design-web-worlds.md, slice iii). `run.mjs --judge ux` judges the
   app with `creatura ux run` over `experiments/two-creatures/judge/shopping-list.adapter.json` (two tasks, with
   `live` and `survives`) in the script judge's place, reading the five steps off the two cells; the record keeps the
   same shape. `creatura ux run --out <dir>` writes the cell as `cell.json` and its trace. A control that changed
   state (a box ticked) now counts as the page's answer to a commit; a `survives` restart gets its own client with the
-  task's patience. The sandbox subnet moves to 10.127.200.0/24, out of the range Tailscale drops on other interfaces.
+  task's patience. A door container (`runner/door.mjs`) forwards the host's 127.0.0.1:18080 and :17001 to `world`'s
+  app and deployer, since Tailscale drops input from the sandbox's mesh-range addresses on the bridge.
   W36 holds: intact 5/5; down 0/5; label 1/5; live 2/5; check 3/5; persist 4/5.
 - **Web worlds: an unlabelled checkbox is named by its row** (docs/design-web-worlds.md, the judge as a web world,
   slice ii). A checkbox, radio or switch with no label takes the text of its row (the other controls' text left out),
