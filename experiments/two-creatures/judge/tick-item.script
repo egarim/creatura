@@ -1,0 +1,2 @@
+# The judge, step 4: tick the item (its checkbox is named by its label, or by its row).
+click {{item}}

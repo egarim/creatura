@@ -581,7 +581,7 @@ old judge stays in the record until (iv) lands.
 | W33 | a task with `live` passes only when a second context opened at the start shows the check's text within the time with no reload; the demo's notes page, which does not refresh, fails it and a page that polls passes | anything else | holds |
 | W34 | a task with `survives` sends the call after the done fact lands and passes only when the check holds again within the patience; a store that forgets fails as `lost-on-restart` | anything else | holds |
 | W35 | an unlabelled checkbox in a row is named by the row's text, so a script can tick it by the item's name; a labelled one keeps its label | anything else | holds |
-| W36 | the shopping-list adapter scores the reference app 5 of 5 and each of the five broken references apart, as the X0 judge does | a break not told apart | proposed |
+| W36 | the shopping-list adapter scores the reference app 5 of 5 and each of the five broken references apart, as the X0 judge does | a break not told apart | holds |
 
 ### Live and survives (slice i, built 2026-11-02)
 
@@ -609,6 +609,31 @@ text taken out ("milk", not "milk Delete"), at most 80 characters, so its id is 
 `click milk` finds it. A labelled one keeps its label, and a page with nothing to name it by still gets
 "(no label)". This is the honest half of the two choices the mapping named: a person finds the box by the row too,
 and the goal need not ask the agents for a label. W35 holds: `RowNameTests` (1, Chromium).
+
+### The judge as a web world, run (slice iii, built 2026-11-02)
+
+`experiments/two-creatures/judge/shopping-list.adapter.json` is the goal as an adapter: two tasks, `add-item` (type
+Item, press Add; the data check `GET /api/items` holds `{"name": <item>}`; `live` within 5 s) and `tick-item` (press
+the item's checkbox, named by its label or its row; the check holds `{"name": <item>, "bought": true}`; `live` for
+"<item> (checked)", the control's line as the persona reads it; `survives` with the world's `POST /restart`, 60 s of
+patience). The runner's `--judge ux` fills `{{item}}` with a fresh item per check and `{{world}}` with the world's
+address, runs the two cells in order with `creatura ux run --out` on the host (`TC_CREATURA` names the command;
+`CREATURA_CHROMIUM` the browser) and reads the five steps off the cells: 1 the page loads (add-item ran), 2 the item is
+in the data, 3 the second browser showed it, 4 ticked in the data and shown ticked, 5 still there after the restart.
+The record's `checks.jsonl` has the same shape as the script judge's, with `"judge": "ux"`.
+
+Three things the run taught. **A tick writes without a word:** the world called a commit unanswered when nothing new
+appeared on screen, and a ticked box changes no text; a control that changed state (checked, or its value) now counts
+as the page's answer. **A restart takes longer than a request:** the world's own client gives up at 15 s and the
+deployer stops containers in their own time, so `survives` sends its call on a client with the task's patience and
+a timeout is a failed restart, not a crash. **Tailscale and the sandbox:** the harness's subnet was in 100.64.0.0/10,
+and Tailscale drops input from that range on any interface but its own, so a judge on the host could not reach
+`world`; the sandbox is 10.127.200.0/24 now.
+
+W36 holds, on the Docker host of the 2026-10-31 runs: intact 5/5; down 0/5; label 1/5; live 2/5; check 3/5; persist 4/5. Each break fails at the step the script judge
+fails it at: `down` cannot open the page, `label` has no field named Item, `live` never shows the item in the
+second browser, `check` never writes the tick, `persist` forgets on restart. A judge run takes about 30 s, against
+the script judge's 15: two browser launches and the restart's patience.
 
 ## Decisions for the owner
 

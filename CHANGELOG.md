@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **The two-creatures judge as a web world** (docs/design-web-worlds.md, slice iii). `run.mjs --judge ux` judges the
+  app with `creatura ux run` over `experiments/two-creatures/judge/shopping-list.adapter.json` (two tasks, with
+  `live` and `survives`) in the script judge's place, reading the five steps off the two cells; the record keeps the
+  same shape. `creatura ux run --out <dir>` writes the cell as `cell.json` and its trace. A control that changed
+  state (a box ticked) now counts as the page's answer to a commit; a `survives` restart gets its own client with the
+  task's patience. The sandbox subnet moves to 10.127.200.0/24, out of the range Tailscale drops on other interfaces.
+  W36 holds: intact 5/5; down 0/5; label 1/5; live 2/5; check 3/5; persist 4/5.
 - **Web worlds: an unlabelled checkbox is named by its row** (docs/design-web-worlds.md, the judge as a web world,
   slice ii). A checkbox, radio or switch with no label takes the text of its row (the other controls' text left out),
   so a script can tick an item by its name and the id survives a re-render. W35 holds.
