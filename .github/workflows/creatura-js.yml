@@ -1,7 +1,8 @@
-# creatura-js: the control layer in TypeScript (js/creatura-js, docs/design-mobile.md slice S1). Every push and pull
-# request runs its tests, which replay the C# host's four controlled goldens byte for byte straight from
-# tests/Creatura.Hosts.AgentFramework.Tests/golden. They run on every change, not only on changes under js/, because a
-# C# change that moves a golden must fail here too until both languages agree.
+# creatura-js: the control layer in TypeScript (js/creatura-js, docs/design-mobile.md slice S1), and the tutor's emulated
+# world built on it (js/creatura-tutor, slice T0). Every push and pull request runs both. creatura-js's tests replay the
+# C# host's four controlled goldens byte for byte straight from tests/Creatura.Hosts.AgentFramework.Tests/golden. They
+# run on every change, not only on changes under js/, because a C# change that moves a golden must fail here too until
+# both languages agree.
 name: creatura-js
 
 on:
@@ -27,3 +28,26 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+
+  # The tutor depends on creatura-js by a relative path and imports its built dist/, so creatura-js is built first.
+  tutor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            js/creatura-js/package-lock.json
+            js/creatura-tutor/package-lock.json
+      - run: npm ci && npm run build
+        working-directory: js/creatura-js
+      - run: npm ci
+        working-directory: js/creatura-tutor
+      - run: npm run build
+        working-directory: js/creatura-tutor
+      - run: npm test
+        working-directory: js/creatura-tutor
+      - run: npm run summary --silent
+        working-directory: js/creatura-tutor
