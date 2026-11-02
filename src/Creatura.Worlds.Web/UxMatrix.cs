@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Creatura.Bench;
+using Creatura.Ratings;
 
 namespace Creatura.Worlds.Web;
 
@@ -18,6 +19,16 @@ public sealed record UxMatrixSpec
     public IReadOnlyList<string> Testers { get; init; } = [];
 
     public IReadOnlyList<string> Barriers { get; init; } = [];
+
+    /// <summary>
+    /// Pick the barrier instead (docs/design-ratings.md, R3): from <see cref="Rated"/>, the runs rated so far, the first
+    /// tester's next opponent on the first task and environment is the barrier set rated nearest its level; the report
+    /// says which and why. The adapter's barriers and "none" are the candidates.
+    /// </summary>
+    public bool BarriersNext { get; init; }
+
+    /// <summary>The runs the curriculum is read from (<c>Creatura.Ratings.Sources.Read</c> over earlier reports); none: every candidate is at the prior.</summary>
+    public IReadOnlyList<Run> Rated { get; init; } = [];
 
     /// <summary>The designs in the loop, by name (<see cref="UxDesigns"/>); empty: <c>plain</c> alone.</summary>
     public IReadOnlyList<string> Designs { get; init; } = [];
@@ -56,9 +67,30 @@ public static class UxMatrix
         return [.. from t in tasks from p in personas from e in environments from s in testers from d in designs select (t, p, e, s, d)];
     }
 
+    /// <summary>The barrier set the curriculum picks for the matrix's first tester on its first task and environment, and why; null when the spec does not ask.</summary>
+    public static (IReadOnlyList<string> Barriers, string Why)? Pick(UxAdapter adapter, UxMatrixSpec spec)
+    {
+        if (!spec.BarriersNext) return null;
+        var probe = Cells(adapter, spec with { BarriersNext = false, Barriers = [] });
+        if (probe.Count == 0) return null;
+        var (task, _, environment, tester, _) = probe[0];
+        string Key(string barriers) => $"{Sources.Ux}|{adapter.App}/{task.Id}/{environment.Id}/{barriers}";
+        var candidates = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal) { [Key("")] = [] };
+        foreach (var b in adapter.Barriers) candidates[Key(b.Id)] = [b.Id];
+        var ratings = Creatura.Ratings.Curriculum.Ratings(spec.Rated);
+        var pick = Creatura.Ratings.Curriculum.Next(ratings, tester, candidates.Keys);
+        if (pick is null) return null;
+        var chosen = candidates[pick.Opponent];
+        var why = string.Create(CultureInfo.InvariantCulture,
+            $"barriers picked for {tester} on {task.Id} × {environment.Id}: {(chosen.Count == 0 ? "none" : string.Join("+", chosen))} ({pick.Why}; the seat at {pick.SeatRating.Mu:0.0} ± {pick.SeatRating.Sigma:0.0}, the opponent at {pick.OpponentRating.Mu:0.0} ± {pick.OpponentRating.Sigma:0.0}, from {spec.Rated.Count} rated run{(spec.Rated.Count == 1 ? "" : "s")})");
+        return (chosen, why);
+    }
+
     public static async Task<UxReport> RunAsync(WebBrowser browser, UxAdapter adapter, UxMatrixSpec spec, UxSeats seats,
         Action<UxCell>? progress = null, UxSessions? sessions = null, CancellationToken cancellationToken = default)
     {
+        var picked = Pick(adapter, spec);
+        if (picked is { } p) spec = spec with { Barriers = p.Barriers, BarriersNext = false };
         var cells = Cells(adapter, spec);
         sessions ??= new UxSessions();
         var (signInsBefore, reusedBefore) = (sessions.SignIns, sessions.Reused);
@@ -106,7 +138,7 @@ public static class UxMatrix
         {
             App = adapter.App, At = DateTimeOffset.UtcNow, Design = string.Join(", ", spec.Designs.Count == 0 ? [UxDesigns.Plain] : spec.Designs),
             Memory = memory?.Mode ?? UxMemoryMode.Off, Barriers = spec.Barriers, Gate = adapter.Gate, Cells = results,
-            SignIns = sessions.SignIns - signInsBefore, SessionsReused = sessions.Reused - reusedBefore,
+            SignIns = sessions.SignIns - signInsBefore, SessionsReused = sessions.Reused - reusedBefore, BarrierPick = picked?.Why,
         };
     }
 }
@@ -151,6 +183,9 @@ public sealed record UxReport
 
     /// <summary>How many cells opened with a kept session instead of signing in.</summary>
     public int SessionsReused { get; init; }
+
+    /// <summary>Why the matrix ran the barriers it ran, when the curriculum picked them (<see cref="UxMatrixSpec.BarriersNext"/>); null when the owner named them.</summary>
+    public string? BarrierPick { get; init; }
 
     public int Ran => Cells.Count(c => c.Error is null);
 

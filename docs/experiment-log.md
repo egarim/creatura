@@ -457,3 +457,17 @@ runs are recorded only in the design note.
 - #88: `dotnet test tests/Creatura.Cells.Tests; node experiments/two-creatures/runner/run.mjs --arm CC-LM --agents fake,liar --check-every 30`
 
 </details>
+
+## Step R3
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 89 | 2026-11-02 21:59 | `aedc197`* | test | — | Ratings R3: the barrier curriculum, worlds and barriers as opponents | Built the barrier curriculum (docs/design-ratings.md, slice R3): worlds and barriers as opponents with ratings on the seats' scale. Every run is a duel between the seat (the model axis) and its opponent (the job with its barriers; for a matrix app/task/environment/barriers): the seat wins when the run was done (the bench's Real, a matrix's data done, a pair's 5 of 5), the opponent when it was not, and R1's Weng-Lin update moves both (Curriculum.Ratings), so "a barrier wins when the seat loses" is exact. Curriculum.Next picks for a seat the candidate it beats with p nearest one half, the least known outcome, passing over candidates the seat is settled against (p at or past 0.95 either way) while another is left; an unmet candidate sits at the prior. Wired into web worlds: creatura ux matrix --barriers next --rated <paths> reads the earlier reports, picks for the first tester, runs the matrix under that barrier set, prints why, and keeps the reason in report.json as barrierPick (UxMatrix.Pick, UxReport.BarrierPick). Checks: CurriculumTests G9 and G10 (2, no browser) and CurriculumBrowserTests G11 (1, Chromium: after the demo's script loses under save-lies and wins under none, the lie sits above the seat and none below it; the next pick is an unmet barrier at the prior, the matrix runs it and says so). G10 first failed because a seat pulled both ways (wins over none, losses to the lie) settles slower than a sweep between two seats and the last duel moved it back under 0.95; the test now sweeps until both are settled with the last duel included. The whole solution: 949 pass (was 946). Not run: a curriculum over many reports that would walk a seat up through the barriers it can still lose to. Next: R4, memory credit. |  |
+
+<details><summary>Commands</summary>
+
+- #89: `dotnet test tests/Creatura.Tests --filter CurriculumTests; CREATURA_CHROMIUM=... dotnet test tests/Creatura.Worlds.Web.Tests; dotnet test Creatura.slnx`
+
+</details>
