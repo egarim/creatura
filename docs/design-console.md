@@ -1,7 +1,8 @@
 # Design: the console, where a person watches the creatures work
 
 **Status:** accepted 2026-11-03 (issue #29; the draft was written 2026-11-02 in a read-only session, and the owner
-said "go, separate console program, go with your picks"). Slice U1 built the same day, U2 and U3 on 2026-11-03, results at the end; U4 and U5
+said "go, separate console program, go with your picks"). Slice U1 built the same day, U2, U3 and U5 on 2026-11-03, results at the end; U4 (Compare) is held by the owner until
+the paid runs give it rows, and
 are next. The draft below is kept as it was written, except where the decisions changed it, which is said where.
 Replaces the feed metaphor of [design-activity-stream.md](design-activity-stream.md) with an operator's console;
 the stream and the offers stay as they are, the console is another reader of the same ledger.
@@ -79,7 +80,9 @@ ignored by a reader that does not know them (the format's own rule). Version sta
   `creatura` stays package-free)* it reads the ledger through the same code as `cell stream` and replays through
   `IScenarioObserver`. `--watch <replay>` opens a live run; `--records <dir>` opens Compare on a folder.
 - **`creatura cell stream`** gains the same three views as tabs on its local page, rendered from the same JSON
-  (`/fleet`, `/run/<id>`, `/compare`). The page stays plain HTML and script with nothing from outside.
+  (`/fleet`, `/run/<id>`, `/compare`). The page stays plain HTML and script with nothing from outside. *(Built
+  otherwise in U5: the page is served by `creatura-console web`, not by the stream, since the Run view's models live in
+  the console and `creatura` stays package-free; the stream page is unchanged.)*
 - The convoy viewer stays as it is: a map, not a transcript.
 
 ## What gets built first
@@ -259,4 +262,43 @@ a pseudo-terminal showed "1 cell, 1 at work, 0 quiet, 1 in trouble", `o` and a t
 offer`'s own "offered … check the disk" on the status line, "1 offer waiting" in the ledger after), Enter opened the
 cell's activity (4 rows, 1 blocked), and `q` twice left with exit 0.
 
-**Not yet.** Compare (U4) and the page (U5).
+## Results (U5, 2026-11-03)
+
+**What the owner asked for.** "The web UI that makes me feel I'm using a good agent, like Claude, ChatGPT or
+DeepSeek": a conversation, not a table. So the page is laid out as a chat harness is. A sidebar lists the Fleet's
+cells (an avatar in the vessel's ring colour, the claim or "no claim", a status dot: green at work, red blocked or
+stressed, grey quiet, and how long ago) and the runs found under `--runs` (convoy and bench replays, web recordings,
+two-creatures records). Choosing one opens it as a conversation: the goal on top; each cell's turn with its name,
+time and step; the seat's own words folded as "Thinking"; each act a tool block (a command in monospace, its output
+and what the cell saw and was offered underneath, the verdict as a chip); a lie, a refusal or a false claim with a red
+edge and chip, a blocked step amber; the judge's verdicts as cards in the thread; the world's checks as small notes;
+the outcome at the end. A pair has its three views as tabs, and any run a filter by cell. A cell's page is its
+activity as a feed, with the composer at the bottom: Enter offers it the goal typed (`creatura cell offer` writes it),
+the draft is kept per cell. A recorded run says it is read-only there. Light and dark follow the system, with a
+switch; the layout holds at phone width (the list becomes a drawer); `/` searches.
+
+**Live, and private.** `creatura-console web [--runs <dir>]... [--port <n>] [--no-open] [--home] [--as]
+[--creatura]` serves it with Kestrel on 127.0.0.1 only (default port 7358) and opens it. The page polls every three
+seconds; the server runs `creatura cell fleet --json` and `cell activity` at most every two seconds however many tabs
+ask, and stops reading a recorded run once it has ended. It loads nothing from anywhere else (a content security
+policy of `default-src 'none'` with only the page's own script, style, icon and API), refuses a request under another
+host name (DNS rebinding), and lists runs by an id (a hash of the path) so a path from the page is never read. Its one
+write is an offer, which must carry the token written into the page this server served and, when the browser says
+where from, this server's own origin; another site open in the same browser can neither read the token nor make one.
+
+**Checks.** U5 holds for U1.1 and U3.1 (`WebConsoleTests`, 2): the API serves the Fleet as the command gave it, a
+run's rows as the model reads them (an id it did not list is not found, a path is never sent), a cell's activity
+with its blocked step marked; an offer without the token or from another origin is refused and runs nothing, one with
+both runs exactly `cell offer --to <cell> --goal <text>` on the home; another host name gets 421; five quick reads run
+the Fleet command once. In Chromium with every request outside the console aborted and recorded: the sidebar lists
+the Fleet's cells in order with the blocked one red; a convoy run's steps appear in the model's order (a message as its
+words, any other act as a tool block), its refusals marked, its outcome at the end, the composer read-only; a cell's
+page shows its activity and the composer for it; and not one request left the console. U4.1 is not checked: Compare
+is held. On the Surface, against the owner's real home (read only: no offer was sent from the page), the page showed
+the two cells of the Fleet and ten runs; the 2026-10-31 DD-M record read as one conversation with creature b's two
+false claims flagged on the `say` commands and the judge's cards beside them; the web recording under `save-lies`
+showed the persona's steps with what it saw and was offered and the lying Save as a false claim; the MacBook Air's
+cell showed its 238 entries as a feed; at 375 px nothing scrolled sideways. A first look found the thread wider than
+the window (long one-line commands widened the column); fixed before the checks.
+
+**Not yet.** Compare (U4), held.

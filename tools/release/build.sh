@@ -40,7 +40,8 @@ readme() {
     creatura-console) echo "  creatura-console run run.jsonl          watch a run tick by tick (c next cell, q quit)
   creatura-console --watch run.jsonl      follow a run as it writes its replay
   creatura-console run run.jsonl --print  the same view as text
-  creatura-console fleet                  who is working on what (Enter its activity, o offer a goal; needs creatura)" ;;
+  creatura-console fleet                  who is working on what (Enter its activity, o offer a goal; needs creatura)
+  creatura-console web --runs <folder>    the same as a page in your browser, on 127.0.0.1 only" ;;
   esac
 }
 

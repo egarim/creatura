@@ -16,6 +16,14 @@
 
   <ItemGroup>
     <PackageReference Include="Terminal.Gui" Version="2.5.0" />
+    <!-- The page (creatura-console web): Kestrel on 127.0.0.1, from the shared framework, no package. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The page and its icon, embedded: the page fetches nothing from anywhere else. -->
+    <EmbeddedResource Include="console.html" LogicalName="console.html" />
+    <EmbeddedResource Include="..\..\docs\assets\creatura-icon.svg" LogicalName="icon.svg" Link="icon.svg" />
   </ItemGroup>
 
   <ItemGroup>
