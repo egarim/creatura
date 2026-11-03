@@ -16,14 +16,20 @@ public enum RowMark
 /// <summary>
 /// One row of the Run view (docs/design-console.md): one thing a cell did or the world did in a tick. The columns are the
 /// draft's: what the world showed the cell (observation), what the control layer allowed (offer), what the seat chose
-/// and why (decision), the act, what the world said back (answer, honest or not) and the verdict. A convoy replay has
-/// no offer or decision yet (slice U2 adds them); they are read when a tick's event carries them.
+/// and why (decision), the act, what the world said back (answer, honest or not) and the verdict. The convoy writes
+/// no offer or decision; the web worlds, the two-creatures records and the bench do (slice U2).
 /// </summary>
 public sealed record RunRow(int Tick, string Cell, string Kind, string Observation, string Act, string Answer, string Verdict, RowMark Mark)
 {
     public string Offer { get; init; } = "";
 
     public string Decision { get; init; } = "";
+
+    /// <summary>When it happened, by the writer's clock, when the event says; what a pair's two runs interleave by.</summary>
+    public DateTimeOffset? At { get; init; }
+
+    /// <summary>The judge held this row's claim false (a verdict event pointed at it).</summary>
+    public bool FalseClaim { get; init; }
 }
 
 /// <summary>What the run is, from its first line.</summary>
@@ -48,6 +54,9 @@ public sealed class RunModel
     /// <summary>The cell name of a row the world wrote (a closure, a breakdown, done): no truck did it.</summary>
     public const string World = "world";
 
+    /// <summary>The cell name of a judge's verdict row; the row it judges is marked where it stands.</summary>
+    public const string Judge = "judge";
+
     private readonly List<RunRow> _rows = [];
     private readonly List<string> _cells = [];
     private readonly Dictionary<string, string> _seen = new(StringComparer.Ordinal);
@@ -59,7 +68,7 @@ public sealed class RunModel
     public IReadOnlyList<RunRow> Rows => _rows;
 
     /// <summary>Every cell that has a row or is in the header, in the header's order and then as they appear; the world last.</summary>
-    public IReadOnlyList<string> Cells => _cells.Contains(World) ? [.. _cells.Where(c => c != World), World] : _cells;
+    public IReadOnlyList<string> Cells => [.. _cells.Where(c => c is not (World or Judge)), .. _cells.Where(c => c == World), .. _cells.Where(c => c == Judge)];
 
     /// <summary>The last tick read.</summary>
     public int Tick { get; private set; }
@@ -91,6 +100,39 @@ public sealed class RunModel
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         using var reader = new StreamReader(stream);
         return Read(reader);
+    }
+
+    /// <summary>
+    /// Several runs as one, their rows interleaved by the writers' clocks (a row with no time keeps its place after the
+    /// timed ones): a pair's two creatures read as one conversation. The world's rows are taken from the first run only,
+    /// since every run of a pair carries the same ones. The header is the first run's, with <paramref name="armText"/>.
+    /// </summary>
+    public static RunModel Merge(string armText, RunModel first, params RunModel[] more)
+    {
+        var all = new List<RunModel> { first };
+        all.AddRange(more);
+        var merged = new RunModel();
+        merged.Header = first.Header is { } h ? h with { ArmText = armText, Cells = [.. all.SelectMany(m => m.Header?.Cells ?? []).Distinct()] } : null;
+        var rows = all.SelectMany((m, i) => m._rows.Where(r => i == 0 || r.Cell != World).Select(r => (Row: r, Run: i)))
+            .Select((x, order) => (x.Row, Order: order))
+            .OrderBy(x => x.Row.At ?? DateTimeOffset.MaxValue)
+            .ThenBy(x => x.Order)
+            .Select(x => x.Row);
+        foreach (var cell in merged.Header?.Cells ?? []) merged.AddCell(cell);
+        foreach (var row in rows)
+        {
+            merged._rows.Add(row);
+            merged.AddCell(row.Cell);
+        }
+
+        foreach (var cell in all.SelectMany(m => m._cells)) merged.AddCell(cell);
+        merged.Tick = all.Max(m => m.Tick);
+        merged.Ended = all.All(m => m.Ended);
+        merged.Lines = all.Sum(m => m.Lines);
+        merged.Skipped = all.Sum(m => m.Skipped);
+        merged._outcome.AddRange(all.SelectMany(m => m._outcome).Distinct());
+        merged._measures.AddRange(first._measures);
+        return merged;
     }
 
     /// <summary>The rows of one cell, or every row when <paramref name="cell"/> is null.</summary>
@@ -144,6 +186,15 @@ public sealed class RunModel
             _seen[name] = Observe(Str(t, "start") ?? "", Int(t, "fuelCapacity"), 0, null);
         }
 
+        // Any other run names its cells: a web persona, a creature, a bench agent.
+        foreach (var c in Array(h, "cells"))
+        {
+            var name = c is JsonObject o ? Str(o, "name") : c is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
+            if (name is not { Length: > 0 } || cells.Contains(name)) continue;
+            cells.Add(name);
+            AddCell(name);
+        }
+
         Header = new RunHeader(Str(h, "format") ?? "", Str(h, "scenario") ?? "", Str(h, "arm") ?? "", Int(h, "seed"), Str(h, "armText") ?? "",
             Int(h, "maxTicks"), Str(h, "goal") ?? "", cells);
     }
@@ -156,13 +207,18 @@ public sealed class RunModel
         {
             if (e is not JsonObject ev) continue;
             var kind = Str(ev, "kind") ?? "";
-            var cell = Str(ev, "truck") is { Length: > 0 } truck ? truck : World;
-            AddCell(cell);
-            _rows.Add(new RunRow(tick, cell, kind, cell == World ? "" : _seen.GetValueOrDefault(cell, ""), Act(kind, ev), Str(ev, "text") ?? "",
-                Str(ev, "verdict") ?? "", MarkOf(kind, Str(ev, "verdict")))
+            var cell = Str(ev, "cell") is { Length: > 0 } named ? named : Str(ev, "truck") is { Length: > 0 } truck ? truck : World;
+            if (kind == "verdict" && ev["on"] is JsonObject on) Judged(cell, on, ev);
+            var rowCell = kind == "verdict" ? Judge : cell;
+            AddCell(rowCell);
+            var lie = ev["lie"] is JsonValue l && l.TryGetValue<bool>(out var lied) && lied;
+            _rows.Add(new RunRow(tick, rowCell, kind, Str(ev, "observation") ?? (rowCell is World or Judge ? "" : _seen.GetValueOrDefault(cell, "")),
+                Str(ev, "act") is { Length: > 0 } act ? act : Act(kind, ev), Str(ev, "text") ?? "",
+                Str(ev, "verdict") ?? "", lie && kind is not ("blocked" or "refused") ? RowMark.Flagged : MarkOf(kind, Str(ev, "verdict")))
             {
                 Offer = Str(ev, "offer") ?? "",
                 Decision = Str(ev, "decision") ?? "",
+                At = Str(ev, "at") is { } at && DateTimeOffset.TryParse(at, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var when) ? when : null,
             });
         }
 
@@ -183,6 +239,40 @@ public sealed class RunModel
         _measures.Clear();
         if (e["measures"] is JsonObject measures)
             foreach (var (key, value) in measures) _measures.Add(new(key, value?.ToJsonString() ?? ""));
+    }
+
+    /// <summary>
+    /// A judge's verdict on an earlier row (<c>{"kind":"verdict","cell":…,"on":{"tick":…,"contains":…},"verdict":…,"falseClaim":true}</c>):
+    /// the cell's row at that tick (the last one, or the last whose act or answer contains the text given) takes the
+    /// verdict, and is flagged when the claim was false. A verdict on a row that is not there marks nothing; its own row
+    /// still says what the judge found.
+    /// </summary>
+    private void Judged(string cell, JsonObject on, JsonObject ev)
+    {
+        var tick = Int(on, "tick");
+        var contains = Str(on, "contains");
+        var index = -1;
+        for (var i = _rows.Count - 1; i >= 0; i--)
+        {
+            var r = _rows[i];
+            if (r.Tick != tick || r.Cell != cell) continue;
+            if (index < 0) index = i;
+            if (contains is not { Length: > 0 } || r.Act.Contains(contains, StringComparison.Ordinal) || r.Answer.Contains(contains, StringComparison.Ordinal))
+            {
+                index = i;
+                break;
+            }
+        }
+
+        if (index < 0) return;
+        var falseClaim = ev["falseClaim"] is JsonValue f && f.TryGetValue<bool>(out var b) && b;
+        var row = _rows[index];
+        _rows[index] = row with
+        {
+            Verdict = Str(ev, "verdict") is { Length: > 0 } v ? v : row.Verdict,
+            Mark = falseClaim ? RowMark.Flagged : row.Mark,
+            FalseClaim = row.FalseClaim || falseClaim,
+        };
     }
 
     private void AddCell(string cell)

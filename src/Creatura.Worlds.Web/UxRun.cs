@@ -192,7 +192,7 @@ public static class UxRunner
         await using var world = await WebWorld.OpenAsync(browser, adapter, task, environment, options, cancellationToken).ConfigureAwait(false);
         var policy = seat(world);
         var alarm = stuckAlarm && adapter.Limits.StuckPatience > 0 ? new UxStuckAlarm(world, adapter.Limits.StuckPatience, adapter.Limits.StuckLimit) : null;
-        var recorder = record is null ? null : new UxRecorder(record.Folder, world, record.Header with { Width = environment.Width, Height = environment.Height, Mobile = environment.Mobile, Barriers = options.Barriers, Prompt = task.Prompt });
+        var recorder = record is null ? null : new UxRecorder(record.Folder, world, record.Header with { Width = environment.Width, Height = environment.Height, Mobile = environment.Mobile, Barriers = options.Barriers, Prompt = task.Prompt, MaxTicks = maxTicks ?? adapter.Limits.Steps });
         IAgentExtension[] extras = [.. alarm is null ? [] : new IAgentExtension[] { alarm }, .. recorder is null ? [] : new IAgentExtension[] { recorder }];
         var loop = agent(policy, WebTask.For(task), extras);
         var run = await loop.RunAsync(world, maxTicks ?? adapter.Limits.Steps, cancellationToken).ConfigureAwait(false);

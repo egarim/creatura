@@ -54,7 +54,7 @@ public class RecordShapeTests
             var text = File.ReadAllText(recorder.Path);
             Assert.DoesNotContain("hunter2", text);
             var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => JsonNode.Parse(l)!).ToList();
-            Assert.Equal(["header", "frame", "frame", "tick", "row", "end"], lines.Select(l => (string)l["type"]!));
+            Assert.Equal(["header", "frame", "frame", "tick", "row", "tick", "end"], lines.Select(l => (string)l["type"]!));   // the second tick: the judge's verdicts (U2)
             Assert.Equal("creatura.web-replay/1", (string)lines[0]["format"]!);
             Assert.Equal((0, "tick-0.jpg"), ((int)lines[1]["frame"]!, (string)lines[1]["image"]!));
             Assert.Equal("(filled)", (string)lines[2]["screen"]!["controls"]![0]!["value"]!);
@@ -63,7 +63,7 @@ public class RecordShapeTests
             Assert.Equal("type Password: the usual one", (string)tick["answer"]!);
             Assert.Null(tick["action"]!["content"]);
             Assert.Equal("landed", (string)tick["verdict"]!);
-            Assert.Equal((2, 2, 1, false), ((int)lines[5]["frames"]!, (int)lines[5]["images"]!, (int)lines[5]["ticks"]!, (bool)lines[5]["dataDone"]!));
+            Assert.Equal((2, 2, 1, false), ((int)lines[6]["frames"]!, (int)lines[6]["images"]!, (int)lines[6]["ticks"]!, (bool)lines[6]["dataDone"]!));
             Assert.True(File.Exists(Path.Combine(dir, "tick-1.jpg")));
         }
         finally
@@ -105,7 +105,7 @@ public class RecordTests(DemoFixture demo) : IClassFixture<DemoFixture>
             Assert.Equal(Path.Combine(dir, "remember-milk-hurried-phone-script-demo-plain"), cell.Recording);
             var lines = File.ReadAllLines(Path.Combine(cell.Recording!, UxRecorder.FileName)).Select(l => JsonNode.Parse(l)!).ToList();
             var frames = lines.Where(l => (string)l["type"]! == "frame").ToList();
-            var ticks = lines.Where(l => (string)l["type"]! == "tick").ToList();
+            var ticks = lines.Where(l => (string)l["type"]! == "tick" && l["kind"] is null).ToList();
             Assert.Equal(3, frames.Count);                               // the start page, after typing, after saving
             Assert.Equal(2, ticks.Count);
             Assert.Equal("Notes", (string)frames[0]["screen"]!["title"]!);
@@ -147,7 +147,7 @@ public class RecordTests(DemoFixture demo) : IClassFixture<DemoFixture>
         {
             var lied = await Run(dir, ["save-lies"]);
             Assert.False(lied.DataDone);
-            var ticks = File.ReadAllLines(Path.Combine(lied.Recording!, UxRecorder.FileName)).Select(l => JsonNode.Parse(l)!).Where(l => (string)l["type"]! == "tick").ToList();
+            var ticks = File.ReadAllLines(Path.Combine(lied.Recording!, UxRecorder.FileName)).Select(l => JsonNode.Parse(l)!).Where(l => (string)l["type"]! == "tick" && l["kind"] is null).ToList();
             Assert.Equal(2, ticks.Count);
             Assert.True((bool)ticks[1]["lie"]!);
             Assert.Equal("lied", (string)ticks[1]["verdict"]!);

@@ -214,9 +214,10 @@ named as the cell's trace is: `replay.jsonl` and a JPEG of the viewport for ever
 |---|---|---|
 | `header` | once | the app, task, persona, environment, tester, design; the viewport; the barriers; the task in the persona's words; `format: creatura.web-replay/1` |
 | `frame` | the start page, and after every action | the screen as the persona read it (address, title, visible text, the numbered controls with their lines), the data's check then, the image's file name |
-| `tick` | after every action | the frame it was decided on (`saw`), the persona's answer in its own words (the design's decision row), the control and what was typed, the outcome, the control layer's verdict, whether the world lied here, the frame it led to (`now`) |
+| `tick` | after every action | the frame it was decided on (`saw`), the persona's answer in its own words (the design's decision row), the control and what was typed, the outcome, the control layer's verdict, whether the world lied here, the frame it led to (`now`); and `events`, the same in the shape of `creatura.replay/1` with the offer, for the console |
 | `row`, `note` | at the end | every trace row and note of the run, so the replay is complete on its own |
-| `end` | last | the cell's numbers: frames, images, ticks, the data's verdict, lies told and caught, escalations, cost |
+| `tick` of `kind: verdict` | before the end | the judge's findings (the rules), each on the row it judges, for the console (docs/design-console.md, U2) |
+| `end` | last | the cell's numbers: frames, images, ticks, the data's verdict, lies told and caught, escalations, cost; `outcome` in sentences |
 
 The recorder (`UxRecorder`) is an extension, so it rides every design unchanged: it writes the start screen before the
 first tick and a frame and a tick after each action; a tick the loop spent without acting (no route, a refused tool, a

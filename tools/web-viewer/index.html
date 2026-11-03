@@ -118,7 +118,7 @@ async function load(fileList) {
   for (const o of lines) {
     if (o.type === 'header') r.header = o;
     else if (o.type === 'frame') r.frames[o.frame] = o;
-    else if (o.type === 'tick') r.ticks.push(o);
+    else if (o.type === 'tick' && o.kind !== 'verdict') r.ticks.push(o);   // a verdict tick is the judge's, read by the console
     else if (o.type === 'row') r.rows.push(o);
     else if (o.type === 'note') r.notes.push(o.text);
     else if (o.type === 'end') r.end = o;

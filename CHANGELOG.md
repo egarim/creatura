@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **The console, slice U2: every run opens in the Run view** (docs/design-console.md). The replay format gains optional
+  event properties (`cell`, `act`, `observation`, `offer`, `decision`, `at`, `lie`), a header's `cells`, and
+  verdict ticks that mark the row they judge, a false claim flagged where it was made. A web recording's ticks carry
+  the shared event with what the persona saw, was offered and decided, plus the judge's verdicts (the web viewer skips
+  them). `creatura-console run <two-creatures record>` opens a record as it is: both creatures by their clocks, then
+  each one (`p`), the judge's false claims on the commands that made them; `convert` writes the replays. The bench
+  writes a replay per exam cell (`ExamOptions.ReplayTo`, `BenchReplay`). U2.1 to U2.3 hold.
 - **The console, slice U1: the Run view** (docs/design-console.md, issue #29). A new program, `creatura-console`
   (project `src/Creatura.Operator`, on Terminal.Gui, so `creatura` stays package-free): `creatura-console run
   <replay.jsonl>` shows one run tick by tick, a row per event with what the cell saw, the act, the world's answer and

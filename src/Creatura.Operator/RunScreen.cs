@@ -8,19 +8,22 @@ using Attribute = Terminal.Gui.Drawing.Attribute;
 namespace Creatura.Operator;
 
 /// <summary>
-/// The Run view on a terminal (docs/design-console.md, slice U1): one run, tick by tick, as a transcript. It draws the
-/// model and nothing else; following a file, it polls for new lines and keeps the newest row in view while the person
-/// is at the bottom. Keys: c the next cell (every cell, then each one), f stop or resume following, q or Esc to leave.
+/// The Run view on a terminal (docs/design-console.md, slices U1 and U2): one run, tick by tick, as a transcript. It draws
+/// the model and nothing else; following a file, it polls for new lines and keeps the newest row in view while the
+/// person is at the bottom. A pair opens as several views (both creatures by their clocks, then each one). Keys: c the
+/// next cell, p the next view of a pair, f stop or resume following, q or Esc to leave.
 /// </summary>
 public sealed class RunScreen : Window
 {
     private readonly IApplication _app;
     private readonly ReplayFollower? _follower;
+    private readonly IReadOnlyList<(string Name, RunModel Model)> _views;
     private readonly Label _title = new() { X = 0, Y = 0, Width = Dim.Fill() };
     private readonly Label _counts = new() { X = 0, Y = 1, Width = Dim.Fill() };
     private readonly TableView _table = new() { X = 0, Y = 2, Width = Dim.Fill(), Height = Dim.Fill(1), FullRowSelect = true };
     private readonly Label _keys = new() { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
     private RunModel _model;
+    private int _view;
     private string? _cell;
     private bool _following;
     private List<RunRow> _rows = [];
@@ -29,9 +32,15 @@ public sealed class RunScreen : Window
     private static readonly Scheme Yellow = new(new Attribute(ColorName16.Yellow, ColorName16.Black));
 
     public RunScreen(IApplication app, RunModel model, ReplayFollower? follower, string? cell)
+        : this(app, [("run", model)], follower, cell)
+    {
+    }
+
+    public RunScreen(IApplication app, IReadOnlyList<(string Name, RunModel Model)> views, ReplayFollower? follower, string? cell)
     {
         _app = app;
-        _model = model;
+        _views = views;
+        _model = views[0].Model;
         _follower = follower;
         _cell = cell;
         _following = follower is not null;
@@ -70,11 +79,12 @@ public sealed class RunScreen : Window
     private void Refresh(bool toEnd)
     {
         _rows = [.. _model.RowsOf(_cell)];
-        _title.Text = RunText.Title(_model) + (_model.Header is { Goal.Length: > 0 } h ? "  goal: " + h.Goal : "");
+        var view = _views.Count > 1 ? $"[{_views[_view].Name}]  " : "";
+        _title.Text = view + RunText.Title(_model) + (_model.Header is { Goal.Length: > 0 } h ? "  goal: " + h.Goal : "");
         _counts.Text = (_cell is null ? "every cell" : "cell " + _cell) + ": " + RunText.Counts(_model, _cell)
             + (_model.Ended && _model.Outcome.Count > 0 ? "  |  " + _model.Outcome[0] : "");
-        _keys.Text = "c next cell   f " + (_follower is null ? "(not following)" : _following ? "stop following" : "follow") + "   q quit"
-            + (_follower is null ? "" : "   " + _follower.Path);
+        _keys.Text = "c next cell   " + (_views.Count > 1 ? "p next view   " : "") + "f " + (_follower is null ? "(not following)" : _following ? "stop following" : "follow")
+            + "   q quit" + (_follower is null ? "" : "   " + _follower.Path);
         foreach (var label in new[] { _title, _counts, _keys })
         {
             // Setting Text sizes a label to its text; the three lines keep the window's width and one row.
@@ -82,16 +92,19 @@ public sealed class RunScreen : Window
             label.Height = 1;
         }
 
-        _table.Table = new EnumerableTableSource<RunRow>(_rows, new Dictionary<string, Func<RunRow, object>>
+        var columns = new Dictionary<string, Func<RunRow, object>>
         {
             ["tick"] = r => r.Tick,
             ["cell"] = r => r.Cell,
             ["mark"] = r => RunText.MarkText(r.Mark),
             ["act"] = r => r.Act,
             ["verdict"] = r => r.Verdict,
-            ["saw"] = r => r.Observation,
-            ["answer"] = r => r.Answer,
-        });
+        };
+        if (_rows.Any(r => r.Observation.Length > 0)) columns["saw"] = r => r.Observation;
+        if (_rows.Any(r => r.Offer.Length > 0)) columns["offer"] = r => r.Offer;
+        if (_rows.Any(r => r.Decision.Length > 0)) columns["decision"] = r => r.Decision;
+        columns["answer"] = r => r.Answer;
+        _table.Table = new EnumerableTableSource<RunRow>(_rows, columns);
         if (toEnd && _rows.Count > 0) _table.MoveCursorToEndOfTable(false, null!);
         _table.Update();
         SetNeedsDraw();
@@ -109,6 +122,14 @@ public sealed class RunScreen : Window
             var cells = _model.Cells;
             var i = _cell is null ? -1 : cells.ToList().IndexOf(_cell);
             _cell = i + 1 < cells.Count ? cells[i + 1] : null;
+            Refresh(toEnd: false);
+            key.Handled = true;
+        }
+        else if (key == Key.P && _views.Count > 1)
+        {
+            _view = (_view + 1) % _views.Count;
+            _model = _views[_view].Model;
+            if (_cell is not null && !_model.Cells.Contains(_cell)) _cell = null;
             Refresh(toEnd: false);
             key.Handled = true;
         }
