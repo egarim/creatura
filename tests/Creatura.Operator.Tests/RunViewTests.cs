@@ -215,6 +215,32 @@ public class RunViewTests
         Assert.Contains("is neither a two-creatures record", error.ToString());
     }
 
+    /// <summary>The Fleet reads as the home's one endorsed creatura when none is named: its endorsement names the owner the ledger trusts.</summary>
+    [Fact]
+    public void TheFleetReadsAsTheHomesOneEndorsedCreatura()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "creatura-home-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            Assert.Null(ConsoleProgram.EndorsedCreatura(home));                          // no home at all
+            var vessel = Path.Combine(home, "cells", "v-1");
+            Directory.CreateDirectory(vessel);
+            File.WriteAllText(Path.Combine(vessel, "creatura.key"), "");
+            Assert.Null(ConsoleProgram.EndorsedCreatura(home));                          // keys, no endorsement
+            File.WriteAllText(Path.Combine(vessel, "claude-code.endorsement.json"), "{}");
+            Assert.Equal("claude-code", ConsoleProgram.EndorsedCreatura(home));
+            Directory.CreateDirectory(Path.Combine(home, "cells", "v-2"));
+            File.WriteAllText(Path.Combine(home, "cells", "v-2", "claude-code.endorsement.json"), "{}");
+            Assert.Equal("claude-code", ConsoleProgram.EndorsedCreatura(home));          // the same one on two vessels
+            File.WriteAllText(Path.Combine(vessel, "codex.endorsement.json"), "{}");
+            Assert.Null(ConsoleProgram.EndorsedCreatura(home));                          // two: the person names one with --as
+        }
+        finally
+        {
+            if (Directory.Exists(home)) Directory.Delete(home, recursive: true);
+        }
+    }
+
     private static int CountOf(string text, string what) =>
         text.Split('\n').Count(l => l.TrimEnd('\r').EndsWith(what, StringComparison.Ordinal));
 

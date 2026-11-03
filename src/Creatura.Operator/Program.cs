@@ -7,7 +7,7 @@ using Terminal.Gui.App;
 //   creatura-console run <replay.jsonl | recording folder | two-creatures record> [--follow] [--cell <name>] [--print]
 //   creatura-console --watch <replay.jsonl>          the same as run --follow
 //   creatura-console convert <two-creatures record> [--out <dir>]
-//   creatura-console fleet [--home <dir>] [--store json|sqlite] [--creatura <command>] [--print]
+//   creatura-console fleet [--home <dir>] [--store json|sqlite] [--as <creatura>] [--creatura <command>] [--print]
 //
 // --print writes the view as text and leaves (also when the output is not a terminal). Only convert writes, and only
 // the replays it is asked for; and an offer from the Fleet, which is `creatura cell offer`'s own entry.
@@ -30,11 +30,12 @@ namespace Creatura.Operator
                   the same as run --follow.
               creatura-console convert <two-creatures record> [--out <dir>]
                   writes agent-a.replay.jsonl and agent-b.replay.jsonl (into the record unless --out says).
-              creatura-console fleet [--home <dir>] [--store json|sqlite] [--creatura <command>] [--print]
+              creatura-console fleet [--home <dir>] [--store json|sqlite] [--as <creatura>] [--creatura <command>] [--print]
                   who is working on what, now: one row per cell of this home's ledger, read through the creatura
                   command (creatura cell fleet --json; --creatura names it when it is not on the PATH), blocked and
                   stressed cells red, quiet ones dimmed. Enter shows a cell's activity, o offers it a goal (written
-                  by creatura cell offer), r reads again.
+                  by creatura cell offer), r reads again. --as reads as that creatura of the home (the one its
+                  hooks run as, e.g. claude-code); when the home has one endorsed creatura, that one.
 
             Keys: c next cell, p next view of a pair, f stop or resume following, q quit.
             """;
@@ -155,6 +156,7 @@ namespace Creatura.Operator
         {
             var home = new List<string>();
             string? command = null;
+            string? creatura = null;
             var print = redirected;
             for (var i = 0; i < args.Length; i++)
             {
@@ -167,6 +169,9 @@ namespace Creatura.Operator
                     case "--creatura" when i + 1 < args.Length:
                         command = args[++i];
                         break;
+                    case "--as" when i + 1 < args.Length:
+                        creatura = args[++i];
+                        break;
                     case "--print":
                         print = true;
                         break;
@@ -174,6 +179,16 @@ namespace Creatura.Operator
                         error.WriteLine($"unknown argument '{args[i]}'");
                         return 2;
                 }
+            }
+
+            // Which creatura of the home to read as: its endorsement names the owner the ledger trusts, so reading as
+            // another (the command's default, "creatura") would reject every entry. Named, or the home's only one.
+            creatura ??= EndorsedCreatura(home.SkipWhile(a => a != "--home").Skip(1).FirstOrDefault()
+                ?? Environment.GetEnvironmentVariable("CREATURA_HOME") ?? Creatura.Cells.CellHome.DefaultRoot);
+            if (creatura is not null)
+            {
+                home.Add("--creatura");
+                home.Add(creatura);
             }
 
             var model = new FleetModel(cli ?? new ProcessCellCommand(command), home);
@@ -194,6 +209,18 @@ namespace Creatura.Operator
             using var screen = new FleetScreen(app, model);
             app.Run(screen);
             return 0;
+        }
+
+        /// <summary>The home's one endorsed creatura (cells/&lt;vessel&gt;/&lt;creatura&gt;.endorsement.json), or null when it has none or several.</summary>
+        public static string? EndorsedCreatura(string homeRoot)
+        {
+            var cells = Path.Combine(homeRoot, "cells");
+            if (!Directory.Exists(cells)) return null;
+            var names = Directory.EnumerateFiles(cells, "*.endorsement.json", SearchOption.AllDirectories)
+                .Select(f => Path.GetFileName(f)[..^".endorsement.json".Length])
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            return names.Count == 1 ? names[0] : null;
         }
 
         private static int Convert(string[] args, TextWriter output, TextWriter error)

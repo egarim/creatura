@@ -137,7 +137,7 @@ public class FleetTests
 
         // The program's text view, through the same command.
         var output = new StringWriter();
-        Assert.Equal(0, ConsoleProgram.Fleet(["--print"], output, new StringWriter(), redirected: false, cli));
+        Assert.Equal(0, ConsoleProgram.Fleet(["--print", "--as", "creatura"], output, new StringWriter(), redirected: false, cli));
         Assert.Contains(me.Name, output.ToString());
         Assert.Contains("2 offers waiting", output.ToString());
     }
