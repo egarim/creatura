@@ -14,6 +14,12 @@ using Microsoft.Extensions.Logging;
 namespace Creatura.Operator;
 
 /// <summary>
+/// What the page may write: an offer only on the owner's vessel (<paramref name="CanOffer"/>; otherwise <paramref name="OfferNote"/>
+/// says where offers are made), and a file attached to one only with a hub to hold it (<paramref name="Hub"/>).
+/// </summary>
+public sealed record WebOptions(bool CanOffer = true, string? OfferNote = null, string? Hub = null);
+
+/// <summary>
 /// The console as a page (docs/design-console.md, U5): the Fleet and the Run view in a browser, served on 127.0.0.1
 /// only, from the same models as the terminal and the same JSON. The page loads nothing from anywhere else. It reads
 /// the Fleet and a cell's activity through the <c>creatura</c> command, at most every couple of seconds however many
@@ -29,17 +35,22 @@ public sealed class WebConsole : IAsyncDisposable
     private readonly WebApplication _app;
     private readonly FleetModel? _fleet;
     private readonly RunCatalog _runs;
+    private readonly WebOptions _options;
     private readonly Lock _gate = new();
     private (DateTimeOffset At, FleetSnapshot Snapshot)? _fleetRead;
     private (DateTimeOffset At, string Document)? _activityRead;
 
-    private WebConsole(WebApplication app, FleetModel? fleet, RunCatalog runs, string token)
+    private WebConsole(WebApplication app, FleetModel? fleet, RunCatalog runs, WebOptions options, string token)
     {
         _app = app;
         _fleet = fleet;
         _runs = runs;
+        _options = options;
         Token = token;
     }
+
+    /// <summary>The largest file the page takes: the shared files' own limit.</summary>
+    public const long MaxAttachment = 64L * 1024 * 1024;
 
     /// <summary>The page's address: http://127.0.0.1:port/.</summary>
     public Uri Address { get; private set; } = null!;
@@ -48,13 +59,17 @@ public sealed class WebConsole : IAsyncDisposable
     public string Token { get; }
 
     /// <summary>Starts serving on 127.0.0.1, on <paramref name="port"/> or a free one when it is 0. <paramref name="fleet"/> null: no home, runs only.</summary>
-    public static async Task<WebConsole> StartAsync(FleetModel? fleet, RunCatalog runs, int port = 0)
+    public static async Task<WebConsole> StartAsync(FleetModel? fleet, RunCatalog runs, int port = 0, WebOptions? options = null)
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.ClearProviders();
-        builder.WebHost.UseKestrel(o => o.Listen(IPAddress.Loopback, port));
+        builder.WebHost.UseKestrel(o =>
+        {
+            o.Listen(IPAddress.Loopback, port);
+            o.Limits.MaxRequestBodySize = MaxAttachment + 1024 * 1024;
+        });
         var app = builder.Build();
-        var console = new WebConsole(app, fleet, runs, Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant());
+        var console = new WebConsole(app, fleet, runs, options ?? new WebOptions(), Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant());
         console.Map();
         await app.StartAsync().ConfigureAwait(false);
         var bound = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.First();
@@ -103,20 +118,69 @@ public sealed class WebConsole : IAsyncDisposable
         {
             if (!Allowed(context)) return Results.StatusCode(StatusCodes.Status403Forbidden);
             if (_fleet is null) return Results.Json(new { ok = false, said = "no home: start creatura-console web on a vessel with a cell" });
-            JsonObject? body;
-            try
+            if (!_options.CanOffer) return Results.Json(new { ok = false, said = _options.OfferNote ?? "only the owner's vessel can offer a goal" });
+
+            // A goal as JSON, or a goal with one file as a form.
+            string? cell, goal;
+            IFormFile? file = null;
+            if (context.Request.HasFormContentType)
             {
-                body = await JsonNode.ParseAsync(context.Request.Body).ConfigureAwait(false) as JsonObject;
+                var form = await context.Request.ReadFormAsync().ConfigureAwait(false);
+                cell = form["cell"].ToString();
+                goal = form["goal"].ToString();
+                file = form.Files.GetFile("file");
             }
-            catch (System.Text.Json.JsonException)
+            else
             {
-                body = null;
+                JsonObject? body;
+                try
+                {
+                    body = await JsonNode.ParseAsync(context.Request.Body).ConfigureAwait(false) as JsonObject;
+                }
+                catch (System.Text.Json.JsonException)
+                {
+                    body = null;
+                }
+
+                cell = (string?)body?["cell"];
+                goal = (string?)body?["goal"];
             }
 
-            var cell = (string?)body?["cell"];
-            var goal = (string?)body?["goal"];
-            if (cell is null || goal is null || Fleet().Rows.All(r => r.Cell != cell)) return Results.Json(new { ok = false, said = "name a cell of the Fleet and a goal" });
+            if (string.IsNullOrEmpty(cell) || goal is null || Fleet().Rows.All(r => r.Cell != cell)) return Results.Json(new { ok = false, said = "name a cell of the Fleet and a goal" });
+            if (string.IsNullOrWhiteSpace(goal)) return Results.Json(new { ok = false, said = "an offer needs a goal" });
+
+            // The file first: shared with that cell alone, through the hub; the offer then names it. No share, no offer.
+            var shared = "";
+            if (file is not null)
+            {
+                if (_options.Hub is null) return Results.Json(new { ok = false, said = "no hub to hold the file: start creatura-console web with --hub <url>" });
+                if (file.Length > MaxAttachment) return Results.Json(new { ok = false, said = $"{file.FileName} is larger than 64 MB, the shared files' limit" });
+                var name = SafeName(file.FileName);
+                var folder = Path.Combine(Path.GetTempPath(), "creatura-attach-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(folder);
+                try
+                {
+                    var path = Path.Combine(folder, name);
+                    await using (var stream = File.Create(path)) await file.CopyToAsync(stream).ConfigureAwait(false);
+                    var (sharedOk, artifact, sharedSaid) = _fleet.Share(cell, path, _options.Hub);
+                    if (!sharedOk) return Results.Json(new { ok = false, said = "the file was not shared, so nothing was offered: " + sharedSaid });
+                    goal = goal.TrimEnd() + $"\n\nAttached: {name}, shared with you as {artifact}. Fetch it with: creatura cell fetch --artifact {artifact} --out {name}";
+                    shared = sharedSaid.Split('\n')[0] + "\n";
+                }
+                finally
+                {
+                    try
+                    {
+                        Directory.Delete(folder, recursive: true);
+                    }
+                    catch (IOException)
+                    {
+                    }
+                }
+            }
+
             var (ok, said) = _fleet.Offer(cell, goal);
+            said = shared + said;
             lock (_gate)
             {
                 _fleetRead = null;
@@ -171,6 +235,9 @@ public sealed class WebConsole : IAsyncDisposable
         {
             ["at"] = fleet.At.UtcDateTime.ToString("o"),
             ["home"] = _fleet is not null,
+            ["canOffer"] = _fleet is not null && _options.CanOffer,
+            ["offerNote"] = _options.OfferNote,
+            ["hub"] = _options.Hub,
             ["problem"] = fleet.Problem,
             ["cells"] = cells,
             ["runs"] = new JsonArray([.. _runs.List().Select(r => (JsonNode)new JsonObject
@@ -182,6 +249,14 @@ public sealed class WebConsole : IAsyncDisposable
                 ["when"] = r.When.UtcDateTime.ToString("o"),
             })]),
         };
+    }
+
+    /// <summary>A file's name as it is kept: its last part, with nothing that could leave the folder or trouble a shell.</summary>
+    public static string SafeName(string name)
+    {
+        var last = Path.GetFileName(name.Replace('\\', '/').Split('/').Last());
+        var safe = new string([.. last.Select(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_' ? c : '_')]).TrimStart('.');
+        return safe.Length == 0 ? "attachment" : safe.Length > 120 ? safe[..120] : safe;
     }
 
     private FleetSnapshot Fleet()

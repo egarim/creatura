@@ -301,4 +301,15 @@ showed the persona's steps with what it saw and was offered and the lying Save a
 cell showed its 238 entries as a feed; at 375 px nothing scrolled sideways. A first look found the thread wider than
 the window (long one-line commands widened the column); fixed before the checks.
 
+**After U5 (2026-11-03): who offers, and files.** On the owner's Surface the first offer from the page was refused by
+`cell offer`: the Surface is an endorsed vessel and holds no owner key, by design. The page now knows it (the home's
+`owner/owner.key`): without the key the composer is read-only and names the owner key by the fingerprint the
+endorsement carries; the server refuses an offer there and runs nothing. With it, a paperclip, a drop or a paste
+attaches one file (64 MB at most): the server keeps it in a fresh temporary folder under a name that cannot leave it,
+runs `cell share --file --hub --to <cell>` (sealed for that cell alone; the hub from `--hub`, else the one the home last
+synced with, shown on the paperclip), deletes the copy, and offers the goal with a line naming the shared file and the
+`cell fetch` that gets it; a failed share offers nothing. `WebConsoleTests` gained four checks, one of them in
+Chromium (the read-only note; a file attached by the paperclip shared and named in the offer). An offer to several
+cells at once (an "Everyone" view) is proposed, not built.
+
 **Not yet.** Compare (U4), held.

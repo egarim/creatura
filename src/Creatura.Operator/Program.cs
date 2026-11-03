@@ -8,7 +8,7 @@ using Terminal.Gui.App;
 //   creatura-console --watch <replay.jsonl>          the same as run --follow
 //   creatura-console convert <two-creatures record> [--out <dir>]
 //   creatura-console fleet [--home <dir>] [--store json|sqlite] [--as <creatura>] [--creatura <command>] [--print]
-//   creatura-console web [--runs <dir>]... [--port <n>] [--no-open] [the fleet's options]
+//   creatura-console web [--runs <dir>]... [--port <n>] [--no-open] [--hub <url>] [the fleet's options]
 //
 // --print writes the view as text and leaves (also when the output is not a terminal). Only convert writes, and only
 // the replays it is asked for; and an offer from the Fleet, which is `creatura cell offer`'s own entry.
@@ -37,10 +37,11 @@ namespace Creatura.Operator
                   stressed cells red, quiet ones dimmed. Enter shows a cell's activity, o offers it a goal (written
                   by creatura cell offer), r reads again. --as reads as that creatura of the home (the one its
                   hooks run as, e.g. claude-code); when the home has one endorsed creatura, that one.
-              creatura-console web [--runs <dir>]... [--port <n>] [--no-open] [--home <dir>] [--as <creatura>] [--creatura <command>]
+              creatura-console web [--runs <dir>]... [--port <n>] [--no-open] [--hub <url>] [--home <dir>] [--as <creatura>] [--creatura <command>]
                   the same in a browser, on 127.0.0.1 only (default port 7358), opened unless --no-open: the Fleet
                   and every run under the --runs folders (replays, web recordings, two-creatures records) as
-                  conversations, live; a cell's page offers it a goal. Ctrl+C stops it.
+                  conversations, live. On the owner's vessel a cell's page offers it a goal, with a file attached
+                  through the hub (--hub; by default the one this home last synced with). Ctrl+C stops it.
 
             Keys: c next cell, p next view of a pair, f stop or resume following, q quit.
             """;
@@ -227,6 +228,7 @@ namespace Creatura.Operator
             var runs = new List<string>();
             string? command = null;
             string? creatura = null;
+            string? hub = null;
             var port = 7358;
             var open = true;
             for (var i = 0; i < args.Length; i++)
@@ -245,6 +247,9 @@ namespace Creatura.Operator
                         break;
                     case "--runs" when i + 1 < args.Length:
                         runs.Add(args[++i]);
+                        break;
+                    case "--hub" when i + 1 < args.Length:
+                        hub = args[++i];
                         break;
                     case "--port" when i + 1 < args.Length && int.TryParse(args[i + 1], out var p) && p is >= 0 and <= 65535:
                         port = p;
@@ -274,8 +279,22 @@ namespace Creatura.Operator
                 fleet = new FleetModel(cli ?? new ProcessCellCommand(command), home);
             }
 
-            await using var web = await WebConsole.StartAsync(fleet, new RunCatalog(runs.Where(r => File.Exists(r) || Directory.Exists(r)).ToList()), port).ConfigureAwait(false);
+            var options = OptionsFor(root, creatura, hub, cli is not null);
+            WebConsole web;
+            try
+            {
+                web = await WebConsole.StartAsync(fleet, new RunCatalog(runs.Where(r => File.Exists(r) || Directory.Exists(r)).ToList()), port, options).ConfigureAwait(false);
+            }
+            catch (IOException) when (port != 0)
+            {
+                // Kestrel's address-in-use: most often a console already running there.
+                error.WriteLine($"port {port} is in use: a console may already be running there (open http://127.0.0.1:{port}/), or pick another with --port <n>");
+                return 1;
+            }
+
+            await using var running = web;
             output.WriteLine($"console      {web.Address} (127.0.0.1 only; Ctrl+C to stop)");
+            output.WriteLine(options.CanOffer ? $"offers       yes, this is the owner's vessel; files through {options.Hub ?? "no hub (--hub <url>)"}" : $"offers       no: {options.OfferNote}");
             output.WriteLine(fleet is null ? $"fleet        none: no cell under {root}" : $"fleet        {root}" + (creatura is null ? "" : $", as {creatura}"));
             output.WriteLine($"runs         {(runs.Count == 0 ? "none (--runs <folder> lists replays, recordings and records)" : string.Join(", ", runs))}");
             if (open) OpenInBrowser(web.Address);
@@ -297,6 +316,57 @@ namespace Creatura.Operator
             }
 
             return 0;
+        }
+
+        /// <summary>
+        /// What the page may write on this home: offers when it holds the owner key (owner/owner.key), else a note naming
+        /// the owner's key by the fingerprint its endorsement carries; and the hub for files, the one named or the one this
+        /// home last synced with (sync/&lt;host&gt;_&lt;port&gt;.json).
+        /// </summary>
+        public static WebOptions OptionsFor(string root, string? creatura, string? hub, bool assumeOwner = false)
+        {
+            var owner = assumeOwner || File.Exists(Path.Combine(root, "owner", "owner.key"));
+            string? note = null;
+            if (!owner)
+            {
+                var fingerprint = OwnerFingerprint(root, creatura);
+                note = "Offers are made on the owner's vessel, the one that holds the owner key" + (fingerprint is null ? "" : $" ({fingerprint})")
+                    + ". This vessel was endorsed by it and has no copy, by design: run creatura-console web there to offer.";
+            }
+
+            hub ??= LastHub(root);
+            return new WebOptions(owner, note, hub is null ? null : hub.TrimEnd('/') + "/");
+        }
+
+        private static string? OwnerFingerprint(string root, string? creatura)
+        {
+            if (creatura is null) return null;
+            var candidates = new[] { Path.Combine(root, creatura + ".endorsement.json") }
+                .Concat(Directory.Exists(Path.Combine(root, "cells")) ? Directory.EnumerateFiles(Path.Combine(root, "cells"), creatura + ".endorsement.json", SearchOption.AllDirectories) : []);
+            foreach (var file in candidates.Where(File.Exists))
+            {
+                try
+                {
+                    if (System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(file))?["ownerPublicKey"]?.GetValue<string>() is { Length: > 0 } key)
+                        return Creatura.Cells.CellKey.FingerprintOf(key);
+                }
+                catch (Exception e) when (e is System.Text.Json.JsonException or InvalidOperationException or IOException)
+                {
+                }
+            }
+
+            return null;
+        }
+
+        private static string? LastHub(string root)
+        {
+            var sync = Path.Combine(root, "sync");
+            if (!Directory.Exists(sync)) return null;
+            var last = Directory.EnumerateFiles(sync, "*_*.json").OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
+            if (last is null) return null;
+            var name = Path.GetFileNameWithoutExtension(last);
+            var cut = name.LastIndexOf('_');
+            return cut <= 0 || !int.TryParse(name[(cut + 1)..], out var port) ? null : $"http://{name[..cut]}:{port}";
         }
 
         private static void OpenInBrowser(Uri address)
