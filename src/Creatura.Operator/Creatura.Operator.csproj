@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The console (docs/design-console.md): where a person watches the creatures work. A program of its own,
+       `creatura-console`, so that `creatura` stays package-free (CellsPurityTest) while this one draws its screens with
+       Terminal.Gui. Everything it shows comes from a UI-free model (RunModel and its readers), which the tests drive;
+       the screens only draw it. The namespace is Creatura.Operator, never Creatura.Console, so it cannot shadow
+       System.Console in any project that references it. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Creatura.Operator</RootNamespace>
+    <AssemblyName>creatura-console</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Terminal.Gui" Version="2.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The replay records the convoy writes (creatura.replay/1); read through the model, never written. -->
+    <ProjectReference Include="..\Creatura.Scenarios\Creatura.Scenarios.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -25,6 +25,7 @@ apps=(
   "creatura|src/Creatura.Cli/Creatura.Cli.csproj"
   "creatura-hub|src/Creatura.Cells.Hub/Creatura.Cells.Hub.csproj"
   "creatura-convoy|samples/Convoy/Convoy.csproj"
+  "creatura-console|src/Creatura.Operator/Creatura.Operator.csproj"
 )
 
 readme() {
@@ -36,6 +37,9 @@ readme() {
     creatura-convoy) echo "  creatura-convoy --arm J --seed 0                              three trucks after a flood, as a story
   creatura-convoy --arm J --seed 0 --replay run.jsonl --quiet    a replay; open convoy-viewer.html and drop run.jsonl on it
   creatura-convoy --battery --seeds 50                           every arm over 50 seeds, with the hypotheses scored" ;;
+    creatura-console) echo "  creatura-console run run.jsonl          watch a run tick by tick (c next cell, q quit)
+  creatura-console --watch run.jsonl      follow a run as it writes its replay
+  creatura-console run run.jsonl --print  the same view as text" ;;
   esac
 }
 
