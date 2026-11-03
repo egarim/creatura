@@ -103,6 +103,20 @@ public sealed class FleetModel(ICellCommand cli, IReadOnlyList<string>? homeArgs
         return code == 0 ? (true, output.Trim()) : (false, Problem(error, output, code));
     }
 
+    /// <summary>
+    /// Shares a file with one cell: <c>creatura cell share --file &lt;path&gt; --hub &lt;hub&gt; --to &lt;cell&gt;</c>, which seals it for
+    /// that cell alone and uploads the ciphertext to the hub. Returns the shared file's entry id (what <c>cell fetch
+    /// --artifact</c> takes) and what the command said.
+    /// </summary>
+    public (bool Ok, string? Artifact, string Said) Share(string cell, string path, string hub)
+    {
+        var (code, output, error) = Cli.Run(["cell", "share", "--file", path, "--hub", hub, "--to", cell, .. HomeArgs]);
+        if (code != 0) return (false, null, Problem(error, output, code));
+        var line = output.Split('\n').FirstOrDefault(l => l.StartsWith("shared", StringComparison.Ordinal));
+        var id = line?["shared".Length..].Trim();
+        return string.IsNullOrEmpty(id) ? (false, null, "cell share did not say the shared file's id: " + output.Trim()) : (true, id, output.Trim());
+    }
+
     /// <summary>One cell's activity, from <c>creatura cell activity</c>, as a run: every entry it wrote a row, oldest first.</summary>
     public RunModel CellRun(FleetRow row)
     {

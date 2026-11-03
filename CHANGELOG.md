@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **The console page: offers only on the owner's vessel, and files with them** (docs/design-console.md). On a vessel
+  without the owner key the composer is read-only and says where offers are made, naming the owner key by its
+  fingerprint; the server refuses an offer there without running anything. On the owner's vessel a paperclip (or a
+  drop, or a paste) attaches one file, up to 64 MB: `cell share --to <cell>` seals it for that cell alone through the hub
+  (`--hub`, by default the one the home last synced with), then the offer names it and how to fetch it; no share,
+  no offer. A taken port now says so instead of a stack trace.
 - **The console, slice U5: the page** (docs/design-console.md). `creatura-console web [--runs <dir>]...` serves the
   console as a chat-style page on 127.0.0.1: the Fleet and every run under the folders as conversations (the seat's
   words as "Thinking", acts as tool blocks with their output, lies and false claims flagged, the judge's verdicts in the

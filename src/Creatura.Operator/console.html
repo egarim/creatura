@@ -167,7 +167,17 @@ button { cursor: pointer; }
 .composer .send:disabled { opacity: .35; cursor: default; }
 .composer .send svg { width: 17px; height: 17px; }
 .composer .hint { max-width: 860px; margin: 6px auto 0; font-size: 11.5px; color: var(--faint); text-align: center; }
-.composer.readonly .box { justify-content: center; color: var(--faint); font-size: 13.5px; padding: 12px; border-style: dashed; box-shadow: none; }
+.composer.readonly .box { justify-content: center; color: var(--faint); font-size: 13.5px; padding: 12px 16px; border-style: dashed; box-shadow: none; text-align: center; }
+.composer .clip { width: 36px; height: 36px; border-radius: 12px; border: 0; background: transparent; color: var(--muted); display: grid; place-items: center; flex: none; }
+.composer .clip:hover { background: var(--code); }
+.composer .clip svg { width: 18px; height: 18px; }
+.composer .stack { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.composer .files { display: flex; gap: 6px; flex-wrap: wrap; }
+.composer .file { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; background: var(--code); border: 1px solid var(--line); border-radius: 10px; padding: 4px 6px 4px 10px; font-size: 12.5px; }
+.composer .file span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.composer .file small { color: var(--faint); }
+.composer .file button { border: 0; background: transparent; color: var(--faint); padding: 0 4px; font-size: 15px; line-height: 1; }
+.composer .box.drop { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 /* Welcome */
 .welcome { max-width: 760px; margin: 0 auto; padding: 64px 24px 40px; }
@@ -246,10 +256,13 @@ const icons = {
   dot: '<svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="2.5"/></svg>',
   judge: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M3 14h10M8 4l-5 2 0 0m5-2l5 2"/><path d="M3 6l-2 4h4zM13 6l-2 4h4z"/></svg>',
   send: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></svg>',
+  clip: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 7.5l-5.6 5.6a3.4 3.4 0 01-4.8-4.8l5.9-5.9a2.3 2.3 0 013.2 3.2l-5.8 5.8a1.1 1.1 0 01-1.6-1.6l5.3-5.3"/></svg>',
 };
 const kindIcon = { convoy: "truck", web: "web", "two-creatures": "pair", bench: "bench", cell: "ledger" };
 
-let state = null, route = null, current = null, currentKey = "", viewIndex = 0, cellFilter = "", openKeys = new Set(), online = true, sending = false;
+let state = null, route = null, current = null, currentKey = "", viewIndex = 0, cellFilter = "", openKeys = new Set(), online = true, sending = false, attached = null;
+const MAX_FILE = 64 * 1024 * 1024;
+function size(n) { return n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(0) + " KB" : (n / 1048576).toFixed(1) + " MB"; }
 
 // ---------- small helpers ----------
 function ago(iso) {
@@ -476,19 +489,43 @@ function renderRun(data) {
 function renderComposer() {
   const c = $("composer"); c.hidden = false; c.textContent = ""; c.className = "composer";
   const cell = route && route.kind === "cell" && state ? state.cells.find(x => x.cell === route.id) : null;
-  if (!cell) {
+  if (!cell || !state.canOffer) {
     c.className = "composer readonly";
-    const box = el("div", "box", route && route.kind === "run" ? "A recorded run: read-only. Offers go to the cells of the Fleet." : "");
+    const text = !cell ? (route && route.kind === "run" ? "A recorded run: read-only. Offers go to the cells of the Fleet." : "")
+      : state.offerNote || "Offers are made on the owner's vessel.";
+    const box = el("div", "box", text); box.id = "composer-note";
     c.append(box); return;
   }
-  const box = el("div", "box"); const ta = el("textarea"); ta.rows = 1; ta.id = "goal";
+  attached = null;
+  const box = el("div", "box"); const stack = el("div", "stack"); const files = el("div", "files");
+  const ta = el("textarea"); ta.rows = 1; ta.id = "goal";
   ta.placeholder = `Offer a goal to ${cell.name}…`; ta.value = stored("draft:" + cell.cell) || "";
+  const picker = el("input"); picker.type = "file"; picker.hidden = true; picker.id = "file";
+  const clip = el("button", "clip"); clip.title = state.hub ? "Attach a file (shared with this cell only, through " + state.hub + ")" : "No hub to hold files: start the console with --hub <url>";
+  clip.append(svg("clip")); clip.disabled = !state.hub; clip.onclick = () => picker.click();
   const send = el("button", "send"); send.title = "Offer"; send.append(svg("send")); send.disabled = !ta.value.trim();
   const grow = () => { ta.style.height = "auto"; ta.style.height = Math.min(180, ta.scrollHeight) + "px"; send.disabled = sending || !ta.value.trim(); };
+  const showFiles = () => {
+    files.textContent = "";
+    if (!attached) return;
+    const f = el("div", "file"); const x = el("button", null, "×"); x.title = "Remove"; x.onclick = () => { attached = null; showFiles(); };
+    f.append(el("span", null, attached.name), el("small", null, size(attached.size)), x); files.append(f);
+  };
+  const attach = file => {
+    if (!file) return;
+    if (!state.hub) { toast("No hub to hold files: start the console with --hub <url>", true); return; }
+    if (file.size > MAX_FILE) { toast(file.name + " is larger than 64 MB, the shared files' limit", true); return; }
+    attached = file; showFiles(); ta.focus();
+  };
+  picker.onchange = () => { attach(picker.files[0]); picker.value = ""; };
+  box.addEventListener("dragover", e => { if (state.hub) { e.preventDefault(); box.classList.add("drop"); } });
+  box.addEventListener("dragleave", () => box.classList.remove("drop"));
+  box.addEventListener("drop", e => { e.preventDefault(); box.classList.remove("drop"); attach(e.dataTransfer.files[0]); });
   ta.addEventListener("input", () => { stored("draft:" + cell.cell, ta.value); grow(); });
   ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); offer(cell, ta); } });
+  ta.addEventListener("paste", e => { const f = e.clipboardData && e.clipboardData.files[0]; if (f) { e.preventDefault(); attach(f); } });
   send.onclick = () => offer(cell, ta);
-  box.append(ta, send); c.append(box);
+  stack.append(files, ta); box.append(clip, stack, send, picker); c.append(box);
   const pending = cell.pendingOffers ? ` · ${cell.pendingOffers} offer${cell.pendingOffers === 1 ? "" : "s"} waiting` : "";
   c.append(el("div", "hint", `Enter to offer, Shift+Enter for a new line · written to the ledger by creatura cell offer${pending}`));
   setTimeout(grow);
@@ -497,9 +534,13 @@ async function offer(cell, ta) {
   const goal = ta.value.trim(); if (!goal || sending) return;
   sending = true; renderComposerState();
   try {
-    const r = await fetch("api/offer", { method: "POST", headers: { "Content-Type": "application/json", "X-Creatura-Token": TOKEN }, body: JSON.stringify({ cell: cell.cell, goal }) });
+    let body, headers = { "X-Creatura-Token": TOKEN };
+    if (attached) { body = new FormData(); body.append("cell", cell.cell); body.append("goal", goal); body.append("file", attached, attached.name); }
+    else { body = JSON.stringify({ cell: cell.cell, goal }); headers["Content-Type"] = "application/json"; }
+    if (attached) toast("Sharing " + attached.name + " with " + cell.name + "…");
+    const r = await fetch("api/offer", { method: "POST", headers, body });
     const answer = r.ok ? await r.json() : { ok: false, said: "refused (" + r.status + ")" };
-    if (answer.ok) { ta.value = ""; stored("draft:" + cell.cell, ""); toast(answer.said.split("\n")[0]); }
+    if (answer.ok) { ta.value = ""; stored("draft:" + cell.cell, ""); attached = null; toast(answer.said.split("\n").filter(l => /^(shared|offered)/.test(l)).join(" · ") || answer.said.split("\n")[0]); }
     else toast("Not offered: " + answer.said, true);
   } catch (e) { toast("Not offered: " + e.message, true); }
   sending = false; await refreshState(); renderComposer();
@@ -550,6 +591,8 @@ async function tick() {
 }
 function renderComposerHint() {
   const cell = state && state.cells.find(x => x.cell === route.id); const hint = document.querySelector(".composer .hint");
+  // Whether this vessel may offer can change only with a restart; a composer drawn before the state arrived is redrawn once.
+  if (state && (!!document.getElementById("composer-note")) === !!state.canOffer && cell) { renderComposer(); return; }
   if (cell && hint) hint.textContent = `Enter to offer, Shift+Enter for a new line · written to the ledger by creatura cell offer` + (cell.pendingOffers ? ` · ${cell.pendingOffers} offer${cell.pendingOffers === 1 ? "" : "s"} waiting` : "");
 }
 

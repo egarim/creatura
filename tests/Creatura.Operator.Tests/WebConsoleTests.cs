@@ -75,9 +75,23 @@ public class WebConsoleTests
                 new JsonObject { ["actor"] = "urn:creatura:cell:cell-bbbb", ["type"] = "Create", ["published"] = Now.AddHours(-2).UtcDateTime.ToString("o"), ["summary"] = "codex on second started 'rotate the logs'" }),
         }.ToJsonString();
 
+        /// <summary>The file a share was asked for, as it was on disk when the command ran; null when none was.</summary>
+        public string? SharedContent { get; private set; }
+
+        public string? SharedPath { get; private set; }
+
+        public bool ShareFails { get; init; }
+
         public (int Code, string Output, string Error) Run(IReadOnlyList<string> args)
         {
             Calls.Add([.. args]);
+            if (args[1] == "share")
+            {
+                SharedPath = args[3];
+                SharedContent = File.Exists(args[3]) ? File.ReadAllText(args[3]) : null;
+                return ShareFails ? (1, "", "the hub did not answer") : (0, "shared       cell-aaaa#9\nfile         plan.txt (text/plain, 5 bytes), sealed for 1 cell\nhub          holds the ciphertext for 90 days", "");
+            }
+
             return args[1] switch
             {
                 "fleet" => (0, Fleet, ""),
@@ -241,6 +255,169 @@ public class WebConsoleTests
         finally
         {
             Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    private static HttpRequestMessage OfferWithFile(WebConsole web, string cell, string goal, string fileName, string content)
+    {
+        var form = new MultipartFormDataContent
+        {
+            { new StringContent(cell), "cell" },
+            { new StringContent(goal), "goal" },
+            { new ByteArrayContent(Encoding.UTF8.GetBytes(content)), "file", fileName },
+        };
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/offer") { Content = form };
+        request.Headers.Add("X-Creatura-Token", web.Token);
+        return request;
+    }
+
+    /// <summary>Only the owner's vessel offers: elsewhere the page says where offers are made, and the server refuses one without running anything.</summary>
+    [Fact]
+    public async Task AVesselWithoutTheOwnerKeyOffersNothingAndSaysWhere()
+    {
+        var cli = new FakeCli();
+        const string note = "Offers are made on the owner's vessel, the one that holds the owner key (SHA256:abc).";
+        await using var web = await WebConsole.StartAsync(new FleetModel(cli), new RunCatalog([]), options: new WebOptions(CanOffer: false, OfferNote: note, Hub: "http://hub.test:5181/"));
+        using var http = new HttpClient { BaseAddress = web.Address };
+        var state = JsonNode.Parse(await http.GetStringAsync("/api/state"))!;
+        Assert.False((bool)state["canOffer"]!);
+        Assert.Equal(note, (string)state["offerNote"]!);
+
+        using var offer = new HttpRequestMessage(HttpMethod.Post, "/api/offer") { Content = JsonContent.Create(new { cell = "cell-aaaa", goal = "x" }) };
+        offer.Headers.Add("X-Creatura-Token", web.Token);
+        var answer = JsonNode.Parse(await (await http.SendAsync(offer)).Content.ReadAsStringAsync())!;
+        Assert.False((bool)answer["ok"]!);
+        Assert.Equal(note, (string)answer["said"]!);
+        using var withFile = OfferWithFile(web, "cell-aaaa", "x", "plan.txt", "hello");
+        Assert.False((bool)JsonNode.Parse(await (await http.SendAsync(withFile)).Content.ReadAsStringAsync())!["ok"]!);
+        Assert.DoesNotContain(cli.Calls, c => c[1] is "offer" or "share");
+    }
+
+    /// <summary>A file goes with an offer: shared with that cell alone through the hub first, the offer naming it; no share, no offer.</summary>
+    [Fact]
+    public async Task AFileIsSharedWithTheCellFirstAndTheOfferNamesIt()
+    {
+        var cli = new FakeCli();
+        await using (var web = await WebConsole.StartAsync(new FleetModel(cli, ["--home", "/h"]), new RunCatalog([]), options: new WebOptions(Hub: "http://hub.test:5181/")))
+        {
+            using var http = new HttpClient { BaseAddress = web.Address };
+            Assert.Equal("http://hub.test:5181/", (string)JsonNode.Parse(await http.GetStringAsync("/api/state"))!["hub"]!);
+            using var request = OfferWithFile(web, "cell-aaaa", "read the plan and do step 2", "../../plan v2.txt", "hello");
+            var answer = JsonNode.Parse(await (await http.SendAsync(request)).Content.ReadAsStringAsync())!;
+            Assert.True((bool)answer["ok"]!, (string?)answer["said"]);
+            Assert.StartsWith("shared       cell-aaaa#9", (string)answer["said"]!);
+
+            // The share: this file, for this cell only, through the hub; a name that cannot leave its folder; gone afterwards.
+            var share = cli.Calls.Single(c => c[1] == "share");
+            Assert.Equal(["cell", "share", "--file", cli.SharedPath!, "--hub", "http://hub.test:5181/", "--to", "cell-aaaa", "--home", "/h"], share);
+            Assert.Equal("plan_v2.txt", Path.GetFileName(cli.SharedPath));
+            Assert.Equal("hello", cli.SharedContent);
+            Assert.False(File.Exists(cli.SharedPath));
+            Assert.False(Directory.Exists(Path.GetDirectoryName(cli.SharedPath)));
+
+            // Then the offer, after the share, naming the file and how to fetch it.
+            var offer = cli.Calls.Single(c => c[1] == "offer");
+            Assert.True(cli.Calls.IndexOf(share) < cli.Calls.IndexOf(offer));
+            Assert.Equal("read the plan and do step 2\n\nAttached: plan_v2.txt, shared with you as cell-aaaa#9. Fetch it with: creatura cell fetch --artifact cell-aaaa#9 --out plan_v2.txt", offer[5]);
+        }
+
+        // A share that fails offers nothing.
+        var failing = new FakeCli { ShareFails = true };
+        await using (var web = await WebConsole.StartAsync(new FleetModel(failing), new RunCatalog([]), options: new WebOptions(Hub: "http://hub.test:5181/")))
+        {
+            using var http = new HttpClient { BaseAddress = web.Address };
+            using var request = OfferWithFile(web, "cell-aaaa", "x", "plan.txt", "hello");
+            var answer = JsonNode.Parse(await (await http.SendAsync(request)).Content.ReadAsStringAsync())!;
+            Assert.False((bool)answer["ok"]!);
+            Assert.Contains("the hub did not answer", (string)answer["said"]!);
+            Assert.DoesNotContain(failing.Calls, c => c[1] == "offer");
+        }
+
+        // No hub: the file is refused before anything runs.
+        var noHub = new FakeCli();
+        await using (var web = await WebConsole.StartAsync(new FleetModel(noHub), new RunCatalog([])))
+        {
+            using var http = new HttpClient { BaseAddress = web.Address };
+            using var request = OfferWithFile(web, "cell-aaaa", "x", "plan.txt", "hello");
+            Assert.Contains("no hub", (string)JsonNode.Parse(await (await http.SendAsync(request)).Content.ReadAsStringAsync())!["said"]!);
+            Assert.DoesNotContain(noHub.Calls, c => c[1] is "offer" or "share");
+        }
+
+        Assert.Equal("plan_v2.txt", WebConsole.SafeName("..\\..\\plan v2.txt"));
+        Assert.Equal("attachment", WebConsole.SafeName("..."));
+    }
+
+    /// <summary>Who may offer and through which hub, read from the home: the owner key, the endorsement's owner, the last sync.</summary>
+    [Fact]
+    public void TheHomeSaysWhoMayOfferAndWhichHubHoldsFiles()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "creatura-home-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, "owner"));
+            Directory.CreateDirectory(Path.Combine(root, "sync"));
+            var key = Convert.ToBase64String(Encoding.UTF8.GetBytes("an owner's public key"));
+            File.WriteAllText(Path.Combine(root, "claude-code.endorsement.json"), new JsonObject { ["ownerPublicKey"] = key }.ToJsonString());
+            File.WriteAllText(Path.Combine(root, "sync", "100.64.0.5_5181.json"), "{}");
+            File.SetLastWriteTimeUtc(Path.Combine(root, "sync", "100.64.0.5_5181.json"), DateTime.UtcNow.AddDays(-2));
+            File.WriteAllText(Path.Combine(root, "sync", "127.0.0.1_15181.json"), "{}");
+
+            var endorsed = ConsoleProgram.OptionsFor(root, "claude-code", null);
+            Assert.False(endorsed.CanOffer);
+            Assert.Contains(Creatura.Cells.CellKey.FingerprintOf(key), endorsed.OfferNote);
+            Assert.Equal("http://127.0.0.1:15181/", endorsed.Hub);                    // the hub it synced with last
+            Assert.Equal("http://100.64.0.5:5181/", ConsoleProgram.OptionsFor(root, "claude-code", "http://100.64.0.5:5181").Hub);
+
+            File.WriteAllText(Path.Combine(root, "owner", "owner.key"), "");
+            var owner = ConsoleProgram.OptionsFor(root, "claude-code", null);
+            Assert.True(owner.CanOffer);
+            Assert.Null(owner.OfferNote);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>In the browser: no owner key, the composer says where offers are made; with one, a file attached by the paperclip goes with the goal.</summary>
+    [PageFact]
+    public async Task ThePageAttachesAFileOrSaysWhereOffersAreMade()
+    {
+        await using var browser = await WebBrowser.LaunchAsync();
+        var file = Path.Combine(Path.GetTempPath(), "plan-" + Guid.NewGuid().ToString("N")[..6] + ".txt");
+        await File.WriteAllTextAsync(file, "step 1, step 2");
+        try
+        {
+            await using (var web = await WebConsole.StartAsync(new FleetModel(new FakeCli()), new RunCatalog([]), options: new WebOptions(CanOffer: false, OfferNote: "Offers are made on the owner's vessel.")))
+            {
+                var page = await (await browser.Browser.NewContextAsync()).NewPageAsync();
+                await page.GotoAsync(web.Address + "#/cell/cell-aaaa");
+                await page.WaitForSelectorAsync("#composer-note");
+                Assert.Equal("Offers are made on the owner's vessel.", await page.InnerTextAsync("#composer-note"));
+                Assert.Equal(0, await page.Locator("#goal").CountAsync());
+            }
+
+            var cli = new FakeCli();
+            await using (var web = await WebConsole.StartAsync(new FleetModel(cli), new RunCatalog([]), options: new WebOptions(Hub: "http://hub.test:5181/")))
+            {
+                var page = await (await browser.Browser.NewContextAsync()).NewPageAsync();
+                await page.GotoAsync(web.Address + "#/cell/cell-aaaa");
+                await page.WaitForSelectorAsync("#goal");
+                await page.SetInputFilesAsync("#file", file);
+                Assert.Equal(Path.GetFileName(file), await page.InnerTextAsync(".composer .file span"));
+                await page.FillAsync("#goal", "read the plan");
+                await page.PressAsync("#goal", "Enter");
+                // First "Sharing …" while the file goes up, then what the commands said.
+                await page.WaitForFunctionAsync("() => document.querySelector('.toast').textContent.startsWith('shared')");
+                Assert.Contains("offered", await page.InnerTextAsync(".toast"));
+                Assert.Equal("step 1, step 2", cli.SharedContent);
+                Assert.StartsWith("read the plan\n\nAttached: " + Path.GetFileName(file), cli.Calls.Single(c => c[1] == "offer")[5]);
+                Assert.Equal(0, await page.Locator(".composer .file").CountAsync());       // sent: the chip is cleared
+            }
+        }
+        finally
+        {
+            File.Delete(file);
         }
     }
 }
