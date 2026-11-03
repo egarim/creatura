@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **The console, slice U5: the page** (docs/design-console.md). `creatura-console web [--runs <dir>]...` serves the
+  console as a chat-style page on 127.0.0.1: the Fleet and every run under the folders as conversations (the seat's
+  words as "Thinking", acts as tool blocks with their output, lies and false claims flagged, the judge's verdicts in the
+  thread), live; a cell's page offers it a goal through `cell offer`, guarded by a token only the page holds. Nothing
+  is loaded from outside. U5 holds for U1.1 and U3.1; Compare (U4) is held.
 - **The console, slice U3: the Fleet** (docs/design-console.md). `FleetView` (beside the activity stream) gives one
   row per cell: the claim it is on and for how long, its last progress, stress and blocked, offers waiting, last seen,
   quiet after the stream's fifteen minutes, revoked cells left out, the same bytes on every home with the same entries.

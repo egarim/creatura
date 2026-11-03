@@ -8,6 +8,7 @@ using Terminal.Gui.App;
 //   creatura-console --watch <replay.jsonl>          the same as run --follow
 //   creatura-console convert <two-creatures record> [--out <dir>]
 //   creatura-console fleet [--home <dir>] [--store json|sqlite] [--as <creatura>] [--creatura <command>] [--print]
+//   creatura-console web [--runs <dir>]... [--port <n>] [--no-open] [the fleet's options]
 //
 // --print writes the view as text and leaves (also when the output is not a terminal). Only convert writes, and only
 // the replays it is asked for; and an offer from the Fleet, which is `creatura cell offer`'s own entry.
@@ -36,6 +37,10 @@ namespace Creatura.Operator
                   stressed cells red, quiet ones dimmed. Enter shows a cell's activity, o offers it a goal (written
                   by creatura cell offer), r reads again. --as reads as that creatura of the home (the one its
                   hooks run as, e.g. claude-code); when the home has one endorsed creatura, that one.
+              creatura-console web [--runs <dir>]... [--port <n>] [--no-open] [--home <dir>] [--as <creatura>] [--creatura <command>]
+                  the same in a browser, on 127.0.0.1 only (default port 7358), opened unless --no-open: the Fleet
+                  and every run under the --runs folders (replays, web recordings, two-creatures records) as
+                  conversations, live; a cell's page offers it a goal. Ctrl+C stops it.
 
             Keys: c next cell, p next view of a pair, f stop or resume following, q quit.
             """;
@@ -50,6 +55,7 @@ namespace Creatura.Operator
 
             if (args[0] == "convert") return Convert(args[1..], output, error);
             if (args[0] == "fleet") return Fleet(args[1..], output, error, redirected, null);
+            if (args[0] == "web") return Web(args[1..], output, error, null).GetAwaiter().GetResult();
 
             string? path = null;
             var follow = false;
@@ -209,6 +215,101 @@ namespace Creatura.Operator
             using var screen = new FleetScreen(app, model);
             app.Run(screen);
             return 0;
+        }
+
+        /// <summary>
+        /// The page: the Fleet of this home (when it has a cell) and the runs under <c>--runs</c>, served on 127.0.0.1
+        /// until stopped (Ctrl+C), or until <paramref name="stop"/> is cancelled.
+        /// </summary>
+        public static async Task<int> Web(string[] args, TextWriter output, TextWriter error, ICellCommand? cli, CancellationToken stop = default)
+        {
+            var home = new List<string>();
+            var runs = new List<string>();
+            string? command = null;
+            string? creatura = null;
+            var port = 7358;
+            var open = true;
+            for (var i = 0; i < args.Length; i++)
+            {
+                switch (args[i])
+                {
+                    case "--home" or "--store" when i + 1 < args.Length:
+                        home.Add(args[i]);
+                        home.Add(args[++i]);
+                        break;
+                    case "--creatura" when i + 1 < args.Length:
+                        command = args[++i];
+                        break;
+                    case "--as" when i + 1 < args.Length:
+                        creatura = args[++i];
+                        break;
+                    case "--runs" when i + 1 < args.Length:
+                        runs.Add(args[++i]);
+                        break;
+                    case "--port" when i + 1 < args.Length && int.TryParse(args[i + 1], out var p) && p is >= 0 and <= 65535:
+                        port = p;
+                        i++;
+                        break;
+                    case "--no-open":
+                        open = false;
+                        break;
+                    default:
+                        error.WriteLine($"unknown argument '{args[i]}'");
+                        return 2;
+                }
+            }
+
+            foreach (var r in runs.Where(r => !File.Exists(r) && !Directory.Exists(r))) error.WriteLine($"no runs at {r}; left out");
+            var root = home.SkipWhile(a => a != "--home").Skip(1).FirstOrDefault() ?? Environment.GetEnvironmentVariable("CREATURA_HOME") ?? Creatura.Cells.CellHome.DefaultRoot;
+            FleetModel? fleet = null;
+            if (cli is not null || Directory.Exists(Path.Combine(root, "cells")))
+            {
+                creatura ??= EndorsedCreatura(root);
+                if (creatura is not null)
+                {
+                    home.Add("--creatura");
+                    home.Add(creatura);
+                }
+
+                fleet = new FleetModel(cli ?? new ProcessCellCommand(command), home);
+            }
+
+            await using var web = await WebConsole.StartAsync(fleet, new RunCatalog(runs.Where(r => File.Exists(r) || Directory.Exists(r)).ToList()), port).ConfigureAwait(false);
+            output.WriteLine($"console      {web.Address} (127.0.0.1 only; Ctrl+C to stop)");
+            output.WriteLine(fleet is null ? $"fleet        none: no cell under {root}" : $"fleet        {root}" + (creatura is null ? "" : $", as {creatura}"));
+            output.WriteLine($"runs         {(runs.Count == 0 ? "none (--runs <folder> lists replays, recordings and records)" : string.Join(", ", runs))}");
+            if (open) OpenInBrowser(web.Address);
+            var done = new TaskCompletionSource();
+            using var registration = stop.Register(() => done.TrySetResult());
+            ConsoleCancelEventHandler cancel = (_, e) =>
+            {
+                e.Cancel = true;
+                done.TrySetResult();
+            };
+            Console.CancelKeyPress += cancel;
+            try
+            {
+                await done.Task.ConfigureAwait(false);
+            }
+            finally
+            {
+                Console.CancelKeyPress -= cancel;
+            }
+
+            return 0;
+        }
+
+        private static void OpenInBrowser(Uri address)
+        {
+            try
+            {
+                if (OperatingSystem.IsWindows()) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(address.ToString()) { UseShellExecute = true });
+                else if (OperatingSystem.IsMacOS()) System.Diagnostics.Process.Start("open", address.ToString());
+                else System.Diagnostics.Process.Start("xdg-open", address.ToString());
+            }
+            catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
+            {
+            }
         }
 
         /// <summary>The home's one endorsed creatura (cells/&lt;vessel&gt;/&lt;creatura&gt;.endorsement.json), or null when it has none or several.</summary>

@@ -527,3 +527,17 @@ runs are recorded only in the design note.
 - #93: `dotnet test tests/Creatura.Cells.Tests --filter FleetTests; creatura-console fleet --home /tmp/fleet-home (pseudo-terminal: o, goal, Enter, Enter, q, q); dotnet test Creatura.slnx`
 
 </details>
+
+## Step U5
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 94 | 2026-11-03 15:26 | `664e5cc`* | test | — | Console U5: the page, a chat-style web UI | Built the console's slice U5, the page (docs/design-console.md, issue #29), as the owner asked: "the web UI that makes me feel I'm using a good agent, like Claude, ChatGPT or DeepSeek". creatura-console web [--runs <dir>]... [--port] [--no-open] [--home] [--as] [--creatura] serves a chat-style page with Kestrel on 127.0.0.1 only (port 7358): a sidebar with the Fleet's cells (ring-colour avatar, claim, status dot, last seen) and the runs found under --runs (convoy and bench replays, web recordings, two-creatures records); a run or cell opens as a conversation: the goal, each cell's turn, the seat's words folded as Thinking, each act a tool block with its output and what was seen and offered, verdict chips, lies, refusals and false claims with a red edge, blocked amber, the judge's verdicts as cards, the world's checks as notes, the outcome; a pair's three views as tabs; a cell's page its activity as a feed with a composer whose Enter offers the goal through creatura cell offer. Live (3 s polls; the Fleet and activity commands run at most every 2 s; an ended run is read once), light and dark, phone width. Private: CSP default-src 'none', other host names refused (421), runs by id never path, the one write (an offer) needs the page's token and this origin. Checks: WebConsoleTests (2): the API and its guards with a fake creatura command (no token or another origin refused and runs nothing; with both, exactly cell offer --to --goal on the home; 421; five reads one Fleet command), and in Chromium with every outside request aborted: the Fleet's cells in order with the blocked one red, a convoy run's steps in the model's order (messages as words, acts as tool blocks), refusals marked, outcome, read-only composer, a cell's activity and composer, zero outside requests. U4.1 not checked: Compare held by the owner. On the Surface against the owner's real home (read only, no offer sent): 2 cells and 10 runs; the DD-M record with creature b's two false claims flagged and the judge's cards; the save-lies web recording; the MacBook Air cell's 238 entries as a feed; no sideways scroll at 375 px after fixing a thread widened by long one-line commands, and cell activity redrawn as feed lines after the first look showed bare type names. Whole solution: 967 pass. |  |
+
+<details><summary>Commands</summary>
+
+- #94: `dotnet test tests/Creatura.Operator.Tests --filter WebConsole (Chromium, network off); creatura-console web --runs <folders> on the Surface; dotnet test Creatura.slnx`
+
+</details>

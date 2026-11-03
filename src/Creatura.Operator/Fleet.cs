@@ -160,8 +160,8 @@ public static class ActivityRun
                     ["kind"] = blocked ? "blocked" : type.Replace("creatura:", "", StringComparison.Ordinal).ToLowerInvariant(),
                     ["cell"] = row.Name,
                     ["at"] = (string?)a["published"],
-                    ["act"] = type.Replace("creatura:", "", StringComparison.Ordinal),
-                    ["text"] = (string?)a["summary"] ?? "",
+                    ["act"] = Label(type),
+                    ["text"] = Sentence((string?)a["summary"] ?? "", row.Name),
                     ["observation"] = stress is { } s ? string.Create(CultureInfo.InvariantCulture, $"stress {s:0.00}") : null,
                     ["verdict"] = blocked ? "blocked" : null,
                 }),
@@ -169,5 +169,26 @@ public static class ActivityRun
         }
 
         return lines;
+    }
+
+    /// <summary>An activity's type as a person says it: claim, progress, hand-off, released.</summary>
+    public static string Label(string type) => type switch
+    {
+        "Join" => "joined",
+        "Create" => "claim",
+        "Update" => "progress",
+        "Leave" => "hand-off",
+        "Reject" => "declined",
+        "creatura:Release" => "released",
+        "Offer" => "offer",
+        "Undo" => "withdrawn",
+        _ => type.Replace("creatura:", "", StringComparison.Ordinal).ToLowerInvariant(),
+    };
+
+    /// <summary>The summary without the actor's name in front, which the view already shows: "started 'x'", not "claude-code on SURFACE started 'x'".</summary>
+    public static string Sentence(string summary, string name)
+    {
+        var s = summary.StartsWith(name, StringComparison.Ordinal) ? summary[name.Length..].TrimStart(' ', ':') : summary;
+        return s.Length == 0 ? summary : char.ToUpperInvariant(s[0]) + s[1..];
     }
 }
