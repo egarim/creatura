@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **The console, slice U3: the Fleet** (docs/design-console.md). `FleetView` (beside the activity stream) gives one
+  row per cell: the claim it is on and for how long, its last progress, stress and blocked, offers waiting, last seen,
+  quiet after the stream's fifteen minutes, revoked cells left out, the same bytes on every home with the same entries.
+  `creatura cell fleet [--json]` prints it. `creatura-console fleet` shows it through the `creatura` command:
+  blocked and stressed cells red, quiet ones dimmed, Enter for a cell's activity, `o` to offer a goal (written by
+  `cell offer`). U3.1 to U3.3 hold.
 - **The console, slice U2: every run opens in the Run view** (docs/design-console.md). The replay format gains optional
   event properties (`cell`, `act`, `observation`, `offer`, `decision`, `at`, `lie`), a header's `cells`, and
   verdict ticks that mark the row they judge, a false claim flagged where it was made. A web recording's ticks carry

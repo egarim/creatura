@@ -1,14 +1,16 @@
 using Creatura.Operator;
 using Terminal.Gui.App;
 
-// creatura-console: where a person watches the creatures work (docs/design-console.md). Slices U1 and U2: the Run view.
+// creatura-console: where a person watches the creatures work (docs/design-console.md). Slices U1 and U2: the Run view;
+// U3: the Fleet.
 //
 //   creatura-console run <replay.jsonl | recording folder | two-creatures record> [--follow] [--cell <name>] [--print]
 //   creatura-console --watch <replay.jsonl>          the same as run --follow
 //   creatura-console convert <two-creatures record> [--out <dir>]
+//   creatura-console fleet [--home <dir>] [--store json|sqlite] [--creatura <command>] [--print]
 //
 // --print writes the view as text and leaves (also when the output is not a terminal). Only convert writes, and only
-// the replays it is asked for.
+// the replays it is asked for; and an offer from the Fleet, which is `creatura cell offer`'s own entry.
 return ConsoleProgram.Run(args, Console.Out, Console.Error, Console.IsOutputRedirected);
 
 namespace Creatura.Operator
@@ -28,6 +30,11 @@ namespace Creatura.Operator
                   the same as run --follow.
               creatura-console convert <two-creatures record> [--out <dir>]
                   writes agent-a.replay.jsonl and agent-b.replay.jsonl (into the record unless --out says).
+              creatura-console fleet [--home <dir>] [--store json|sqlite] [--creatura <command>] [--print]
+                  who is working on what, now: one row per cell of this home's ledger, read through the creatura
+                  command (creatura cell fleet --json; --creatura names it when it is not on the PATH), blocked and
+                  stressed cells red, quiet ones dimmed. Enter shows a cell's activity, o offers it a goal (written
+                  by creatura cell offer), r reads again.
 
             Keys: c next cell, p next view of a pair, f stop or resume following, q quit.
             """;
@@ -41,6 +48,7 @@ namespace Creatura.Operator
             }
 
             if (args[0] == "convert") return Convert(args[1..], output, error);
+            if (args[0] == "fleet") return Fleet(args[1..], output, error, redirected, null);
 
             string? path = null;
             var follow = false;
@@ -138,6 +146,52 @@ namespace Creatura.Operator
 
             using var app = Application.Create().Init();
             using var screen = new RunScreen(app, follower.Model, follow ? follower : null, cell);
+            app.Run(screen);
+            return 0;
+        }
+
+        /// <summary>The Fleet: read through <paramref name="cli"/> (the creatura command as a process when null).</summary>
+        public static int Fleet(string[] args, TextWriter output, TextWriter error, bool redirected, ICellCommand? cli)
+        {
+            var home = new List<string>();
+            string? command = null;
+            var print = redirected;
+            for (var i = 0; i < args.Length; i++)
+            {
+                switch (args[i])
+                {
+                    case "--home" or "--store" when i + 1 < args.Length:
+                        home.Add(args[i]);
+                        home.Add(args[++i]);
+                        break;
+                    case "--creatura" when i + 1 < args.Length:
+                        command = args[++i];
+                        break;
+                    case "--print":
+                        print = true;
+                        break;
+                    default:
+                        error.WriteLine($"unknown argument '{args[i]}'");
+                        return 2;
+                }
+            }
+
+            var model = new FleetModel(cli ?? new ProcessCellCommand(command), home);
+            if (print)
+            {
+                var snapshot = model.Read();
+                if (snapshot.Problem is { } problem)
+                {
+                    error.WriteLine("the Fleet could not be read: " + problem);
+                    return 1;
+                }
+
+                output.Write(Creatura.Cells.FleetView.Render(snapshot.Rows, snapshot.At));
+                return 0;
+            }
+
+            using var app = Application.Create().Init();
+            using var screen = new FleetScreen(app, model);
             app.Run(screen);
             return 0;
         }

@@ -1,7 +1,7 @@
 # Design: the console, where a person watches the creatures work
 
 **Status:** accepted 2026-11-03 (issue #29; the draft was written 2026-11-02 in a read-only session, and the owner
-said "go, separate console program, go with your picks"). Slice U1 built the same day and U2 on 2026-11-03, results at the end; U3 to U5
+said "go, separate console program, go with your picks"). Slice U1 built the same day, U2 and U3 on 2026-11-03, results at the end; U4 and U5
 are next. The draft below is kept as it was written, except where the decisions changed it, which is said where.
 Replaces the feed metaphor of [design-activity-stream.md](design-activity-stream.md) with an operator's console;
 the stream and the offers stay as they are, the console is another reader of the same ledger.
@@ -225,4 +225,38 @@ flagged and "the app lied" on it; the pair screen in a pseudo-terminal stepped `
 to creature b alone (92 rows, 2 flagged), and `q` left with exit 0. The whole solution: 961 pass, the browser tests
 and the web viewer's included.
 
-**Not yet.** Fleet (U3), Compare (U4) and the page (U5).
+## Results (U3, 2026-11-03)
+
+**One model of the Fleet, beside the stream's.** `FleetView` (in `Creatura.Cells`, next to `ActivityStream` and
+using its own names, kinds and rings) is a pure function of the verified ledger and the time it is read at: one row
+per cell, a revoked cell left out, the most recently seen first (the cell id breaks a tie); for each, its name (the
+tool it wears on its vessel), its creatura's id (the ledger knows no other name for it), the claim it is on and since
+when, the last progress row on that claim with its stress and whether it was blocked, the vessel's load, the offers
+waiting for it, when it was last seen and whether that is longer ago than the stream page's fifteen quiet minutes.
+`creatura cell fleet [--json]` prints it, as a line per cell or as `creatura.fleet/1`.
+
+**The console asks `creatura`, and holds no key.** `creatura-console fleet [--home] [--store] [--creatura
+<command>]` reads the Fleet by running `creatura cell fleet --json` every five seconds, opens a cell's activity
+with `creatura cell activity`, and offers a goal with `creatura cell offer --to <cell> --goal <text>`: the
+console opens no store, takes no lock and touches no key, so the Fleet is read by the same code as `cell stream`
+and an offer is `cell offer`'s entry because `cell offer` writes it. The design had the console read the ledger
+"through the same code as `cell stream`"; running that code as the command it already is keeps `creatura` the only
+program that opens a home. The screen: blocked cells and those at stress 0.7 or more in red, quiet ones dimmed;
+Enter shows the cell's activity in the Run view (every entry it wrote a row, a blocked step marked), `o` asks for a
+goal on the bottom line and offers it (Enter to send, Esc to leave it), `r` reads again, `q` leaves. `--print`
+writes the Fleet as text.
+
+**Checks.** U3.1 to U3.3 hold: `FleetTests` (3, in `Creatura.Cells.Tests`, beside the stream's C23 and using its
+fleet). U3.1: three cells, one blocked at stress 0.9, merged in five shuffled orders in two batches and once in
+reverse, give the same `creatura.fleet/1` bytes; so does C23's own fleet; the console reads the document back into
+the same rows. U3.2: on a home made by `cell init`, an offer from the console's model runs exactly `cell offer
+--to <cell> --goal <text>`; it and an offer typed by hand show in the stream as the same activity but for id and time,
+and the Fleet counts both waiting; an empty goal runs nothing; a refused one says why; the cell's activity opens as a
+run with one row per activity. U3.3: nobody is quiet ten minutes after the last entry; a cell last seen more than
+fifteen minutes before is quiet and dimmed, a blocked or stressed one red whatever else; a revoked cell is gone from
+the rows and from the document. On the laptop, on a throwaway home with one cell blocked at stress 0.9, the screen in
+a pseudo-terminal showed "1 cell, 1 at work, 0 quiet, 1 in trouble", `o` and a typed goal wrote the offer (`cell
+offer`'s own "offered … check the disk" on the status line, "1 offer waiting" in the ledger after), Enter opened the
+cell's activity (4 rows, 1 blocked), and `q` twice left with exit 0.
+
+**Not yet.** Compare (U4) and the page (U5).

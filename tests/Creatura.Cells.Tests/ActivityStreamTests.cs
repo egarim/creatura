@@ -12,23 +12,23 @@ namespace Creatura.Cells.Tests;
 /// </summary>
 public class ActivityStreamTests
 {
-    private static readonly DateTimeOffset T0 = new(2026, 10, 29, 9, 0, 0, TimeSpan.Zero);
+    internal static readonly DateTimeOffset T0 = new(2026, 10, 29, 9, 0, 0, TimeSpan.Zero);
 
-    private static (CellHome Home, OwnerKey Owner) NewHome(TempHome dir)
+    internal static (CellHome Home, OwnerKey Owner) NewHome(TempHome dir)
     {
         var home = new CellHome(dir.Path);
         var owner = home.EnsureOwner(out _);
         return (home, owner);
     }
 
-    private static LocalCell NewCell(CellHome home, string raw, string creatura, string host) =>
+    internal static LocalCell NewCell(CellHome home, string raw, string creatura, string host) =>
         home.Endorse(home.OpenCell(new FakeVessel(raw, host), Position.InProcess(creatura), creatura));
 
     /// <summary>
     /// Two cells on two vessels with one entry of every kind: hellos, a claim each, progress (one blocked, with stress),
     /// a heartbeat with a load, a warning, a shared file, a hand-off and a release. Returns the ledger and its entries.
     /// </summary>
-    private static (WorkLedger Ledger, List<SignedEntry> Entries, SealedFile File) Fleet(OwnerKey owner, LocalCell a, LocalCell b)
+    internal static (WorkLedger Ledger, List<SignedEntry> Entries, SealedFile File) Fleet(OwnerKey owner, LocalCell a, LocalCell b)
     {
         var ledger = new WorkLedger(owner.PublicKey);
         var t = T0;
