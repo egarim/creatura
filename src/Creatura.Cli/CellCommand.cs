@@ -30,6 +30,8 @@ public static class CellCommand
           activity [--out <file>]      the ledger as an Activity Streams 2.0 collection (docs/design-activity-stream.md)
           stream [--port <n>] [--no-open]
                                        serve the activity stream as a page on 127.0.0.1 only, read-only, and open it
+          fleet [--json]               who is working on what, now: one line per cell, revoked cells left out, quiet
+                                       ones marked (what creatura-console fleet shows; docs/design-console.md)
 
         turns, so two cells neither wait on each other nor both lead (docs/design-turns.md):
           wait --on <cell or entry id> --row <why>
@@ -144,6 +146,7 @@ public static class CellCommand
                 "ledger" => Ledger(context),
                 "activity" => Activity(context),
                 "stream" => Stream(context),
+                "fleet" => Fleet(context),
                 "wait" => Wait(context),
                 "propose" => Propose(context),
                 "answer" => Answer(context),
@@ -670,6 +673,23 @@ public static class CellCommand
     }
 
     /// <summary>The ledger as one Activity Streams 2.0 document, to a file or the console.</summary>
+    /// <summary>The Fleet (docs/design-console.md, U3): who is working on what, now, from this home's ledger; as JSON with --json.</summary>
+    private static int Fleet(Context c)
+    {
+        if (!c.Home.IsInitialized)
+        {
+            c.Err.WriteLine($"no cell under {c.Home.Root}: run `creatura cell init`");
+            return 1;
+        }
+
+        using var cell = c.Home.OpenCell(c.Source, Position(c), c.Creatura);
+        WorkLedger ledger;
+        using (LedgerLock.Acquire(c.Home.Root, InteractiveLockWait)) ledger = OpenLedger(c, cell).Ledger;
+        var now = DateTimeOffset.UtcNow;
+        c.Out.Write(c.Options.ContainsKey("--json") ? FleetView.Document(ledger, now) + "\n" : FleetView.Render(FleetView.Rows(ledger, now), now));
+        return 0;
+    }
+
     private static int Activity(Context c)
     {
         if (!c.Home.IsInitialized)

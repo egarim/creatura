@@ -513,3 +513,17 @@ runs are recorded only in the design note.
 - #92: `dotnet test tests/Creatura.Operator.Tests; creatura ux run --demo --barriers save-lies --record /tmp/rec; creatura-console run <record> (pseudo-terminal, keys p p c p q); dotnet test Creatura.slnx`
 
 </details>
+
+## Step U3
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 93 | 2026-11-03 15:01 | `a97be0e`* | test | — | Console U3: the Fleet | Built the console's slice U3, the Fleet (docs/design-console.md, issue #29). FleetView in Creatura.Cells, beside ActivityStream and using its names, kinds and rings: a pure function of the verified ledger and the time read, one row per cell, revoked left out, most recently seen first (id breaks ties): name, creatura id, the active claim and since when, the last progress row on it with stress and blocked, load, offers waiting, last seen, quiet after the stream page's 15 minutes. creatura cell fleet [--json] prints it (creatura.fleet/1). creatura-console fleet [--home] [--store] [--creatura <command>] reads it by running creatura cell fleet --json every 5 s, opens a cell's activity with creatura cell activity, and offers with creatura cell offer --to --goal: the console opens no store, takes no lock, holds no key, so the Fleet is read by the stream's code and an offer is cell offer's entry because cell offer writes it. Screen: blocked or stress >= 0.7 red, quiet dimmed, Enter a cell's activity in the Run view, o offer (goal typed on the bottom line), r read again, q. Checks: FleetTests U3.1 to U3.3 (3, Creatura.Cells.Tests beside C23): five shuffled two-batch merges and a reversed one give the same fleet bytes, C23's fleet too, and the console parses back the same rows; on a cell init home the console's offer runs exactly cell offer and shows in the stream as the same activity as a hand-typed one, both counted waiting, an empty goal runs nothing; quiet only past 15 minutes, dimmed, blocked or stressed red whatever else, a revoked cell gone. Laptop, throwaway home in /tmp (deleted after): one cell blocked at 0.9; the screen in a pseudo-terminal showed 1 cell, 1 at work, 1 in trouble; o and a typed goal wrote the offer (cell offer's own line on the status bar, 1 offer waiting after); Enter opened the cell's activity (4 rows, 1 blocked); q q exit 0. Whole solution: 964 pass. A first full run failed golden tests because the whole Windows tree was copied over the laptop's with CRLF line endings; restoring the checkout and copying only the changed files as LF made them pass. Next: U4, Compare. |  |
+
+<details><summary>Commands</summary>
+
+- #93: `dotnet test tests/Creatura.Cells.Tests --filter FleetTests; creatura-console fleet --home /tmp/fleet-home (pseudo-terminal: o, goal, Enter, Enter, q, q); dotnet test Creatura.slnx`
+
+</details>

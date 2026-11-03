@@ -39,7 +39,8 @@ readme() {
   creatura-convoy --battery --seeds 50                           every arm over 50 seeds, with the hypotheses scored" ;;
     creatura-console) echo "  creatura-console run run.jsonl          watch a run tick by tick (c next cell, q quit)
   creatura-console --watch run.jsonl      follow a run as it writes its replay
-  creatura-console run run.jsonl --print  the same view as text" ;;
+  creatura-console run run.jsonl --print  the same view as text
+  creatura-console fleet                  who is working on what (Enter its activity, o offer a goal; needs creatura)" ;;
   esac
 }
 

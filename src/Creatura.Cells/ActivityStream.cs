@@ -152,7 +152,7 @@ public static class ActivityStream
     private static string Stamp(DateTimeOffset at) => at.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'", CultureInfo.InvariantCulture);
 
     /// <summary>What kind of actor a cell is, from the tool its claims name: the face it wears (claude-code, codex, ...), or <c>cell</c>.</summary>
-    private static string KindOf(IEnumerable<SignedEntry> entries) =>
+    internal static string KindOf(IEnumerable<SignedEntry> entries) =>
         entries.Where(e => e.Kind == EntryKind.Claim).Select(e => e.Body<ClaimPayload>().Tool).OfType<string>().Select(Kind)
             .GroupBy(t => t, StringComparer.Ordinal).OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal)
             .Select(g => g.Key).FirstOrDefault() ?? "cell";
@@ -160,10 +160,10 @@ public static class ActivityStream
     /// <summary>A tool's name as a kind: lower case, words joined by hyphens, so "Claude Code" and "claude-code" are one kind.</summary>
     private static string Kind(string tool) => string.Join('-', tool.Trim().ToLowerInvariant().Split((char[])[' ', '_', '-'], StringSplitOptions.RemoveEmptyEntries));
 
-    private static string VesselName(CellIdentity? hello, string vesselId) =>
+    internal static string VesselName(CellIdentity? hello, string vesselId) =>
         hello?.Hardware.HostName ?? hello?.Position.Node ?? vesselId[..Math.Min(8, vesselId.Length)];
 
-    private static Dictionary<string, string> ActorNames(WorkLedger ledger) => ledger.Entries.GroupBy(e => e.Cell).ToDictionary(
+    internal static Dictionary<string, string> ActorNames(WorkLedger ledger) => ledger.Entries.GroupBy(e => e.Cell).ToDictionary(
         g => g.Key,
         g => $"{KindOf(g)} on {VesselName(g.LastOrDefault(e => e.Kind == EntryKind.Hello)?.Body<HelloPayload>().Cell, g.Last().Endorsement.VesselId)}",
         StringComparer.Ordinal);
