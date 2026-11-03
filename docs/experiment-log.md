@@ -485,3 +485,17 @@ runs are recorded only in the design note.
 - #90: `dotnet test tests/Creatura.Tests --filter MemoryCreditTests; dotnet test tests/Creatura.Worlds.Web.Tests --filter MemoryTests; dotnet test Creatura.slnx`
 
 </details>
+
+## Step U1
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 91 | 2026-11-03 13:43 | `028e630`* | test | — | Console U1: the Run view, creatura-console | Built the console's slice U1, the Run view (docs/design-console.md, issue #29; the owner said "go, separate console program, go with your picks"). The draft landed as the design note with the decisions taken; one changed: Terminal.Gui is a package and creatura must stay package-free, so the console is its own program, creatura-console (src/Creatura.Operator, Terminal.Gui 2.5.0, published 2026-09-11), in the release beside creatura, creatura-hub and creatura-convoy. creatura-console run <replay.jsonl> [--follow] [--cell] [--print], and --watch: one run as a transcript, a row per event with tick, cell, mark, act, verdict, what the cell saw before the tick (its gauge) and the world's answer; blocked rows yellow, refused and flagged (a lie told or caught, or a verdict of lie) red; keys c (next cell), f (follow), q. One UI-free model (RunModel.Apply, one JSON line at a time) behind three ways in: a file read whole, a file followed as it grows (ReplayFollower, read-only and shared, waits for a line's end, restarts when the file shrinks), and a run in this process (LiveRun, an IScenarioObserver writing lines exactly as JsonlReplayWriter). Checks: RunViewTests U1.1 to U1.4 (5): arm E seed 0 live, from file and grown in 997-byte pieces give the same rows; every defined kind renders and unknown kinds, properties, line types and non-JSON lines are skipped or shown; refused, flagged and an added blocked row counted from the replay's JSON match the marks; opening writes nothing, also while a writer holds the file. The screen was driven in a pseudo-terminal on the laptop from the build and from a single-file linux-x64 executable (89 MB): c stepped every cell, Truck 1, Truck 2 with their counts; q left with exit 0; --watch on a file appended every 0.15 s went from waiting to the end. Whole solution: 957 pass, one web-world test (RecordTests.TheViewerReadsARecordingAndStepsThroughIt) failed once under the full run's load and passed 3 of 3 alone; untouched by this change. Next: U2, the web worlds, the two-creatures driver and the bench write the record (offer, decision, verdict; the pair key). |  |
+
+<details><summary>Commands</summary>
+
+- #91: `dotnet test tests/Creatura.Operator.Tests; creatura-console run /tmp/a1.jsonl (pseudo-terminal, keys c c q); creatura-console --watch /tmp/live.jsonl; dotnet test Creatura.slnx`
+
+</details>

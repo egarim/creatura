@@ -12,6 +12,7 @@
     <Project Path="src/Creatura.Scenarios/Creatura.Scenarios.csproj" />
     <Project Path="src/Creatura.Ratings/Creatura.Ratings.csproj" />
     <Project Path="src/Creatura.Cli/Creatura.Cli.csproj" />
+    <Project Path="src/Creatura.Operator/Creatura.Operator.csproj" />
     <Project Path="src/Creatura.Hosts.AgentFramework/Creatura.Hosts.AgentFramework.csproj" />
     <Project Path="src/Creatura.Hosts.SemanticKernel/Creatura.Hosts.SemanticKernel.csproj" />
   </Folder>
@@ -28,5 +29,6 @@
     <Project Path="tests/Creatura.Hosts.SemanticKernel.Tests/Creatura.Hosts.SemanticKernel.Tests.csproj" />
     <Project Path="tests/Creatura.Scenarios.Tests/Creatura.Scenarios.Tests.csproj" />
     <Project Path="tests/Creatura.Worlds.Web.Tests/Creatura.Worlds.Web.Tests.csproj" />
+    <Project Path="tests/Creatura.Operator.Tests/Creatura.Operator.Tests.csproj" />
   </Folder>
 </Solution>

@@ -52,7 +52,8 @@ Every post has a button to read it in English or Spanish and one to listen to it
 
 Each [release](https://github.com/egarim/creatura/releases) has the programs as single files for macOS, Linux and
 Windows (x64 and arm64); no .NET is needed to run them. `creatura-convoy` plays the convoy and writes a replay for
-`convoy-viewer.html`, which comes with it; `creatura` is the cell command; `creatura-hub` is the ledger hub. The
+`convoy-viewer.html`, which comes with it; `creatura` is the cell command; `creatura-hub` is the ledger hub;
+`creatura-console` shows a run tick by tick in the terminal (docs/design-console.md). The
 framework itself is a library: build it from this repository, or take the NuGet packages attached to the release.
 
 ## Get started
@@ -149,6 +150,7 @@ sample worlds are `Creatura.Worlds.Samples`; and `Creatura.Cli` is in `Creatura.
 | [Creatura.Cells.Sqlite/](src/Creatura.Cells.Sqlite) | SqliteLedgerStore, the ledger in SQLite | Microsoft.Data.Sqlite |
 | [Creatura.Cells.Sync/](src/Creatura.Cells.Sync) | the ledger over SyncFramework (`LedgerSyncNode`, `LedgerHub`) | BIT.Data.Sync |
 | [Creatura.Cells.Hub/](src/Creatura.Cells.Hub) | the ledger hub, `creatura-hub`: an ASP.NET host for the sync endpoint and the shared files' bytes | BIT.Data.Sync.AspNetCore, Microsoft.Data.Sqlite |
+| [Creatura.Operator/](src/Creatura.Operator) | the console, `creatura-console`: watch a run tick by tick, live or from its replay (docs/design-console.md) | Terminal.Gui |
 | [Creatura.Cli/](src/Creatura.Cli) | the `creatura` command: `new`, `run` and `doctor` to get started, `ux` for web worlds, and `creatura cell` over the cells, the hub client and the Claude Code hooks | none of its own |
 | [Creatura.Scenarios/](src/Creatura.Scenarios) | several creaturas in one shared world: the convoy (ConvoyWorld, TruckView, ConvoyPolicy, ScenarioMesh, ConvoyBattery), the replay writer, the recorder and dataset exporter, and the trained networks' seats (ConvoyNetwork) | none |
 

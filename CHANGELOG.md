@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **The console, slice U1: the Run view** (docs/design-console.md, issue #29). A new program, `creatura-console`
+  (project `src/Creatura.Operator`, on Terminal.Gui, so `creatura` stays package-free): `creatura-console run
+  <replay.jsonl>` shows one run tick by tick, a row per event with what the cell saw, the act, the world's answer and
+  the verdict, blocked rows, refused actions and flags marked; `--follow` or `--watch` follows a file as a run writes
+  it, `--cell` shows one cell, `--print` writes the view as text. It writes nothing. U1.1 to U1.4 hold.
 - **Memory credit** (docs/design-ratings.md, slice R4). A persona's lessons are credited, not rated: every cell counts
   the lessons it was shown and is credited to each as ended well or not (`MemoryCredit`); a lesson shown three times
   and never followed by a done cell is pruned, one shown twice or more and followed by done cells more often than the

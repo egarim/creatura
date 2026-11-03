@@ -19,6 +19,8 @@ agent tools around it, as hosts and as cells.
 - [Handing work from one session to the next](design-handoff.md): a hand-off with notes, a claim that continues it,
   shown to the person at the next session's start; Codex sessions as cells through its hooks or its notify command
   (H1 and H2 built).
+- [The console](design-console.md): where a person watches the creatures work, Fleet, Run and Compare;
+  `creatura-console` shows a run tick by tick (slice U1).
 - [Ratings](design-ratings.md): a Weng-Lin rating per seat (model, design, prompt) read from the rows the bench, the
   matrices and the two-creatures runs write, with its uncertainty and whether more runs would change the order (R1
   built; R2 to R4, cell reputation, a barrier curriculum and memory credit, designed).
