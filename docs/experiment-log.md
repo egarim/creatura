@@ -499,3 +499,17 @@ runs are recorded only in the design note.
 - #91: `dotnet test tests/Creatura.Operator.Tests; creatura-console run /tmp/a1.jsonl (pseudo-terminal, keys c c q); creatura-console --watch /tmp/live.jsonl; dotnet test Creatura.slnx`
 
 </details>
+
+## Step U2
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 92 | 2026-11-03 14:14 | `60efbf1`* | test | — | Console U2: every run opens in the Run view | Built the console's slice U2: every run opens in the Run view (docs/design-console.md, issue #29). One record, one reader: creatura.replay/1 gains only optional properties (an event's cell, act, observation, offer, decision, at, lie; a header's cells; verdict ticks whose events point at the row they judge, on {tick, contains}, with falseClaim). Web worlds: UxRecorder keeps its own lines for the web viewer and adds on every action's tick one shared event (the persona, the screen it decided on, the offer: controls usable of those shown, its other moves, and what the control layer withheld, its words, the act, the app's answer, the verdict, lie), a verdict tick with the judge's rules findings on their rows (persona said done when not, app said saved when not kept), and end outcome sentences; the web viewer skips the verdict tick. Two creatures: creatura-console run <record> reads a record folder as it is (no driver change; old records included): every shell command a tick with the model's words and the step budget, board messages, the judge's checks as world rows, every scored claim placed on the creature's row by time and words; three views, both by their clocks then each creature, p steps; convert writes the replays. Bench: BenchReplay writes an exam cell (header, trace ticks, the oracle's verdict: claimed and not held is a false claim on the last act, end); ExamOptions.ReplayTo. Checks: RecordViewTests U2.1 to U2.3 plus the exam's replays (4, no browser): a fake-screen web cell opens with every column filled; the 2026-10-31 DD-M record opens as three views, each shell command and board message a row, both in clock order, convert reads back the same and leaves the record untouched; its two false claims (creature b's "I have a complete app ready" at 234 s and "port test" at 938 s) are flagged on the say commands that made them, the four held claims not; the web Save row and a bench claimed-not-held act are flagged. Laptop: a real demo run under save-lies opens with the Save row flagged and "the app lied" on it (offer "4 of 4 controls, and back, wait" after fixing a count that included back and wait); the pair screen in a pseudo-terminal stepped p through the views, c to creature b (92 rows, 2 flagged), q exit 0. Whole solution: 961 pass, browser tests and web viewer included. Next: U3, the Fleet view and offers. |  |
+
+<details><summary>Commands</summary>
+
+- #92: `dotnet test tests/Creatura.Operator.Tests; creatura ux run --demo --barriers save-lies --record /tmp/rec; creatura-console run <record> (pseudo-terminal, keys p p c p q); dotnet test Creatura.slnx`
+
+</details>

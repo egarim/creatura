@@ -23,7 +23,9 @@ public static class RunText
         var h = model.Header;
         if (h is null) return model.Lines == 0 ? "waiting for the run's first line" : "a replay with no header";
         var ic = CultureInfo.InvariantCulture;
-        var title = string.Create(ic, $"{h.Scenario}, arm {h.Arm} ({h.ArmText}), seed {h.Seed}: tick {model.Tick} of {h.MaxTicks}");
+        var title = string.Create(ic, $"{h.Scenario}, arm {h.Arm}") + (h.ArmText.Length > 0 ? $" ({h.ArmText})" : "")
+            + (h.Scenario == "convoy" || h.Seed != 0 ? string.Create(ic, $", seed {h.Seed}") : "")
+            + string.Create(ic, $": tick {model.Tick}") + (h.MaxTicks > 0 ? string.Create(ic, $" of {h.MaxTicks}") : "");
         return model.Ended ? title + ", ended" : title;
     }
 

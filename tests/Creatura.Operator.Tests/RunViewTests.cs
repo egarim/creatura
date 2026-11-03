@@ -204,11 +204,15 @@ public class RunViewTests
         var output = new StringWriter();
         var error = new StringWriter();
         Assert.Equal(2, ConsoleProgram.Run([], output, error, redirected: true));
-        Assert.Contains("creatura-console run <replay.jsonl>", output.ToString());
+        Assert.Contains("creatura-console run <replay.jsonl | folder>", output.ToString());
         Assert.Equal(3, ConsoleProgram.Run(["run", "/no/such/replay.jsonl"], output, error, redirected: true));
         Assert.Contains("no replay at", error.ToString());
         Assert.Equal(2, ConsoleProgram.Run(["run", "x.jsonl", "--nope"], output, error, redirected: true));
         Assert.Contains("unknown argument '--nope'", error.ToString());
+        Assert.Equal(3, ConsoleProgram.Run(["convert", Path.GetTempPath()], output, error, redirected: true));
+        Assert.Contains("name a two-creatures record", error.ToString());
+        Assert.Equal(3, ConsoleProgram.Run(["run", Path.GetTempPath()], output, error, redirected: true));
+        Assert.Contains("is neither a two-creatures record", error.ToString());
     }
 
     private static int CountOf(string text, string what) =>

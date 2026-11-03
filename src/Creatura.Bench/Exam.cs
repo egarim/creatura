@@ -78,6 +78,9 @@ public sealed record ExamOptions
     /// their goldens run them, re-baselined under another layer rule.
     /// </summary>
     public bool CarryRecord { get; init; } = true;
+
+    /// <summary>A folder to write every cell's replay into (<see cref="BenchReplay"/>), for the console's Run view; none when null.</summary>
+    public string? ReplayTo { get; init; }
 }
 
 /// <summary>
@@ -152,6 +155,7 @@ public static class Exam
         void Add(ExamRun run)
         {
             runs.Add(run);
+            if (options.ReplayTo is { } folder) BenchReplay.Write(folder, run);
             options.OnRun?.Invoke(run);
             bench.Log?.Invoke($"{run.Arm.TestName} {run.Arm.Agent} {run.Arm.Name} c{run.Case} r{run.Repeat} {run.Outcome.AsRow()} ticks {run.Run.Ticks}");
         }

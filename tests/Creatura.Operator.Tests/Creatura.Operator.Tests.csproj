@@ -25,6 +25,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Creatura.Scenarios\Creatura.Scenarios.csproj" />
     <ProjectReference Include="..\..\src\Creatura.Operator\Creatura.Operator.csproj" />
+    <!-- The web recorder, driven with no browser (U2.1). -->
+    <ProjectReference Include="..\..\src\Creatura.Worlds.Web\Creatura.Worlds.Web.csproj" />
   </ItemGroup>
 
 </Project>

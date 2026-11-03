@@ -105,6 +105,25 @@ step 6): `checked` (drives, loads, unloads and refuels that landed or lied), `ch
 actions judged lies) and `checkMisses` (lies judged anything else). In the clean world arm J's are zero by
 construction. With a learned judge, `judged`, `judgeFalseAlarms` and `judgeMisses` count its own verdicts.
 
+## Other runs (the console, U2)
+
+Every run the console's Run view opens is this format ([design-console.md](design-console.md)): the convoy, a web
+world's recording, a two-creatures record and a bench cell. The others add only optional properties, which a reader
+that does not know them ignores:
+
+- **header**: `cells`, the run's cells by name (a persona, a creature, an agent), where the convoy has `trucks`.
+- **an event**: `cell`, the one that acted (the convoy says `truck`); `act`, the act in words (else the kind and its
+  road, from, to or village); `observation`, what the cell saw when it decided; `offer`, what the control layer let it
+  do and what it withheld; `decision`, the seat's own words; `at`, when, by the writer's clock (a pair's two runs
+  are interleaved by it); `lie`, true when the world lied on this act.
+- **a tick of `kind: verdict`**: the judge's findings, each an event of kind `verdict` with `cell`, `text` and
+  `verdict`, and, when it judges a row, `on: {"tick": n, "contains": "…"}` (the cell's row at that tick, the last one
+  whose act or answer contains the text when given) and `falseClaim: true` when the claim on it was false.
+- **end**: `outcome` sentences, as the convoy writes them.
+
+A web recording keeps `format: creatura.web-replay/1` and its `frame`, `row` and `note` lines for the web viewer,
+which skips a verdict tick; its ticks carry the events above.
+
 ## Making a replay
 
 ```bash

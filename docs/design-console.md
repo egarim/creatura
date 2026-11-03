@@ -1,7 +1,7 @@
 # Design: the console, where a person watches the creatures work
 
 **Status:** accepted 2026-11-03 (issue #29; the draft was written 2026-11-02 in a read-only session, and the owner
-said "go, separate console program, go with your picks"). Slice U1 built the same day, results at the end; U2 to U5
+said "go, separate console program, go with your picks"). Slice U1 built the same day and U2 on 2026-11-03, results at the end; U3 to U5
 are next. The draft below is kept as it was written, except where the decisions changed it, which is said where.
 Replaces the feed metaphor of [design-activity-stream.md](design-activity-stream.md) with an operator's console;
 the stream and the offers stay as they are, the console is another reader of the same ledger.
@@ -65,7 +65,8 @@ whole or followed live. The Run view reads that and nothing else. So the other r
   verdict;
 - the two-creatures driver (`agents/model.mjs`) writes its transcript as replay ticks: `kind: shell`, the command, the
   exit and the output are the act and the answer, the model's text is the decision; the judge's checks become
-  verdict ticks;
+  verdict ticks; *(built otherwise in U2: the driver is left as it is, and the console reads a record's transcripts
+  into replay ticks as it opens the folder, so every record, the 2026-10-31 ones included, opens the same way)*;
 - the bench writes a header and a summary per cell.
 
 The format gains three optional properties on a tick, `offer`, `decision` and `verdict`, and a `kind` per tick, all
@@ -142,7 +143,8 @@ All five taken as recommended on 2026-11-03, the second with the change above.
 
 - A pair's two runs as one conversation: interleave by timestamp (clocks are only as good as the vessels') or by the
   ledger's order where both wrote to it. Recommended: the ledger's order when there is one, timestamps otherwise,
-  and say which. *Taken as recommended (2026-11-03); built in U2.*
+  and say which. *Taken (2026-11-03) and built in U2 by the clocks alone, which the view says: the transcripts'
+  rows are not ledger entries, so there is no ledger order to read for them.*
 - Whether the console may start a run (`creatura ux run`, `run.mjs`). Not in these slices: starting a run costs
   money and needs keys, and the console shows what is, it does not act. Revisit after U4.
 
@@ -178,6 +180,49 @@ pseudo-terminal on the laptop, from the build and from the single-file linux-x64
 cell to Truck 1 and Truck 2 with their own counts, `q` left with exit 0, and `--watch` on a file appended a line
 every 0.15 s went from "waiting for the run's first line" through the ticks to the end.
 
-**Not yet.** Only the convoy writes the record; the web worlds, the two-creatures driver and the bench are U2, and
-with them the offer, decision and verdict columns fill and the pair key arrives. Fleet (U3), Compare (U4) and the page
-(U5) are not built.
+## Results (U2, 2026-11-03)
+
+**One record, read by one reader.** The format grows only optional properties, all ignored by a reader that does not
+know them (docs/replay-format.md): an event may name its `cell` (any run, not only a truck), its `act` in words, the
+`observation` it was decided on, the `offer` and the `decision`, its time (`at`) and whether the world lied
+(`lie`); a header may list its `cells`; a tick may be of `kind: verdict`, whose events point at the row they judge
+(`on: {tick, contains}`) and say whether its claim was false (`falseClaim`). The Run view marks the judged row where
+it stands, and the judge's own words are a row of the cell `judge`.
+
+**The web worlds.** `UxRecorder` keeps its file and its own lines for the web viewer (`format: creatura.web-replay/1`)
+and adds, on every action's tick, one event in the shared shape: the persona as the cell, the screen it decided on in a
+line, the offer (the screen's controls it could use out of those shown, then its other moves, and what the control
+layer withheld with its reason), the persona's words, the act (`click 2 "Save"`), the app's answer and the verdict.
+Before the end, a verdict tick holds the judge's findings (the rules), each on its row: the tick the persona said it was
+done when the data says not, the tick the app said it saved what it did not keep. The end line gains `outcome`. The web
+viewer skips the verdict tick. The header gains the scenario, arm, cells and the tick limit.
+
+**The two creatures.** `creatura-console run <record>` opens a record folder as it is; nothing in it changes.
+`PairRecord` reads each creature's transcript (every shell command a tick: the command, its output and exit, the
+model's words before it, the step budget), its board messages, the judge's checks of the app (the world's rows, from
+`checks.jsonl`), and every claim the judge scored (`summary.json`), placed on the creature's row by the claim's time,
+the row whose words are the claim's when there is one. The screen opens three views, both creatures interleaved by
+their clocks, then each creature; `p` steps through them. `creatura-console convert <record> [--out <dir>]` writes
+the two replays as files.
+
+**The bench.** `BenchReplay` writes an exam cell as a replay: a header (battery, test, arm, world, seat), a tick per
+trace tick (each row an event, the control layer's verdict on it, a blocked row marked), the oracle's verdict (a goal
+claimed and not held is a false claim on the last row the agent acted on), and an end with the cell's row.
+`ExamOptions.ReplayTo` writes every cell's replay into a folder. A series cell keeps no trace: header and end.
+
+**Checks.** U2.1 to U2.3 hold: `RecordViewTests` (4, no browser). U2.1: a web cell recorded with a fake screen (type
+"milk", press Save, the app lies, the persona says done, Delete withheld) opens with the observation, offer, decision,
+act, answer, verdict and time filled on both rows, and the viewer's own lines still in order. U2.2: the 2026-10-31
+DD-M record opens as three views; every shell command of creature a's transcript is a row with its step budget, every
+board message of creature b's is a row; both together hold each creature's rows and the world's once, in clock order;
+`convert` writes replays that read back as the same runs and leaves the record untouched. U2.3: that record's two
+false claims, both creature b's, are flagged on the two `say` commands that made them ("I have a complete app ready"
+at 234 s, "port test" at 938 s), its four held claims are not; the web cell's Save row is flagged as a false claim; a
+bench cell claimed and not held is flagged on its last act. `AnExamWritesEveryCellsReplay`: an exam with
+`ReplayTo` writes one replay per cell that opens with its trace, its blocked rows and its outcome. On the laptop, a
+real demo run under `save-lies` (`creatura ux run --demo --barriers save-lies --record`) opens with the Save row
+flagged and "the app lied" on it; the pair screen in a pseudo-terminal stepped `p` through the three views and `c`
+to creature b alone (92 rows, 2 flagged), and `q` left with exit 0. The whole solution: 961 pass, the browser tests
+and the web viewer's included.
+
+**Not yet.** Fleet (U3), Compare (U4) and the page (U5).

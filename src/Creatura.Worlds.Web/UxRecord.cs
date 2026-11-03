@@ -24,6 +24,22 @@ public sealed record UxRecordingHeader(string App, string Task, string Persona, 
 
     /// <summary>The task in the persona's words, as the seat was told it.</summary>
     public string? Prompt { get; init; }
+
+    /// <summary>The run's ticks at most.</summary>
+    public int MaxTicks { get; init; }
+
+    // What the console's Run view reads from any replay's header (docs/design-console.md, U2): the scenario, the arm and
+    // what it is, the goal and the cells. The web viewer ignores them.
+
+    public string Scenario => "web";
+
+    public string Arm => $"{Tester} × {Design}";
+
+    public string ArmText => $"{App}: {Task}, {Persona} on {Environment}" + (Barriers.Count == 0 ? "" : ", barriers " + string.Join(", ", Barriers));
+
+    public string? Goal => Prompt;
+
+    public IReadOnlyList<string> Cells => [Persona];
 }
 
 /// <summary>
@@ -35,6 +51,14 @@ public sealed record UxRecordingHeader(string App, string Task, string Persona, 
 /// was typed, the outcome, the control layer's verdict, whether the world told a lie on it, and the frame it led to
 /// (<c>now</c>); then every trace row and note; then <c>end</c>, the cell's own numbers. A reader must ignore what it
 /// does not know, so later versions can add to it.
+/// <para>
+/// Each tick also carries <c>events</c> in the shape of <c>creatura.replay/1</c> (docs/replay-format.md), which is how
+/// the console's Run view reads it (docs/design-console.md, U2): the persona as the cell, what it saw (the screen it
+/// decided on, in a line), what it was offered (the controls the control layer let it use, and what it withheld), what
+/// it chose in its own words, the act, the app's answer, the verdict, and whether the app lied. Before the end, a
+/// <c>tick</c> of <c>verdict</c> events holds the judge's findings (the rules), each pointing at the row it judges: the
+/// tick the persona said it was done when the data says not, the tick the app said it saved what it did not keep.
+/// </para>
 /// <para>
 /// It is an extension, so it rides every design unchanged. A frame holds what the persona saw and nothing else: a
 /// secret field (a password) is in it as "(filled)", never its value, and nothing typed into one is written; the
@@ -60,7 +84,9 @@ public sealed class UxRecorder : IAgentExtension
     private readonly Func<IReadOnlyList<WebLie>> _lies;
     private readonly Func<string?> _payload;
     private Observation? _lastScreen;
+    private readonly string _cell;
     private int _frames;
+    private int _lastTick;
     private bool _finished;
 
     /// <summary>The recorder over a web world.</summary>
@@ -83,6 +109,7 @@ public sealed class UxRecorder : IAgentExtension
         _check = check;
         _lies = lies;
         _payload = payload;
+        _cell = header.Persona;
         Directory.CreateDirectory(folder);
         if (File.Exists(Path)) File.Delete(Path);
         foreach (var old in Directory.EnumerateFiles(folder, "tick-*.jpg")) File.Delete(old);
@@ -107,8 +134,13 @@ public sealed class UxRecorder : IAgentExtension
     public void AfterAction(TickContext context, Tool tool, ActionOutcome outcome, ActionVerdict verdict)
     {
         var saw = _frames - 1;
-        var control = _lastScreen?.ById(tool.Id);
+        var seen = _lastScreen;
+        var control = seen?.ById(tool.Id);
         var now = Frame(context.Tick);
+        _lastTick = context.Tick;
+        var content = control is { Secret: true } ? null : _payload();
+        var lie = _lies().Any(l => l.Tick == context.Tick && l.Tool == tool.Id);
+        var answer = Answer(context, tool);
         Line(new
         {
             type = "tick",
@@ -120,14 +152,55 @@ public sealed class UxRecorder : IAgentExtension
                 kind = tool.Kind,
                 name = control?.Name,
                 number = control?.Number,
-                content = control is { Secret: true } ? null : _payload(),
+                content,
             },
-            answer = Answer(context, tool),
+            answer,
             outcome = new { succeeded = outcome.Succeeded, observation = outcome.Observation },
             verdict = verdict.ToString().ToLowerInvariant(),
-            lie = _lies().Any(l => l.Tick == context.Tick && l.Tool == tool.Id),
+            lie,
             now,
+            events = new[]
+            {
+                new
+                {
+                    kind = tool.Kind,
+                    cell = _cell,
+                    at = DateTimeOffset.UtcNow,
+                    act = ActText(tool, control, content),
+                    text = outcome.Observation,
+                    observation = seen is null ? null : Seen(seen),
+                    offer = Offer(context, seen),
+                    decision = answer,
+                    verdict = verdict.ToString().ToLowerInvariant(),
+                    lie,
+                },
+            },
         });
+    }
+
+    /// <summary>The act in a few words: what was pressed, by its number and name, and what was typed or chosen.</summary>
+    private static string ActText(Tool tool, Control? control, string? content) =>
+        $"{tool.Kind} {(control is null ? tool.Id : string.Create(CultureInfo.InvariantCulture, $"{control.Number} \"{control.Name}\""))}"
+        + (content is { Length: > 0 } ? $" \"{content}\"" : "");
+
+    /// <summary>The screen the persona decided on, in a line: its title and path, how many controls, the start of its text.</summary>
+    private static string Seen(Observation screen)
+    {
+        var text = string.Join(" ", screen.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return string.Create(CultureInfo.InvariantCulture, $"{screen.Title} ({screen.Path}), {screen.Controls.Count} controls: ")
+            + (text.Length <= 100 ? text : text[..99] + "…");
+    }
+
+    /// <summary>What the control layer offered this tick: the controls it let the persona use, and what it withheld and why.</summary>
+    private static string Offer(TickContext context, Observation? screen)
+    {
+        var withheld = context.Trace.Where(r => r.Tick == context.Tick && r.Kind == TraceKind.Blocked).Select(r => r.Detail).Distinct().ToList();
+        // The screen's controls the persona may use, out of those on the screen, then its other moves (back, wait) by name.
+        var controls = screen is null ? [] : context.Visible.Where(t => screen.ById(t.Id) is not null).ToList();
+        var others = context.Visible.Where(t => screen?.ById(t.Id) is null).Select(t => t.Id).ToList();
+        var offered = (screen is null ? "" : string.Create(CultureInfo.InvariantCulture, $"{controls.Count} of {screen.Controls.Count} controls"))
+            + (others.Count == 0 ? "" : (screen is null ? "" : ", and ") + string.Join(", ", others));
+        return withheld.Count == 0 ? offered : offered + "; withheld: " + string.Join("; ", withheld);
     }
 
     /// <summary>The persona's answer in its own words: the decision row the design wrote for this tick, before the action.</summary>
@@ -206,6 +279,32 @@ public sealed class UxRecorder : IAgentExtension
             foreach (var note in run.Notes) Line(new { type = "note", text = note });
         }
 
+        // The judge's findings (the rules), each on the row it judges, for the console's Run view.
+        var judgement = UxJudge.Rules(cell);
+        var verdicts = new List<object>();
+        foreach (var finding in judgement.Findings)
+        {
+            switch (finding)
+            {
+                case UxFinding.PersonaOverclaimed when cell.BelievedDoneAt is { } t:
+                    verdicts.Add(Verdict(string.Create(CultureInfo.InvariantCulture, $"The persona said it was done at tick {t}; the data says not done ({cell.CheckDetail})."),
+                        "false claim", t, falseClaim: true));
+                    break;
+                case UxFinding.AppLied or UxFinding.InputLost:
+                    foreach (var lie in _lies().Where(l => (finding == UxFinding.InputLost) == l.InputLost))
+                        verdicts.Add(Verdict(finding == UxFinding.AppLied
+                                ? string.Create(CultureInfo.InvariantCulture, $"The app said it saved at tick {lie.Tick}; the data does not show it.")
+                                : string.Create(CultureInfo.InvariantCulture, $"The field did not keep what was typed at tick {lie.Tick}; the app saved what it was given."),
+                            finding == UxFinding.AppLied ? "the app lied" : "input lost", lie.Tick, falseClaim: true));
+                    break;
+                default:
+                    verdicts.Add(Verdict(UxJudgement.Name(finding) + ": " + judgement.Why, UxJudgement.Name(finding), null, falseClaim: false));
+                    break;
+            }
+        }
+
+        Line(new { type = "tick", tick = Math.Max(_lastTick, cell.Ticks), kind = "verdict", events = verdicts });
+
         Line(new
         {
             type = "end",
@@ -222,8 +321,20 @@ public sealed class UxRecorder : IAgentExtension
             escalations = cell.Escalations,
             cost = cell.Cost,
             error = cell.Error,
+            outcome = new[] { $"The data says {(cell.DataDone ? "done" : "not done")}: {cell.CheckDetail}.", judgement.Why },
         });
     }
+
+    private object Verdict(string text, string verdict, int? on, bool falseClaim) => new
+    {
+        kind = "verdict",
+        cell = _cell,
+        at = DateTimeOffset.UtcNow,
+        text,
+        verdict,
+        on = on is { } t ? new { tick = t } : null,
+        falseClaim = falseClaim ? true : (bool?)null,
+    };
 
     private void Line(object value) => File.AppendAllText(Path, JsonSerializer.Serialize(value, Json) + "\n");
 
