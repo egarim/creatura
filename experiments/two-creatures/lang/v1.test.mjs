@@ -1,4 +1,4 @@
-// node --test experiments/two-creatures/lang/v1.test.mjs   (cellspeak v1: the words log #96 was missing, and the tool)
+// node --test experiments/two-creatures/lang/v1.test.mjs   (Latin 1: the words log #96 was missing, and the tool)
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LANGS, TOOL, TYPES, admit, checksFor, claimsApp, decode, digest, encode, format, parse, refusalText } from "./v1.mjs";

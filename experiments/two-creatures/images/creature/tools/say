@@ -11,7 +11,7 @@ const { readFileSync } = require("node:fs");
   }
   const res = await fetch(`http://${env.WORLD ?? "world"}:7000/say`, { method: "POST", body: JSON.stringify({ from: env.NAME, text }) }).catch((e) => ({ ok: false, statusText: e.message }));
   if (res.status === 422) {
-    // a typed board (cellspeak v0) refused it: the reason, and the grammar when it did not parse
+    // a typed board (Latin 0) refused it: the reason, and the grammar when it did not parse
     console.error(`say: refused: ${(await res.json().catch(() => ({}))).error ?? "no reason given"}`);
     return void (process.exitCode = 1);
   }

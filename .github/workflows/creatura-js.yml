@@ -52,9 +52,9 @@ jobs:
       - run: npm run summary --silent
         working-directory: js/creatura-tutor
 
-  # Cellspeak v0, the typed language of the two-creatures MT arm (docs/design-agent-language.md, issue #47): the parser,
+  # Latin 0, the typed language of the two-creatures MT arm (docs/design-agent-language.md, issue #47): the parser,
   # the board's rules, the decoders and the digest. Plain Node, no packages.
-  cellspeak:
+  latin:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

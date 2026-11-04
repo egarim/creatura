@@ -5,7 +5,7 @@ of slice X0 don't read it. Changing these words after the pilot changes the expe
 experiment log. Changed once, 2026-11-02 (log #85): the sentence on `GET /api/items`, so the judge can read the
 app's data (docs/design-web-worlds.md, "The two-creatures judge as a web world"); the runs before it (log #71 to
 #77) are a baseline of their own. Added to, 2026-11-04 (issue #47): the channel text for typed messages (MT); the
-words of the other arms did not change. Rewritten the same day for cellspeak v1 and its `message` tool;
+words of the other arms did not change. Rewritten the same day for Latin 1 and its `message` tool;
 log #96 ran on v0 and the text it had is in that commit (850846e).
 
 ---

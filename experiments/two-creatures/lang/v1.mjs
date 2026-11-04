@@ -1,4 +1,4 @@
-// Cellspeak v1: the typed language two creatures speak on the board (issue #47, docs/design-agent-language.md).
+// Latin 1: the typed language two creatures speak on the board (issue #47, docs/design-agent-language.md).
 // v0 (lang/v0.mjs) stays as it was, so the runs made with it (log #95, #96) decode as they were. v1 adds what the
 // first paid run (log #96) wrote as prose because v0 had no word for it, and a tool to speak it:
 //
@@ -25,7 +25,7 @@
 // So what was sent, what the peer reads and what the owner reads are three views of one value, and nothing in between
 // is free text a model wrote, apart from a note's or a reason's own words.
 
-export const VERSION = "cellspeak/1";
+export const VERSION = "latin/1";
 export const TYPES = ["claim", "propose", "accept", "object", "offer", "done", "verified", "need", "ask", "block", "change", "note"];
 export const LANGS = ["en", "es", "ru"];
 export const NOTE_LIMIT = 120;
@@ -39,7 +39,7 @@ const PATH = /^(?!.*\.\.)[A-Za-z0-9._/-]{1,100}$/;
 const URL_ = /^http:\/\/world:(8080|7001)(\/[A-Za-z0-9._~%/?&=-]*)?$/;
 const WHO = /^(?:creature-)?([ab])$/;
 
-export const GRAMMAR = `cellspeak v1, one message per line:
+export const GRAMMAR = `Latin 1, one message per line:
   claim <task> [until <n>m] | propose <topic> <key>=<value>... | accept #<n> | object #<n> because <text>
   offer <name> at <repo>:<path> | done <task> check <check> [and <check>]... (one check on your own repository)
   verified <task> of <a|b> check <check> [and <check>]... | need <thing> from <a|b> [because <check>]
@@ -125,7 +125,7 @@ function text(rest, what) {
 }
 
 /**
- * Parse one line of cellspeak v1. Returns the message as data ({type, ...fields}), or throws an Error whose message
+ * Parse one line of Latin 1. Returns the message as data ({type, ...fields}), or throws an Error whose message
  * says what is wrong; `parse.safe` returns {ok, message} or {ok:false, error} instead.
  */
 export function parse(line) {
@@ -267,7 +267,7 @@ export function format(m) {
  */
 export const TOOL = {
   name: "message",
-  description: "Send your peer one cellspeak message on the board. Fill `type` and the fields that type uses; the tool writes the message, the world runs its checks, and you get back the message number or the reason it was refused. "
+  description: "Send your peer one Latin message on the board. Fill `type` and the fields that type uses; the tool writes the message, the world runs its checks, and you get back the message number or the reason it was refused. "
     + "claim: task [until]. propose: topic, terms. accept: ref. object: ref, because. offer: name, repo, path. done: task, checks (one on your own repository). verified: task, who (your peer), checks. "
     + "need: thing, who [checks: one check that does not hold yet]. ask: action, who [because]. block: task, on. change: field, old, new. note: text (120 characters, prose; use it only when no other type fits).",
   parameters: {
@@ -451,9 +451,9 @@ export function decode(m, from, lang = "en") {
 // ---- refusals, in the owner's language -------------------------------------------------------------------------
 
 const REFUSAL = {
-  en: { doesNot: (c) => `does not hold: ${c}`, already: (c) => `already holds: ${c}`, language: "not cellspeak", rule: "breaks a board rule", repeat: "a repeat", claim: (t) => `said ${t} was done` },
-  es: { doesNot: (c) => `no se cumple: ${c}`, already: (c) => `ya se cumple: ${c}`, language: "no es cellspeak", rule: "rompe una regla del tablero", repeat: "una repetición", claim: (t) => `dijo que ${t} estaba terminado` },
-  ru: { doesNot: (c) => `не выполнено: ${c}`, already: (c) => `уже выполнено: ${c}`, language: "не cellspeak", rule: "нарушает правило доски", repeat: "повтор", claim: (t) => `сообщил(а), что ${t} готово` },
+  en: { doesNot: (c) => `does not hold: ${c}`, already: (c) => `already holds: ${c}`, language: "not Latin", rule: "breaks a board rule", repeat: "a repeat", claim: (t) => `said ${t} was done` },
+  es: { doesNot: (c) => `no se cumple: ${c}`, already: (c) => `ya se cumple: ${c}`, language: "no está en Latin", rule: "rompe una regla del tablero", repeat: "una repetición", claim: (t) => `dijo que ${t} estaba terminado` },
+  ru: { doesNot: (c) => `не выполнено: ${c}`, already: (c) => `уже выполнено: ${c}`, language: "не на Latin", rule: "нарушает правило доски", repeat: "повтор", claim: (t) => `сообщил(а), что ${t} готово` },
 };
 
 /**

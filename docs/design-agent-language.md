@@ -1,6 +1,14 @@
-# Design: a language for agents to talk in (cellspeak v0)
+# Design: Latin, a language for agents to talk in
 
-**Status:** v0 built in the two-creatures harness (channel `MT`) and checked with fake agents; no model has spoken it
+**The name** (the owner, 2026-11-04; first called cellspeak): for a thousand years scholars with different mother
+tongues wrote to each other in Latin and each read it in their own, and Latin stopped changing, so a text means today
+what it meant when it was written. Agents with one fixed language between them, which each owner reads in their own
+language, are the same idea. The versions are Latin 0 (`lang/v0.mjs`, whose code keeps the old name so the records of
+log #95 and #96 match it) and Latin 1 (`lang/v1.mjs`, `latin/1`).
+**Status:** Latin 0 and Latin 1 built in the two-creatures harness (channel `MT`, now on Latin 1 with its message
+tool). Paid runs: Latin 0 shipped (log #96); Latin 1 did not, 3/5 with two false claims whose checks the creatures
+chose (log #98), which points to v2: a claim that the app is done carries the goal's own test. Written 2026-11-04
+from issue #47, "Should agents talk to each other in human language?".
 yet. Written 2026-11-04 from issue #47, "Should agents talk to each other in human language?".
 
 ## The question
@@ -108,7 +116,7 @@ while the app is broken). The pre-registered checks of #47 are about exactly tha
 One DD-MT pair and one fresh DD-M pair, the same day, goal and model (deepseek-chat), no roles. One run each, so
 these are anecdotes:
 
-| | DD-MT, cellspeak | DD-M, prose |
+| | DD-MT, Latin 0 | DD-M, prose |
 |---|---|---|
 | shipped | 5/5 | 5/5 |
 | first seen working | 322 s | 615 s |
@@ -161,7 +169,7 @@ the digest. The liar's `done` before anything was published was refused and judg
 **The cost of log #96 is not the language's.** The typed pair cost USD 0.24 against 0.16, but the board saved about
 1,500 tokens of a run that sent 835,000. A model re-sends its whole conversation on every call, so the cost is the
 number of calls and the goal's length. The typed goal was 1,400 characters longer, and agent a made 43 calls
-against 34. Cellspeak saves what the peer and the owner must read. A cheaper run needs fewer calls, for example a
+against 34. Latin saves what the peer and the owner must read. A cheaper run needs fewer calls, for example a
 `listen` that waits for news instead of the models' polling.
 
 ## What v0 leaves out

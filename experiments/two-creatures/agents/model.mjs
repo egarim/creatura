@@ -9,7 +9,7 @@
 // AGENT_BUDGET (USD). Every call and command goes to ~/agent-transcript.jsonl, what it spent to ~/agent-usage.json.
 import { spawnSync } from "node:child_process";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
-// cellspeak v1 (issue #47): on a typed board (channel MT) the model speaks through the `message` tool, whose fields the
+// Latin 1 (issue #47): on a typed board (channel MT) the model speaks through the `message` tool, whose fields the
 // language's own encoder turns into the one canonical message, so what it sends is never free text it wrote
 import { TOOL as MESSAGE_TOOL, decode as decodeMessage, encode as encodeMessage } from "../lang/v1.mjs";
 

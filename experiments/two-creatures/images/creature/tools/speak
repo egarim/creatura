@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// speak '<fields as JSON>': the message tool on a typed board (channel MT, cellspeak v1): the message as typed fields,
+// speak '<fields as JSON>': the message tool on a typed board (channel MT, Latin 1): the message as typed fields,
 // e.g. speak '{"type":"done","task":"app","checks":[{"kind":"deployed","repo":"repo-b"}]}'. The language's own encoder
 // (/x/lang/v1.mjs, the same one a model's `message` tool uses) writes the one canonical text, and the board gets it
 // marked as sent through the tool. Prints "said #n: <text>" and how the owner reads it, or the reason it was refused.
 const { readFileSync } = require("node:fs");
 
 (async () => {
-  const lang = await import(process.env.CELLSPEAK ?? "/x/lang/v1.mjs");
+  const lang = await import(process.env.TC_LATIN ?? "/x/lang/v1.mjs");
   const env = Object.fromEntries(readFileSync(`${process.env.HOME}/.creature.env`, "utf8").split("\n").filter((l) => l.includes("=")).map((l) => l.split("=", 2)));
   const raw = process.argv.slice(2).join(" ") || readFileSync(0, "utf8");
   let fields;
