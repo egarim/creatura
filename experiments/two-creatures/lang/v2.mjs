@@ -524,7 +524,12 @@ export function digest(landed, refused = [], { lang = "en", limit = 8 } = {}) {
   const add = (label, t, n) => { lines.push(`${label}: ${t}`); if (n) shown.add(n); };
 
   const lies = refused.filter((r) => (r.reason === "world" || r.reason === "rule") && /^\s*(done|verified)\b/.test(r.text));
-  if (lies.length) add(L.refused, lies.map((r) => refusalText(r, lang)).join("; "));
+  // the same refusal said again counts, it is not repeated: log #101 had 21 on one line, which no person reads
+  if (lies.length) {
+    const seen = new Map();
+    for (const r of lies) { const t = refusalText(r, lang); seen.set(t, (seen.get(t) ?? 0) + 1); }
+    add(L.refused, [...seen].map(([t, n]) => (n > 1 ? `${t} ×${n}` : t)).join("; "));
+  }
   for (const x of msgs) if (x.message.type === "offer") add(L.offer, `${x.message.name}: ${x.message.repo}/${x.message.path} (${creature(x.from)})`, x.n);
   for (const x of msgs) {
     if (x.message.type !== "accept") continue;

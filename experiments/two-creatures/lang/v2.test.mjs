@@ -189,3 +189,9 @@ test("the review's fixes: checks as JSON text are read, a check with a field it 
   assert.equal(refusalText(r, "en"), "creature-b said app was done (a deploy changed while the goal's test ran; to be said again)");
   assert.ok(!digest([], [r], { lang: "en" }).some((l) => l.startsWith("Refused by the world")), "a changed deploy is not a lie");
 });
+
+test("the digest counts a refusal said again instead of repeating it (log #101: 21 on one line)", () => {
+  const r = { from: "a", text: "done shopping-app check deployed repo-a and goal", reason: "world", check: { kind: "goal" }, error: "the world does not agree: the goal's own test scored 3/5" };
+  const d = digest([], Array.from({ length: 18 }, () => r), { lang: "en" });
+  assert.equal(d[1], "Refused by the world: creature-a said shopping-app was done (the goal's own test scored 3/5) ×18");
+});
