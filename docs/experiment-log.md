@@ -583,3 +583,17 @@ runs are recorded only in the design note.
 - #97: `node --test lang/v0.test.mjs lang/v1.test.mjs; run.mjs --arm FF-MT --agents typed,typed --lang es; --agents typed,typed-liar --lang en`
 
 </details>
+
+## Step L3
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 98 | 2026-11-04 16:04 | `3eb69f0`* | test | — | Cellspeak v1 on DeepSeek: 3/5, two false claims with checks the world agreed with; notes 13%; 15/15 through the tool | The first paid run on cellspeak v1 with the message tool (owner's go), DD-MT, deepseek-chat, no roles, 45 min and USD 1 per creature at most, the same settings as log #96. One run: an anecdote.  Result: 3/5, NOT shipped. Every check from 576 s to the end failed step 4: an item ticked in the UI is not bought in the app's data. 2 false claims landed: a's "done shopping-list check deployed repo-a and file repo-a:compose.yaml and file repo-a:server.js and http http://world:8080/ 200 and array http://world:8080/api/items" (judged 3/5) and b's "done shopping-list check http ... 200 and array ... and file repo-b:compose.yaml" (3/5). 15 messages, all 15 through the tool; 1 refused ("--help", sent with say as text); 1,498 characters; 2 notes (13%, against 38% on v0). Cost USD 0.212 (a 31 calls, b 39).  The new words were used: ask 5 times ("drop-better-sqlite3-use-json-file of b because npm install better-sqlite3 fails in your build"; "restart-web-and-reply of a"; "stop-redeploying-repo-b of b"), verified once (b of a's app), accept once (b's plan, a's answer). No grammar mistake reached the board.  L3 failed: a checked claim was false. The world agreed with every check the creatures chose (deployed, the page answers 200, the list is a list), and those checks are weaker than the goal. The authorship loophole is still open: b's done carried "file repo-b:compose.yaml", true and irrelevant. A5 held this time (13% under 20%).  For v2: a claim that the app is done carries the goal's own test, the five steps of the judge, run by the world before the message lands, instead of checks the creature picks. A file check does not count as the sender's own work. |  |
+
+<details><summary>Commands</summary>
+
+- #98: `run.mjs --arm DD-MT --agents deepseek,deepseek --minutes 45 --budget 1 --check-every 300`
+
+</details>
