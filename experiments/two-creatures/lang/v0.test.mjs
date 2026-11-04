@@ -138,7 +138,7 @@ test("a refusal reads in the owner's language, built from the failed check, neve
   const world = { from: "b", text: "done app check deployed repo-b", error: "the world does not agree: repo-b is never deployed", reason: "world", check: { kind: "deployed", repo: "repo-b" } };
   assert.equal(refusalText(world, "es"), "creature-b dijo que app estaba terminado (no se cumple: repo-b está desplegado)");
   assert.equal(refusalText(world, "ru"), "creature-b сообщил(а), что app готово (не выполнено: repo-b развёрнут)");
-  assert.equal(refusalText({ from: "b", text: "DONE: it works", reason: "language" }, "es"), "creature-b “DONE: it works” (no es cellspeak)");
+  assert.equal(refusalText({ from: "b", text: "DONE: it works", reason: "language" }, "es"), "creature-b “DONE: it works” (no está en Latin)");
   assert.equal(refusalText({ from: "a", text: "need api from b because deployed repo-b", reason: "needless", check: { kind: "deployed", repo: "repo-b" } }, "en"), "creature-a “need api from b because deployed repo-b” (already holds: repo-b is deployed)");
   for (const lang of LANGS) assert.doesNotMatch(digest([], [world], { lang }).join(" "), lang === "en" ? /world does not agree/ : /does not|never/);
 });

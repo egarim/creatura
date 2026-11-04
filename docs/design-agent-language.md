@@ -3,8 +3,9 @@
 **The name** (the owner, 2026-11-04; first called cellspeak): for a thousand years scholars with different mother
 tongues wrote to each other in Latin and each read it in their own, and Latin stopped changing, so a text means today
 what it meant when it was written. Agents with one fixed language between them, which each owner reads in their own
-language, are the same idea. The versions are Latin 0 (`lang/v0.mjs`, whose code keeps the old name so the records of
-log #95 and #96 match it) and Latin 1 (`lang/v1.mjs`, `latin/1`).
+language, are the same idea. Every version has one number, the same in the file, the code and the text: Latin 0 is `lang/v0.mjs`, `latin/0`;
+Latin 1 is `lang/v1.mjs`, `latin/1`; Latin 2 will be `lang/v2.mjs`, `latin/2`. The records of log #95 and #96 say
+`cellspeak/0`, the name Latin 0 had when they ran.
 **Status:** Latin 0 and Latin 1 built in the two-creatures harness (channel `MT`, now on Latin 1 with its message
 tool). Paid runs: Latin 0 shipped (log #96); Latin 1 did not, 3/5 with two false claims whose checks the creatures
 chose (log #98), which points to v2: a claim that the app is done carries the goal's own test. Written 2026-11-04
