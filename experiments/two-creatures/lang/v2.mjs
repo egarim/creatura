@@ -277,7 +277,7 @@ export function format(m) {
 export const TOOL = {
   name: "message",
   description: "Send your peer one Latin message on the board. Fill `type` and the fields that type uses; the tool writes the message, the world runs its checks, and you get back the message number or the reason it was refused. "
-    + "claim: task [until]. propose: topic, terms. accept: ref. object: ref, because. offer: name, repo, path. done: task, checks (one on your own repository; if you say the app works, include {\"kind\": \"goal\"}: the world then runs the goal's own test, about 35 s, and the done lands only if it passes). verified: task, who (your peer), checks. "
+    + "claim: task [until]. propose: topic, terms. accept: ref. object: ref, because. offer: name, repo, path. done: task, checks (one on your own repository; if you say the app works, include {\"kind\": \"goal\"}: the world then runs the goal's own test, usually under a minute, and the done lands only if it passes; if a deploy changed while it ran, say the done again). verified: task, who (your peer), checks. "
     + "need: thing, who [checks: one check that does not hold yet]. ask: action, who [because]. block: task, on. change: field, old, new. note: text (120 characters, prose; use it only when no other type fits).",
   parameters: {
     type: "object",
@@ -309,14 +309,25 @@ export const TOOL = {
 
 const squash = (s) => (typeof s === "string" ? s.replace(/\s+/g, " ").trim() : s);
 const need_ = (f, k) => { const v = squash(f[k]); if (v === undefined || v === null || v === "") refuse(`${f.type} needs ${k}`); return v; };
-const checksIn = (f) => (Array.isArray(f.checks) ? f.checks : []).map((c) => {
+/** The fields each check kind takes; a check with another field is refused, not silently cut (Codex's review, log #100). */
+const CHECK_FIELDS = { deployed: ["repo"], file: ["repo", "path"], http: ["url", "status"], array: ["url"], goal: [] };
+const checksIn = (f) => {
+  let list = f.checks ?? [];
+  // a model may send the list as JSON text; it is read as the list it spells, the same way every time
+  if (typeof list === "string") { try { list = JSON.parse(list); } catch { refuse("checks is a list of check objects, like [{\"kind\": \"goal\"}]"); } }
+  if (!Array.isArray(list)) refuse("checks is a list of check objects, like [{\"kind\": \"goal\"}]");
+  return list.map(checkIn);
+};
+const checkIn = (c) => {
   if (!CHECK_KINDS.includes(c?.kind)) refuse(`a check's kind is one of ${CHECK_KINDS.join(", ")}`);
+  const extra = Object.keys(c).filter((k) => k !== "kind" && !CHECK_FIELDS[c.kind].includes(k) && c[k] !== undefined && c[k] !== null && c[k] !== "");
+  if (extra.length) refuse(`a ${c.kind} check takes ${CHECK_FIELDS[c.kind].length ? CHECK_FIELDS[c.kind].join(" and ") : "no other field"}, not ${extra.join(", ")}`);
   if (c.kind === "deployed") return { kind: c.kind, repo: c.repo };
   if (c.kind === "file") return { kind: c.kind, repo: c.repo, path: c.path };
   if (c.kind === "http") return { kind: c.kind, url: c.url, status: Number(c.status ?? 200) };
   if (c.kind === "goal") return { kind: c.kind };
   return { kind: c.kind, url: c.url };
-});
+};
 
 /**
  * Typed fields (a tool call's arguments) to {message, text}: the message as data and its one canonical text. Pure and
@@ -465,9 +476,9 @@ export function decode(m, from, lang = "en") {
 // ---- refusals, in the owner's language -------------------------------------------------------------------------
 
 const REFUSAL = {
-  en: { goalScore: (s) => `the goal's own test scored ${s}/5`, doesNot: (c) => `does not hold: ${c}`, already: (c) => `already holds: ${c}`, language: "not Latin", rule: "breaks a board rule", repeat: "a repeat", claim: (t) => `said ${t} was done` },
-  es: { goalScore: (s) => `la prueba del propio objetivo dio ${s}/5`, doesNot: (c) => `no se cumple: ${c}`, already: (c) => `ya se cumple: ${c}`, language: "no está en Latin", rule: "rompe una regla del tablero", repeat: "una repetición", claim: (t) => `dijo que ${t} estaba terminado` },
-  ru: { goalScore: (s) => `собственная проверка цели: ${s}/5`, doesNot: (c) => `не выполнено: ${c}`, already: (c) => `уже выполнено: ${c}`, language: "не на Latin", rule: "нарушает правило доски", repeat: "повтор", claim: (t) => `сообщил(а), что ${t} готово` },
+  en: { goalScore: (s) => `the goal's own test scored ${s}/5`, doesNot: (c) => `does not hold: ${c}`, already: (c) => `already holds: ${c}`, language: "not Latin", changed: "a deploy changed while the goal's test ran; to be said again", rule: "breaks a board rule", repeat: "a repeat", claim: (t) => `said ${t} was done` },
+  es: { goalScore: (s) => `la prueba del propio objetivo dio ${s}/5`, doesNot: (c) => `no se cumple: ${c}`, already: (c) => `ya se cumple: ${c}`, language: "no está en Latin", changed: "un despliegue cambió mientras corría la prueba del objetivo; hay que repetirlo", rule: "rompe una regla del tablero", repeat: "una repetición", claim: (t) => `dijo que ${t} estaba terminado` },
+  ru: { goalScore: (s) => `собственная проверка цели: ${s}/5`, doesNot: (c) => `не выполнено: ${c}`, already: (c) => `уже выполнено: ${c}`, language: "не на Latin", changed: "во время проверки цели прошёл новый деплой; нужно повторить", rule: "нарушает правило доски", repeat: "повтор", claim: (t) => `сообщил(а), что ${t} готово` },
 };
 
 /**

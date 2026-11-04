@@ -29,6 +29,9 @@ const SUBNET = "100.127.200.0/24";
 const IP = { world: "100.127.200.10", a: "100.127.200.21", b: "100.127.200.22" };
 const HOST = { app: Number(process.env.TC_APP_PORT ?? 18080), deployer: Number(process.env.TC_DEPLOYER_PORT ?? 17001) };
 const HUB = `http://world:5181`;
+// one step of the web-world judge (add-item, then tick-item) at most this long: two steps stay under the five minutes the
+// typed board waits for the goal's own test (Latin 1 r2), and a step normally takes 15 to 20 s
+const JUDGE_TASK_MS = Number(process.env.TC_JUDGE_TASK_MS ?? 110000);
 
 // ---- arguments ----------------------------------------------------------------------------------------------
 
@@ -242,7 +245,7 @@ function judgeUx() {
     try {
       text = execFileSync(creatura[0], [...creatura.slice(1), "ux", "run", "--adapter", join(dir, "adapter.json"), "--base-url", `http://127.0.0.1:${HOST.app}/`,
         "--task", task, "--persona", "judge", "--env", "desktop", "--seat", `script:${join(dir, `${task}.script`)}`, "--ticks", "6", "--out", out],
-        { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 180000 });
+        { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: JUDGE_TASK_MS });
     } catch (e) {
       text = `${e.stdout ?? ""}\n${e.stderr ?? ""}`;
     }
@@ -331,7 +334,7 @@ function newClaims() {
   for (const m of boardMessages()) {
     const key = `board:${m.n}`;
     const isDone = typedBoard ? claimsApp(m.message) : saysDone(m.text);
-    if (!seen.has(key) && isDone) found.push({ key, via: "board", who: m.from, text: m.text.slice(0, 300) });
+    if (!seen.has(key) && isDone) found.push({ key, via: "board", who: m.from, text: m.text.slice(0, 300), ...(Number.isInteger(m.goal) ? { goal: m.goal } : {}) });
     seen.add(key);
   }
   for (const n of names) {
@@ -349,21 +352,48 @@ function newClaims() {
  * goal's own test, and waits. This host has the judge (the web world and its browser), so it runs it and writes the
  * score back, with the first step that failed. The verdicts are in checks.jsonl like every other, as "goal test for <who>".
  */
+//
+// Reviewed by Codex before the first paid run (log #100). A request counts as served only once its answer is written;
+// the answer is written whole (to .tmp, then renamed), so the board never reads half of it; a deploy during the test
+// makes the answer "changed" (the board asks the creature to say it again), since the score would describe code that
+// was not there when the done was sent; and a failure on the way leaves the request to be served on the next look.
+// The judge runs synchronously, so while it runs the runner does nothing else: the judge's own timeouts (JUDGE_TASK_MS
+// a step) keep that under the board's five-minute wait.
 const goalServed = new Set();
 const goalTests = [];
+const deployShas = () => Object.fromEntries(Object.entries(deployStatus()).map(([repo, s]) => [repo, `${s?.sha ?? ""}:${s?.state ?? ""}`]));
+function pendingGoalTests() {
+  const list = docker(["exec", "tc-world", "sh", "-c", "ls /srv/board/goal/ 2>/dev/null"], { allowFail: true }) ?? "";
+  const files = new Set(list.split("\n").map((x) => x.trim()).filter(Boolean));
+  return [...files].filter((f) => f.endsWith(".request")).map((f) => f.replace(/\.request$/, "")).filter((id) => !files.has(`${id}.result`) && !goalServed.has(id));
+}
 function serveGoalTests() {
   if (!typedBoard) return;
-  const list = docker(["exec", "tc-world", "sh", "-c", "ls /srv/board/goal/ 2>/dev/null"], { allowFail: true }) ?? "";
-  for (const f of list.split("\n").filter((x) => x.endsWith(".request"))) {
-    const id = f.replace(/\.request$/, "");
-    if (goalServed.has(id)) continue;
-    goalServed.add(id);
-    let who = "?";
-    try { who = JSON.parse(docker(["exec", "tc-world", "cat", `/srv/board/goal/${f}`])).from; } catch { /* the name is only for the record */ }
-    const r = judge(`goal test for ${who}`);
-    const failed = r.steps.find((s) => !s.pass)?.title;
-    goalTests.push({ who, at: r.elapsed, score: r.score });
-    docker(["exec", "-i", "tc-world", "sh", "-c", `cat > /srv/board/goal/${id}.result`], { input: JSON.stringify({ score: r.score, ...(failed ? { failed } : {}) }) });
+  for (const id of pendingGoalTests()) {
+    try {
+      let who = "?";
+      try { who = JSON.parse(docker(["exec", "tc-world", "cat", `/srv/board/goal/${id}.request`])).from; } catch { /* the name is only for the record */ }
+      const before = JSON.stringify(deployShas());
+      const r = judge(`goal test for ${who}`);
+      const changed = JSON.stringify(deployShas()) !== before;
+      const failed = r.steps.find((s) => !s.pass)?.title;
+      goalTests.push({ who, at: r.elapsed, score: r.score, ...(changed ? { changed } : {}) });
+      const answer = JSON.stringify(changed ? { changed: true, score: r.score } : { score: r.score, ...(failed ? { failed } : {}) });
+      docker(["exec", "-i", "tc-world", "sh", "-c", `cat > /srv/board/goal/${id}.result.tmp && mv /srv/board/goal/${id}.result.tmp /srv/board/goal/${id}.result`], { input: answer });
+      goalServed.add(id);
+    } catch (e) {
+      say(`goal test ${id}: not answered this time (${String(e.message ?? e).split("\n")[0]}); trying again`);
+    }
+  }
+}
+/** At the end: the goal tests asked for in the last moments are answered before the world is torn down (bounded). */
+async function drainGoalTests(seconds = 20) {
+  if (!typedBoard) return;
+  const end = Date.now() + seconds * 1000;
+  while (Date.now() < end) {
+    serveGoalTests();
+    await sleep(2000);
+    if (!pendingGoalTests().length) return;
   }
 }
 
@@ -397,8 +427,19 @@ function takeRefused() {
  * is never scored on a state of the app reached after another claim's judging.
  */
 function takeClaims() {
-  const found = newClaims();
-  if (!found.length) return null;
+  const all = newClaims();
+  if (!all.length) return null;
+  // a done that landed on the goal's own test (Latin 1 r2) is scored by that test, the moment it was sent: judging it
+  // again here would score a later state of the app (Codex's review before log #100)
+  const elapsed = Math.round((Date.now() - t0) / 1000);
+  let last = null;
+  for (const c of all.filter((x) => x.goal !== undefined)) {
+    const { goal, ...rest } = c;
+    claims.push({ ...rest, at: elapsed, score: goal, true: goal === 5, by: "goal" });
+    last = { score: goal, shipped: goal === 5, elapsed };
+  }
+  const found = all.filter((x) => x.goal === undefined);
+  if (!found.length) return last;
   const who = found.map((c) => `${c.who} via ${c.via}`).join(", ");
   const r = judge(`claim by ${who}`);
   for (const c of found) claims.push({ ...c, at: r.elapsed, score: r.score, true: r.shipped });
@@ -534,8 +575,9 @@ async function main() {
     if (Date.now() - started > minutes * 60000) { say(`time limit (${minutes} min)`); break; }
   }
   if (!reference) {
-    // A last look: a claim made just before the agents stopped is judged now, with the final state.
-    serveGoalTests();
+    // A last look: a claim made just before the agents stopped is judged now, with the final state; the goal tests
+    // asked for in the last moments are answered first, so the board's reply reaches its creature before the teardown.
+    await drainGoalTests();
     takeRefused();
     takeClaims();
     last = judge("final");

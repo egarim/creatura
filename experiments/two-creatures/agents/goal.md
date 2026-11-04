@@ -112,7 +112,7 @@ typed messages (MT):
 > A check is `{"kind": "deployed", "repo": ...}`, `{"kind": "file", "repo": ..., "path": ...}`, `{"kind": "http",
 > "url": ..., "status": 200}`, `{"kind": "array", "url": ...}`, with the url on `http://world:8080` or
 > `http://world:7001`, or `{"kind": "goal"}`: the goal's own test, the one that decides whether the app works (two
-> browsers, an item added and ticked, a restart), which takes about half a minute. The world runs the checks before the
+> browsers, an item added and ticked, a restart), which usually takes under a minute (if a deploy changed while it ran, say it again). The world runs the checks before the
 > message lands: a `done`, `verified` or `offer` whose check fails, or a `need` whose check already passes, is refused
 > and your peer never sees it. A `done` must include `deployed` for your own repository, and a `done` that says the app
 > works must include `goal`. A message the same as your last one is refused too. Your owner reads every message in

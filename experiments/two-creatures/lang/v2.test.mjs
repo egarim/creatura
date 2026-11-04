@@ -177,3 +177,15 @@ test("r2: a done the goal's test refused reads with its score, in the owner's la
   assert.equal(refusalText(r, "ru"), "creature-b сообщил(а), что app готово (собственная проверка цели: 3/5)");
   assert.equal(digest([], [r], { lang: "es" })[1], "Rechazado por el mundo: creature-b dijo que app estaba terminado (la prueba del propio objetivo dio 3/5)");
 });
+
+test("the review's fixes: checks as JSON text are read, a check with a field it does not take is refused, a changed deploy reads as such", () => {
+  assert.equal(encode({ type: "done", task: "app", checks: '[{"kind":"deployed","repo":"repo-b"},{"kind":"goal"}]' }).text, "done app check deployed repo-b and goal");
+  assert.match(encode.safe({ type: "done", task: "app", checks: "goal" }).error, /checks is a list/);
+  assert.match(encode.safe({ type: "done", task: "app", checks: { kind: "goal" } }).error, /checks is a list/);
+  assert.match(encode.safe({ type: "done", task: "app", checks: [{ kind: "goal", url: "http://world:8080/" }] }).error, /a goal check takes no other field, not url/);
+  assert.match(encode.safe({ type: "done", task: "app", checks: [{ kind: "deployed", repo: "repo-b", url: "http://world:8080/" }] }).error, /a deployed check takes repo, not url/);
+  assert.equal(encode({ type: "done", task: "app", checks: [{ kind: "deployed", repo: "repo-b", path: "" }, { kind: "goal" }] }).text, "done app check deployed repo-b and goal", "an empty field is no field");
+  const r = { from: "b", text: "done app check deployed repo-b and goal", reason: "changed", check: { kind: "goal" }, error: "the goal's own test: a deploy changed while it ran" };
+  assert.equal(refusalText(r, "en"), "creature-b said app was done (a deploy changed while the goal's test ran; to be said again)");
+  assert.ok(!digest([], [r], { lang: "en" }).some((l) => l.startsWith("Refused by the world")), "a changed deploy is not a lie");
+});
