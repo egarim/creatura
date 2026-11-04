@@ -30,7 +30,7 @@ mv "$out/hub/Creatura.Cells.Hub" "$out/hub/creatura-hub"
 stage() { # image dir, with extra build inputs copied in
   rm -rf "$out/ctx-$1" && cp -R "$here/images/$1" "$out/ctx-$1"
 }
-stage world && cp -R "$out/hub" "$out/ctx-world/hub"
+stage world && cp -R "$out/hub" "$out/ctx-world/hub" && mkdir -p "$out/ctx-world/lang" && cp "$here/lang/v0.mjs" "$out/ctx-world/lang/"
 stage creature && cp -R "$out/creatura" "$out/ctx-creature/creatura"
 stage judge
 

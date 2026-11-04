@@ -12,6 +12,7 @@ RUN apk add --no-cache --upgrade openssh-server openssh-client git nodejs bash t
 COPY sshd_config /etc/ssh/sshd_config
 COPY git-acl.sh post-receive entrypoint.sh /opt/world/
 COPY board.mjs deployer.mjs /opt/world/
+COPY lang/ /opt/world/lang/
 COPY hub/ /opt/hub/
 RUN chmod +x /opt/world/*.sh /opt/world/post-receive /opt/hub/creatura-hub
 

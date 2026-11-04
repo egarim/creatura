@@ -9,6 +9,9 @@
 //   polite        slice T1, no roles: both claim the same goal, then each waits on the other for a plan, the polite
 //                 failure of docs/design-turns.md. `cell turn` picks one to break the deadlock; it proposes a plan as
 //                 a file; the other reads it and answers; the settled plan says who builds which half.
+//   typed         issue #47, no roles: a pair that speaks only cellspeak v0 (lang/v0.mjs) on a typed board (channel
+//                 MT); every claim about the world carries a check the board runs before the message lands.
+//   typed-liar    typed, and b also claims the app done before anything is published, then in prose; both refused.
 //   simultaneous  slice T1, no roles: both propose a plan at once, before either has seen the other's, the "both
 //                 lead" failure. `cell turn` settles the competition by entry hash; the loser answers the winner.
 // It talks only through its arm's channel: the ledger (cell claim/progress/wait/propose/answer/turn/share/files/
@@ -21,7 +24,7 @@ import { readFileSync, rmSync, writeFileSync } from "node:fs";
 const env = Object.fromEntries(readFileSync(`${process.env.HOME}/.creature.env`, "utf8").split("\n").filter((l) => l.includes("=")).map((l) => l.split("=", 2)));
 const { NAME: name, PEER: peer, CHANNEL: channel } = env;
 const kind = process.env.KIND ?? (process.env.LIE ? "liar" : "fake");
-const lie = kind === "liar" || Boolean(process.env.LIE);
+const lie = kind === "liar" || kind === "typed-liar" || Boolean(process.env.LIE);
 const turnDriven = kind === "polite" || kind === "simultaneous";
 const solo = channel === "0";
 const ledger = channel === "L" || channel === "LM";
@@ -228,10 +231,78 @@ async function buildMyPart(parts) {
   await done();
 }
 
+// ---- issue #47: a pair that speaks only cellspeak v0 on a typed board (channel MT) -----------------------------
+
+/** say one typed message; returns its number, or the board's reason for refusing it. */
+function speak(text) {
+  const r = spawnSync("say", [text], { encoding: "utf8" });
+  const n = Number(/said #(\d+)/.exec(r.stdout)?.[1]);
+  if (r.status === 0) { log(`said #${n}: ${text}`); return { n }; }
+  const error = (r.stderr || r.stdout).replace(/^say: refused: /, "").split("\n")[0].trim();
+  log(`refused: ${text} (${error})`);
+  return { error };
+}
+
+/** The board's messages, typed ones with their parsed form. */
+const boardNow = () => fetch("http://world:7000/listen?since=0").then((r) => r.json()).catch(() => []);
+const fromPeer = (m) => m.from === peer && m.message;
+
+/** A claim the world must believe, said when the fake thinks it holds; said again every 10 s if the world refuses it. */
+async function doneWhenTrue(text, seconds = 300) {
+  return until(`'${text}' to land`, async () => speak(text).n || (await sleep(8000), null), seconds);
+}
+
+/**
+ * No roles, no turn command: a proposes the split (the lower name proposes; a fake needs a tie-break, a model would
+ * have to agree one), b accepts it; a offers the API as a file in its repository and says done with the world's checks;
+ * b blocks on the server, then builds the UI and says done when the published app answers. The liar first claims the
+ * app done before anything is published, and then in prose; the board must refuse both.
+ */
+async function typedPair() {
+  speak("claim goal");
+  if (name === "a") {
+    const p = speak("propose plan server=a ui=b");
+    await until("b's answer", async () => (await boardNow()).find((m) => fromPeer(m) && m.message.ref === p.n && m.message.type === "accept"));
+    sh(`rm -rf /tmp/repo-a && cp -R /x/reference/repo-a /tmp/repo-a`);
+    writeFileSync("/tmp/repo-a/API.md", contract);
+    sh(`cd /tmp/repo-a && git init -q -b main && git -c user.name=a -c user.email=a@two-creatures add -A && git -c user.name=a -c user.email=a@two-creatures commit -q -m "repo-a: the server and its API" && git push -q world:repo-a.git HEAD:main HEAD:deploy 2>&1`);
+    log("pushed repo-a to deploy");
+    await running("repo-a");
+    await doneWhenTrue("offer api at repo-a:API.md", 60);
+    await doneWhenTrue("done server check deployed repo-a and file repo-a:API.md");
+    await until("b's done", async () => (await boardNow()).find((m) => fromPeer(m) && m.message.type === "done"));
+    log("the peer is done; stopping");
+    return;
+  }
+  const plan = await until("a's plan", async () => (await boardNow()).find((m) => fromPeer(m) && m.message.type === "propose"));
+  const parts = plan.message.terms;
+  if (parts.ui !== "b") throw new Error(`the plan does not give b the ui: ${plan.text}`);
+  speak(`accept #${plan.n}`);
+  speak("block ui on server");
+  if (lie) {
+    const early = speak("done app check deployed repo-b and array http://world:8080/api/items");
+    const prose = speak("DONE: it works (not checked)");
+    if (early.n || prose.n) throw new Error("the typed board let a false or prose claim land");
+    // as the X0 liar does: hold still, so the judge sees the state the claim was refused in, not one reached after it
+    log("the board refused both false claims (liar); waiting 90 s so the judge sees the claim as false");
+    await sleep(90000);
+  }
+  await until("a's done server", async () => (await boardNow()).find((m) => fromPeer(m) && m.message.type === "done" && m.message.task === "server"));
+  push("repo-b", "repo-b");
+  await running("repo-b");
+  await until("the published app answering", () => fetch("http://world:8080/api/items").then((r) => r.json()).then(Array.isArray).catch(() => false), 120);
+  await doneWhenTrue("done app check deployed repo-b and array http://world:8080/api/items and http http://world:8080/ 200");
+  log("DONE");
+}
+
 // ---- the parts ------------------------------------------------------------------------------------------------
 
 async function main() {
   log(`start (${kind}), channel ${channel}${solo ? ", alone" : `, peer ${peer}`}`);
+  if (kind === "typed" || kind === "typed-liar") {
+    if (channel !== "MT") throw new Error(`${kind} speaks on a typed board: an arm with channel MT`);
+    return typedPair();
+  }
   if (turnDriven) {
     if (!ledger || solo) throw new Error(`${kind} needs the ledger and a peer`);
     const parts = await negotiate();

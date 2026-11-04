@@ -541,3 +541,31 @@ runs are recorded only in the design note.
 - #94: `dotnet test tests/Creatura.Operator.Tests --filter WebConsole (Chromium, network off); creatura-console web --runs <folders> on the Surface; dotnet test Creatura.slnx`
 
 </details>
+
+## Step L0
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 95 | 2026-11-04 14:24 | `3eb69f0`* | test | — | Cellspeak v0: a typed language for the board, with the world's checks and the owner's digest | Built cellspeak v0, a first proposal for issue #47 ("Should agents talk to each other in human language?"), as the owner asked for one: a small typed vocabulary in which every message either moves a decision or carries something the world can check. It has ten types: claim, propose, accept, object, offer, done, need, block, change, and note (prose, 120 characters, counted). A done carries declarative checks (deployed, file, http, array) that world runs before the message lands. Built as a new arm, MT (typed messages): the board on world takes only cellspeak and refuses anything else with the reason, which it keeps in refused.jsonl. The record gains messages.<lang>.md (every message decoded into the owner's language, en/es/ru via --lang, the original under it), digest.<lang>.md (the person in the loop: at most 8 lines, refused claims first), and a typed block in summary.json. lang/v0.test.mjs: 11 of 11 pass, also as a new CI job. Runs on ubuntu-box, fake agents, free: (1) typed,typed-liar, es: 5/5 shipped. b's early "done app check deployed repo-b and array .../api/items" was refused ("repo-b is never deployed") and judged 0/5 at that moment, so the refusal was right. Its prose "DONE: it works (not checked)" was refused as not cellspeak. 0 false claims; the one landed claim about the app was 5/5. (2) typed,typed, ru: 5/5, 0 refused, 8 messages, 255 characters on the board. (3) fake,fake CC-M (prose board, regression): 5/5, 5 messages, 614 characters. Two fixes found by running: a liar must hold still after its lie (the first run judged the refused claim 5/5, because b deployed during the judge's 35 s); and only a done whose checks look at http://world:8080 claims the app is done (claimsApp), since a's "done server" was judged 0/5 and miscounted as a false claim. The digest's refusal reasons are now built in the owner's language from the failed check, not copied from the board's English. No paid run: DD-MT with deepseek waits for the owner's go (L3, L6, L7, A5 pre-registered in docs/design-agent-language.md). |  |
+
+<details><summary>Commands</summary>
+
+- #95: `node --test experiments/two-creatures/lang/v0.test.mjs; run.mjs --arm FF-MT --agents typed,typed-liar --lang es; --agents typed,typed --lang ru; --arm CC-M --agents fake,fake`
+
+</details>
+
+## Step L1
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 96 | 2026-11-04 15:26 | `3eb69f0`* | test | — | Cellspeak v0 on DeepSeek: DD-MT against DD-M, both 5/5; 932 against 6,351 characters; notes 38% | The first paid runs of cellspeak v0 (issue #47), with the owner's go: one DD-MT pair (the typed board) and one fresh DD-M pair (the prose board) as its baseline, the same day, goal and model (deepseek-chat), no roles, 45 min and USD 1 per creature at most. One run each: anecdotes, not statistics.  DD-MT: 5/5 shipped, first seen working by the periodic judge at 322 s (b's done at 415 s, 5/5; a's done at 680 s, 5/5). 0 false claims. 13 messages landed and 4 refused; 932 characters on the board. Cost USD 0.244 (a 51 steps, b 36). DD-M: 5/5 shipped, the periodic judge saw 0/5 at 310 s, first ship at b's DONE at 615 s (5/5), a's DONE at 675 s (5/5). 0 false claims. 9 messages, 6,351 characters (messages of 250 to 1,660 characters). Cost USD 0.159 (a 34 steps, b 36).  Pre-registered checks (docs/design-agent-language.md): - L3 held: both landed app dones were 5/5. - L6 held: 932 characters against 6,351, 6.8 times fewer. - L7 held: MT shipped, as M did, with the same score. - A5 failed: 5 of the 13 landed messages were notes (38%, the limit was 20%). The notes carried what v0 cannot say, for example "a verified b app: 8080 ok, api ok, 2nd client sees new item in 51ms; please restart container to test durability".  What the transcripts show: - All 4 refusals were grammar ("claim shared shopping list end-to-end on repo-b until 40m": task names are one word; "propose roles ... until 15m"; a need without "from a"). Each was corrected at once. - In both arms b built the whole app and a stood by. In MT, b proposed plans twice and nobody answered with accept; the coordination went through notes. - a's done checked "deployed repo-a" and the app at 8080, which was b's app. The checks prove the world is in the claimed state, not who brought it there. - Shorter talk did not make a cheaper run. MT cost more: 835k against 543k input tokens, the models' own shell work and thinking.  For v1: multi-word task names (quoted), a "verified" type for checking the peer's work, a "please" or ask type for requests (the restart), and checks bound to the sender's own repository. |  |
+
+<details><summary>Commands</summary>
+
+- #96: `run.mjs --arm DD-MT --agents deepseek,deepseek --minutes 45 --budget 1 --check-every 300; the same with --arm DD-M`
+
+</details>
