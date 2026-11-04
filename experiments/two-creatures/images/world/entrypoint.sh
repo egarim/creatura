@@ -3,7 +3,7 @@
 # them, the message board and the ledger hub. /srv/setup (from the runner, read-only) holds:
 #   keys/{a,b,solo,runner}.pub              who may use git (solo: a creature working alone, both repositories)
 #   owners.txt                              the experiment owner's public key, for the hub's --trust
-#   world.env                               BOARD=on|off  HUB=on|off  WORLD_IP=<this machine's sandbox address>
+#   world.env                               BOARD=on|typed|off  HUB=on|off  WORLD_IP=<this machine's sandbox address>
 # /srv/preload/*.tar (optional) are images loaded into the inner daemon, so the app's builds need not pull them.
 set -eu
 . /srv/setup/world.env
@@ -40,7 +40,7 @@ chown -R git:git /home/git/.ssh && chmod 700 /home/git/.ssh && chmod 600 /home/g
 /usr/sbin/sshd -E /var/log/sshd.log
 
 node /opt/world/deployer.mjs >/var/log/deployer.log 2>&1 &
-if [ "$BOARD" = on ]; then node /opt/world/board.mjs >/var/log/board.log 2>&1 & fi
+if [ "$BOARD" != off ]; then BOARD_MODE="$BOARD" node /opt/world/board.mjs >/var/log/board.log 2>&1 & fi
 if [ "$HUB" = on ]; then /opt/hub/creatura-hub --listen "$WORLD_IP:5181" --trust /srv/setup/owners.txt --data /srv/hub >/var/log/hub.log 2>&1 & fi
 
 echo "world: ready (board $BOARD, hub $HUB)"

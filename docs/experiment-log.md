@@ -541,3 +541,17 @@ runs are recorded only in the design note.
 - #94: `dotnet test tests/Creatura.Operator.Tests --filter WebConsole (Chromium, network off); creatura-console web --runs <folders> on the Surface; dotnet test Creatura.slnx`
 
 </details>
+
+## Step L0
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 95 | 2026-11-04 14:24 | `3eb69f0`* | test | — | Cellspeak v0: a typed language for the board, with the world's checks and the owner's digest | Built cellspeak v0, a first proposal for issue #47 ("Should agents talk to each other in human language?"), as the owner asked for one: a small typed vocabulary in which every message either moves a decision or carries something the world can check. It has ten types: claim, propose, accept, object, offer, done, need, block, change, and note (prose, 120 characters, counted). A done carries declarative checks (deployed, file, http, array) that world runs before the message lands. Built as a new arm, MT (typed messages): the board on world takes only cellspeak and refuses anything else with the reason, which it keeps in refused.jsonl. The record gains messages.<lang>.md (every message decoded into the owner's language, en/es/ru via --lang, the original under it), digest.<lang>.md (the person in the loop: at most 8 lines, refused claims first), and a typed block in summary.json. lang/v0.test.mjs: 11 of 11 pass, also as a new CI job. Runs on ubuntu-box, fake agents, free: (1) typed,typed-liar, es: 5/5 shipped. b's early "done app check deployed repo-b and array .../api/items" was refused ("repo-b is never deployed") and judged 0/5 at that moment, so the refusal was right. Its prose "DONE: it works (not checked)" was refused as not cellspeak. 0 false claims; the one landed claim about the app was 5/5. (2) typed,typed, ru: 5/5, 0 refused, 8 messages, 255 characters on the board. (3) fake,fake CC-M (prose board, regression): 5/5, 5 messages, 614 characters. Two fixes found by running: a liar must hold still after its lie (the first run judged the refused claim 5/5, because b deployed during the judge's 35 s); and only a done whose checks look at http://world:8080 claims the app is done (claimsApp), since a's "done server" was judged 0/5 and miscounted as a false claim. The digest's refusal reasons are now built in the owner's language from the failed check, not copied from the board's English. No paid run: DD-MT with deepseek waits for the owner's go (L3, L6, L7, A5 pre-registered in docs/design-agent-language.md). |  |
+
+<details><summary>Commands</summary>
+
+- #95: `node --test experiments/two-creatures/lang/v0.test.mjs; run.mjs --arm FF-MT --agents typed,typed-liar --lang es; --agents typed,typed --lang ru; --arm CC-M --agents fake,fake`
+
+</details>

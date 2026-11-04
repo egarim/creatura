@@ -4,7 +4,8 @@ The runner fills in the `{{...}}` parts and gives this to each real agent as its
 of slice X0 don't read it. Changing these words after the pilot changes the experiment: record why in the
 experiment log. Changed once, 2026-11-02 (log #85): the sentence on `GET /api/items`, so the judge can read the
 app's data (docs/design-web-worlds.md, "The two-creatures judge as a web world"); the runs before it (log #71 to
-#77) are a baseline of their own.
+#77) are a baseline of their own. Added to, 2026-11-04 (issue #47): the channel text for typed messages (MT); the
+words of the other arms did not change.
 
 ---
 
@@ -88,7 +89,30 @@ messages (M):
 > `say <text>` posts a message your peer can read; `listen` shows the messages you haven't seen yet
 > (`listen --all` all of them, `listen --wait 30` waits up to 30 seconds for one).
 
+typed messages (MT):
+> ## Your channel: the typed board
+> `say <message>` posts one message your peer can read; `listen` shows the ones you haven't seen (`listen --all`
+> all of them, `listen --wait 30` waits up to 30 seconds). The board takes only these ten kinds of message, one per
+> `say`, and refuses anything else, with the reason:
+>
+>     claim <task> [until <n>m]                       what you are working on
+>     propose <topic> <key>=<value>...                a plan or a choice, e.g. propose plan server=a ui=b
+>     accept #<n>  |  object #<n> because <text>      your answer to your peer's proposal #n
+>     offer <name> at <repo>:<path>                   a contract: a file in your own repository
+>     done <task> check <check> [and <check>]...      finished, with the proof
+>     need <thing> from <a|b> [because <check>]       something you need from your peer
+>     block <task> on <thing>                         you cannot go on until <thing>
+>     change <field> <old> -> <new>                   a field of a plan or contract changes
+>     note <text>                                     anything else, 120 characters at most
+>
+> A `<check>` is `deployed <repo>`, `file <repo>:<path>`, `http <url> <status>` or `array <url>`, with `<url>` on
+> `http://world:8080` or `http://world:7001`. Names are lower case. The world runs the checks before the message
+> lands: a `done` or an `offer` whose check fails, or a `need` whose check already passes, is refused and your peer
+> never sees it. A message the same as your last one is refused too. Your owner reads every message in their own
+> language.
+
 ledger + messages (LM): both of the above.
 
 **`{{done}}`**: L "with `cell release --evidence`"; M "on the board, in a message that starts with DONE"; LM both;
+MT "with a `done` message on the board whose checks include the app at `http://world:8080/`";
 alone "in your final message".

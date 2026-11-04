@@ -17,6 +17,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { LANGS, claimsApp, decode, digest, parse } from "../lang/v0.mjs";
 
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const NET = "tc-sandbox";
@@ -49,14 +50,23 @@ if (!["script", "ux"].includes(opt("--judge", "ux"))) usage("--judge takes ux (t
 if (!arm) usage("--arm is required");
 const channel = reference ? "none" : arm.split("-")[1];
 const solo = channel === "0";
-if (!reference && !["L", "LM", "M", "0"].includes(channel)) usage(`unknown channel in ${arm}`);
+if (!reference && !["L", "LM", "M", "MT", "0"].includes(channel)) usage(`unknown channel in ${arm}`);
+// The owner's language, for the decoded log and the digest (issue #47): by default the language of the goal, English.
+const lang = opt("--lang", "en");
+if (!LANGS.includes(lang)) usage(`--lang takes ${LANGS.join(", ")}`);
 const agentKinds = reference ? [] : (opt("--agents") ?? usage("--agents is required")).split(",");
 if (!reference && agentKinds.length !== (solo ? 1 : 2)) usage(solo ? "an arm alone takes one agent" : "a pair takes two agents, a,b");
 const TURN_KINDS = ["polite", "simultaneous"];
 const MODEL_KINDS = ["deepseek"];
-for (const k of agentKinds) if (!["fake", "liar", ...TURN_KINDS, ...MODEL_KINDS].includes(k)) usage(`agent '${k}' is wired in slice X1; this runner takes fake, liar, polite, simultaneous and deepseek`);
+const TYPED_KINDS = ["typed", "typed-liar"];
+for (const k of agentKinds) if (!["fake", "liar", ...TURN_KINDS, ...TYPED_KINDS, ...MODEL_KINDS].includes(k)) usage(`agent '${k}' is wired in slice X1; this runner takes fake, liar, polite, simultaneous, typed, typed-liar and deepseek`);
 const ledger = channel === "L" || channel === "LM";
-const board = channel === "M" || channel === "LM";
+const board = channel === "M" || channel === "LM" || channel === "MT";
+// MT: the board takes only cellspeak v0 and runs the checks its claims carry (lang/v0.mjs, issue #47)
+const typedBoard = channel === "MT";
+if (agentKinds.some((k) => TYPED_KINDS.includes(k)) !== (typedBoard && !agentKinds.some((k) => MODEL_KINDS.includes(k))) && !reference) {
+  usage(typedBoard ? "an MT arm takes typed, typed-liar or deepseek agents" : "typed and typed-liar speak on a typed board: an arm with channel MT");
+}
 if (agentKinds.some((k) => TURN_KINDS.includes(k))) {
   if (!ledger) usage(`${agentKinds.join(",")} settle the plan through the ledger: an arm with channel L or LM`);
   if (solo) usage("polite and simultaneous are pairs");
@@ -81,7 +91,7 @@ const agentEnv = () => ({
 const names = reference ? [] : solo ? ["a"] : ["a", "b"];
 
 function usage(why) {
-  console.error(`run: ${why}\nusage: run.mjs --arm <CC-L|...|C-0> --agents <kind>[,<kind>] [--minutes n] [--check-every s] [--keep] [--steps n] [--budget usd] [--roles] [--judge ux|script]\n       run.mjs --reference [label|live|check|persist|down]`);
+  console.error(`run: ${why}\nusage: run.mjs --arm <CC-L|...|C-0> --agents <kind>[,<kind>] [--minutes n] [--check-every s] [--keep] [--steps n] [--budget usd] [--roles] [--judge ux|script] [--lang en|es|ru]\n       run.mjs --reference [label|live|check|persist|down]`);
   process.exit(2);
 }
 
@@ -152,7 +162,7 @@ async function setUp() {
   writeFileSync(`${state}/owner/machine-id`, crypto.randomUUID().replaceAll("-", "") + "\n");
   asOwner(`creatura cell init ${own()} >/dev/null && creatura cell owner-key ${own()} --out /owner/owners.txt >/dev/null`);
   copyFileSync(`${state}/owner/owners.txt`, `${state}/world/owners.txt`);
-  writeFileSync(`${state}/world/world.env`, `BOARD=${board ? "on" : "off"}\nHUB=${ledger ? "on" : "off"}\nWORLD_IP=${IP.world}\n`);
+  writeFileSync(`${state}/world/world.env`, `BOARD=${board ? (typedBoard ? "typed" : "on") : "off"}\nHUB=${ledger ? "on" : "off"}\nWORLD_IP=${IP.world}\n`);
 
   // the images the app's builds start from, loaded into world's own Docker so a reset doesn't pull them again
   const preload = join(HERE, "build", "preload");
@@ -170,7 +180,7 @@ async function setUp() {
     docker(["network", "connect", NET, "tc-door"]);
   }
 
-  say(`world (board ${board ? "on" : "off"}, hub ${ledger ? "on" : "off"})`);
+  say(`world (board ${board ? (typedBoard ? "typed" : "on") : "off"}, hub ${ledger ? "on" : "off"})`);
   docker(["run", "-d", "--privileged", "--name", "tc-world", "--hostname", "world", "--network", NET, "--ip", IP.world,
     "-v", `${state}/world:/srv/setup:ro`, "-v", `${preload}:/srv/preload:ro`, "tc-world"]);
   await until("world ready", () => docker(["exec", "tc-world", "test", "-f", "/run/world-ready"], { allowFail: true }) !== null, 180);
@@ -271,6 +281,13 @@ function boardMessages() {
   return text.split("\n").filter(Boolean).map((l) => JSON.parse(l));
 }
 
+/** What a typed board refused (MT): the message, who sent it and the reason; it never reached the peer. */
+function refusedMessages() {
+  if (!typedBoard) return [];
+  const text = docker(["exec", "tc-world", "cat", "/srv/board/refused.jsonl"], { allowFail: true }) ?? "";
+  return text.split("\n").filter(Boolean).map((l) => JSON.parse(l));
+}
+
 function ledgerEntries(n) {
   if (!ledger) return [];
   const text = docker(["exec", `tc-creature-${n}`, "cat", "/home/creature/.creatura/ledger.json"], { allowFail: true });
@@ -308,12 +325,13 @@ const claims = [];
  */
 const saysDone = (text) => /^DONE\b/.test(String(text).replace(/^\s*(?:creature-)?[ab]\s*:\s*/i, "").trimStart());
 
-/** New claims of done since the last look: a message that starts with DONE, or a Release entry. */
+/** New claims of done since the last look: a message that starts with DONE (on a typed board, a landed done whose checks look at the app), or a Release entry. */
 function newClaims() {
   const found = [];
   for (const m of boardMessages()) {
     const key = `board:${m.n}`;
-    if (!seen.has(key) && saysDone(m.text)) found.push({ key, via: "board", who: m.from, text: m.text.slice(0, 300) });
+    const isDone = typedBoard ? claimsApp(m.message) : saysDone(m.text);
+    if (!seen.has(key) && isDone) found.push({ key, via: "board", who: m.from, text: m.text.slice(0, 300) });
     seen.add(key);
   }
   for (const n of names) {
@@ -324,6 +342,29 @@ function newClaims() {
     }
   }
   return found;
+}
+
+const refusedClaims = [];
+const lastRefusedJudged = {};
+/**
+ * The dones a typed board refused since the last look. Each is judged too, at most one per creature every two
+ * minutes, so the record can say whether the board refused only what the judge also holds false (a refused done the
+ * judge scores 5 of 5 would be the language being too strict).
+ */
+function takeRefused() {
+  if (!typedBoard) return;
+  refusedMessages().forEach((r, i) => {
+    const key = `refused:${i}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    if (!claimsApp(parse.safe(r.text).message)) return;   // a refused claim that the app is done (a refused prose DONE never parsed)
+    const c = { who: r.from, text: r.text.slice(0, 300), error: r.error, at: Math.round((Date.now() - t0) / 1000), score: null };
+    if (Date.now() - (lastRefusedJudged[r.from] ?? 0) >= 120000) {
+      lastRefusedJudged[r.from] = Date.now();
+      c.score = judge(`refused claim by ${r.from}`).score;
+    }
+    refusedClaims.push(c);
+  });
 }
 
 /**
@@ -415,6 +456,14 @@ function collect(summary) {
   const cp = (from, to) => docker(["cp", from, `${out}/${to}`], { allowFail: true });
   cp("tc-world:/srv/deploy/logs", "deploy-logs");
   if (board) cp("tc-world:/srv/board/messages.jsonl", "messages.jsonl");
+  if (typedBoard) {
+    // the owner reads the talk in their language: every landed message decoded, then the digest a person can take in
+    const landed = boardMessages(), refused = refusedMessages();
+    writeFileSync(`${out}/refused.jsonl`, refused.map((r) => JSON.stringify(r)).join("\n") + (refused.length ? "\n" : ""));
+    writeFileSync(`${out}/messages.${lang}.md`, landed.map((m) => `#${m.n} ${m.at.slice(11, 19)}  ${m.message ? decode(m.message, m.from, lang) : m.text}
+      ${m.text}`).join("\n") + "\n");
+    writeFileSync(`${out}/digest.${lang}.md`, digest(landed, refused, { lang }).join("\n") + "\n");
+  }
   for (const r of ["repo-a", "repo-b"]) {
     // written under /srv, not /tmp: world's /tmp is a tmpfs, which `docker cp` cannot read (no bundle in any record before 2026-10-31)
     if (docker(["exec", "tc-world", "git", "-c", "safe.directory=*", "--git-dir", `/srv/git/${r}.git`, "bundle", "create", `/srv/${r}.bundle`, "--all"], { allowFail: true }) !== null) cp(`tc-world:/srv/${r}.bundle`, `${r}.bundle`);
@@ -444,6 +493,7 @@ async function main() {
   let lastCheck = Date.now();
   while (!reference) {
     await sleep(2000);
+    takeRefused();
     const r = takeClaims();
     if (r) {
       last = r;
@@ -459,6 +509,7 @@ async function main() {
   }
   if (!reference) {
     // A last look: a claim made just before the agents stopped is judged now, with the final state.
+    takeRefused();
     takeClaims();
     last = judge("final");
   }
@@ -469,7 +520,17 @@ async function main() {
     score: last.score, shipped: last.shipped, firstShipSeconds: firstShip,
     seconds: Math.round((Date.now() - t0) / 1000),
     claims: claims.map(({ key, ...c }) => c), falseClaims: claims.filter((c) => !c.true).length,
-    messages: boardMessages().length, ledgerEntries: Object.fromEntries(names.map((n) => [n, ledgerEntries(n).length])),
+    messages: boardMessages().length,
+    talk: board ? { characters: boardMessages().reduce((n, m) => n + m.text.length, 0) } : undefined,
+    typed: typedBoard ? {
+      language: "cellspeak/0", lang,
+      refused: refusedMessages().length,
+      refusedByReason: refusedMessages().reduce((o, r) => ({ ...o, [r.reason]: (o[r.reason] ?? 0) + 1 }), {}),
+      refusedClaims,
+      notes: boardMessages().filter((m) => m.message?.type === "note").length,
+      digest: digest(boardMessages(), refusedMessages(), { lang }),
+    } : undefined,
+    ledgerEntries: Object.fromEntries(names.map((n) => [n, ledgerEntries(n).length])),
     turns: turns(),
     usage: agentUsage(),
     agentsExited: Object.fromEntries(names.map((n) => [n, finished(n)])),

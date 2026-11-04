@@ -47,14 +47,15 @@ function goal() {
   const template = text.split(/^---$/m)[1].trim();
   const solo = channel === "0";
   const ledger = channel === "L" || channel === "LM";
-  const board = channel === "M" || channel === "LM";
+  const board = channel === "M" || channel === "LM" || channel === "MT";
+  const typed = channel === "MT";
   const roles = !solo && process.env.AGENT_ROLES === "1";
   const together = solo ? quoted(text, "alone:")
     : roles ? quoted(text, name === "a" ? "**`{{together}}`**, in a pair with roles" : "with roles, creature-b:")
     : quoted(text, "**`{{together}}`**, in a pair:").replaceAll("{{peer}}", peer);
   const repos = solo ? "you own both and can push to both" : `you own \`repo-${name}\` and can push only to it; you can read \`repo-${peer}\``;
-  const channelText = [ledger ? quoted(text, "**`{{channel}}`**, ledger (L):") : "", board ? quoted(text, "messages (M):") : ""].filter(Boolean).join("\n\n");
-  const done = solo ? "in your final message" : ledger && board ? "with `cell release --evidence`, and on the board in a message that starts with DONE"
+  const channelText = [ledger ? quoted(text, "**`{{channel}}`**, ledger (L):") : "", board ? quoted(text, typed ? "typed messages (MT):" : "messages (M):") : ""].filter(Boolean).join("\n\n");
+  const done = solo ? "in your final message" : typed ? "with a `done` message on the board whose checks include the app at `http://world:8080/`" : ledger && board ? "with `cell release --evidence`, and on the board in a message that starts with DONE"
     : ledger ? "with `cell release --evidence`" : "on the board, in a message that starts with DONE";
   return template.replaceAll("{{together}}", together).replaceAll("{{repos}}", repos).replaceAll("{{channel}}", channelText).replaceAll("{{done}}", done);
 }
