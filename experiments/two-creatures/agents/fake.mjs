@@ -9,7 +9,7 @@
 //   polite        slice T1, no roles: both claim the same goal, then each waits on the other for a plan, the polite
 //                 failure of docs/design-turns.md. `cell turn` picks one to break the deadlock; it proposes a plan as
 //                 a file; the other reads it and answers; the settled plan says who builds which half.
-//   typed         issue #47, no roles: a pair that speaks only Latin 1 (lang/v0.mjs) on a typed board (channel
+//   typed         issue #47, no roles: a pair that speaks only Latin 1 r1 (lang/v1.mjs) on a typed board (channel
 //                 MT); every claim about the world carries a check the board runs before the message lands.
 //   typed-liar    typed, and b also claims the app done before anything is published, then in prose; both refused.
 //   simultaneous  slice T1, no roles: both propose a plan at once, before either has seen the other's, the "both
@@ -231,7 +231,7 @@ async function buildMyPart(parts) {
   await done();
 }
 
-// ---- issue #47: a pair that speaks only Latin 1 on a typed board (channel MT) -----------------------------
+// ---- issue #47: a pair that speaks only Latin 1 r1 on a typed board (channel MT) -----------------------------
 
 /**
  * One typed message: as fields through the message tool (`speak`, the language's own encoder), the way the honest pair

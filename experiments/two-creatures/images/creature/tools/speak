@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// speak '<fields as JSON>': the message tool on a typed board (channel MT, Latin 1): the message as typed fields,
+// speak '<fields as JSON>': the message tool on a typed board (channel MT, Latin 1 r1): the message as typed fields,
 // e.g. speak '{"type":"done","task":"app","checks":[{"kind":"deployed","repo":"repo-b"}]}'. The language's own encoder
 // (/x/lang/v1.mjs, the same one a model's `message` tool uses) writes the one canonical text, and the board gets it
 // marked as sent through the tool. Prints "said #n: <text>" and how the owner reads it, or the reason it was refused.

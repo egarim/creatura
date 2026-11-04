@@ -1,4 +1,4 @@
-// Latin 1: the typed language two creatures speak on the board (issue #47, docs/design-agent-language.md).
+// Latin 1 r1: the typed language two creatures speak on the board (issue #47, docs/design-agent-language.md).
 // v0 (lang/v0.mjs) stays as it was, so the runs made with it (log #95, #96) decode as they were. v1 adds what the
 // first paid run (log #96) wrote as prose because v0 had no word for it, and a tool to speak it:
 //
@@ -25,7 +25,7 @@
 // So what was sent, what the peer reads and what the owner reads are three views of one value, and nothing in between
 // is free text a model wrote, apart from a note's or a reason's own words.
 
-export const VERSION = "latin/1";
+export const VERSION = "latin1/r1";
 export const TYPES = ["claim", "propose", "accept", "object", "offer", "done", "verified", "need", "ask", "block", "change", "note"];
 export const LANGS = ["en", "es", "ru"];
 export const NOTE_LIMIT = 120;
@@ -125,7 +125,7 @@ function text(rest, what) {
 }
 
 /**
- * Parse one line of Latin 1. Returns the message as data ({type, ...fields}), or throws an Error whose message
+ * Parse one line of Latin 1 r1. Returns the message as data ({type, ...fields}), or throws an Error whose message
  * says what is wrong; `parse.safe` returns {ok, message} or {ok:false, error} instead.
  */
 export function parse(line) {

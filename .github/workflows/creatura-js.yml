@@ -52,7 +52,7 @@ jobs:
       - run: npm run summary --silent
         working-directory: js/creatura-tutor
 
-  # Latin 0, the typed language of the two-creatures MT arm (docs/design-agent-language.md, issue #47): the parser,
+  # Latin 1 r0, the typed language of the two-creatures MT arm (docs/design-agent-language.md, issue #47): the parser,
   # the board's rules, the decoders and the digest. Plain Node, no packages.
   latin:
     runs-on: ubuntu-latest
