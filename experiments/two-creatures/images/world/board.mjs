@@ -1,5 +1,5 @@
 // The message board, on world:7000, in the arms with messages: a plain shared chat with no structure, or, in the arms
-// with typed messages (BOARD_MODE=typed, channel MT), a board that takes only Latin 1 r1 (lang/v1.mjs, issue #47; v0 for the runs of log #95 and #96).
+// with typed messages (BOARD_MODE=typed, channel MT), a board that takes only Latin 1 r2 (lang/v2.mjs, issue #47; v0 for the runs of log #95 and #96).
 //   POST /say     {"from": "a", "text": "..."}  -> {"n": 7}
 //   GET  /listen?since=6                         -> [{"n": 7, "at": "...", "from": "a", "text": "..."}]
 // Every message is kept in /srv/board/messages.jsonl, which the runner collects.
@@ -9,10 +9,11 @@
 // The world runs them itself: the deployer's status, the git repositories, the published app. A refused message gets
 // 422 with the reason, never reaches the peer, and is kept in /srv/board/refused.jsonl for the record.
 import { createServer } from "node:http";
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { admit, checksFor, parse, GRAMMAR, VERSION } from "./lang/v1.mjs";
+import { admit, checksFor, parse, GRAMMAR, VERSION } from "./lang/v2.mjs";
 
+const GOAL_DIR = "/srv/board/goal";
 const file = "/srv/board/messages.jsonl";
 const refusedFile = "/srv/board/refused.jsonl";
 const typed = process.env.BOARD_MODE === "typed";
@@ -24,8 +25,35 @@ function reply(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+/**
+ * The goal's own test (Latin 1 r2, `check goal`): the judge's five steps. The judge needs a browser and the creatura CLI,
+ * which run beside the runner on the host, not on world; so the board leaves a request in /srv/board/goal/ and waits
+ * for the runner (which looks at world every two seconds) to run the judge and write its score back. No answer in five
+ * minutes, as on a world without a runner, is a test that did not pass.
+ */
+async function goalTest(c, from) {
+  const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  mkdirSync(GOAL_DIR, { recursive: true });
+  writeFileSync(`${GOAL_DIR}/${id}.request`, JSON.stringify({ id, from, at: new Date().toISOString() }) + "\n");
+  // the runner writes <id>.result.tmp and renames it, so a .result is whole when it appears; a file that still does not
+  // parse is read again until the deadline, and a result that is not a score is a test that did not pass
+  const end = Date.now() + 300000;
+  while (Date.now() < end) {
+    let r = null;
+    try { r = JSON.parse(readFileSync(`${GOAL_DIR}/${id}.result`, "utf8")); } catch { r = null; }
+    if (r) {
+      if (r.changed === true) return { ok: false, retry: true, saw: "the goal's own test: a deploy changed while it ran, so it says nothing; say the done again" };
+      if (!Number.isInteger(r.score) || r.score < 0 || r.score > 5) return { ok: false, saw: "the goal's own test: the judge gave no score" };
+      return { ok: r.score === 5, score: r.score, saw: `the goal's own test scored ${r.score}/5${typeof r.failed === "string" ? ` (failed: ${r.failed.slice(0, 120)})` : ""}` };
+    }
+    await new Promise((done) => setTimeout(done, 1000));
+  }
+  return { ok: false, saw: "the goal's own test: no answer from the judge in 5 minutes" };
+}
+
 /** One check, run by the world: whether it holds now, and what was seen. */
-async function holds(c) {
+async function holds(c, from) {
+  if (c.kind === "goal") return goalTest(c, from);
   try {
     if (c.kind === "deployed") {
       const status = await fetch("http://127.0.0.1:7001/status", { signal: AbortSignal.timeout(5000) }).then((r) => r.json());
@@ -58,12 +86,17 @@ async function judgeTyped(from, text) {
   if (rule) return { error: rule, reason: rule.startsWith("no change") ? "repeat" : "rule" };
   const { checks, mustPass } = checksFor(p.message);
   const seen = [];
-  for (const c of checks) {
-    const r = await holds(c);
+  let goal;
+  // the quick checks first, the goal's test (half a minute) last, so a done that fails a quick one is refused at once
+  for (const c of [...checks].sort((x, y) => (x.kind === "goal") - (y.kind === "goal"))) {
+    const r = await holds(c, from);
     seen.push(r.saw);
+    if (r.retry) return { error: r.saw, reason: "changed", check: c, seen };
     if (r.ok !== mustPass) return { error: mustPass ? `the world does not agree: ${r.saw}` : `you don't need it: ${r.saw} already`, reason: mustPass ? "world" : "needless", check: c, seen };
+    if (c.kind === "goal") goal = r.score;
   }
-  return { message: p.message, seen };
+  // a landed done with the goal's test carries that test's score, so the record need not judge it again (log #99 review)
+  return { message: p.message, seen, ...(goal !== undefined ? { goal } : {}) };
 }
 
 function refuse(res, from, text, { error, reason, check, seen }) {
@@ -72,6 +105,10 @@ function refuse(res, from, text, { error, reason, check, seen }) {
 }
 
 let queue = Promise.resolve(); // one typed message at a time, so the rules see every earlier message
+
+// the board is the run's only channel: an error it did not expect is logged, never allowed to stop it
+process.on("unhandledRejection", (e) => console.error(`board: unexpected ${e?.stack ?? e}`));
+process.on("uncaughtException", (e) => console.error(`board: unexpected ${e?.stack ?? e}`));
 
 createServer((req, res) => {
   const url = new URL(req.url, "http://world");
@@ -98,11 +135,27 @@ createServer((req, res) => {
         reply(res, 200, { n: message.n });
       };
       if (!typed) return land(m.text);
+      const text = m.text.trim();
+      const via = m.via === "tool" ? "tool" : "say";
+      const p = parse.safe(text);
+      if (p.ok && checksFor(p.message).checks.some((c) => c.kind === "goal")) {
+        // the goal's test takes half a minute or more: it runs outside the queue, so the peer's messages are not held
+        // behind it, and the board's rules are asked again, in the queue, at the moment the message lands
+        // every path ends in exactly one reply: a failure anywhere is a 500 with the reason, never a request left hanging
+        judgeTyped(from, text).then((r) => {
+          queue = queue.then(() => {
+            if (r.error) return refuse(res, from, text, r);
+            const rule = admit(r.message, { from, messages });
+            if (rule) return refuse(res, from, text, { error: rule, reason: rule.startsWith("no change") ? "repeat" : "rule", seen: r.seen });
+            land(text, { message: r.message, via, seen: r.seen, goal: r.goal });
+          }).catch((e) => { if (!res.headersSent) reply(res, 500, { error: e.message }); });
+        }).catch((e) => { if (!res.headersSent) reply(res, 500, { error: `the board failed while checking: ${e.message}` }); });
+        return;
+      }
       queue = queue.then(async () => {
-        const text = m.text.trim();
         const r = await judgeTyped(from, text);
         if (r.error) return refuse(res, from, text, r);
-        land(text, { message: r.message, via: m.via === "tool" ? "tool" : "say", ...(r.seen.length ? { seen: r.seen } : {}) });
+        land(text, { message: r.message, via, ...(r.seen.length ? { seen: r.seen } : {}) });
       }).catch((e) => reply(res, 500, { error: e.message }));
     });
     return;

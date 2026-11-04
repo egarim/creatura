@@ -12,6 +12,8 @@
 //   typed         issue #47, no roles: a pair that speaks only Latin 1 r1 (lang/v1.mjs) on a typed board (channel
 //                 MT); every claim about the world carries a check the board runs before the message lands.
 //   typed-liar    typed, and b also claims the app done before anything is published, then in prose; both refused.
+//   typed-sloppy  typed, and b first ships log #98's bug (ticking an item does not save) and claims the app done with
+//                 the goal's own test (Latin 1 r2), which must refuse it; then b fixes the bug and says done again.
 //   simultaneous  slice T1, no roles: both propose a plan at once, before either has seen the other's, the "both
 //                 lead" failure. `cell turn` settles the competition by entry hash; the loser answers the winner.
 // It talks only through its arm's channel: the ledger (cell claim/progress/wait/propose/answer/turn/share/files/
@@ -25,6 +27,7 @@ const env = Object.fromEntries(readFileSync(`${process.env.HOME}/.creature.env`,
 const { NAME: name, PEER: peer, CHANNEL: channel } = env;
 const kind = process.env.KIND ?? (process.env.LIE ? "liar" : "fake");
 const lie = kind === "liar" || kind === "typed-liar" || Boolean(process.env.LIE);
+const sloppy = kind === "typed-sloppy";
 const turnDriven = kind === "polite" || kind === "simultaneous";
 const solo = channel === "0";
 const ledger = channel === "L" || channel === "LM";
@@ -61,10 +64,12 @@ The server is the compose service \`api\`, on port 3000, reachable by that name 
 The UI publishes port 8080 and passes /api/* to http://api:3000.
 `;
 
-function push(repo, from) {
+/** The reference half `from` pushed to `repo`'s main and deploy; with `broken`, one of its BREAK switches on (a fresh history each time, so a later push is forced). */
+function push(repo, from, broken = "") {
   sh(`rm -rf /tmp/${repo} && cp -R /x/reference/${from} /tmp/${repo}`);
-  sh(`cd /tmp/${repo} && git init -q -b main && git -c user.name=${name} -c user.email=${name}@two-creatures add -A && git -c user.name=${name} -c user.email=${name}@two-creatures commit -q -m "${repo}: the ${from === "repo-a" ? "server" : "UI"}" && git push -q world:${repo}.git HEAD:main HEAD:deploy 2>&1`);
-  log(`pushed ${repo} to deploy`);
+  if (broken) writeFileSync(`/tmp/${repo}/.env`, `BREAK=${broken}\n`);
+  sh(`cd /tmp/${repo} && git init -q -b main && git -c user.name=${name} -c user.email=${name}@two-creatures add -A && git -c user.name=${name} -c user.email=${name}@two-creatures commit -q -m "${repo}: the ${from === "repo-a" ? "server" : "UI"}${broken ? ` (BREAK=${broken})` : ""}" && git push -q -f world:${repo}.git HEAD:main HEAD:deploy 2>&1`);
+  log(`pushed ${repo} to deploy${broken ? ` with BREAK=${broken}` : ""}`);
 }
 
 const status = async () => (await fetch("http://world:7001/status").then((r) => r.json()).catch(() => ({})));
@@ -297,21 +302,37 @@ async function typedPair() {
     await sleep(90000);
   }
   await until("a's done server", async () => (await boardNow()).find((m) => fromPeer(m) && m.message.type === "done" && m.message.task === "server"));
-  push("repo-b", "repo-b");
+  const answering = () => until("the published app answering", () => fetch("http://world:8080/api/items").then((r) => r.json()).then(Array.isArray).catch(() => false), 120);
+  // r2: a claim that the app works carries the goal's own test, which the world runs (about half a minute)
+  const appDone = { type: "done", task: "app", checks: [{ kind: "deployed", repo: "repo-b" }, { kind: "array", url: "http://world:8080/api/items" }, { kind: "goal" }] };
+  if (sloppy) {
+    // log #98's bug: ticking an item does not save (the reference UI's BREAK=check). Every check a creature would pick
+    // passes; the goal's test must not, so the done must be refused, and then the bug fixed and the done said again.
+    push("repo-b", "repo-b", "check");
+    await running("repo-b");
+    await answering();
+    const first = speak(appDone);
+    if (first.n) throw new Error("the board let a done land on an app whose checkbox does not save");
+    log(`the goal's test refused the done (${first.error}); fixing the checkbox`);
+    push("repo-b", "repo-b");
+    await sleep(5000);   // the deployer takes the fixed push; until then the status still says running
+  } else {
+    push("repo-b", "repo-b");
+  }
   await running("repo-b");
-  await until("the published app answering", () => fetch("http://world:8080/api/items").then((r) => r.json()).then(Array.isArray).catch(() => false), 120);
-  await doneWhenTrue({ type: "done", task: "app", checks: [{ kind: "deployed", repo: "repo-b" }, { kind: "array", url: "http://world:8080/api/items" }, { kind: "http", url: "http://world:8080/", status: 200 }] });
+  await answering();
+  await doneWhenTrue(appDone);
   log("DONE");
   await until("a's ask", async () => (await boardNow()).find((m) => fromPeer(m) && m.message.type === "ask" && m.message.of === "b"));
-  // a fake does not restart anything (the judge does that); it answers the ask with the state the restart must keep
-  await doneWhenTrue({ type: "done", task: "restart", checks: [{ kind: "deployed", repo: "repo-b" }, { kind: "array", url: "http://world:8080/api/items" }] }, 60);
+  // a fake does not restart anything (the goal's test does); it answers the ask with the test the restart is part of
+  await doneWhenTrue({ type: "done", task: "restart", checks: [{ kind: "deployed", repo: "repo-b" }, { kind: "goal" }] }, 120);
 }
 
 // ---- the parts ------------------------------------------------------------------------------------------------
 
 async function main() {
   log(`start (${kind}), channel ${channel}${solo ? ", alone" : `, peer ${peer}`}`);
-  if (kind === "typed" || kind === "typed-liar") {
+  if (kind === "typed" || kind === "typed-liar" || kind === "typed-sloppy") {
     if (channel !== "MT") throw new Error(`${kind} speaks on a typed board: an arm with channel MT`);
     return typedPair();
   }

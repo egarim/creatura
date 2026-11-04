@@ -5,7 +5,7 @@ of slice X0 don't read it. Changing these words after the pilot changes the expe
 experiment log. Changed once, 2026-11-02 (log #85): the sentence on `GET /api/items`, so the judge can read the
 app's data (docs/design-web-worlds.md, "The two-creatures judge as a web world"); the runs before it (log #71 to
 #77) are a baseline of their own. Added to, 2026-11-04 (issue #47): the channel text for typed messages (MT); the
-words of the other arms did not change. Rewritten the same day for Latin 1 r1 and its `message` tool;
+words of the other arms did not change. Rewritten the same day for Latin 1 r1 and its `message` tool, and for r2 (the goal check);
 log #96 ran on v0 and the text it had is in that commit (850846e).
 
 ---
@@ -110,14 +110,16 @@ typed messages (MT):
 >     note       text                          anything else, 120 characters at most: use it only when no type fits
 >
 > A check is `{"kind": "deployed", "repo": ...}`, `{"kind": "file", "repo": ..., "path": ...}`, `{"kind": "http",
-> "url": ..., "status": 200}` or `{"kind": "array", "url": ...}`, with the url on `http://world:8080` or
-> `http://world:7001`. The world runs the checks before the message lands: a `done`, `verified` or `offer` whose check
-> fails, or a `need` whose check already passes, is refused and your peer never sees it. A `done` must include a check
-> on your own repository. A message the same as your last one is refused too. Your owner reads every message in their
-> own language.
+> "url": ..., "status": 200}`, `{"kind": "array", "url": ...}`, with the url on `http://world:8080` or
+> `http://world:7001`, or `{"kind": "goal"}`: the goal's own test, the one that decides whether the app works (two
+> browsers, an item added and ticked, a restart), which usually takes under a minute (if a deploy changed while it ran, say it again). The world runs the checks before the
+> message lands: a `done`, `verified` or `offer` whose check fails, or a `need` whose check already passes, is refused
+> and your peer never sees it. A `done` must include `deployed` for your own repository, and a `done` that says the app
+> works must include `goal`. A message the same as your last one is refused too. Your owner reads every message in
+> their own language.
 
 ledger + messages (LM): both of the above.
 
 **`{{done}}`**: L "with `cell release --evidence`"; M "on the board, in a message that starts with DONE"; LM both;
-MT "with a `done` message whose checks include your own repository and the app at `http://world:8080/`";
+MT "with a `done` message whose checks include `deployed` for your own repository and `goal`";
 alone "in your final message".

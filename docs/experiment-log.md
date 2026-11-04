@@ -597,3 +597,45 @@ runs are recorded only in the design note.
 - #98: `run.mjs --arm DD-MT --agents deepseek,deepseek --minutes 45 --budget 1 --check-every 300`
 
 </details>
+
+## Step L4
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 99 | 2026-11-04 17:42 | `3eb69f0`* | test | — | Latin 1 r2: a claim that the app works carries the goal's own test; the sloppy pair's done refused at 3/5, then 5/5 | Latin 1 r2 (lang/v2.mjs, latin1/r2), from log #98, where both creatures said the app was done with checks the world agreed with while ticking an item did not save (3/5). Changes: a new check, `goal`, the goal's own test (the judge's five steps), run by the world before the message lands. A done that looks at the published app must carry it. A done's own-work check must be `deployed repo-<me>`; a file no longer counts.  The board cannot run the judge itself (the judge needs a browser and the creatura CLI on the host), so it leaves a request in /srv/board/goal/ and waits up to 5 min. The runner answers it with the real judge and writes the score back with the first failed step (typed.goalTests in summary.json). A message waiting for its test is held outside the board's queue.  lang tests: 31 of 31 (r0 11, r1 9, r2 11), also in CI. Fake runs on ubuntu-box, FF-MT, free: (1) typed,typed-sloppy, es: b shipped log #98's bug (the reference UI's BREAK=check) and said "done app check deployed repo-b and array http://world:8080/api/items and goal". The goal's test scored it 3/5 ("the answer holds no {name: milk ..., bought: true}") and the done was refused. b fixed the bug, the test scored 5/5, and the done landed. Final 5/5, 0 false claims. The Spanish digest leads with the refusal. (2) typed,typed, en: 5/5. Both goal tests 5/5, 0 refused. (3) typed,typed-liar, en: 5/5. The early done without goal was refused by the rule, the prose DONE as not Latin, 0 false claims. The digest's sentence for a done the goal's test refused now gives the score, in the owner's language ("la prueba del propio objetivo dio 3/5"). A paid DD-MT run on r2 waits for the owner's go. |  |
+
+<details><summary>Commands</summary>
+
+- #99: `node --test lang/v0.test.mjs lang/v1.test.mjs lang/v2.test.mjs; run.mjs --arm FF-MT --agents typed,typed-sloppy --lang es; typed,typed; typed,typed-liar`
+
+</details>
+
+## Step L5
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 100 | 2026-11-04 18:32 | `3eb69f0`* | check | — | Codex reviews Latin 1 r2 before the paid run: nine findings, then three more over three passes, all fixed | Before the paid run on Latin 1 r2, the owner asked for a review by Codex (codex-cli 0.146.0, read-only, `codex exec -s read-only`), so as not to wait 45 minutes for another mistake. Four passes; each later pass reviewed only the fix commit.  Pass 1 (the whole r2 diff), nine findings: - The goal result file could be read half written, and the board's out-of-queue path had no rejection handler, so a crash there could hang the tool call or stop the board (blocking). - The timeouts did not nest: the judge could take about 6 min, the board waited 5. - A request was marked served before its answer was written. - A late goal request could be lost at teardown. - The runner is blocked while the judge runs (accepted, bounded). - A done that landed on the goal test was judged again and could be miscounted. - A deploy during the test could make the score describe other code. - The tool silently dropped or misread check shapes. - The result was not validated. Fixed: - The result is written to .tmp and renamed, the board treats an unparsable file as not ready, every request gets exactly one reply, and an unexpected error is logged, never fatal. - Each judge step is capped at 110 s. - A request is served only once its answer is written, with a retry otherwise. - The goal test's own score is used for the claim. - The deploy versions are compared before and after the test; if they changed, the answer is "changed, say it again". - Checks sent as JSON text are read, and a field a check does not take is refused. - The score is validated. Pass 2: two left. With mixed claims, a goal claim that shipped could drop out of firstShip; at the time limit the agents kept running during the drain. Pass 3: keep the earliest shipped goal claim; kill every process of the agent user, not just the driver (a spawned shell could still deploy). Pass 4: the first-ship time must keep the goal claim's own time. All fixed.  The model agent now writes its usage on SIGTERM. The creature image has no pgrep, so the stop uses pkill -0. Verified on ubuntu-box with fake pairs, all 5/5 and 0 false claims: - sloppy, 20 min: the done was refused at 3/5, then landed at 5/5; claims scored by the goal test, none judged again. - honest: 5/5. - sloppy cut at 1 min: the agents were stopped in 11 s, the late goal test was answered, and its claim counted. - liar: both lies refused. 32 language tests pass. |  |
+
+<details><summary>Commands</summary>
+
+- #100: `codex exec -s read-only (4 passes); run.mjs --arm FF-MT --agents typed,typed-sloppy\|typed,typed\|typed,typed-liar, and sloppy --minutes 1`
+
+</details>
+
+## Step L6
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 101 | 2026-11-04 19:21 | `3eb69f0`* | test | — | Latin 1 r2 on DeepSeek: 3/5, 0 false claims, 18 goal tests refused the same bug; network failures took b out; USD 1.84 | The first paid run on Latin 1 r2 (owner's go, after Codex's review, log #100). DD-MT, deepseek-chat, no roles, 45 min and USD 1 per creature at most. A first attempt (15:32) ended at once at USD 0: both agents' DeepSeek calls failed ("fetch failed"), a network outage on ubuntu-box. Rerun at 15:35. One run: an anecdote.  Result: 3/5, NOT shipped, 0 false claims: no false done landed. 22 messages landed, all through the tool; 23 refused by the world (21 the goal's test or a failed check, 1 needless, 1 "changed": a deploy during the test). 18 goal tests ran, every one 3/5. The step that failed was always 4: an item ticked in one browser was not seen ticked in the other within 5 s. That is log #98's failure, where the same kind of claim landed as done; here each was refused.  The agents debugged through the language. a asked "share grader checkbox selector" of b. b found that GET /api/items omitted the id, so the UI PATCHed /api/items/undefined (404), and asked a to add it. Then b asked "poll even when document hidden" (the second browser stops polling in the background) and "stop using innerHTML in render" (the redraw loses the click). a accepted b's plan (#2) and proposed that b publish instead. b offered its own UI (offer shopping-ui at repo-b:app/index.html), but b's deploys never ran: its image builds failed on world's network ("docker.io times out", true at 15:41-15:42, gone later).  The run was hurt by ubuntu-box's network three times: DeepSeek at 15:33, Docker Hub at 15:41, and DeepSeek again at about 16:12, which stopped b's driver for good (stoppedBy error). a stopped on its budget (USD 1.00, 139 calls, 3.5M input tokens, 3.2M of them cache hits); b USD 0.83. Total USD 1.84, against the USD 0.2-0.3 the owner was told: the run went the full 45 minutes, with a long context, instead of the 10 minutes of #96 and #98.  The tool refused 26 of the agents' 71 message calls before sending: names of more than 40 characters (whole sentences as an ask's action, "tell me which docker images world already has"), notes over 120 characters, and propose terms with spaces. Nothing malformed reached the board, but each refusal cost a call.  The digest put all 21 refusals on one line; it now counts a repeated refusal (×18) instead of repeating it (33 tests pass).  For r3, from this run: a name has a short limit, and models put the request in it; ask should take the request as its own text, with a short label. A rerun is needed on a stable network. |  |
+
+<details><summary>Commands</summary>
+
+- #101: `run.mjs --arm DD-MT --agents deepseek,deepseek --minutes 45 --budget 1 --check-every 300`
+
+</details>

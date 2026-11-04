@@ -9,9 +9,9 @@
 // AGENT_BUDGET (USD). Every call and command goes to ~/agent-transcript.jsonl, what it spent to ~/agent-usage.json.
 import { spawnSync } from "node:child_process";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
-// Latin 1 r1 (issue #47): on a typed board (channel MT) the model speaks through the `message` tool, whose fields the
+// Latin 1 r2 (issue #47): on a typed board (channel MT) the model speaks through the `message` tool, whose fields the
 // language's own encoder turns into the one canonical message, so what it sends is never free text it wrote
-import { TOOL as MESSAGE_TOOL, decode as decodeMessage, encode as encodeMessage } from "../lang/v1.mjs";
+import { TOOL as MESSAGE_TOOL, decode as decodeMessage, encode as encodeMessage } from "../lang/v2.mjs";
 
 const HOME = process.env.HOME;
 const env = Object.fromEntries(readFileSync(`${HOME}/.creature.env`, "utf8").split("\n").filter((l) => l.includes("=")).map((l) => l.split("=", 2)));
@@ -58,7 +58,7 @@ function goal() {
     : quoted(text, "**`{{together}}`**, in a pair:").replaceAll("{{peer}}", peer);
   const repos = solo ? "you own both and can push to both" : `you own \`repo-${name}\` and can push only to it; you can read \`repo-${peer}\``;
   const channelText = [ledger ? quoted(text, "**`{{channel}}`**, ledger (L):") : "", board ? quoted(text, typed ? "typed messages (MT):" : "messages (M):") : ""].filter(Boolean).join("\n\n");
-  const done = solo ? "in your final message" : typed ? "with a `done` message whose checks include your own repository and the app at `http://world:8080/`" : ledger && board ? "with `cell release --evidence`, and on the board in a message that starts with DONE"
+  const done = solo ? "in your final message" : typed ? "with a `done` message whose checks include `deployed` for your own repository and `goal`" : ledger && board ? "with `cell release --evidence`, and on the board in a message that starts with DONE"
     : ledger ? "with `cell release --evidence`" : "on the board, in a message that starts with DONE";
   return template.replaceAll("{{together}}", together).replaceAll("{{repos}}", repos).replaceAll("{{channel}}", channelText).replaceAll("{{done}}", done);
 }
@@ -103,7 +103,7 @@ function shell(command) {
 async function message(fields) {
   const e = encodeMessage.safe(fields);
   if (!e.ok) return { ok: false, text: "(not encoded)", reply: `refused before sending: ${e.error}` };
-  const res = await fetch(`http://${env.WORLD ?? "world"}:7000/say`, { method: "POST", body: JSON.stringify({ from: name, text: e.text, via: "tool" }), signal: AbortSignal.timeout(30000) }).catch((err) => ({ ok: false, status: 0, statusText: err.message }));
+  const res = await fetch(`http://${env.WORLD ?? "world"}:7000/say`, { method: "POST", body: JSON.stringify({ from: name, text: e.text, via: "tool" }), signal: AbortSignal.timeout(360000) }).catch((err) => ({ ok: false, status: 0, statusText: err.message }));
   if (res.status === 422) {
     const why = ((await res.json().catch(() => ({}))).error ?? "no reason given").split("\n")[0];
     return { ok: false, text: e.text, reply: `refused: ${why}\n(sent: ${e.text})` };
@@ -223,6 +223,14 @@ async function main() {
   record({ kind: "end", ...usage });
   log(`end: ${usage.stoppedBy}; ${usage.steps} commands, ${usage.calls} calls, ${usage.promptTokens} in / ${usage.completionTokens} out tokens (${usage.cacheHitTokens} cache hits), USD ${usage.cost.toFixed(4)}, ${usage.seconds} s`);
 }
+
+// stopped by the runner at its time limit (pkill sends SIGTERM): what was spent is still written, so the cost is in the record
+process.on("SIGTERM", () => {
+  usage.stoppedBy = usage.stoppedBy ?? "runner";
+  usage.seconds = Math.round((Date.now() - started) / 1000);
+  try { writeFileSync(USAGE, JSON.stringify(usage, null, 1) + "\n"); record({ kind: "end", ...usage }); } catch { /* nothing to do */ }
+  process.exit(143);
+});
 
 main().catch((e) => {
   log(`failed: ${e.message}`);

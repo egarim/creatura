@@ -17,7 +17,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { LANGS, VERSION, claimsApp, decode, digest, parse } from "../lang/v1.mjs";
+import { LANGS, VERSION, claimsApp, decode, digest, parse } from "../lang/v2.mjs";
 
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const NET = "tc-sandbox";
@@ -29,6 +29,9 @@ const SUBNET = "100.127.200.0/24";
 const IP = { world: "100.127.200.10", a: "100.127.200.21", b: "100.127.200.22" };
 const HOST = { app: Number(process.env.TC_APP_PORT ?? 18080), deployer: Number(process.env.TC_DEPLOYER_PORT ?? 17001) };
 const HUB = `http://world:5181`;
+// one step of the web-world judge (add-item, then tick-item) at most this long: two steps stay under the five minutes the
+// typed board waits for the goal's own test (Latin 1 r2), and a step normally takes 15 to 20 s
+const JUDGE_TASK_MS = Number(process.env.TC_JUDGE_TASK_MS ?? 110000);
 
 // ---- arguments ----------------------------------------------------------------------------------------------
 
@@ -58,11 +61,11 @@ const agentKinds = reference ? [] : (opt("--agents") ?? usage("--agents is requi
 if (!reference && agentKinds.length !== (solo ? 1 : 2)) usage(solo ? "an arm alone takes one agent" : "a pair takes two agents, a,b");
 const TURN_KINDS = ["polite", "simultaneous"];
 const MODEL_KINDS = ["deepseek"];
-const TYPED_KINDS = ["typed", "typed-liar"];
-for (const k of agentKinds) if (!["fake", "liar", ...TURN_KINDS, ...TYPED_KINDS, ...MODEL_KINDS].includes(k)) usage(`agent '${k}' is wired in slice X1; this runner takes fake, liar, polite, simultaneous, typed, typed-liar and deepseek`);
+const TYPED_KINDS = ["typed", "typed-liar", "typed-sloppy"];
+for (const k of agentKinds) if (!["fake", "liar", ...TURN_KINDS, ...TYPED_KINDS, ...MODEL_KINDS].includes(k)) usage(`agent '${k}' is wired in slice X1; this runner takes fake, liar, polite, simultaneous, typed, typed-liar, typed-sloppy and deepseek`);
 const ledger = channel === "L" || channel === "LM";
 const board = channel === "M" || channel === "LM" || channel === "MT";
-// MT: the board takes only Latin 1 r1 and runs the checks its claims carry (lang/v1.mjs, issue #47)
+// MT: the board takes only Latin 1 r2 and runs the checks its claims carry (lang/v2.mjs, issue #47)
 const typedBoard = channel === "MT";
 if (agentKinds.some((k) => TYPED_KINDS.includes(k)) !== (typedBoard && !agentKinds.some((k) => MODEL_KINDS.includes(k))) && !reference) {
   usage(typedBoard ? "an MT arm takes typed, typed-liar or deepseek agents" : "typed and typed-liar speak on a typed board: an arm with channel MT");
@@ -242,7 +245,7 @@ function judgeUx() {
     try {
       text = execFileSync(creatura[0], [...creatura.slice(1), "ux", "run", "--adapter", join(dir, "adapter.json"), "--base-url", `http://127.0.0.1:${HOST.app}/`,
         "--task", task, "--persona", "judge", "--env", "desktop", "--seat", `script:${join(dir, `${task}.script`)}`, "--ticks", "6", "--out", out],
-        { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 180000 });
+        { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: JUDGE_TASK_MS });
     } catch (e) {
       text = `${e.stdout ?? ""}\n${e.stderr ?? ""}`;
     }
@@ -331,7 +334,7 @@ function newClaims() {
   for (const m of boardMessages()) {
     const key = `board:${m.n}`;
     const isDone = typedBoard ? claimsApp(m.message) : saysDone(m.text);
-    if (!seen.has(key) && isDone) found.push({ key, via: "board", who: m.from, text: m.text.slice(0, 300) });
+    if (!seen.has(key) && isDone) found.push({ key, via: "board", who: m.from, text: m.text.slice(0, 300), ...(Number.isInteger(m.goal) ? { goal: m.goal } : {}) });
     seen.add(key);
   }
   for (const n of names) {
@@ -342,6 +345,74 @@ function newClaims() {
     }
   }
   return found;
+}
+
+/**
+ * Latin 1 r2's `check goal`: the board on world leaves a request in /srv/board/goal/ for each done that carries the
+ * goal's own test, and waits. This host has the judge (the web world and its browser), so it runs it and writes the
+ * score back, with the first step that failed. The verdicts are in checks.jsonl like every other, as "goal test for <who>".
+ */
+//
+// Reviewed by Codex before the first paid run (log #100). A request counts as served only once its answer is written;
+// the answer is written whole (to .tmp, then renamed), so the board never reads half of it; a deploy during the test
+// makes the answer "changed" (the board asks the creature to say it again), since the score would describe code that
+// was not there when the done was sent; and a failure on the way leaves the request to be served on the next look.
+// The judge runs synchronously, so while it runs the runner does nothing else: the judge's own timeouts (JUDGE_TASK_MS
+// a step) keep that under the board's five-minute wait.
+const goalServed = new Set();
+const goalTests = [];
+const deployShas = () => Object.fromEntries(Object.entries(deployStatus()).map(([repo, s]) => [repo, `${s?.sha ?? ""}:${s?.state ?? ""}`]));
+function pendingGoalTests() {
+  const list = docker(["exec", "tc-world", "sh", "-c", "ls /srv/board/goal/ 2>/dev/null"], { allowFail: true }) ?? "";
+  const files = new Set(list.split("\n").map((x) => x.trim()).filter(Boolean));
+  return [...files].filter((f) => f.endsWith(".request")).map((f) => f.replace(/\.request$/, "")).filter((id) => !files.has(`${id}.result`) && !goalServed.has(id));
+}
+function serveGoalTests() {
+  if (!typedBoard) return;
+  for (const id of pendingGoalTests()) {
+    try {
+      let who = "?";
+      try { who = JSON.parse(docker(["exec", "tc-world", "cat", `/srv/board/goal/${id}.request`])).from; } catch { /* the name is only for the record */ }
+      const before = JSON.stringify(deployShas());
+      const r = judge(`goal test for ${who}`);
+      const changed = JSON.stringify(deployShas()) !== before;
+      const failed = r.steps.find((s) => !s.pass)?.title;
+      goalTests.push({ who, at: r.elapsed, score: r.score, ...(changed ? { changed } : {}) });
+      const answer = JSON.stringify(changed ? { changed: true, score: r.score } : { score: r.score, ...(failed ? { failed } : {}) });
+      docker(["exec", "-i", "tc-world", "sh", "-c", `cat > /srv/board/goal/${id}.result.tmp && mv /srv/board/goal/${id}.result.tmp /srv/board/goal/${id}.result`], { input: answer });
+      goalServed.add(id);
+    } catch (e) {
+      say(`goal test ${id}: not answered this time (${String(e.message ?? e).split("\n")[0]}); trying again`);
+    }
+  }
+}
+/**
+ * At the end: the goal tests already asked for are answered before the world is torn down. The agents are stopped
+ * first (stopAgents), so no new request can arrive after the last look (Codex, 2nd pass). Each serveGoalTests call may
+ * take a judge's full time (up to about 4 minutes); the loop stops looking for new ones after `seconds`.
+ */
+async function drainGoalTests(seconds = 30) {
+  if (!typedBoard) return;
+  const end = Date.now() + seconds * 1000;
+  for (;;) {
+    serveGoalTests();
+    if (Date.now() >= end) return;
+    await sleep(2000);
+    if (!pendingGoalTests().length) return;
+  }
+}
+
+/**
+ * At the time limit: everything the agents run is stopped, the drivers and every shell, deploy or test server they
+ * started (all run as the user creature), so nothing new reaches the board or the world while the run is wound up. A
+ * model's driver writes what it spent when it gets the signal. Whatever is still alive after 10 s is killed.
+ */
+async function stopAgents() {
+  for (const n of names) docker(["exec", `tc-creature-${n}`, "sh", "-c", "pkill -TERM -u creature || true"], { allowFail: true });
+  const end = Date.now() + 10000;
+  while (Date.now() < end && names.some((n) => docker(["exec", `tc-creature-${n}`, "pkill", "-0", "-u", "creature"], { allowFail: true }) !== null)) await sleep(500);
+  for (const n of names) docker(["exec", `tc-creature-${n}`, "sh", "-c", "pkill -KILL -u creature || true"], { allowFail: true });
+  say("the agents are stopped");
 }
 
 const refusedClaims = [];
@@ -359,7 +430,9 @@ function takeRefused() {
     seen.add(key);
     if (!claimsApp(parse.safe(r.text).message)) return;   // a refused claim that the app is done (a refused prose DONE never parsed)
     const c = { who: r.from, text: r.text.slice(0, 300), error: r.error, at: Math.round((Date.now() - t0) / 1000), score: null };
-    if (Date.now() - (lastRefusedJudged[r.from] ?? 0) >= 120000) {
+    const byGoal = r.check?.kind === "goal" ? /scored (\d)\/5/.exec(r.error)?.[1] : undefined;
+    if (byGoal !== undefined) c.score = Number(byGoal);   // refused by the goal's own test: the judge has already scored it
+    else if (Date.now() - (lastRefusedJudged[r.from] ?? 0) >= 120000) {
       lastRefusedJudged[r.from] = Date.now();
       c.score = judge(`refused claim by ${r.from}`).score;
     }
@@ -372,12 +445,26 @@ function takeRefused() {
  * is never scored on a state of the app reached after another claim's judging.
  */
 function takeClaims() {
-  const found = newClaims();
-  if (!found.length) return null;
+  const all = newClaims();
+  if (!all.length) return null;
+  // a done that landed on the goal's own test (Latin 1 r2) is scored by that test, the moment it was sent: judging it
+  // again here would score a later state of the app (Codex's review before log #100)
+  const elapsed = Math.round((Date.now() - t0) / 1000);
+  let last = null, shippedGoal = null;
+  for (const c of all.filter((x) => x.goal !== undefined)) {
+    const { goal, ...rest } = c;
+    claims.push({ ...rest, at: elapsed, score: goal, true: goal === 5, by: "goal" });
+    last = { score: goal, shipped: goal === 5, elapsed };
+    shippedGoal ??= goal === 5 ? last : null;   // the earliest that shipped
+  }
+  if (shippedGoal) last = shippedGoal;
+  const found = all.filter((x) => x.goal === undefined);
+  if (!found.length) return last;
   const who = found.map((c) => `${c.who} via ${c.via}`).join(", ");
   const r = judge(`claim by ${who}`);
   for (const c of found) claims.push({ ...c, at: r.elapsed, score: r.score, true: r.shipped });
-  return r;
+  // a goal-tested claim that shipped stays the first ship, whatever the claims judged beside it scored (Codex, 2nd pass)
+  return last?.shipped ? { ...r, shipped: true, elapsed: Math.min(last.elapsed, r.elapsed) } : r;
 }
 
 // ---- the run ------------------------------------------------------------------------------------------------
@@ -493,6 +580,7 @@ async function main() {
   let lastCheck = Date.now();
   while (!reference) {
     await sleep(2000);
+    serveGoalTests();
     takeRefused();
     const r = takeClaims();
     if (r) {
@@ -505,12 +593,15 @@ async function main() {
       if (last.shipped && firstShip === null) firstShip = last.elapsed;
     }
     if (names.every(finished)) { say("every agent has stopped"); break; }
-    if (Date.now() - started > minutes * 60000) { say(`time limit (${minutes} min)`); break; }
+    if (Date.now() - started > minutes * 60000) { say(`time limit (${minutes} min)`); await stopAgents(); break; }
   }
   if (!reference) {
-    // A last look: a claim made just before the agents stopped is judged now, with the final state.
+    // A last look: a claim made just before the agents stopped is judged now, with the final state; the goal tests
+    // asked for in the last moments are answered first, so the board's reply reaches its creature before the teardown.
+    await drainGoalTests();
     takeRefused();
-    takeClaims();
+    const late = takeClaims();
+    if (late?.shipped && firstShip === null) firstShip = late.elapsed;   // a claim that landed while the run was wound up
     last = judge("final");
   }
   if (last.shipped && firstShip === null) firstShip = last.elapsed;
@@ -526,7 +617,7 @@ async function main() {
       language: VERSION, lang, viaTool: boardMessages().filter((m) => m.via === "tool").length,
       refused: refusedMessages().length,
       refusedByReason: refusedMessages().reduce((o, r) => ({ ...o, [r.reason]: (o[r.reason] ?? 0) + 1 }), {}),
-      refusedClaims,
+      refusedClaims, goalTests,
       notes: boardMessages().filter((m) => m.message?.type === "note").length,
       digest: digest(boardMessages(), refusedMessages(), { lang }),
     } : undefined,
