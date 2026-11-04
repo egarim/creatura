@@ -17,7 +17,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { LANGS, VERSION, claimsApp, decode, digest, parse } from "../lang/v1.mjs";
+import { LANGS, VERSION, claimsApp, decode, digest, parse } from "../lang/v2.mjs";
 
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const NET = "tc-sandbox";
@@ -58,11 +58,11 @@ const agentKinds = reference ? [] : (opt("--agents") ?? usage("--agents is requi
 if (!reference && agentKinds.length !== (solo ? 1 : 2)) usage(solo ? "an arm alone takes one agent" : "a pair takes two agents, a,b");
 const TURN_KINDS = ["polite", "simultaneous"];
 const MODEL_KINDS = ["deepseek"];
-const TYPED_KINDS = ["typed", "typed-liar"];
-for (const k of agentKinds) if (!["fake", "liar", ...TURN_KINDS, ...TYPED_KINDS, ...MODEL_KINDS].includes(k)) usage(`agent '${k}' is wired in slice X1; this runner takes fake, liar, polite, simultaneous, typed, typed-liar and deepseek`);
+const TYPED_KINDS = ["typed", "typed-liar", "typed-sloppy"];
+for (const k of agentKinds) if (!["fake", "liar", ...TURN_KINDS, ...TYPED_KINDS, ...MODEL_KINDS].includes(k)) usage(`agent '${k}' is wired in slice X1; this runner takes fake, liar, polite, simultaneous, typed, typed-liar, typed-sloppy and deepseek`);
 const ledger = channel === "L" || channel === "LM";
 const board = channel === "M" || channel === "LM" || channel === "MT";
-// MT: the board takes only Latin 1 r1 and runs the checks its claims carry (lang/v1.mjs, issue #47)
+// MT: the board takes only Latin 1 r2 and runs the checks its claims carry (lang/v2.mjs, issue #47)
 const typedBoard = channel === "MT";
 if (agentKinds.some((k) => TYPED_KINDS.includes(k)) !== (typedBoard && !agentKinds.some((k) => MODEL_KINDS.includes(k))) && !reference) {
   usage(typedBoard ? "an MT arm takes typed, typed-liar or deepseek agents" : "typed and typed-liar speak on a typed board: an arm with channel MT");
@@ -344,6 +344,29 @@ function newClaims() {
   return found;
 }
 
+/**
+ * Latin 1 r2's `check goal`: the board on world leaves a request in /srv/board/goal/ for each done that carries the
+ * goal's own test, and waits. This host has the judge (the web world and its browser), so it runs it and writes the
+ * score back, with the first step that failed. The verdicts are in checks.jsonl like every other, as "goal test for <who>".
+ */
+const goalServed = new Set();
+const goalTests = [];
+function serveGoalTests() {
+  if (!typedBoard) return;
+  const list = docker(["exec", "tc-world", "sh", "-c", "ls /srv/board/goal/ 2>/dev/null"], { allowFail: true }) ?? "";
+  for (const f of list.split("\n").filter((x) => x.endsWith(".request"))) {
+    const id = f.replace(/\.request$/, "");
+    if (goalServed.has(id)) continue;
+    goalServed.add(id);
+    let who = "?";
+    try { who = JSON.parse(docker(["exec", "tc-world", "cat", `/srv/board/goal/${f}`])).from; } catch { /* the name is only for the record */ }
+    const r = judge(`goal test for ${who}`);
+    const failed = r.steps.find((s) => !s.pass)?.title;
+    goalTests.push({ who, at: r.elapsed, score: r.score });
+    docker(["exec", "-i", "tc-world", "sh", "-c", `cat > /srv/board/goal/${id}.result`], { input: JSON.stringify({ score: r.score, ...(failed ? { failed } : {}) }) });
+  }
+}
+
 const refusedClaims = [];
 const lastRefusedJudged = {};
 /**
@@ -359,7 +382,9 @@ function takeRefused() {
     seen.add(key);
     if (!claimsApp(parse.safe(r.text).message)) return;   // a refused claim that the app is done (a refused prose DONE never parsed)
     const c = { who: r.from, text: r.text.slice(0, 300), error: r.error, at: Math.round((Date.now() - t0) / 1000), score: null };
-    if (Date.now() - (lastRefusedJudged[r.from] ?? 0) >= 120000) {
+    const byGoal = r.check?.kind === "goal" ? /scored (\d)\/5/.exec(r.error)?.[1] : undefined;
+    if (byGoal !== undefined) c.score = Number(byGoal);   // refused by the goal's own test: the judge has already scored it
+    else if (Date.now() - (lastRefusedJudged[r.from] ?? 0) >= 120000) {
       lastRefusedJudged[r.from] = Date.now();
       c.score = judge(`refused claim by ${r.from}`).score;
     }
@@ -493,6 +518,7 @@ async function main() {
   let lastCheck = Date.now();
   while (!reference) {
     await sleep(2000);
+    serveGoalTests();
     takeRefused();
     const r = takeClaims();
     if (r) {
@@ -509,6 +535,7 @@ async function main() {
   }
   if (!reference) {
     // A last look: a claim made just before the agents stopped is judged now, with the final state.
+    serveGoalTests();
     takeRefused();
     takeClaims();
     last = judge("final");
@@ -526,7 +553,7 @@ async function main() {
       language: VERSION, lang, viaTool: boardMessages().filter((m) => m.via === "tool").length,
       refused: refusedMessages().length,
       refusedByReason: refusedMessages().reduce((o, r) => ({ ...o, [r.reason]: (o[r.reason] ?? 0) + 1 }), {}),
-      refusedClaims,
+      refusedClaims, goalTests,
       notes: boardMessages().filter((m) => m.message?.type === "note").length,
       digest: digest(boardMessages(), refusedMessages(), { lang }),
     } : undefined,

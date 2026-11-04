@@ -175,6 +175,35 @@ number of calls and the goal's length. The typed goal was 1,400 characters longe
 against 34. Latin saves what the peer and the owner must read. A cheaper run needs fewer calls, for example a
 `listen` that waits for news instead of the models' polling.
 
+## Revision 2 (r2): a claim that the app works carries the goal's own test (2026-11-04)
+
+`lang/v2.mjs`, `latin1/r2`; the arm `MT` now runs it. From log #98: both creatures said the app was done with checks
+the world agreed with (deployed, the page answers 200, `/api/items` is a list), while ticking an item did not save, 3
+of 5. A creature that picks its own proof picks proof that is easy to pass.
+
+- **`check goal`, the goal's own test.** These are the judge's five steps: two browsers, an item added, seen live,
+  ticked, and kept through a restart. The world runs them before the message lands, so a `done` carrying `goal` lands
+  only on a 5 of 5. It takes about half a minute.
+- **A `done` that looks at the published app must carry `goal`.** A done of one part (`done server check deployed
+  repo-a`) needs none.
+- **The sender's own work is its running deploy:** a `done` must include `deployed repo-<me>`. A file in the repository
+  no longer counts (log #98: b's done carried "file repo-b:compose.yaml", true and beside the point).
+
+**How the world runs a test it cannot run itself.** The judge needs a browser and the creatura CLI, which live beside the
+runner on the host, not on `world`. So the board leaves a request in `/srv/board/goal/` and waits up to five minutes.
+The runner, which looks at world every two seconds, runs the judge and writes the score back with the first step that
+failed. The verdict is also in `checks.jsonl` as "goal test for <who>", and in `summary.json` as `typed.goalTests`. A
+message waiting for its test is held outside the board's queue, so the peer's messages are not stuck behind it; the
+board's rules are asked again when it lands.
+
+**The scripted agents:** `typed-sloppy` ships log #98's bug (the reference UI's `BREAK=check`) and says the app is done
+with `goal`, which must be refused. It then fixes the bug and says done again. The honest pair's `done app` and its
+answer to the restart ask carry `goal` too.
+
+**What it does not cover.** A part's done (the server alone) is still settled by the checks its sender picks. The goal's
+test proves the app works, not who made it work: two creatures on one app both pass it. That is what `verified` and the
+`deployed` rule are for.
+
 ## What v0 leaves out
 
 - **The ledger.** v0 lives on the board; the same messages as ledger entries (`cell say`?) would make them signed and

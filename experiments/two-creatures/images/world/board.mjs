@@ -1,5 +1,5 @@
 // The message board, on world:7000, in the arms with messages: a plain shared chat with no structure, or, in the arms
-// with typed messages (BOARD_MODE=typed, channel MT), a board that takes only Latin 1 r1 (lang/v1.mjs, issue #47; v0 for the runs of log #95 and #96).
+// with typed messages (BOARD_MODE=typed, channel MT), a board that takes only Latin 1 r2 (lang/v2.mjs, issue #47; v0 for the runs of log #95 and #96).
 //   POST /say     {"from": "a", "text": "..."}  -> {"n": 7}
 //   GET  /listen?since=6                         -> [{"n": 7, "at": "...", "from": "a", "text": "..."}]
 // Every message is kept in /srv/board/messages.jsonl, which the runner collects.
@@ -9,10 +9,11 @@
 // The world runs them itself: the deployer's status, the git repositories, the published app. A refused message gets
 // 422 with the reason, never reaches the peer, and is kept in /srv/board/refused.jsonl for the record.
 import { createServer } from "node:http";
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { admit, checksFor, parse, GRAMMAR, VERSION } from "./lang/v1.mjs";
+import { admit, checksFor, parse, GRAMMAR, VERSION } from "./lang/v2.mjs";
 
+const GOAL_DIR = "/srv/board/goal";
 const file = "/srv/board/messages.jsonl";
 const refusedFile = "/srv/board/refused.jsonl";
 const typed = process.env.BOARD_MODE === "typed";
@@ -24,8 +25,30 @@ function reply(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+/**
+ * The goal's own test (Latin 1 r2, `check goal`): the judge's five steps. The judge needs a browser and the creatura CLI,
+ * which run beside the runner on the host, not on world; so the board leaves a request in /srv/board/goal/ and waits
+ * for the runner (which looks at world every two seconds) to run the judge and write its score back. No answer in five
+ * minutes, as on a world without a runner, is a test that did not pass.
+ */
+async function goalTest(c, from) {
+  const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  mkdirSync(GOAL_DIR, { recursive: true });
+  writeFileSync(`${GOAL_DIR}/${id}.request`, JSON.stringify({ id, from, at: new Date().toISOString() }) + "\n");
+  const end = Date.now() + 300000;
+  while (Date.now() < end) {
+    if (existsSync(`${GOAL_DIR}/${id}.result`)) {
+      const r = JSON.parse(readFileSync(`${GOAL_DIR}/${id}.result`, "utf8"));
+      return { ok: r.score === 5, saw: `the goal's own test scored ${r.score}/5${r.failed ? ` (failed: ${r.failed})` : ""}` };
+    }
+    await new Promise((done) => setTimeout(done, 1000));
+  }
+  return { ok: false, saw: "the goal's own test: no answer from the judge in 5 minutes" };
+}
+
 /** One check, run by the world: whether it holds now, and what was seen. */
-async function holds(c) {
+async function holds(c, from) {
+  if (c.kind === "goal") return goalTest(c, from);
   try {
     if (c.kind === "deployed") {
       const status = await fetch("http://127.0.0.1:7001/status", { signal: AbortSignal.timeout(5000) }).then((r) => r.json());
@@ -58,8 +81,9 @@ async function judgeTyped(from, text) {
   if (rule) return { error: rule, reason: rule.startsWith("no change") ? "repeat" : "rule" };
   const { checks, mustPass } = checksFor(p.message);
   const seen = [];
-  for (const c of checks) {
-    const r = await holds(c);
+  // the quick checks first, the goal's test (half a minute) last, so a done that fails a quick one is refused at once
+  for (const c of [...checks].sort((x, y) => (x.kind === "goal") - (y.kind === "goal"))) {
+    const r = await holds(c, from);
     seen.push(r.saw);
     if (r.ok !== mustPass) return { error: mustPass ? `the world does not agree: ${r.saw}` : `you don't need it: ${r.saw} already`, reason: mustPass ? "world" : "needless", check: c, seen };
   }
@@ -98,11 +122,26 @@ createServer((req, res) => {
         reply(res, 200, { n: message.n });
       };
       if (!typed) return land(m.text);
+      const text = m.text.trim();
+      const via = m.via === "tool" ? "tool" : "say";
+      const p = parse.safe(text);
+      if (p.ok && checksFor(p.message).checks.some((c) => c.kind === "goal")) {
+        // the goal's test takes half a minute or more: it runs outside the queue, so the peer's messages are not held
+        // behind it, and the board's rules are asked again, in the queue, at the moment the message lands
+        judgeTyped(from, text).then((r) => {
+          queue = queue.then(() => {
+            if (r.error) return refuse(res, from, text, r);
+            const rule = admit(r.message, { from, messages });
+            if (rule) return refuse(res, from, text, { error: rule, reason: rule.startsWith("no change") ? "repeat" : "rule", seen: r.seen });
+            land(text, { message: r.message, via, seen: r.seen });
+          }).catch((e) => reply(res, 500, { error: e.message }));
+        });
+        return;
+      }
       queue = queue.then(async () => {
-        const text = m.text.trim();
         const r = await judgeTyped(from, text);
         if (r.error) return refuse(res, from, text, r);
-        land(text, { message: r.message, via: m.via === "tool" ? "tool" : "say", ...(r.seen.length ? { seen: r.seen } : {}) });
+        land(text, { message: r.message, via, ...(r.seen.length ? { seen: r.seen } : {}) });
       }).catch((e) => reply(res, 500, { error: e.message }));
     });
     return;

@@ -597,3 +597,17 @@ runs are recorded only in the design note.
 - #98: `run.mjs --arm DD-MT --agents deepseek,deepseek --minutes 45 --budget 1 --check-every 300`
 
 </details>
+
+## Step L4
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 99 | 2026-11-04 17:42 | `3eb69f0`* | test | — | Latin 1 r2: a claim that the app works carries the goal's own test; the sloppy pair's done refused at 3/5, then 5/5 | Latin 1 r2 (lang/v2.mjs, latin1/r2), from log #98, where both creatures said the app was done with checks the world agreed with while ticking an item did not save (3/5). Changes: a new check, `goal`, the goal's own test (the judge's five steps), run by the world before the message lands. A done that looks at the published app must carry it. A done's own-work check must be `deployed repo-<me>`; a file no longer counts.  The board cannot run the judge itself (the judge needs a browser and the creatura CLI on the host), so it leaves a request in /srv/board/goal/ and waits up to 5 min. The runner answers it with the real judge and writes the score back with the first failed step (typed.goalTests in summary.json). A message waiting for its test is held outside the board's queue.  lang tests: 31 of 31 (r0 11, r1 9, r2 11), also in CI. Fake runs on ubuntu-box, FF-MT, free: (1) typed,typed-sloppy, es: b shipped log #98's bug (the reference UI's BREAK=check) and said "done app check deployed repo-b and array http://world:8080/api/items and goal". The goal's test scored it 3/5 ("the answer holds no {name: milk ..., bought: true}") and the done was refused. b fixed the bug, the test scored 5/5, and the done landed. Final 5/5, 0 false claims. The Spanish digest leads with the refusal. (2) typed,typed, en: 5/5. Both goal tests 5/5, 0 refused. (3) typed,typed-liar, en: 5/5. The early done without goal was refused by the rule, the prose DONE as not Latin, 0 false claims. The digest's sentence for a done the goal's test refused now gives the score, in the owner's language ("la prueba del propio objetivo dio 3/5"). A paid DD-MT run on r2 waits for the owner's go. |  |
+
+<details><summary>Commands</summary>
+
+- #99: `node --test lang/v0.test.mjs lang/v1.test.mjs lang/v2.test.mjs; run.mjs --arm FF-MT --agents typed,typed-sloppy --lang es; typed,typed; typed,typed-liar`
+
+</details>

@@ -61,4 +61,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test experiments/two-creatures/lang/v0.test.mjs experiments/two-creatures/lang/v1.test.mjs
+      - run: node --test experiments/two-creatures/lang/v0.test.mjs experiments/two-creatures/lang/v1.test.mjs experiments/two-creatures/lang/v2.test.mjs
