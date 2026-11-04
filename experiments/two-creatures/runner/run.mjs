@@ -402,9 +402,17 @@ async function drainGoalTests(seconds = 30) {
   }
 }
 
-/** At the time limit: the agents' drivers are stopped, so nothing new reaches the board while the run is wound up. */
-function stopAgents() {
-  for (const n of names) docker(["exec", `tc-creature-${n}`, "sh", "-c", "pkill -f /x/agents/ || true"], { allowFail: true });
+/**
+ * At the time limit: everything the agents run is stopped, the drivers and every shell, deploy or test server they
+ * started (all run as the user creature), so nothing new reaches the board or the world while the run is wound up. A
+ * model's driver writes what it spent when it gets the signal. Whatever is still alive after 10 s is killed.
+ */
+async function stopAgents() {
+  for (const n of names) docker(["exec", `tc-creature-${n}`, "sh", "-c", "pkill -TERM -u creature || true"], { allowFail: true });
+  const end = Date.now() + 10000;
+  while (Date.now() < end && names.some((n) => docker(["exec", `tc-creature-${n}`, "pkill", "-0", "-u", "creature"], { allowFail: true }) !== null)) await sleep(500);
+  for (const n of names) docker(["exec", `tc-creature-${n}`, "sh", "-c", "pkill -KILL -u creature || true"], { allowFail: true });
+  say("the agents are stopped");
 }
 
 const refusedClaims = [];
@@ -442,12 +450,14 @@ function takeClaims() {
   // a done that landed on the goal's own test (Latin 1 r2) is scored by that test, the moment it was sent: judging it
   // again here would score a later state of the app (Codex's review before log #100)
   const elapsed = Math.round((Date.now() - t0) / 1000);
-  let last = null;
+  let last = null, shippedGoal = null;
   for (const c of all.filter((x) => x.goal !== undefined)) {
     const { goal, ...rest } = c;
     claims.push({ ...rest, at: elapsed, score: goal, true: goal === 5, by: "goal" });
     last = { score: goal, shipped: goal === 5, elapsed };
+    shippedGoal ??= goal === 5 ? last : null;   // the earliest that shipped
   }
+  if (shippedGoal) last = shippedGoal;
   const found = all.filter((x) => x.goal === undefined);
   if (!found.length) return last;
   const who = found.map((c) => `${c.who} via ${c.via}`).join(", ");
@@ -583,14 +593,15 @@ async function main() {
       if (last.shipped && firstShip === null) firstShip = last.elapsed;
     }
     if (names.every(finished)) { say("every agent has stopped"); break; }
-    if (Date.now() - started > minutes * 60000) { say(`time limit (${minutes} min)`); stopAgents(); break; }
+    if (Date.now() - started > minutes * 60000) { say(`time limit (${minutes} min)`); await stopAgents(); break; }
   }
   if (!reference) {
     // A last look: a claim made just before the agents stopped is judged now, with the final state; the goal tests
     // asked for in the last moments are answered first, so the board's reply reaches its creature before the teardown.
     await drainGoalTests();
     takeRefused();
-    takeClaims();
+    const late = takeClaims();
+    if (late?.shipped && firstShip === null) firstShip = late.elapsed;   // a claim that landed while the run was wound up
     last = judge("final");
   }
   if (last.shipped && firstShip === null) firstShip = last.elapsed;
