@@ -42,7 +42,7 @@ async function goalTest(c, from) {
     let r = null;
     try { r = JSON.parse(readFileSync(`${GOAL_DIR}/${id}.result`, "utf8")); } catch { r = null; }
     if (r) {
-      if (r.changed) return { ok: false, retry: true, saw: "the goal's own test: a deploy changed while it ran, so it says nothing; say the done again" };
+      if (r.changed === true) return { ok: false, retry: true, saw: "the goal's own test: a deploy changed while it ran, so it says nothing; say the done again" };
       if (!Number.isInteger(r.score) || r.score < 0 || r.score > 5) return { ok: false, saw: "the goal's own test: the judge gave no score" };
       return { ok: r.score === 5, score: r.score, saw: `the goal's own test scored ${r.score}/5${typeof r.failed === "string" ? ` (failed: ${r.failed.slice(0, 120)})` : ""}` };
     }

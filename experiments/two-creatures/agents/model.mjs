@@ -224,6 +224,14 @@ async function main() {
   log(`end: ${usage.stoppedBy}; ${usage.steps} commands, ${usage.calls} calls, ${usage.promptTokens} in / ${usage.completionTokens} out tokens (${usage.cacheHitTokens} cache hits), USD ${usage.cost.toFixed(4)}, ${usage.seconds} s`);
 }
 
+// stopped by the runner at its time limit (pkill sends SIGTERM): what was spent is still written, so the cost is in the record
+process.on("SIGTERM", () => {
+  usage.stoppedBy = usage.stoppedBy ?? "runner";
+  usage.seconds = Math.round((Date.now() - started) / 1000);
+  try { writeFileSync(USAGE, JSON.stringify(usage, null, 1) + "\n"); record({ kind: "end", ...usage }); } catch { /* nothing to do */ }
+  process.exit(143);
+});
+
 main().catch((e) => {
   log(`failed: ${e.message}`);
   usage.stoppedBy = usage.stoppedBy ?? "error";

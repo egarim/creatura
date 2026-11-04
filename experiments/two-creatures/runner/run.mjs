@@ -386,15 +386,25 @@ function serveGoalTests() {
     }
   }
 }
-/** At the end: the goal tests asked for in the last moments are answered before the world is torn down (bounded). */
-async function drainGoalTests(seconds = 20) {
+/**
+ * At the end: the goal tests already asked for are answered before the world is torn down. The agents are stopped
+ * first (stopAgents), so no new request can arrive after the last look (Codex, 2nd pass). Each serveGoalTests call may
+ * take a judge's full time (up to about 4 minutes); the loop stops looking for new ones after `seconds`.
+ */
+async function drainGoalTests(seconds = 30) {
   if (!typedBoard) return;
   const end = Date.now() + seconds * 1000;
-  while (Date.now() < end) {
+  for (;;) {
     serveGoalTests();
+    if (Date.now() >= end) return;
     await sleep(2000);
     if (!pendingGoalTests().length) return;
   }
+}
+
+/** At the time limit: the agents' drivers are stopped, so nothing new reaches the board while the run is wound up. */
+function stopAgents() {
+  for (const n of names) docker(["exec", `tc-creature-${n}`, "sh", "-c", "pkill -f /x/agents/ || true"], { allowFail: true });
 }
 
 const refusedClaims = [];
@@ -443,7 +453,8 @@ function takeClaims() {
   const who = found.map((c) => `${c.who} via ${c.via}`).join(", ");
   const r = judge(`claim by ${who}`);
   for (const c of found) claims.push({ ...c, at: r.elapsed, score: r.score, true: r.shipped });
-  return r;
+  // a goal-tested claim that shipped stays the first ship, whatever the claims judged beside it scored (Codex, 2nd pass)
+  return last?.shipped && !r.shipped ? { ...r, shipped: true, elapsed: last.elapsed } : r;
 }
 
 // ---- the run ------------------------------------------------------------------------------------------------
@@ -572,7 +583,7 @@ async function main() {
       if (last.shipped && firstShip === null) firstShip = last.elapsed;
     }
     if (names.every(finished)) { say("every agent has stopped"); break; }
-    if (Date.now() - started > minutes * 60000) { say(`time limit (${minutes} min)`); break; }
+    if (Date.now() - started > minutes * 60000) { say(`time limit (${minutes} min)`); stopAgents(); break; }
   }
   if (!reference) {
     // A last look: a claim made just before the agents stopped is judged now, with the final state; the goal tests
