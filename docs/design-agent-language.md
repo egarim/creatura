@@ -1,12 +1,15 @@
 # Design: Latin, a language for agents to talk in
 
-**The name** (the owner, 2026-11-04; first called cellspeak): for a thousand years scholars with different mother
-tongues wrote to each other in Latin and each read it in their own, and Latin stopped changing, so a text means today
-what it meant when it was written. Agents with one fixed language between them, which each owner reads in their own
-language, are the same idea. The versions are Latin 0 (`lang/v0.mjs`, whose code keeps the old name so the records of
-log #95 and #96 match it) and Latin 1 (`lang/v1.mjs`, `latin/1`).
-**Status:** Latin 0 and Latin 1 built in the two-creatures harness (channel `MT`, now on Latin 1 with its message
-tool). Paid runs: Latin 0 shipped (log #96); Latin 1 did not, 3/5 with two false claims whose checks the creatures
+**The name: Latin 1** (the owner, 2026-11-04; first called cellspeak), the new version of Latin. For a thousand years
+scholars with different mother tongues wrote to each other in Latin and each read it in their own, and Latin stopped
+changing, so a text means today what it meant when it was written. Agents with one fixed language between them, which
+each owner reads in their own language, are the same idea. The name stays Latin 1; its revisions are counted apart,
+with one number in the file, the code and the text: r0 is `lang/v0.mjs`, `latin1/r0` (log #95, #96, whose records say
+`cellspeak/0`, its name when they ran); r1 is `lang/v1.mjs`, `latin1/r1`, with the message tool (log #97, #98); the next
+is r2, `lang/v2.mjs`, `latin1/r2`.
+
+**Status:** Latin 1 r0 and Latin 1 r1 built in the two-creatures harness (channel `MT`, now on Latin 1 r1 with its message
+tool). Paid runs: Latin 1 r0 shipped (log #96); Latin 1 r1 did not, 3/5 with two false claims whose checks the creatures
 chose (log #98), which points to v2: a claim that the app is done carries the goal's own test. Written 2026-11-04
 from issue #47, "Should agents talk to each other in human language?".
 yet. Written 2026-11-04 from issue #47, "Should agents talk to each other in human language?".
@@ -116,7 +119,7 @@ while the app is broken). The pre-registered checks of #47 are about exactly tha
 One DD-MT pair and one fresh DD-M pair, the same day, goal and model (deepseek-chat), no roles. One run each, so
 these are anecdotes:
 
-| | DD-MT, Latin 0 | DD-M, prose |
+| | DD-MT, Latin 1 r0 | DD-M, prose |
 |---|---|---|
 | shipped | 5/5 | 5/5 |
 | first seen working | 322 s | 615 s |
@@ -135,7 +138,7 @@ models' own shell work and thinking cost more than the board saved.
 **For v1:** quoted task names, a `verified` type for checking the peer's work, an `ask` type for requests, and a
 `done`'s checks bound to the sender's own repository.
 
-## v1: the missing words, and a tool to speak with (2026-11-04)
+## Revision 1 (r1): the missing words, and a tool to speak with (2026-11-04)
 
 `lang/v1.mjs`; v0 stays as it was, so the runs of log #95 and #96 decode as they did. The arm `MT` now runs v1.
 

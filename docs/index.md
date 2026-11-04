@@ -34,7 +34,7 @@ agent tools around it, as hosts and as cells.
 - [Turns, so two cells neither wait on each other nor both lead](design-turns.md): waits, proposals and answers in
   the ledger, and `creatura cell turn`, which says whose move it is, the same in every home (T0 built; T1, the fake
   pairs with no roles, built).
-- [A language for agents to talk in](design-agent-language.md): Latin 0, ten typed messages whose claims carry
+- [A language for agents to talk in](design-agent-language.md): Latin 1 r0, ten typed messages whose claims carry
   checks the world runs, decoded into the owner's language, with a digest for the person in the loop (v0 built as the
   two-creatures arm MT, with fake agents; issue #47).
 - [Web worlds](design-web-worlds.md): a persona uses a real web app through Playwright, sees only the visible text

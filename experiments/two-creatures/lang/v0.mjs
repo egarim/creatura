@@ -1,4 +1,4 @@
-// Cellspeak v0: the typed language two creatures may speak on the board (issue #47, docs/design-agent-language.md).
+// Latin 1 r0: the typed language two creatures may speak on the board (issue #47, docs/design-agent-language.md).
 // One message per line, one of ten types. Every message decodes word for word into the owner's language (en, es, ru),
 // and the messages that claim something about the world carry a check the world runs before the message lands:
 //
@@ -19,7 +19,7 @@
 // This module is pure: parsing, the rules that need only the board's messages, decoding and the digest. Running a
 // check is the board's job (images/world/board.mjs), because only the world can say what the world is.
 
-export const VERSION = "cellspeak/0";
+export const VERSION = "latin1/r0";
 export const TYPES = ["claim", "propose", "accept", "object", "offer", "done", "need", "block", "change", "note"];
 export const LANGS = ["en", "es", "ru"];
 export const NOTE_LIMIT = 120;
@@ -31,7 +31,7 @@ const PATH = /^(?!.*\.\.)[A-Za-z0-9._/-]{1,100}$/;
 const URL_ = /^http:\/\/world:(8080|7001)(\/[A-Za-z0-9._~%/?&=-]*)?$/;
 const WHO = /^(?:creature-)?([ab])$/;
 
-export const GRAMMAR = `cellspeak v0, one message per line:
+export const GRAMMAR = `Latin 1 (r0), one message per line:
   claim <task> [until <n>m] | propose <topic> <key>=<value>... | accept #<n> | object #<n> because <text>
   offer <name> at <repo>:<path> | done <task> check <check> [and <check>]... | need <thing> from <a|b> [because <check>]
   block <task> on <thing> | change <field> <old> -> <new> | note <text, at most ${NOTE_LIMIT} characters>
@@ -89,7 +89,7 @@ function check(t) {
 const end = (t, type) => { if (t.length) refuse(`unexpected '${t.join(" ")}' at the end of ${type}`); };
 
 /**
- * Parse one line of cellspeak v0. Returns the message as data ({type, ...fields}), or throws an Error whose message
+ * Parse one line of Latin 1 r0. Returns the message as data ({type, ...fields}), or throws an Error whose message
  * says what is wrong; `parse.safe` returns {ok, message} or {ok:false, error} instead.
  */
 export function parse(line) {
@@ -319,9 +319,9 @@ export function decode(m, from, lang = "en") {
 // ---- refusals, in the owner's language -------------------------------------------------------------------------
 
 const REFUSAL = {
-  en: { doesNot: (c) => `does not hold: ${c}`, already: (c) => `already holds: ${c}`, language: "not cellspeak", rule: "breaks a board rule", repeat: "a repeat", claim: (t) => `said ${t} was done` },
-  es: { doesNot: (c) => `no se cumple: ${c}`, already: (c) => `ya se cumple: ${c}`, language: "no es cellspeak", rule: "rompe una regla del tablero", repeat: "una repetición", claim: (t) => `dijo que ${t} estaba terminado` },
-  ru: { doesNot: (c) => `не выполнено: ${c}`, already: (c) => `уже выполнено: ${c}`, language: "не cellspeak", rule: "нарушает правило доски", repeat: "повтор", claim: (t) => `сообщил(а), что ${t} готово` },
+  en: { doesNot: (c) => `does not hold: ${c}`, already: (c) => `already holds: ${c}`, language: "not Latin", rule: "breaks a board rule", repeat: "a repeat", claim: (t) => `said ${t} was done` },
+  es: { doesNot: (c) => `no se cumple: ${c}`, already: (c) => `ya se cumple: ${c}`, language: "no está en Latin", rule: "rompe una regla del tablero", repeat: "una repetición", claim: (t) => `dijo que ${t} estaba terminado` },
+  ru: { doesNot: (c) => `не выполнено: ${c}`, already: (c) => `уже выполнено: ${c}`, language: "не на Latin", rule: "нарушает правило доски", repeat: "повтор", claim: (t) => `сообщил(а), что ${t} готово` },
 };
 
 /**

@@ -62,7 +62,7 @@ const TYPED_KINDS = ["typed", "typed-liar"];
 for (const k of agentKinds) if (!["fake", "liar", ...TURN_KINDS, ...TYPED_KINDS, ...MODEL_KINDS].includes(k)) usage(`agent '${k}' is wired in slice X1; this runner takes fake, liar, polite, simultaneous, typed, typed-liar and deepseek`);
 const ledger = channel === "L" || channel === "LM";
 const board = channel === "M" || channel === "LM" || channel === "MT";
-// MT: the board takes only Latin 1 and runs the checks its claims carry (lang/v1.mjs, issue #47)
+// MT: the board takes only Latin 1 r1 and runs the checks its claims carry (lang/v1.mjs, issue #47)
 const typedBoard = channel === "MT";
 if (agentKinds.some((k) => TYPED_KINDS.includes(k)) !== (typedBoard && !agentKinds.some((k) => MODEL_KINDS.includes(k))) && !reference) {
   usage(typedBoard ? "an MT arm takes typed, typed-liar or deepseek agents" : "typed and typed-liar speak on a typed board: an arm with channel MT");

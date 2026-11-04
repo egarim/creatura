@@ -1,5 +1,5 @@
 // The message board, on world:7000, in the arms with messages: a plain shared chat with no structure, or, in the arms
-// with typed messages (BOARD_MODE=typed, channel MT), a board that takes only Latin 1 (lang/v1.mjs, issue #47; v0 for the runs of log #95 and #96).
+// with typed messages (BOARD_MODE=typed, channel MT), a board that takes only Latin 1 r1 (lang/v1.mjs, issue #47; v0 for the runs of log #95 and #96).
 //   POST /say     {"from": "a", "text": "..."}  -> {"n": 7}
 //   GET  /listen?since=6                         -> [{"n": 7, "at": "...", "from": "a", "text": "..."}]
 // Every message is kept in /srv/board/messages.jsonl, which the runner collects.

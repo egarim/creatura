@@ -21,7 +21,7 @@ node experiments/two-creatures/runner/run.mjs --reference --judge script # the b
 node experiments/two-creatures/runner/run.mjs --arm CC-L --agents fake,fake --check-every 30
 node experiments/two-creatures/runner/run.mjs --arm CC-L --agents polite,polite          # no roles: both wait, turn picks one
 node experiments/two-creatures/runner/run.mjs --arm CC-L --agents simultaneous,simultaneous   # no roles: both propose at once
-node experiments/two-creatures/runner/run.mjs --arm FF-MT --agents typed,typed-liar --lang es  # the typed board: Latin 0 (#47)
+node experiments/two-creatures/runner/run.mjs --arm FF-MT --agents typed,typed-liar --lang es  # the typed board: Latin 1 r0 (#47)
 node --test experiments/two-creatures/lang/v0.test.mjs experiments/two-creatures/lang/v1.test.mjs   # the language's own checks
 ```
 
@@ -66,7 +66,7 @@ made fresh for each run, never the real owner's; the hub on `world` holds only i
 live in `state/<run>/` and are deleted at the end of the run.
 
 **Arms.** The channel is the arm's suffix: `L` starts the hub only, `M` the board only, `LM` both, `MT` a typed board
-that takes only Latin 1 ([docs/design-agent-language.md](../../docs/design-agent-language.md)) and runs the checks its
+that takes only Latin 1 r1 ([docs/design-agent-language.md](../../docs/design-agent-language.md)) and runs the checks its
 claims carry before a message lands; `C-0` and `X-0`
 start one creature that owns both repositories.
 
@@ -81,7 +81,7 @@ start one creature that owns both repositories.
 | `judge/` | the same test as a web world (docs/design-web-worlds.md): the shopping-list adapter and the two scripts the runner fills in for `--judge ux`; needs the .NET SDK and a Chromium on the host (`TC_CREATURA`, `CREATURA_CHROMIUM`) |
 | `reference/` | a reference shopping list split in two repositories, with `BREAK` switches that each break one step |
 | `agents/fake.mjs` | the scripted fake agents: server, UI, or both alone; the turn-driven pairs, polite and simultaneous; and the typed pair (`typed`, `typed-liar`) for `MT` |
-| `lang/v1.mjs` | Latin 1, the language of `MT`: the parser, the message tool (`TOOL`, `encode`), the board's rules, the decoders (en, es, ru) and the digest for the person in the loop; `v1.test.mjs` its checks. `v0.mjs` is the version log #95 and #96 ran on |
+| `lang/v1.mjs` | Latin 1 r1, the language of `MT`: the parser, the message tool (`TOOL`, `encode`), the board's rules, the decoders (en, es, ru) and the digest for the person in the loop; `v1.test.mjs` its checks. `v0.mjs` is the version log #95 and #96 ran on |
 | `images/creature/tools/speak` | the message tool as a shell command: the message as JSON fields, encoded by `lang/v1.mjs` |
 | `agents/model.mjs` | a creature driven by a hosted model (DeepSeek): the goal, a shell, a step and dollar budget, a transcript |
 | `agents/goal.md` | the goal, word for word, for the real agents of X1 |
