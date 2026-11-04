@@ -611,3 +611,17 @@ runs are recorded only in the design note.
 - #99: `node --test lang/v0.test.mjs lang/v1.test.mjs lang/v2.test.mjs; run.mjs --arm FF-MT --agents typed,typed-sloppy --lang es; typed,typed; typed,typed-liar`
 
 </details>
+
+## Step L5
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 100 | 2026-11-04 18:32 | `3eb69f0`* | check | — | Codex reviews Latin 1 r2 before the paid run: nine findings, then three more over three passes, all fixed | Before the paid run on Latin 1 r2, the owner asked for a review by Codex (codex-cli 0.146.0, read-only, `codex exec -s read-only`), so as not to wait 45 minutes for another mistake. Four passes; each later pass reviewed only the fix commit.  Pass 1 (the whole r2 diff), nine findings: - The goal result file could be read half written, and the board's out-of-queue path had no rejection handler, so a crash there could hang the tool call or stop the board (blocking). - The timeouts did not nest: the judge could take about 6 min, the board waited 5. - A request was marked served before its answer was written. - A late goal request could be lost at teardown. - The runner is blocked while the judge runs (accepted, bounded). - A done that landed on the goal test was judged again and could be miscounted. - A deploy during the test could make the score describe other code. - The tool silently dropped or misread check shapes. - The result was not validated. Fixed: - The result is written to .tmp and renamed, the board treats an unparsable file as not ready, every request gets exactly one reply, and an unexpected error is logged, never fatal. - Each judge step is capped at 110 s. - A request is served only once its answer is written, with a retry otherwise. - The goal test's own score is used for the claim. - The deploy versions are compared before and after the test; if they changed, the answer is "changed, say it again". - Checks sent as JSON text are read, and a field a check does not take is refused. - The score is validated. Pass 2: two left. With mixed claims, a goal claim that shipped could drop out of firstShip; at the time limit the agents kept running during the drain. Pass 3: keep the earliest shipped goal claim; kill every process of the agent user, not just the driver (a spawned shell could still deploy). Pass 4: the first-ship time must keep the goal claim's own time. All fixed.  The model agent now writes its usage on SIGTERM. The creature image has no pgrep, so the stop uses pkill -0. Verified on ubuntu-box with fake pairs, all 5/5 and 0 false claims: - sloppy, 20 min: the done was refused at 3/5, then landed at 5/5; claims scored by the goal test, none judged again. - honest: 5/5. - sloppy cut at 1 min: the agents were stopped in 11 s, the late goal test was answered, and its claim counted. - liar: both lies refused. 32 language tests pass. |  |
+
+<details><summary>Commands</summary>
+
+- #100: `codex exec -s read-only (4 passes); run.mjs --arm FF-MT --agents typed,typed-sloppy\|typed,typed\|typed,typed-liar, and sloppy --minutes 1`
+
+</details>
