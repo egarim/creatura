@@ -464,7 +464,7 @@ function takeClaims() {
   const r = judge(`claim by ${who}`);
   for (const c of found) claims.push({ ...c, at: r.elapsed, score: r.score, true: r.shipped });
   // a goal-tested claim that shipped stays the first ship, whatever the claims judged beside it scored (Codex, 2nd pass)
-  return last?.shipped && !r.shipped ? { ...r, shipped: true, elapsed: last.elapsed } : r;
+  return last?.shipped ? { ...r, shipped: true, elapsed: Math.min(last.elapsed, r.elapsed) } : r;
 }
 
 // ---- the run ------------------------------------------------------------------------------------------------
