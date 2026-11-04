@@ -1,5 +1,5 @@
 // The message board, on world:7000, in the arms with messages: a plain shared chat with no structure, or, in the arms
-// with typed messages (BOARD_MODE=typed, channel MT), a board that takes only cellspeak v0 (lang/v0.mjs, issue #47).
+// with typed messages (BOARD_MODE=typed, channel MT), a board that takes only cellspeak v1 (lang/v1.mjs, issue #47; v0 for the runs of log #95 and #96).
 //   POST /say     {"from": "a", "text": "..."}  -> {"n": 7}
 //   GET  /listen?since=6                         -> [{"n": 7, "at": "...", "from": "a", "text": "..."}]
 // Every message is kept in /srv/board/messages.jsonl, which the runner collects.
@@ -11,7 +11,7 @@
 import { createServer } from "node:http";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { admit, checksFor, parse, GRAMMAR, VERSION } from "./lang/v0.mjs";
+import { admit, checksFor, parse, GRAMMAR, VERSION } from "./lang/v1.mjs";
 
 const file = "/srv/board/messages.jsonl";
 const refusedFile = "/srv/board/refused.jsonl";
@@ -102,7 +102,7 @@ createServer((req, res) => {
         const text = m.text.trim();
         const r = await judgeTyped(from, text);
         if (r.error) return refuse(res, from, text, r);
-        land(text, { message: r.message, ...(r.seen.length ? { seen: r.seen } : {}) });
+        land(text, { message: r.message, via: m.via === "tool" ? "tool" : "say", ...(r.seen.length ? { seen: r.seen } : {}) });
       }).catch((e) => reply(res, 500, { error: e.message }));
     });
     return;

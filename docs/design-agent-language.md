@@ -127,6 +127,43 @@ models' own shell work and thinking cost more than the board saved.
 **For v1:** quoted task names, a `verified` type for checking the peer's work, an `ask` type for requests, and a
 `done`'s checks bound to the sender's own repository.
 
+## v1: the missing words, and a tool to speak with (2026-11-04)
+
+`lang/v1.mjs`; v0 stays as it was, so the runs of log #95 and #96 decode as they did. The arm `MT` now runs v1.
+
+**The words log #96 wrote as prose:**
+
+| v1 | what the models wrote in a note on v0 |
+|---|---|
+| `verified <task> of <a\|b> check <check>...`: I checked my peer's work; the world runs the checks | "a verified b app: 8080 ok, api ok, 2nd client sees new item in 51ms" |
+| `ask <action> of <a\|b> [because <text>]`: please do this; answered by the peer's later `done` or `verified` | "please restart container to test durability" |
+| names of several words, in double quotes: `claim "shared shopping list"` | "claim shared shopping list end-to-end on repo-b until 40m" (refused) |
+| a `done` must carry a check on the sender's own repository; the peer's work is reported with `verified` | a's done listed an app that b had built |
+
+**The tool.** A creature need not write the text at all. The `message` tool (`TOOL`, an OpenAI-style function schema)
+takes the message as typed fields: `{"type": "done", "task": "app", "checks": [{"kind": "deployed", "repo":
+"repo-b"}]}`. `encode()` writes its one canonical text and parses it again before it is sent. So:
+
+- **The same fields always give the same text,** and that text always decodes to the same sentence in each of the
+  owner's languages. What was sent, what the peer reads and what the owner reads are three views of one value.
+- **A grammar mistake cannot reach the board:** a bad field is refused before sending, with the grammar's own reason.
+  The only free text left is a note's words and a reason's words, each at most 120 characters.
+- **The record says how each message came,** `via: "tool"` or `"say"`. `summary.json` counts them (`typed.viaTool`).
+
+A model in an `MT` arm gets `message` beside `shell` and `stop`, with the goal's channel text rewritten for it.
+`speak '<fields as JSON>'` is the same tool as a shell command on each creature, used by the fake pairs. `say` still
+takes the text, so a creature can still try prose, and the liar does.
+
+**Checked with the fake agents (log #97):** the honest pair (owner in Spanish) and the liar pair (in English) both
+shipped 5/5, with all 11 messages through the tool and no grammar refusal. The ask was answered by a done, so it left
+the digest. The liar's `done` before anything was published was refused and judged 0/5.
+
+**The cost of log #96 is not the language's.** The typed pair cost USD 0.24 against 0.16, but the board saved about
+1,500 tokens of a run that sent 835,000. A model re-sends its whole conversation on every call, so the cost is the
+number of calls and the goal's length. The typed goal was 1,400 characters longer, and agent a made 43 calls
+against 34. Cellspeak saves what the peer and the owner must read. A cheaper run needs fewer calls, for example a
+`listen` that waits for news instead of the models' polling.
+
 ## What v0 leaves out
 
 - **The ledger.** v0 lives on the board; the same messages as ledger entries (`cell say`?) would make them signed and

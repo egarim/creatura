@@ -17,7 +17,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { LANGS, claimsApp, decode, digest, parse } from "../lang/v0.mjs";
+import { LANGS, VERSION, claimsApp, decode, digest, parse } from "../lang/v1.mjs";
 
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const NET = "tc-sandbox";
@@ -62,7 +62,7 @@ const TYPED_KINDS = ["typed", "typed-liar"];
 for (const k of agentKinds) if (!["fake", "liar", ...TURN_KINDS, ...TYPED_KINDS, ...MODEL_KINDS].includes(k)) usage(`agent '${k}' is wired in slice X1; this runner takes fake, liar, polite, simultaneous, typed, typed-liar and deepseek`);
 const ledger = channel === "L" || channel === "LM";
 const board = channel === "M" || channel === "LM" || channel === "MT";
-// MT: the board takes only cellspeak v0 and runs the checks its claims carry (lang/v0.mjs, issue #47)
+// MT: the board takes only cellspeak v1 and runs the checks its claims carry (lang/v1.mjs, issue #47)
 const typedBoard = channel === "MT";
 if (agentKinds.some((k) => TYPED_KINDS.includes(k)) !== (typedBoard && !agentKinds.some((k) => MODEL_KINDS.includes(k))) && !reference) {
   usage(typedBoard ? "an MT arm takes typed, typed-liar or deepseek agents" : "typed and typed-liar speak on a typed board: an arm with channel MT");
@@ -523,7 +523,7 @@ async function main() {
     messages: boardMessages().length,
     talk: board ? { characters: boardMessages().reduce((n, m) => n + m.text.length, 0) } : undefined,
     typed: typedBoard ? {
-      language: "cellspeak/0", lang,
+      language: VERSION, lang, viaTool: boardMessages().filter((m) => m.via === "tool").length,
       refused: refusedMessages().length,
       refusedByReason: refusedMessages().reduce((o, r) => ({ ...o, [r.reason]: (o[r.reason] ?? 0) + 1 }), {}),
       refusedClaims,

@@ -22,11 +22,11 @@ node experiments/two-creatures/runner/run.mjs --arm CC-L --agents fake,fake --ch
 node experiments/two-creatures/runner/run.mjs --arm CC-L --agents polite,polite          # no roles: both wait, turn picks one
 node experiments/two-creatures/runner/run.mjs --arm CC-L --agents simultaneous,simultaneous   # no roles: both propose at once
 node experiments/two-creatures/runner/run.mjs --arm FF-MT --agents typed,typed-liar --lang es  # the typed board: cellspeak v0 (#47)
-node --test experiments/two-creatures/lang/v0.test.mjs                                        # the language's own checks
+node --test experiments/two-creatures/lang/v0.test.mjs experiments/two-creatures/lang/v1.test.mjs   # the language's own checks
 ```
 
 **The agents** (`--agents`): `fake` has its roles written in (a the server, b the UI); `liar` is a fake that also
-claims done before anything is published; `typed` and `typed-liar` speak only cellspeak v0 on an `MT` arm, and the
+claims done before anything is published; `typed` and `typed-liar` speak only cellspeak on an `MT` arm (the honest one through the message tool), and the
 liar's early done and its prose DONE must both be refused; `polite` and `simultaneous` (slice T1) claim the same goal with no roles,
 then wait on each other, or propose at once, and let `cell turn` say whose move it is; the settled plan says who
 builds which half. The turn-driven kinds need the ledger (channel L or LM). `deepseek` (`agents/model.mjs`) is a
@@ -66,7 +66,7 @@ made fresh for each run, never the real owner's; the hub on `world` holds only i
 live in `state/<run>/` and are deleted at the end of the run.
 
 **Arms.** The channel is the arm's suffix: `L` starts the hub only, `M` the board only, `LM` both, `MT` a typed board
-that takes only cellspeak v0 ([docs/design-agent-language.md](../../docs/design-agent-language.md)) and runs the checks its
+that takes only cellspeak v1 ([docs/design-agent-language.md](../../docs/design-agent-language.md)) and runs the checks its
 claims carry before a message lands; `C-0` and `X-0`
 start one creature that owns both repositories.
 
@@ -81,7 +81,8 @@ start one creature that owns both repositories.
 | `judge/` | the same test as a web world (docs/design-web-worlds.md): the shopping-list adapter and the two scripts the runner fills in for `--judge ux`; needs the .NET SDK and a Chromium on the host (`TC_CREATURA`, `CREATURA_CHROMIUM`) |
 | `reference/` | a reference shopping list split in two repositories, with `BREAK` switches that each break one step |
 | `agents/fake.mjs` | the scripted fake agents: server, UI, or both alone; the turn-driven pairs, polite and simultaneous; and the typed pair (`typed`, `typed-liar`) for `MT` |
-| `lang/v0.mjs` | cellspeak v0: the parser, the board's rules, the decoders (en, es, ru) and the digest for the person in the loop; `v0.test.mjs` its checks |
+| `lang/v1.mjs` | cellspeak v1, the language of `MT`: the parser, the message tool (`TOOL`, `encode`), the board's rules, the decoders (en, es, ru) and the digest for the person in the loop; `v1.test.mjs` its checks. `v0.mjs` is the version log #95 and #96 ran on |
+| `images/creature/tools/speak` | the message tool as a shell command: the message as JSON fields, encoded by `lang/v1.mjs` |
 | `agents/model.mjs` | a creature driven by a hosted model (DeepSeek): the goal, a shell, a step and dollar budget, a transcript |
 | `agents/goal.md` | the goal, word for word, for the real agents of X1 |
 | `runner/run.mjs` | one run: fresh machines, the agents, the judge, the claims, the record |

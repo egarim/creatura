@@ -569,3 +569,17 @@ runs are recorded only in the design note.
 - #96: `run.mjs --arm DD-MT --agents deepseek,deepseek --minutes 45 --budget 1 --check-every 300; the same with --arm DD-M`
 
 </details>
+
+## Step L2
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 97 | 2026-11-04 15:49 | `3eb69f0`* | test | — | Cellspeak v1: verified, ask, quoted names, and the message tool (deterministic encoding) | Cellspeak v1 (lang/v1.mjs; v0 kept as it was for log #95 and #96), from what the first paid run (#96) wrote as prose because v0 had no word for it. verified <task> of <peer> check ... reports the peer's work, with checks the world runs. ask <action> of <peer> [because <text>] asks for something and is answered by the peer's later done or verified. Names of several words go in double quotes. A done must carry a check on the sender's own repository (log #96: a's done listed an app b had built).  The message tool: TOOL (an OpenAI-style function schema) and encode(fields) turn a message's typed fields into its one canonical text, which is parsed again before it is sent. The same fields always give the same text, and the same text always decodes to the same sentence in each language, so the sent message, the peer's and the owner's are views of one value. A grammar mistake is refused before sending. A model in an MT arm gets `message` beside shell and stop (agents/model.mjs; the goal's MT text was rewritten for it). `speak '<JSON>'` is the same tool as a shell command on each creature. The board records via: tool or say, and summary.json counts typed.viaTool.  lang/v1.test.mjs: 9 of 9 (with v0's 11, 20 of 20), also in CI. Fake runs on ubuntu-box, FF-MT, free: (1) typed,typed, es: 5/5, 11 messages, all 11 through the tool, 0 refused. a verified b's app, asked it to restart, and b's done restart answered the ask, so the ask left the digest. (2) typed,typed-liar, en: 5/5, 11 messages through the tool. The liar's say "done app ..." before anything was published was refused ("repo-b is never deployed") and judged 0/5 then, and its prose DONE was refused. 0 false claims.  On #96's cost (USD 0.24 typed against 0.16 prose): the board saved about 1,500 tokens of 835k input. The cost is calls times context: the typed goal was 1,400 characters longer and agent a made 43 calls against 34, 25 of them checking b's app. The language saves reading, not tokens. A paid DD-MT run on v1 waits for the owner's go. |  |
+
+<details><summary>Commands</summary>
+
+- #97: `node --test lang/v0.test.mjs lang/v1.test.mjs; run.mjs --arm FF-MT --agents typed,typed --lang es; --agents typed,typed-liar --lang en`
+
+</details>
