@@ -555,3 +555,17 @@ runs are recorded only in the design note.
 - #95: `node --test experiments/two-creatures/lang/v0.test.mjs; run.mjs --arm FF-MT --agents typed,typed-liar --lang es; --agents typed,typed --lang ru; --arm CC-M --agents fake,fake`
 
 </details>
+
+## Step L1
+
+1 entries; 0 touched the battery's seeds 0 to 49.
+
+| # | when | commit | kind | seeds | what | result | used for |
+|---|---|---|---|---|---|---|---|
+| 96 | 2026-11-04 15:26 | `3eb69f0`* | test | — | Cellspeak v0 on DeepSeek: DD-MT against DD-M, both 5/5; 932 against 6,351 characters; notes 38% | The first paid runs of cellspeak v0 (issue #47), with the owner's go: one DD-MT pair (the typed board) and one fresh DD-M pair (the prose board) as its baseline, the same day, goal and model (deepseek-chat), no roles, 45 min and USD 1 per creature at most. One run each: anecdotes, not statistics.  DD-MT: 5/5 shipped, first seen working by the periodic judge at 322 s (b's done at 415 s, 5/5; a's done at 680 s, 5/5). 0 false claims. 13 messages landed and 4 refused; 932 characters on the board. Cost USD 0.244 (a 51 steps, b 36). DD-M: 5/5 shipped, the periodic judge saw 0/5 at 310 s, first ship at b's DONE at 615 s (5/5), a's DONE at 675 s (5/5). 0 false claims. 9 messages, 6,351 characters (messages of 250 to 1,660 characters). Cost USD 0.159 (a 34 steps, b 36).  Pre-registered checks (docs/design-agent-language.md): - L3 held: both landed app dones were 5/5. - L6 held: 932 characters against 6,351, 6.8 times fewer. - L7 held: MT shipped, as M did, with the same score. - A5 failed: 5 of the 13 landed messages were notes (38%, the limit was 20%). The notes carried what v0 cannot say, for example "a verified b app: 8080 ok, api ok, 2nd client sees new item in 51ms; please restart container to test durability".  What the transcripts show: - All 4 refusals were grammar ("claim shared shopping list end-to-end on repo-b until 40m": task names are one word; "propose roles ... until 15m"; a need without "from a"). Each was corrected at once. - In both arms b built the whole app and a stood by. In MT, b proposed plans twice and nobody answered with accept; the coordination went through notes. - a's done checked "deployed repo-a" and the app at 8080, which was b's app. The checks prove the world is in the claimed state, not who brought it there. - Shorter talk did not make a cheaper run. MT cost more: 835k against 543k input tokens, the models' own shell work and thinking.  For v1: multi-word task names (quoted), a "verified" type for checking the peer's work, a "please" or ask type for requests (the restart), and checks bound to the sender's own repository. |  |
+
+<details><summary>Commands</summary>
+
+- #96: `run.mjs --arm DD-MT --agents deepseek,deepseek --minutes 45 --budget 1 --check-every 300; the same with --arm DD-M`
+
+</details>

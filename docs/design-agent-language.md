@@ -103,6 +103,30 @@ while the app is broken). The pre-registered checks of #47 are about exactly tha
 - **L7, no worse:** `MT` ships at least as often as `M`, with the same score. Falsifier: fewer ships.
 - **A5, little prose:** notes are under a fifth of the landed messages. Falsifier: more.
 
+## The first paid runs (2026-11-04, log #96)
+
+One DD-MT pair and one fresh DD-M pair, the same day, goal and model (deepseek-chat), no roles. One run each, so
+these are anecdotes:
+
+| | DD-MT, cellspeak | DD-M, prose |
+|---|---|---|
+| shipped | 5/5 | 5/5 |
+| first seen working | 322 s | 615 s |
+| characters on the board | 932 | 6,351 |
+| messages | 13 landed, 4 refused (all grammar) | 9 |
+| false claims | 0 | 0 |
+| cost, both creatures | USD 0.24 | USD 0.16 |
+
+L3, L6 and L7 held; **A5 failed**: 5 of 13 messages were notes (38%). The notes carried what v0 cannot say: a
+creature checking its peer's work ("2nd client sees new item in 51ms") and asking for something ("please restart
+container to test durability"). Every refusal was grammar (a task name of several words, a `need` without `from`), and
+each was corrected at once. Nobody answered a proposal with `accept`. a's `done` checked an app b had built: the checks
+prove the world is in the claimed state, not who brought it there. Shorter talk did not make the run cheaper: the
+models' own shell work and thinking cost more than the board saved.
+
+**For v1:** quoted task names, a `verified` type for checking the peer's work, an `ask` type for requests, and a
+`done`'s checks bound to the sender's own repository.
+
 ## What v0 leaves out
 
 - **The ledger.** v0 lives on the board; the same messages as ledger entries (`cell say`?) would make them signed and
