@@ -1,0 +1,32 @@
+#!/usr/bin/env node
+// speak '<fields as JSON>': the message tool on a typed board (channel MT, Latin 1): the message as typed fields,
+// e.g. speak '{"type":"done","task":"app","checks":[{"kind":"deployed","repo":"repo-b"}]}'. The language's own encoder
+// (/x/lang/v1.mjs, the same one a model's `message` tool uses) writes the one canonical text, and the board gets it
+// marked as sent through the tool. Prints "said #n: <text>" and how the owner reads it, or the reason it was refused.
+const { readFileSync } = require("node:fs");
+
+(async () => {
+  const lang = await import(process.env.TC_LATIN ?? "/x/lang/v1.mjs");
+  const env = Object.fromEntries(readFileSync(`${process.env.HOME}/.creature.env`, "utf8").split("\n").filter((l) => l.includes("=")).map((l) => l.split("=", 2)));
+  const raw = process.argv.slice(2).join(" ") || readFileSync(0, "utf8");
+  let fields;
+  try { fields = JSON.parse(raw); } catch {
+    console.error(`speak: give the message as JSON fields, e.g. speak '{"type":"claim","task":"server"}'\n${lang.TOOL.description}`);
+    return void (process.exitCode = 2);
+  }
+  const e = lang.encode.safe(fields);
+  if (!e.ok) {
+    console.error(`speak: refused: ${e.error}`);
+    return void (process.exitCode = 1);
+  }
+  const res = await fetch(`http://${env.WORLD ?? "world"}:7000/say`, { method: "POST", body: JSON.stringify({ from: env.NAME, text: e.text, via: "tool" }) }).catch((err) => ({ ok: false, status: 0, statusText: err.message }));
+  if (res.status === 422) {
+    console.error(`speak: refused: ${((await res.json().catch(() => ({}))).error ?? "no reason given").split("\n")[0]}`);
+    return void (process.exitCode = 1);
+  }
+  if (!res.ok) {
+    console.error(`speak: the board did not take it (${res.status} ${res.statusText})`);
+    return void (process.exitCode = 1);
+  }
+  console.log(`said #${(await res.json()).n}: ${e.text}\nreads: ${lang.decode(e.message, env.NAME, "en")}`);
+})();

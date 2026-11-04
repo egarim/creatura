@@ -5,7 +5,8 @@ of slice X0 don't read it. Changing these words after the pilot changes the expe
 experiment log. Changed once, 2026-11-02 (log #85): the sentence on `GET /api/items`, so the judge can read the
 app's data (docs/design-web-worlds.md, "The two-creatures judge as a web world"); the runs before it (log #71 to
 #77) are a baseline of their own. Added to, 2026-11-04 (issue #47): the channel text for typed messages (MT); the
-words of the other arms did not change.
+words of the other arms did not change. Rewritten the same day for Latin 1 and its `message` tool;
+log #96 ran on v0 and the text it had is in that commit (850846e).
 
 ---
 
@@ -91,28 +92,32 @@ messages (M):
 
 typed messages (MT):
 > ## Your channel: the typed board
-> `say <message>` posts one message your peer can read; `listen` shows the ones you haven't seen (`listen --all`
-> all of them, `listen --wait 30` waits up to 30 seconds). The board takes only these ten kinds of message, one per
-> `say`, and refuses anything else, with the reason:
+> You talk to your peer with the `message` tool. Fill in `type` and that type's fields; the tool writes the message,
+> the world runs any checks it carries, and you get back its number and how your peer and your owner read it, or why
+> it was refused. `listen` (in your shell) shows the messages you haven't seen (`listen --all` all of them,
+> `listen --wait 30` waits up to 30 seconds). There are twelve types:
 >
->     claim <task> [until <n>m]                       what you are working on
->     propose <topic> <key>=<value>...                a plan or a choice, e.g. propose plan server=a ui=b
->     accept #<n>  |  object #<n> because <text>      your answer to your peer's proposal #n
->     offer <name> at <repo>:<path>                   a contract: a file in your own repository
->     done <task> check <check> [and <check>]...      finished, with the proof
->     need <thing> from <a|b> [because <check>]       something you need from your peer
->     block <task> on <thing>                         you cannot go on until <thing>
->     change <field> <old> -> <new>                   a field of a plan or contract changes
->     note <text>                                     anything else, 120 characters at most
+>     claim      task [until]                  what you are working on
+>     propose    topic, terms                  a plan or a choice: topic "plan", terms {"server": "a", "ui": "b"}
+>     accept     ref   |  object  ref, because your answer to your peer's proposal number ref
+>     offer      name, repo, path              a contract: a file in your own repository
+>     done       task, checks                  you finished your own work, with the proof
+>     verified   task, who, checks             you checked your peer's work, with what you checked
+>     need       thing, who [checks]           something you need from your peer
+>     ask        action, who [because]         please do this, e.g. action "restart", because "to test durability"
+>     block      task, on                      you cannot go on until `on`
+>     change     field, old, new               a field of a plan or contract changes
+>     note       text                          anything else, 120 characters at most: use it only when no type fits
 >
-> A `<check>` is `deployed <repo>`, `file <repo>:<path>`, `http <url> <status>` or `array <url>`, with `<url>` on
-> `http://world:8080` or `http://world:7001`. Names are lower case. The world runs the checks before the message
-> lands: a `done` or an `offer` whose check fails, or a `need` whose check already passes, is refused and your peer
-> never sees it. A message the same as your last one is refused too. Your owner reads every message in their own
-> language.
+> A check is `{"kind": "deployed", "repo": ...}`, `{"kind": "file", "repo": ..., "path": ...}`, `{"kind": "http",
+> "url": ..., "status": 200}` or `{"kind": "array", "url": ...}`, with the url on `http://world:8080` or
+> `http://world:7001`. The world runs the checks before the message lands: a `done`, `verified` or `offer` whose check
+> fails, or a `need` whose check already passes, is refused and your peer never sees it. A `done` must include a check
+> on your own repository. A message the same as your last one is refused too. Your owner reads every message in their
+> own language.
 
 ledger + messages (LM): both of the above.
 
 **`{{done}}`**: L "with `cell release --evidence`"; M "on the board, in a message that starts with DONE"; LM both;
-MT "with a `done` message on the board whose checks include the app at `http://world:8080/`";
+MT "with a `done` message whose checks include your own repository and the app at `http://world:8080/`";
 alone "in your final message".

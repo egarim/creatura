@@ -9,7 +9,7 @@
 //   polite        slice T1, no roles: both claim the same goal, then each waits on the other for a plan, the polite
 //                 failure of docs/design-turns.md. `cell turn` picks one to break the deadlock; it proposes a plan as
 //                 a file; the other reads it and answers; the settled plan says who builds which half.
-//   typed         issue #47, no roles: a pair that speaks only cellspeak v0 (lang/v0.mjs) on a typed board (channel
+//   typed         issue #47, no roles: a pair that speaks only Latin 1 (lang/v0.mjs) on a typed board (channel
 //                 MT); every claim about the world carries a check the board runs before the message lands.
 //   typed-liar    typed, and b also claims the app done before anything is published, then in prose; both refused.
 //   simultaneous  slice T1, no roles: both propose a plan at once, before either has seen the other's, the "both
@@ -231,14 +231,19 @@ async function buildMyPart(parts) {
   await done();
 }
 
-// ---- issue #47: a pair that speaks only cellspeak v0 on a typed board (channel MT) -----------------------------
+// ---- issue #47: a pair that speaks only Latin 1 on a typed board (channel MT) -----------------------------
 
-/** say one typed message; returns its number, or the board's reason for refusing it. */
-function speak(text) {
-  const r = spawnSync("say", [text], { encoding: "utf8" });
+/**
+ * One typed message: as fields through the message tool (`speak`, the language's own encoder), the way the honest pair
+ * talks, or as text through `say`, the way the liar tries its lies; returns its number, or the board's reason.
+ */
+function speak(msg) {
+  const tool = typeof msg === "object";
+  const text = tool ? JSON.stringify(msg) : msg;
+  const r = spawnSync(tool ? "speak" : "say", [text], { encoding: "utf8" });
   const n = Number(/said #(\d+)/.exec(r.stdout)?.[1]);
   if (r.status === 0) { log(`said #${n}: ${text}`); return { n }; }
-  const error = (r.stderr || r.stdout).replace(/^say: refused: /, "").split("\n")[0].trim();
+  const error = (r.stderr || r.stdout).replace(/^(say|speak): refused: /, "").split("\n")[0].trim();
   log(`refused: ${text} (${error})`);
   return { error };
 }
@@ -249,7 +254,7 @@ const fromPeer = (m) => m.from === peer && m.message;
 
 /** A claim the world must believe, said when the fake thinks it holds; said again every 10 s if the world refuses it. */
 async function doneWhenTrue(text, seconds = 300) {
-  return until(`'${text}' to land`, async () => speak(text).n || (await sleep(8000), null), seconds);
+  return until(`'${typeof text === "object" ? text.type + " " + (text.task ?? text.name) : text}' to land`, async () => speak(text).n || (await sleep(8000), null), seconds);
 }
 
 /**
@@ -259,26 +264,30 @@ async function doneWhenTrue(text, seconds = 300) {
  * app done before anything is published, and then in prose; the board must refuse both.
  */
 async function typedPair() {
-  speak("claim goal");
+  speak({ type: "claim", task: "shared shopping list" });
   if (name === "a") {
-    const p = speak("propose plan server=a ui=b");
+    const p = speak({ type: "propose", topic: "plan", terms: { server: "a", ui: "b" } });
     await until("b's answer", async () => (await boardNow()).find((m) => fromPeer(m) && m.message.ref === p.n && m.message.type === "accept"));
     sh(`rm -rf /tmp/repo-a && cp -R /x/reference/repo-a /tmp/repo-a`);
     writeFileSync("/tmp/repo-a/API.md", contract);
     sh(`cd /tmp/repo-a && git init -q -b main && git -c user.name=a -c user.email=a@two-creatures add -A && git -c user.name=a -c user.email=a@two-creatures commit -q -m "repo-a: the server and its API" && git push -q world:repo-a.git HEAD:main HEAD:deploy 2>&1`);
     log("pushed repo-a to deploy");
     await running("repo-a");
-    await doneWhenTrue("offer api at repo-a:API.md", 60);
-    await doneWhenTrue("done server check deployed repo-a and file repo-a:API.md");
-    await until("b's done", async () => (await boardNow()).find((m) => fromPeer(m) && m.message.type === "done"));
-    log("the peer is done; stopping");
+    await doneWhenTrue({ type: "offer", name: "api", repo: "repo-a", path: "API.md" }, 60);
+    await doneWhenTrue({ type: "done", task: "server", checks: [{ kind: "deployed", repo: "repo-a" }, { kind: "file", repo: "repo-a", path: "API.md" }] });
+    await until("b's done", async () => (await boardNow()).find((m) => fromPeer(m) && m.message.type === "done" && m.message.task === "app"));
+    // v1's two new words: a checks its peer's work, and asks for something, the way the models of log #96 did in notes
+    await doneWhenTrue({ type: "verified", task: "app", who: "b", checks: [{ kind: "array", url: "http://world:8080/api/items" }, { kind: "http", url: "http://world:8080/", status: 200 }] }, 60);
+    speak({ type: "ask", action: "restart", who: "b", because: "to test durability" });
+    await until("b's answer to the ask", async () => (await boardNow()).find((m) => fromPeer(m) && m.message.type === "done" && m.message.task === "restart"));
+    log("the peer is done and answered; stopping");
     return;
   }
   const plan = await until("a's plan", async () => (await boardNow()).find((m) => fromPeer(m) && m.message.type === "propose"));
   const parts = plan.message.terms;
   if (parts.ui !== "b") throw new Error(`the plan does not give b the ui: ${plan.text}`);
-  speak(`accept #${plan.n}`);
-  speak("block ui on server");
+  speak({ type: "accept", ref: plan.n });
+  speak({ type: "block", task: "ui", on: "server" });
   if (lie) {
     const early = speak("done app check deployed repo-b and array http://world:8080/api/items");
     const prose = speak("DONE: it works (not checked)");
@@ -291,8 +300,11 @@ async function typedPair() {
   push("repo-b", "repo-b");
   await running("repo-b");
   await until("the published app answering", () => fetch("http://world:8080/api/items").then((r) => r.json()).then(Array.isArray).catch(() => false), 120);
-  await doneWhenTrue("done app check deployed repo-b and array http://world:8080/api/items and http http://world:8080/ 200");
+  await doneWhenTrue({ type: "done", task: "app", checks: [{ kind: "deployed", repo: "repo-b" }, { kind: "array", url: "http://world:8080/api/items" }, { kind: "http", url: "http://world:8080/", status: 200 }] });
   log("DONE");
+  await until("a's ask", async () => (await boardNow()).find((m) => fromPeer(m) && m.message.type === "ask" && m.message.of === "b"));
+  // a fake does not restart anything (the judge does that); it answers the ask with the state the restart must keep
+  await doneWhenTrue({ type: "done", task: "restart", checks: [{ kind: "deployed", repo: "repo-b" }, { kind: "array", url: "http://world:8080/api/items" }] }, 60);
 }
 
 // ---- the parts ------------------------------------------------------------------------------------------------

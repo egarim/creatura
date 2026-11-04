@@ -9,6 +9,9 @@
 // AGENT_BUDGET (USD). Every call and command goes to ~/agent-transcript.jsonl, what it spent to ~/agent-usage.json.
 import { spawnSync } from "node:child_process";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+// Latin 1 (issue #47): on a typed board (channel MT) the model speaks through the `message` tool, whose fields the
+// language's own encoder turns into the one canonical message, so what it sends is never free text it wrote
+import { TOOL as MESSAGE_TOOL, decode as decodeMessage, encode as encodeMessage } from "../lang/v1.mjs";
 
 const HOME = process.env.HOME;
 const env = Object.fromEntries(readFileSync(`${HOME}/.creature.env`, "utf8").split("\n").filter((l) => l.includes("=")).map((l) => l.split("=", 2)));
@@ -55,7 +58,7 @@ function goal() {
     : quoted(text, "**`{{together}}`**, in a pair:").replaceAll("{{peer}}", peer);
   const repos = solo ? "you own both and can push to both" : `you own \`repo-${name}\` and can push only to it; you can read \`repo-${peer}\``;
   const channelText = [ledger ? quoted(text, "**`{{channel}}`**, ledger (L):") : "", board ? quoted(text, typed ? "typed messages (MT):" : "messages (M):") : ""].filter(Boolean).join("\n\n");
-  const done = solo ? "in your final message" : typed ? "with a `done` message on the board whose checks include the app at `http://world:8080/`" : ledger && board ? "with `cell release --evidence`, and on the board in a message that starts with DONE"
+  const done = solo ? "in your final message" : typed ? "with a `done` message whose checks include your own repository and the app at `http://world:8080/`" : ledger && board ? "with `cell release --evidence`, and on the board in a message that starts with DONE"
     : ledger ? "with `cell release --evidence`" : "on the board, in a message that starts with DONE";
   return template.replaceAll("{{together}}", together).replaceAll("{{repos}}", repos).replaceAll("{{channel}}", channelText).replaceAll("{{done}}", done);
 }
@@ -63,6 +66,7 @@ function goal() {
 // ---- the tools ------------------------------------------------------------------------------------------------
 
 const tools = [
+  ...(channel === "MT" ? [{ type: "function", function: MESSAGE_TOOL }] : []),
   {
     type: "function",
     function: {
@@ -93,6 +97,20 @@ function shell(command) {
   const exit = r.status ?? (r.signal ? `killed (${r.signal})` : "?");
   const output = cut(`${r.stdout ?? ""}${r.stderr ? `\n[stderr]\n${r.stderr}` : ""}`.trim());
   return { exit, ms: Date.now() - t0, output, text: `exit ${exit}\n${output || "(no output)"}` };
+}
+
+/** One message through the tool: encoded by the language, posted to the board as sent by the tool, the board's answer back. */
+async function message(fields) {
+  const e = encodeMessage.safe(fields);
+  if (!e.ok) return { ok: false, text: "(not encoded)", reply: `refused before sending: ${e.error}` };
+  const res = await fetch(`http://${env.WORLD ?? "world"}:7000/say`, { method: "POST", body: JSON.stringify({ from: name, text: e.text, via: "tool" }), signal: AbortSignal.timeout(30000) }).catch((err) => ({ ok: false, status: 0, statusText: err.message }));
+  if (res.status === 422) {
+    const why = ((await res.json().catch(() => ({}))).error ?? "no reason given").split("\n")[0];
+    return { ok: false, text: e.text, reply: `refused: ${why}\n(sent: ${e.text})` };
+  }
+  if (!res.ok) return { ok: false, text: e.text, reply: `the board did not take it (${res.status} ${res.statusText})` };
+  const n = (await res.json()).n;
+  return { ok: true, n, text: e.text, reply: `said #${n}: ${e.text}\nyour peer and your owner read: ${decodeMessage(e.message, name, "en")}` };
 }
 
 // ---- the model ------------------------------------------------------------------------------------------------
@@ -150,7 +168,7 @@ async function main() {
   log(`start (${model}), channel ${channel}${solo ? ", alone" : `, peer ${peer}`}; ${minutes} min, ${maxSteps} steps, USD ${budget}`);
   record({ kind: "start", name, peer, channel, model, minutes, maxSteps, budget, goal: text });
 
-  const system = `You are creature-${name}, an agent on your own Linux machine, with a shell. The goal below is your only instruction; nobody will message you. Act by calling the shell tool, one command per call, and think briefly between calls. Keep to the goal's rules. You have ${minutes} minutes and ${maxSteps} commands. When the app is published and you have said so through the channel, call stop.`;
+  const system = `You are creature-${name}, an agent on your own Linux machine, with a shell. The goal below is your only instruction; nobody will message you. Act by calling the shell tool, one command per call${channel === "MT" ? ", and talk to your peer with the message tool" : ""}, and think briefly between calls. Keep to the goal's rules. You have ${minutes} minutes and ${maxSteps} commands. When the app is published and you have said so through the channel, call stop.`;
   const messages = [{ role: "system", content: system }, { role: "user", content: text }];
   let idle = 0;
 
@@ -179,6 +197,14 @@ async function main() {
         messages.push({ role: "tool", tool_call_id: call.id, content: "stopped" });
         usage.stoppedBy = "stop";
         break loop;
+      }
+      if (call.function?.name === "message" && channel === "MT") {
+        usage.steps++;
+        const r = await message(args);
+        log(`message ${r.text}`);
+        record({ kind: "message", step: usage.steps, fields: args, ...r });
+        messages.push({ role: "tool", tool_call_id: call.id, content: r.reply });
+        continue;
       }
       if (call.function?.name !== "shell" || typeof args.command !== "string") {
         messages.push({ role: "tool", tool_call_id: call.id, content: "unknown tool or missing command: use shell {command} or stop {summary}" });
