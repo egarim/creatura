@@ -26,6 +26,29 @@ public interface IDistrust
 }
 
 /// <summary>
+/// The quarantine ablation: nothing is ever hidden. The tools a liar poisoned stay visible, which is exactly the
+/// condition a battery needs to price what the quarantine is for.
+/// </summary>
+public sealed class NeverHides : IDistrust
+{
+    public static readonly NeverHides Instance = new();
+
+    public IReadOnlyList<Tool> Visible(IWorldView world, int tick) => world.AvailableTools;
+
+    public bool Hides(string toolId, int tick) => false;
+
+    public IReadOnlyList<string> Hidden(int tick) => [];
+
+    public void Judged(string toolId, ActionVerdict verdict, int tick, bool habituated)
+    {
+    }
+
+    public void Clear()
+    {
+    }
+}
+
+/// <summary>
 /// The map-keeper's distrust: a tool that lied once is approached, not hidden; a tool that lied twice is unknown
 /// territory, out of sight for a long cooldown; an honest failure is habituated for a short one. The invariant
 /// design-framework.md's refuted claim 2 asks for holds by construction: while the leaf story is anomalous, its

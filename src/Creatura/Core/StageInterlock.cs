@@ -24,12 +24,15 @@ public sealed class StageInterlock
     private readonly SelfModel _self;
     private readonly PredictionTracker _predictions;
     private readonly string _releaseKind;
+    private readonly bool _enforce;
 
-    public StageInterlock(SelfModel self, PredictionTracker predictions, string releaseKind)
+    /// <param name="enforce">False for the ablation: every tool gates open, release included.</param>
+    public StageInterlock(SelfModel self, PredictionTracker predictions, string releaseKind, bool enforce = true)
     {
         _self = self;
         _predictions = predictions;
         _releaseKind = releaseKind;
+        _enforce = enforce;
     }
 
     public SelfModel Self => _self;
@@ -39,7 +42,7 @@ public sealed class StageInterlock
     /// <summary>Gate one tool. Advances the stage as a side effect when the record has earned it.</summary>
     public GateDecision Gate(Tool tool)
     {
-        if (tool.Kind != _releaseKind || _self.Stage.MayDeploy) return GateDecision.Open;
+        if (!_enforce || tool.Kind != _releaseKind || _self.Stage.MayDeploy) return GateDecision.Open;
         if (_predictions.EarnedNextStage)
         {
             _self.StageLevel = Math.Min(Stages.All.Length, _self.StageLevel + 1);

@@ -10,6 +10,13 @@ public sealed record Contradiction(int Tick, string Claim, string Evidence);
 public sealed class CoherenceAudit
 {
     private readonly List<Contradiction> _found = [];
+    private readonly bool _enforcing;
+
+    /// <param name="enforcing">
+    /// False for the ablation: claims are still counted, and no contradiction is recorded, so the score stays
+    /// at 1. The effect check is untouched — this switches the belief ledger off, not the judge.
+    /// </param>
+    public CoherenceAudit(bool enforcing = true) => _enforcing = enforcing;
 
     public int Claims { get; private set; }
 
@@ -37,7 +44,7 @@ public sealed class CoherenceAudit
     /// </summary>
     public bool Accept(string claim, bool supported, string evidence, int tick)
     {
-        if (supported)
+        if (supported || !_enforcing)
         {
             return true;
         }
@@ -47,7 +54,13 @@ public sealed class CoherenceAudit
     }
 
     /// <summary>An expectation that was formed and then broke — the strongest evidence of a bad model.</summary>
-    public void Contradict(int tick, string claim, string evidence) => _found.Add(new Contradiction(tick, claim, evidence));
+    public void Contradict(int tick, string claim, string evidence)
+    {
+        if (_enforcing)
+        {
+            _found.Add(new Contradiction(tick, claim, evidence));
+        }
+    }
 
     /// <summary>The audit as data: the claims counted and every contradiction found, in order.</summary>
     public CoherenceSnapshot Snapshot() => new(Claims, [.. _found]);
