@@ -47,6 +47,12 @@ public sealed record ControlLayerOptions
 
     public int CooldownTicks { get; init; } = 3;
 
+    /// <summary>
+    /// Parts of the design switched off for this layer. Empty in every documented run; a battery sets it so it
+    /// can price a component instead of assuming it. See <see cref="Ablations"/>.
+    /// </summary>
+    public Ablations Ablations { get; init; } = Ablations.None;
+
     /// <summary>How the control layer on Agent Framework has always run: three-way judge, honest failures stay visible, failures reset per round.</summary>
     public static readonly ControlLayerOptions Host = new();
 
@@ -110,9 +116,11 @@ public sealed class ControlLayer
         Self = self;
         Ledger = ledger ?? self;
         Predictions = predictions ?? new PredictionTracker();
-        Audit = audit ?? new CoherenceAudit();
-        Distrust = distrust ?? new Quarantine(_options.CooldownTicks);
-        Interlock = new StageInterlock(Self, Predictions, task.ReleaseKind);
+        Audit = audit ?? new CoherenceAudit(enforcing: !_options.Ablations.Has(Ablations.Coherence));
+        Distrust = distrust ?? (_options.Ablations.Has(Ablations.Quarantine)
+            ? NeverHides.Instance
+            : new Quarantine(_options.CooldownTicks));
+        Interlock = new StageInterlock(Self, Predictions, task.ReleaseKind, enforce: !_options.Ablations.Has(Ablations.Stage));
         Freedom = Self.Stage.FreedomCap;
     }
 
