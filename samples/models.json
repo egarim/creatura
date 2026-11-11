@@ -64,6 +64,7 @@
       "reasoning": false,
       "inputPerMillion": 0.28,
       "outputPerMillion": 0.42,
+      "cachedInputPerMillion": 0.028,
       "sheet": {
         "contextWindow": 128000,
         "maxOutput": 8192
@@ -79,6 +80,7 @@
       "reasoning": true,
       "inputPerMillion": 0.28,
       "outputPerMillion": 0.42,
+      "cachedInputPerMillion": 0.028,
       "sheet": {
         "contextWindow": 128000,
         "maxOutput": 64000,
@@ -95,6 +97,7 @@
       "reasoning": false,
       "inputPerMillion": 0.40,
       "outputPerMillion": 1.60,
+      "cachedInputPerMillion": 0.10,
       "sheet": {
         "contextWindow": 1047576,
         "maxOutput": 32768,
@@ -111,6 +114,7 @@
       "reasoning": false,
       "inputPerMillion": 0.10,
       "outputPerMillion": 0.40,
+      "cachedInputPerMillion": 0.025,
       "sheet": {
         "contextWindow": 1047576,
         "maxOutput": 32768,

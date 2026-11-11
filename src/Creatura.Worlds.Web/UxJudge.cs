@@ -197,7 +197,7 @@ public sealed class UxJudge
 
         var messages = new List<ChatMessage> { new("system", SystemPrompt), new("user", Prompt(cell, run)) };
         var reply = await _client.ChatAsync(_endpoint, messages, null, jsonMode: true, maxTokens: 400, cancellationToken).ConfigureAwait(false);
-        var cost = _endpoint.Cost(reply.PromptTokens ?? 0, reply.CompletionTokens ?? 0);
+        var cost = _endpoint.Cost(reply.PromptTokens ?? 0, reply.CompletionTokens ?? 0, reply.CachedTokens ?? 0);
         var parsed = reply.Failed ? null : Parse(reply.Content);
         _log.Write(CallRecord.Of(_endpoint, "ux-judge", _endpoint.Protocol, cell.Key, messages, [], reply, parsed is not null, parsed is null ? "fell back to the rules" : null));
         if (parsed is null)
@@ -337,7 +337,7 @@ public sealed class UxSummary
         var messages = new List<ChatMessage> { new("system", SystemPrompt), new("user", facts) };
         var reply = await _client.ChatAsync(_endpoint, messages, null, jsonMode: false, maxTokens: 400, cancellationToken).ConfigureAwait(false);
         _log.Write(CallRecord.Of(_endpoint, "ux-summary", "text", report.App, messages, [], reply, !reply.Failed, null));
-        var cost = _endpoint.Cost(reply.PromptTokens ?? 0, reply.CompletionTokens ?? 0);
+        var cost = _endpoint.Cost(reply.PromptTokens ?? 0, reply.CompletionTokens ?? 0, reply.CachedTokens ?? 0);
         var paragraph = reply.Failed || string.IsNullOrWhiteSpace(reply.Content)
             ? $"(The {_endpoint.Name} summary failed: {reply.Error ?? "an empty answer"}.)"
             : reply.Content.Trim();

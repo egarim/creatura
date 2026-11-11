@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Cache hits are billed at the cache price.** DeepSeek bills a prompt token served from its cache at a tenth of a
+  miss, but every cost counter billed it at the full input price, overstating cache-heavy runs about fivefold and
+  stopping two-creatures agents at a budget they had not spent. The catalog gains `cachedInputPerMillion` (DeepSeek
+  0.028, gpt-4.1-mini 0.10, gpt-4.1-nano 0.025; left out, hits are billed at the input price as before);
+  `ModelEndpoint.Cost` takes the cached tokens, and the scoreboard, the convoy, the web personas and the UX judge pass
+  them. The two-creatures agent (`agents/model.mjs`) prices hits the same way.
 - **The console page: offers only on the owner's vessel, and files with them** (docs/design-console.md). On a vessel
   without the owner key the composer is read-only and says where offers are made, naming the owner key by its
   fingerprint; the server refuses an offer there without running anything. On the owner's vessel a paperclip (or a
