@@ -7,6 +7,12 @@
   home's own and `--taken`, and `cell init`/`cell accept` with `--creatura` warn (never refuse) when another creatura
   already said that name. The stream and the Fleet show the name (`renderer-gamayun on surface`) instead of the kind
   when the owner gave one. A cell says one new hello after the upgrade, because what it says changed.
+- **`creatura-tray`: the Creatura icon in the menu bar or system tray** (issue #53). A program of its own
+  (src/Creatura.Tray, Avalonia 11.3 TrayIcon for macOS, Windows and Linux), so `creatura` stays package-free. A click
+  opens the console's page (`creatura-console web`) on 127.0.0.1, starting it in-process when nothing answers on
+  its port; the badge counts blocked cells and offers not yet taken; an amber dot warns when the hub does not answer
+  or has not been synced with for ten minutes. The menu lists the cells, syncs now (`creatura cell sync`) and quits,
+  stopping only the page it started. Its logic is `TrayModel` in the console project (tests T1 to T4).
 - **A figure for each kind of actor on the stream page** (issue #6; decision 5 (a) of docs/design-activity-stream.md).
   The owner keeps the icon; Claude Code cells wear the ram with the golden fleece, Codex the ibex, Creatura's own
   loops the winged lion, any other tool the navy ram, so every kind has one; the ring still says the vessel. The
