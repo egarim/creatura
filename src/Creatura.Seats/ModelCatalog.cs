@@ -18,6 +18,7 @@ namespace Creatura.Seats;
 ///                                         //   Never a key value: the catalog, the rows and the logs only ever hold the name.
 ///   "nativeTools": true,                  // drive the seat by function calling (tools) or by one JSON object (json)
 ///   "reasoning": false,                   // a model that thinks before it answers: the cap is widened, reasoning text kept
+///   "vision": false,                      // the model accepts images (a web persona's screenshot when stuck); false = text only
 ///   "inputPerMillion": 0.28,              // USD per million tokens from the provider's public list; null = unknown, cost reported as unknown
 ///   "outputPerMillion": 0.42,
 ///   "cachedInputPerMillion": 0.028,       // prompt tokens served from the provider's cache; null = billed at inputPerMillion
@@ -39,6 +40,7 @@ public sealed record CatalogRow
     [JsonPropertyName("keyEnv")] public string? KeyEnv { get; init; }
     [JsonPropertyName("nativeTools")] public bool NativeTools { get; init; }
     [JsonPropertyName("reasoning")] public bool Reasoning { get; init; }
+    [JsonPropertyName("vision")] public bool Vision { get; init; }
     [JsonPropertyName("inputPerMillion")] public decimal? InputPerMillion { get; init; }
     [JsonPropertyName("outputPerMillion")] public decimal? OutputPerMillion { get; init; }
     [JsonPropertyName("cachedInputPerMillion")] public decimal? CachedInputPerMillion { get; init; }
@@ -158,6 +160,7 @@ public sealed class ModelCatalog
             {
                 Sheet = row.Sheet?.ToSheet(),
                 CachedInputPerMillion = row.CachedInputPerMillion,
+                Vision = row.Vision,
             });
         }
 
@@ -195,10 +198,11 @@ public sealed class ModelCatalog
         new() { Name = "deepseek-reasoner", Provider = "openai", BaseUrl = "https://api.deepseek.com", Model = "deepseek-reasoner", KeyEnv = DeepSeekKey, Reasoning = true, InputPerMillion = 0.28m, OutputPerMillion = 0.42m, CachedInputPerMillion = 0.028m, Sheet = Sheet(128_000, null, 64_000, null, "thinking tokens are billed as output") },
 
         // Azure OpenAI, through its OpenAI-compatible v1 endpoint (the base comes from the environment). gpt-5.x are reasoning models.
-        new() { Name = "gpt-4.1-mini", Provider = "openai", BaseUrlEnv = AoaiBase, Model = "gpt-4.1-mini", KeyEnv = AoaiKey, NativeTools = true, InputPerMillion = 0.40m, OutputPerMillion = 1.60m, CachedInputPerMillion = 0.10m, Sheet = Sheet(1_047_576, null, 32_768, "2024-06", null) },
-        new() { Name = "gpt-4.1-nano", Provider = "openai", BaseUrlEnv = AoaiBase, Model = "gpt-4.1-nano", KeyEnv = AoaiKey, NativeTools = true, InputPerMillion = 0.10m, OutputPerMillion = 0.40m, CachedInputPerMillion = 0.025m, Sheet = Sheet(1_047_576, null, 32_768, "2024-06", null) },
-        new() { Name = "gpt-5.4-mini", Provider = "openai", BaseUrlEnv = AoaiBase, Model = "gpt-5.4-mini", KeyEnv = AoaiKey, NativeTools = true, Reasoning = true, Sheet = Sheet(null, null, null, null, "reasoning model; temperature fixed; cap covers thinking and answer") },
-        new() { Name = "gpt-5.4-nano", Provider = "openai", BaseUrlEnv = AoaiBase, Model = "gpt-5.4-nano", KeyEnv = AoaiKey, NativeTools = true, Reasoning = true, Sheet = Sheet(null, null, null, null, "reasoning model; temperature fixed; cap covers thinking and answer") },
+        // These four accept images, so any of them can be a web persona's vision seat; every other row is text only.
+        new() { Name = "gpt-4.1-mini", Provider = "openai", BaseUrlEnv = AoaiBase, Model = "gpt-4.1-mini", KeyEnv = AoaiKey, NativeTools = true, Vision = true, InputPerMillion = 0.40m, OutputPerMillion = 1.60m, CachedInputPerMillion = 0.10m, Sheet = Sheet(1_047_576, null, 32_768, "2024-06", null) },
+        new() { Name = "gpt-4.1-nano", Provider = "openai", BaseUrlEnv = AoaiBase, Model = "gpt-4.1-nano", KeyEnv = AoaiKey, NativeTools = true, Vision = true, InputPerMillion = 0.10m, OutputPerMillion = 0.40m, CachedInputPerMillion = 0.025m, Sheet = Sheet(1_047_576, null, 32_768, "2024-06", null) },
+        new() { Name = "gpt-5.4-mini", Provider = "openai", BaseUrlEnv = AoaiBase, Model = "gpt-5.4-mini", KeyEnv = AoaiKey, NativeTools = true, Reasoning = true, Vision = true, Sheet = Sheet(null, null, null, null, "reasoning model; temperature fixed; cap covers thinking and answer") },
+        new() { Name = "gpt-5.4-nano", Provider = "openai", BaseUrlEnv = AoaiBase, Model = "gpt-5.4-nano", KeyEnv = AoaiKey, NativeTools = true, Reasoning = true, Vision = true, Sheet = Sheet(null, null, null, null, "reasoning model; temperature fixed; cap covers thinking and answer") },
 
         // Azure AI Foundry model deployments (Phi, DeepSeek) through a model-inference endpoint (the base comes from the environment).
         new() { Name = "phi-4-mini@azure", Provider = "azure-foundry", BaseUrlEnv = FoundryBase, Model = "phi-4-mini", KeyEnv = FoundryKey, Sheet = Sheet(128_000, null, 4_096, "2024", null) },

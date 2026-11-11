@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **The model catalog says which models can see images** (issue #19). A catalog row gains `"vision": true` (left out
+  means text only); the four Azure OpenAI rows have it. `creatura ux` refuses a vision seat (`--vision`,
+  `limits.models.vision`) whose row lacks it before any browser starts, naming the models that can; `creatura run
+  --list` marks them "sees images" and `creatura doctor` lists them.
 - **Cache hits are billed at the cache price.** DeepSeek bills a prompt token served from its cache at a tenth of a
   miss, but every cost counter billed it at the full input price, overstating cache-heavy runs about fivefold and
   stopping two-creatures agents at a budget they had not spent. The catalog gains `cachedInputPerMillion` (DeepSeek

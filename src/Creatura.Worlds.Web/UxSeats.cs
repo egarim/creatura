@@ -33,7 +33,7 @@ public sealed class UxSeats
 
     private static string ModelName(string tester) => tester.StartsWith("model:", StringComparison.Ordinal) ? tester["model:".Length..] : tester;
 
-    /// <summary>What is wrong with a tester for this adapter, or null: a missing script, an unknown model, a model without its key.</summary>
+    /// <summary>What is wrong with a tester for this adapter, or null: a missing script, an unknown model, a vision model that cannot see, a model without its key.</summary>
     public string? Check(string tester, UxAdapter adapter)
     {
         if (!IsModel(tester))
@@ -50,6 +50,12 @@ public sealed class UxSeats
         var visionName = Vision ?? adapter.Limits.Models.GetValueOrDefault("vision");
         var vision = visionName is null ? null : _catalog.TryFind(visionName);
         if (visionName is not null && vision is null) return $"no vision model '{visionName}' in the catalog";
+        if (vision is { Vision: false })
+        {
+            var seeing = _catalog.Endpoints.Where(e => e.Vision).Select(e => e.Name).ToList();
+            return $"{vision.Name} cannot see images, so it cannot be the vision model (its row in {_catalog.Source} has no \"vision\": true); " +
+                   (seeing.Count == 0 ? "no model in the catalog can" : $"models that can: {string.Join(", ", seeing)}");
+        }
         foreach (var endpoint in new[] { decide, escalate, vision }.OfType<ModelEndpoint>())
         {
             if (SeatFactory.MissingKey(endpoint) is { } missing) return $"{endpoint.Name} needs a key in {missing}: set it and retry";

@@ -148,6 +148,19 @@ public class VisionStuckTests
         var seats = new UxSeats(ModelCatalog.Compile(_ => "set")) { Vision = "nobody" };
         Assert.Contains("no vision model 'nobody'", seats.Check("model:deepseek-chat", DemoFiles.Adapter()));
     }
+
+    [Fact]
+    public void ATextOnlyModelIsRefusedAsTheVisionSeatBeforeAnyBrowserStarts()
+    {
+        var catalog = ModelCatalog.Compile(_ => "set");
+        var refused = new UxSeats(catalog) { Vision = "deepseek-chat" }.Check("model:deepseek-chat", DemoFiles.Adapter());
+        Assert.NotNull(refused);
+        Assert.Contains("deepseek-chat cannot see images", refused);
+        Assert.Contains("gpt-4.1-mini", refused);                                           // it names the ones that can
+        // A model that sees passes this check (what is left, if anything, is a key this machine may not hold).
+        var accepted = new UxSeats(catalog) { Vision = "gpt-4.1-mini" }.Check("model:deepseek-chat", DemoFiles.Adapter()) ?? "";
+        Assert.DoesNotContain("cannot see images", accepted);
+    }
 }
 
 /// <summary>The stuck alarm and vision in a real browser.</summary>

@@ -8,6 +8,7 @@
       "model": "qwen2.5:7b",
       "nativeTools": true,
       "reasoning": false,
+      "vision": false,
       "inputPerMillion": 0,
       "outputPerMillion": 0,
       "sheet": {
@@ -26,6 +27,7 @@
       "model": "phi4-mini",
       "nativeTools": false,
       "reasoning": false,
+      "vision": false,
       "inputPerMillion": 0,
       "outputPerMillion": 0,
       "sheet": {
@@ -44,6 +46,7 @@
       "model": "llama3.2:1b",
       "nativeTools": true,
       "reasoning": false,
+      "vision": false,
       "inputPerMillion": 0,
       "outputPerMillion": 0,
       "sheet": {
@@ -62,6 +65,7 @@
       "keyEnv": "DEEPSEEK_API_KEY|deepseek",
       "nativeTools": true,
       "reasoning": false,
+      "vision": false,
       "inputPerMillion": 0.28,
       "outputPerMillion": 0.42,
       "cachedInputPerMillion": 0.028,
@@ -78,6 +82,7 @@
       "keyEnv": "DEEPSEEK_API_KEY|deepseek",
       "nativeTools": false,
       "reasoning": true,
+      "vision": false,
       "inputPerMillion": 0.28,
       "outputPerMillion": 0.42,
       "cachedInputPerMillion": 0.028,
@@ -95,6 +100,7 @@
       "keyEnv": "AZURE_AOAI_KEY",
       "nativeTools": true,
       "reasoning": false,
+      "vision": true,
       "inputPerMillion": 0.40,
       "outputPerMillion": 1.60,
       "cachedInputPerMillion": 0.10,
@@ -112,6 +118,7 @@
       "keyEnv": "AZURE_AOAI_KEY",
       "nativeTools": true,
       "reasoning": false,
+      "vision": true,
       "inputPerMillion": 0.10,
       "outputPerMillion": 0.40,
       "cachedInputPerMillion": 0.025,
@@ -129,6 +136,7 @@
       "keyEnv": "AZURE_AOAI_KEY",
       "nativeTools": true,
       "reasoning": true,
+      "vision": true,
       "sheet": {
         "caveat": "reasoning model; temperature fixed; cap covers thinking and answer"
       }
@@ -141,6 +149,7 @@
       "keyEnv": "AZURE_AOAI_KEY",
       "nativeTools": true,
       "reasoning": true,
+      "vision": true,
       "sheet": {
         "caveat": "reasoning model; temperature fixed; cap covers thinking and answer"
       }
@@ -153,6 +162,7 @@
       "keyEnv": "AZURE_FOUNDRY_KEY",
       "nativeTools": false,
       "reasoning": false,
+      "vision": false,
       "sheet": {
         "contextWindow": 128000,
         "maxOutput": 4096,
@@ -167,6 +177,7 @@
       "keyEnv": "AZURE_FOUNDRY_KEY",
       "nativeTools": false,
       "reasoning": false,
+      "vision": false,
       "sheet": {
         "contextWindow": 16000,
         "maxOutput": 16000,
@@ -181,6 +192,7 @@
       "keyEnv": "AZURE_FOUNDRY_KEY",
       "nativeTools": false,
       "reasoning": true,
+      "vision": false,
       "sheet": {
         "contextWindow": 32000,
         "maxOutput": 32000,
@@ -196,6 +208,7 @@
       "keyEnv": "AZURE_FOUNDRY_KEY",
       "nativeTools": true,
       "reasoning": false,
+      "vision": false,
       "sheet": {
         "contextWindow": 128000,
         "maxOutput": 8192
