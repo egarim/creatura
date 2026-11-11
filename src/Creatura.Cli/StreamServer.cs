@@ -156,6 +156,8 @@ public sealed class StreamServer : IAsyncDisposable
                 return (200, "image/svg+xml", StreamPage.Icon(light: false));
             case "/icon-light.svg":
                 return (200, "image/svg+xml", StreamPage.Icon(light: true));
+            case var figure when figure.StartsWith("/figure/", StringComparison.Ordinal) && figure.EndsWith(".svg", StringComparison.Ordinal):
+                return (200, "image/svg+xml", StreamPage.Figure(Uri.UnescapeDataString(figure["/figure/".Length..^".svg".Length])));
             default:
                 return (404, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes("not found\n"));
         }
@@ -186,6 +188,24 @@ public static class StreamPage
     public static string Html { get; } = Text("stream.html");
 
     public static byte[] Icon(bool light) => Encoding.UTF8.GetBytes(Text(light ? "icon-light.svg" : "icon.svg"));
+
+    /// <summary>
+    /// The figure each kind of actor wears (docs/design-activity-stream.md, decision 5 (a); issue #6), from the logo's
+    /// family of versions: the owner keeps the project's icon, and any tool not in the table wears <c>other</c>, so
+    /// every kind the ledger can hold has a figure. The vessel is the ring around it, drawn by the page.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> Figures { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["claude-code"] = "the ram with the golden fleece",
+        ["codex"] = "the ibex, wings spread",
+        ["cell"] = "the winged lion, Creatura's own loops",
+        ["other"] = "the navy ram, any other tool",
+    };
+
+    /// <summary>The figure for a kind (<c>creatura:kind</c>): the owner's is the icon, an unknown kind's is <c>other</c>. Themed inside the SVG.</summary>
+    public static byte[] Figure(string kind) => kind == "owner"
+        ? Icon(light: false)
+        : Encoding.UTF8.GetBytes(Text($"figure-{(Figures.ContainsKey(kind) ? kind : "other")}.svg"));
 
     private static string Text(string name)
     {

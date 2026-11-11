@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **A figure for each kind of actor on the stream page** (issue #6; decision 5 (a) of docs/design-activity-stream.md).
+  The owner keeps the icon; Claude Code cells wear the ram with the golden fleece, Codex the ibex, Creatura's own
+  loops the winged lion, any other tool the navy ram, so every kind has one; the ring still says the vessel. The
+  figures (docs/assets/figures, traced from the logo's sheet) are embedded and served at `/figure/<kind>.svg`, themed
+  for light and dark inside the file.
 - **`creatura cell name`: names for creaturas** (issue #52). `cell name --role <role> [--vessel <id>] [--count <n>]
   [--taken <name,...>]` suggests `<role>-<creature>` (`renderer-wyvern`, `critic-sphinx`) from a closed list of fifty
   mythical creatures, picked by a hash of the vessel and the role, so the same vessel suggests the same name every

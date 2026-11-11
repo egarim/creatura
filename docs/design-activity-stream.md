@@ -98,6 +98,12 @@ there are:
 So "the ibex in the green ring" is Codex on the second machine. A figure per instance would run out as the fleet grows,
 and two instances of one kind on one vessel are told apart by name, not face.
 
+The table (issue #6, `StreamPage.Figures`; the files in docs/assets/figures, traced from the logo's sheet): the owner
+keeps the icon; **claude-code** the ram with the golden fleece; **codex** the ibex with its wings spread; **cell**
+(Creatura's own loops, a cell whose claims name no tool) the winged lion; any other tool the navy ram (`other`), so
+every kind the ledger can hold has a figure. Each file carries its own light and dark colours. Changing a kind's figure
+is one line in the table.
+
 The versions exist as one raster sheet. Each chosen one has to be traced to a clean single-colour SVG, as the current
 icon was, and given a light variant for dark backgrounds (`docs/assets/creatura-icon-light.svg` is the pattern). The
 icons ship inside the page and the tool; none is fetched.

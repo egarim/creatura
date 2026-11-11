@@ -223,6 +223,40 @@ public class ActivityStreamTests
     /// another address, or to another method.
     /// </summary>
     [Fact]
+    public async Task EveryKindOfActorHasAFigure()
+    {
+        using var dir = new TempHome();
+        var (home, owner) = NewHome(dir);
+        using var a = NewCell(home, "raw-vessel-a", "alpha", "laptop");
+        using var b = NewCell(home, "raw-vessel-b", "beta", "second");
+        var (ledger, _, _) = Fleet(owner, a, b);
+        await using var server = StreamServer.Start(() => ledger);
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+
+        // The kinds this ledger holds, the table's, and kinds no table knows: each answers with an SVG figure.
+        var kinds = JsonNode.Parse(ActivityStream.Collection(ledger))!["creatura:actors"]!.AsArray().Select(x => (string)x!["creatura:kind"]!)
+            .Concat(StreamPage.Figures.Keys).Concat(["owner", "Some New Tool", "gemini-cli"]).Distinct().ToList();
+        Assert.Contains("owner", kinds);
+        var seen = new Dictionary<string, string>();
+        foreach (var kind in kinds)
+        {
+            var response = await http.GetAsync(new Uri(server.Address, "figure/" + Uri.EscapeDataString(kind) + ".svg"));
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("image/svg+xml", response.Content.Headers.ContentType?.MediaType);
+            var svg = await response.Content.ReadAsStringAsync();
+            Assert.StartsWith("<svg", svg.TrimStart());
+            seen[kind] = svg;
+        }
+
+        // Each kind in the table has its own figure, none of them the owner's icon; an unknown tool wears "other".
+        Assert.Equal(StreamPage.Figures.Count, StreamPage.Figures.Keys.Select(k => seen[k]).Distinct().Count());
+        Assert.DoesNotContain(seen["owner"], StreamPage.Figures.Keys.Select(k => seen[k]));
+        Assert.Equal(seen["other"], seen["gemini-cli"]);
+        Assert.Contains("prefers-color-scheme: dark", seen["codex"]);                        // themed inside the file
+        Assert.Contains("figure/", StreamPage.Html);
+    }
+
+    [Fact]
     public async Task C26_TheStreamAnswersOnLoopbackOnlyAndOnlyGet()
     {
         using var dir = new TempHome();

@@ -151,8 +151,11 @@ function clock(iso) {
 function face(actor, small) {
   const f = el("span", "face" + (small ? " small" : ""));
   f.style.setProperty("--ring", actor ? actor["creatura:ring"] : "var(--gold)");
+  // The figure says the kind of actor (the owner keeps the icon), the ring the vessel (docs/design-activity-stream.md).
+  const kind = actor ? actor["creatura:kind"] : "owner";
   const dark = matchMedia("(prefers-color-scheme: dark)").matches;
-  const img = el("img"); img.src = dark ? "icon-light.svg" : "icon.svg"; img.alt = "";
+  const img = el("img"); img.alt = "";
+  img.src = !kind || kind === "owner" ? (dark ? "icon-light.svg" : "icon.svg") : "figure/" + encodeURIComponent(kind) + ".svg";
   f.title = actor ? actor.name : "";
   f.append(img);
   return f;
