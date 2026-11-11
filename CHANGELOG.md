@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **`creatura cell name`: names for creaturas** (issue #52). `cell name --role <role> [--vessel <id>] [--count <n>]
+  [--taken <name,...>]` suggests `<role>-<creature>` (`renderer-wyvern`, `critic-sphinx`) from a closed list of fifty
+  mythical creatures, picked by a hash of the vessel and the role, so the same vessel suggests the same name every
+  time; a cell this home already holds, or a name in `--taken`, is skipped. It reads and creates nothing, and only
+  suggests: `cell init` without `--creatura` now says the command exists, and with `--creatura` never consults it.
+  The ledger carries creatura ids, not names, so names on other vessels are only known through `--taken`. N1 to N4 hold.
 - **The model catalog says which models can see images** (issue #19). A catalog row gains `"vision": true` (left out
   means text only); the four Azure OpenAI rows have it. `creatura ux` refuses a vision seat (`--vision`,
   `limits.models.vision`) whose row lacks it before any browser starts, naming the models that can; `creatura run

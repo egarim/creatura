@@ -17,6 +17,10 @@ public static class CellCommand
 
           init                         create the owner key if absent, endorse this vessel's cell, say hello (idempotent)
           whoami                       creatura id, vessel id (hashed), hardware, position, key fingerprint, endorsement
+          name --role <role> [--vessel <id>] [--count <n>] [--taken <name,...>]
+                                       suggest a name for a new creatura: <role>-<creature> (renderer-wyvern), the same
+                                       on every run for this vessel and role, never one this home holds a cell for or
+                                       --taken names; only a suggestion: pass it, or any name, as --creatura (issue #52)
           claim --goal <text>          claim work; where with --repo --branch --folder --tool --session
                                        --continues <claim id>: take up a handed-off claim; its goal and where are
                                        carried over unless given (docs/design-handoff.md)
@@ -134,6 +138,7 @@ public static class CellCommand
             {
                 "init" => Init(context),
                 "whoami" => WhoAmI(context),
+                "name" => Name(context),
                 "claim" => Claim(context),
                 "progress" => OnClaim(context, "--row", (claim, row) => new ProgressPayload(claim, row)
                 {
@@ -206,6 +211,32 @@ public static class CellCommand
         var hello = SayHelloIfNeeded(ledger, cell);
         store.Save(ledger);
         c.Out.WriteLine(hello is null ? "hello        already in the ledger" : $"hello        {hello.Id} written to {store.Path}");
+        // Without --creatura the cell is "creatura": offer a name that tells it apart, never choose one for the owner.
+        if (!c.Options.ContainsKey("--creatura")) c.Out.WriteLine("name         'creatura', the default; `creatura cell name --role <role>` suggests one that tells cells apart");
+        return 0;
+    }
+
+    /// <summary>
+    /// Suggests names for a new creatura (<see cref="CreaturaNames"/>). It reads and creates nothing: the vessel comes
+    /// from --vessel or this home's salt; the names taken are every cell this home holds a key for, on any vessel, and
+    /// --taken (names known elsewhere, comma separated). The ledger carries creatura ids, not names, so it cannot say.
+    /// </summary>
+    private static int Name(Context c)
+    {
+        var role = c.Options.GetValueOrDefault("--role") ?? throw new ArgumentException("--role <role> is required, such as renderer, critic or publisher");
+        var count = c.Options.GetValueOrDefault("--count") is { } n ? int.Parse(n, CultureInfo.InvariantCulture) : 1;
+        if (count is < 1 or > 50) throw new ArgumentException("--count is 1 to 50");
+        var vessel = c.Options.GetValueOrDefault("--vessel");
+        if (vessel is null && !c.Home.IsInitialized)
+        {
+            c.Err.WriteLine($"no cell under {c.Home.Root} to read this vessel from: pass --vessel <id>, or run `creatura cell init` first");
+            return 1;
+        }
+
+        vessel ??= new VesselProbe(c.Home.LoadSalt(), c.Source).Probe().VesselId;
+        var taken = CreaturaNames.InHome(c.Home.CellsDirectory).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        taken.UnionWith((c.Options.GetValueOrDefault("--taken") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        foreach (var name in CreaturaNames.Suggest(vessel, role, taken, count)) c.Out.WriteLine(name);
         return 0;
     }
 
@@ -938,6 +969,8 @@ public static class CellCommand
         var hello = SayHelloIfNeeded(ledger, cell);
         store.Save(ledger);
         c.Out.WriteLine(hello is null ? "hello        already in the ledger" : $"hello        {hello.Id} written to {store.Path}");
+        // Without --creatura the cell is "creatura": offer a name that tells it apart, never choose one for the owner.
+        if (!c.Options.ContainsKey("--creatura")) c.Out.WriteLine("name         'creatura', the default; `creatura cell name --role <role>` suggests one that tells cells apart");
         return 0;
     }
 
