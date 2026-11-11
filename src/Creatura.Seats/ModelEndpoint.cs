@@ -48,8 +48,19 @@ public sealed record ModelEndpoint(
         return null;
     }
 
-    public decimal? Cost(long promptTokens, long completionTokens) =>
-        InputPerMillion is null || OutputPerMillion is null
-            ? null
-            : promptTokens * InputPerMillion.Value / 1_000_000m + completionTokens * OutputPerMillion.Value / 1_000_000m;
+    /// <summary>USD per million prompt tokens the provider served from its cache; null bills them at <see cref="InputPerMillion"/>.</summary>
+    public decimal? CachedInputPerMillion { get; init; }
+
+    /// <summary>
+    /// What the tokens cost. <paramref name="cachedTokens"/> are the prompt tokens the provider reports as cache hits
+    /// (already counted in <paramref name="promptTokens"/>); they are billed at <see cref="CachedInputPerMillion"/> when the
+    /// catalog has it. DeepSeek bills a cache hit at a tenth of a miss, so billing them at the input price overstated runs.
+    /// </summary>
+    public decimal? Cost(long promptTokens, long completionTokens, long cachedTokens = 0)
+    {
+        if (InputPerMillion is null || OutputPerMillion is null) return null;
+        var cached = Math.Clamp(cachedTokens, 0, Math.Max(promptTokens, 0));
+        var cachedPrice = CachedInputPerMillion ?? InputPerMillion.Value;
+        return (promptTokens - cached) * InputPerMillion.Value / 1_000_000m + cached * cachedPrice / 1_000_000m + completionTokens * OutputPerMillion.Value / 1_000_000m;
+    }
 }

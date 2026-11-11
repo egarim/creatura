@@ -92,6 +92,22 @@ public class ModelCatalogTests
     }
 
     [Fact]
+    public void CacheHitsAreBilledAtTheCachePrice()
+    {
+        var deepseek = ModelCatalog.Compile(Nothing).TryFind("deepseek-chat")!;
+        Assert.Equal(0.028m, deepseek.CachedInputPerMillion);
+        // 1M prompt tokens, 800k of them cache hits, 100k out: 200k misses at 0.28, 800k hits at 0.028, 100k at 0.42.
+        Assert.Equal(0.056m + 0.0224m + 0.042m, deepseek.Cost(1_000_000, 100_000, 800_000));
+        Assert.Equal(0.28m + 0.042m, deepseek.Cost(1_000_000, 100_000));
+        // More hits than prompt tokens (a provider's odd report) never makes the cost negative.
+        Assert.Equal(0.028m, deepseek.Cost(1_000_000, 0, 5_000_000));
+        // A row without a cache price bills hits at the input price, as before.
+        var row = ModelCatalog.Parse("""{ "models": [ { "name": "a", "provider": "openai", "baseUrl": "x", "model": "m", "inputPerMillion": 1, "outputPerMillion": 2 } ] }""", "a.json", Nothing).Endpoints[0];
+        Assert.Null(row.CachedInputPerMillion);
+        Assert.Equal(1m, row.Cost(1_000_000, 0, 900_000));
+    }
+
+    [Fact]
     public void TheSampleFileIsTheCompiledTable()
     {
         var expected = ModelCatalog.DefaultJson();

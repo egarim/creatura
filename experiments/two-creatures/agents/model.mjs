@@ -22,8 +22,14 @@ const base = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").repla
 const minutes = Number(process.env.AGENT_MINUTES || 120);
 const maxSteps = Number(process.env.AGENT_STEPS || 200);
 const budget = Number(process.env.AGENT_BUDGET || 2);
-/** USD per million tokens, the catalog's figures for deepseek-chat (ModelCatalog.cs); cache hits counted at the input price. */
-const PRICE = { input: 0.28, output: 0.42 };
+/** USD per million tokens, the catalog's figures for deepseek-chat (ModelCatalog.cs). DeepSeek bills a prompt token served
+ *  from its cache (prompt_cache_hit_tokens, already inside prompt_tokens) at a tenth of a miss. */
+const PRICE = { input: 0.28, cacheHit: 0.028, output: 0.42 };
+/** The run's cost so far: cache misses at the input price, cache hits at the cache price, the answers at the output price. */
+const costOf = ({ promptTokens, completionTokens, cacheHitTokens }) => {
+  const hits = Math.min(Math.max(cacheHitTokens, 0), promptTokens);
+  return ((promptTokens - hits) * PRICE.input + hits * PRICE.cacheHit + completionTokens * PRICE.output) / 1e6;
+};
 const TRANSCRIPT = `${HOME}/agent-transcript.jsonl`;
 const USAGE = `${HOME}/agent-usage.json`;
 const started = Date.now();
@@ -147,7 +153,7 @@ async function chat(messages) {
     usage.promptTokens += u.prompt_tokens ?? 0;
     usage.completionTokens += u.completion_tokens ?? 0;
     usage.cacheHitTokens += u.prompt_cache_hit_tokens ?? 0;
-    usage.cost = ((usage.promptTokens * PRICE.input) + (usage.completionTokens * PRICE.output)) / 1e6;
+    usage.cost = costOf(usage);
     return body.choices?.[0]?.message ?? { role: "assistant", content: "" };
   }
 }

@@ -318,7 +318,7 @@ public sealed class PersonaPolicy : IPolicy
         Telemetry.Calls++;
         Telemetry.PromptTokens += reply.PromptTokens ?? 0;
         Telemetry.CompletionTokens += reply.CompletionTokens ?? 0;
-        var cost = endpoint.Cost(reply.PromptTokens ?? 0, reply.CompletionTokens ?? 0);
+        var cost = endpoint.Cost(reply.PromptTokens ?? 0, reply.CompletionTokens ?? 0, reply.CachedTokens ?? 0);
         Telemetry.Cost = cost is null || Telemetry.Cost is null ? null : Telemetry.Cost + cost;
         var answer = reply.Failed ? new Answer(null, null, null, false, "", $"{TraceText.ModelError}: {reply.Error}") : Answer.Parse(reply.Content);
         var note = images is null ? escalation : $"{escalation}; with a screenshot ({string.Create(CultureInfo.InvariantCulture, $"{images.Sum(i => i.Data.Length) / 1024}")} KB, not logged)";

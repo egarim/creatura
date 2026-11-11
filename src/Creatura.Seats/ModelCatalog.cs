@@ -20,6 +20,7 @@ namespace Creatura.Seats;
 ///   "reasoning": false,                   // a model that thinks before it answers: the cap is widened, reasoning text kept
 ///   "inputPerMillion": 0.28,              // USD per million tokens from the provider's public list; null = unknown, cost reported as unknown
 ///   "outputPerMillion": 0.42,
+///   "cachedInputPerMillion": 0.028,       // prompt tokens served from the provider's cache; null = billed at inputPerMillion
 ///   "sheet": {                            // what the provider publishes; null = unknown, never zero (optional)
 ///     "contextWindow": 128000, "contextAsRun": null, "maxOutput": 8192, "knowledgeCutoff": null, "caveat": null
 ///   }
@@ -40,6 +41,7 @@ public sealed record CatalogRow
     [JsonPropertyName("reasoning")] public bool Reasoning { get; init; }
     [JsonPropertyName("inputPerMillion")] public decimal? InputPerMillion { get; init; }
     [JsonPropertyName("outputPerMillion")] public decimal? OutputPerMillion { get; init; }
+    [JsonPropertyName("cachedInputPerMillion")] public decimal? CachedInputPerMillion { get; init; }
     [JsonPropertyName("sheet")] public CatalogSheet? Sheet { get; init; }
 }
 
@@ -155,6 +157,7 @@ public sealed class ModelCatalog
             endpoints.Add(new ModelEndpoint(row.Name, Providers.Parse(row.Provider), baseUrl, row.Model, row.KeyEnv, row.NativeTools, row.Reasoning, row.InputPerMillion, row.OutputPerMillion)
             {
                 Sheet = row.Sheet?.ToSheet(),
+                CachedInputPerMillion = row.CachedInputPerMillion,
             });
         }
 
@@ -188,12 +191,12 @@ public sealed class ModelCatalog
         new() { Name = "llama3.2:1b", Provider = "ollama", BaseUrl = "http://localhost:11434", BaseUrlEnv = Ollama, Model = "llama3.2:1b", NativeTools = true, InputPerMillion = 0m, OutputPerMillion = 0m, Sheet = Sheet(128_000, 4_096, 4_096, "2023-12", "4-bit quantised") },
 
         // DeepSeek's own API, OpenAI-compatible. The reasoner returns reasoning_content.
-        new() { Name = "deepseek-chat", Provider = "openai", BaseUrl = "https://api.deepseek.com", Model = "deepseek-chat", KeyEnv = DeepSeekKey, NativeTools = true, InputPerMillion = 0.28m, OutputPerMillion = 0.42m, Sheet = Sheet(128_000, null, 8_192, null, null) },
-        new() { Name = "deepseek-reasoner", Provider = "openai", BaseUrl = "https://api.deepseek.com", Model = "deepseek-reasoner", KeyEnv = DeepSeekKey, Reasoning = true, InputPerMillion = 0.28m, OutputPerMillion = 0.42m, Sheet = Sheet(128_000, null, 64_000, null, "thinking tokens are billed as output") },
+        new() { Name = "deepseek-chat", Provider = "openai", BaseUrl = "https://api.deepseek.com", Model = "deepseek-chat", KeyEnv = DeepSeekKey, NativeTools = true, InputPerMillion = 0.28m, OutputPerMillion = 0.42m, CachedInputPerMillion = 0.028m, Sheet = Sheet(128_000, null, 8_192, null, null) },
+        new() { Name = "deepseek-reasoner", Provider = "openai", BaseUrl = "https://api.deepseek.com", Model = "deepseek-reasoner", KeyEnv = DeepSeekKey, Reasoning = true, InputPerMillion = 0.28m, OutputPerMillion = 0.42m, CachedInputPerMillion = 0.028m, Sheet = Sheet(128_000, null, 64_000, null, "thinking tokens are billed as output") },
 
         // Azure OpenAI, through its OpenAI-compatible v1 endpoint (the base comes from the environment). gpt-5.x are reasoning models.
-        new() { Name = "gpt-4.1-mini", Provider = "openai", BaseUrlEnv = AoaiBase, Model = "gpt-4.1-mini", KeyEnv = AoaiKey, NativeTools = true, InputPerMillion = 0.40m, OutputPerMillion = 1.60m, Sheet = Sheet(1_047_576, null, 32_768, "2024-06", null) },
-        new() { Name = "gpt-4.1-nano", Provider = "openai", BaseUrlEnv = AoaiBase, Model = "gpt-4.1-nano", KeyEnv = AoaiKey, NativeTools = true, InputPerMillion = 0.10m, OutputPerMillion = 0.40m, Sheet = Sheet(1_047_576, null, 32_768, "2024-06", null) },
+        new() { Name = "gpt-4.1-mini", Provider = "openai", BaseUrlEnv = AoaiBase, Model = "gpt-4.1-mini", KeyEnv = AoaiKey, NativeTools = true, InputPerMillion = 0.40m, OutputPerMillion = 1.60m, CachedInputPerMillion = 0.10m, Sheet = Sheet(1_047_576, null, 32_768, "2024-06", null) },
+        new() { Name = "gpt-4.1-nano", Provider = "openai", BaseUrlEnv = AoaiBase, Model = "gpt-4.1-nano", KeyEnv = AoaiKey, NativeTools = true, InputPerMillion = 0.10m, OutputPerMillion = 0.40m, CachedInputPerMillion = 0.025m, Sheet = Sheet(1_047_576, null, 32_768, "2024-06", null) },
         new() { Name = "gpt-5.4-mini", Provider = "openai", BaseUrlEnv = AoaiBase, Model = "gpt-5.4-mini", KeyEnv = AoaiKey, NativeTools = true, Reasoning = true, Sheet = Sheet(null, null, null, null, "reasoning model; temperature fixed; cap covers thinking and answer") },
         new() { Name = "gpt-5.4-nano", Provider = "openai", BaseUrlEnv = AoaiBase, Model = "gpt-5.4-nano", KeyEnv = AoaiKey, NativeTools = true, Reasoning = true, Sheet = Sheet(null, null, null, null, "reasoning model; temperature fixed; cap covers thinking and answer") },
 

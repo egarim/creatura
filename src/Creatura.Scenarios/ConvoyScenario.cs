@@ -632,7 +632,7 @@ public sealed class ConvoyScenario(ConvoySetup setup, ModelClient? models = null
         var e = _seats[0].Endpoint;
         long prompt = _seats.Sum(s => s.Telemetry.PromptTokens), completion = _seats.Sum(s => s.Telemetry.CompletionTokens);
         return new SeatUse(e.Name, e.Model, e.ProviderName, _seats.Sum(s => s.Telemetry.Calls), _seats.Sum(s => s.Telemetry.Failed), _seats.Sum(s => s.Telemetry.Invalid),
-            prompt, completion, e.Cost(prompt, completion), Math.Round(_seats.Sum(s => s.Telemetry.Seconds), 1));
+            prompt, completion, e.Cost(prompt, completion, _seats.Sum(s => s.Telemetry.CachedTokens)), Math.Round(_seats.Sum(s => s.Telemetry.Seconds), 1));
     }
 
     /// <summary>What each arm is in the battery for.</summary>

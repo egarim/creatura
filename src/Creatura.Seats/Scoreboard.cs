@@ -56,7 +56,7 @@ public sealed class Scoreboard
         At = at, Seat = endpoint.Name, Provider = endpoint.ProviderName, Protocol = protocol, Battery = battery, Test = test, World = world, Agent = agent, Repeat = repeat,
         Outcome = outcome, Ticks = ticks, Calls = t.Calls, Failed = t.Failed, Invalid = t.Invalid, LiesCaught = liesCaught, ShortcutTaken = shortcut,
         PromptTokens = t.PromptTokens, CompletionTokens = t.CompletionTokens, ReasoningTokens = t.ReasoningTokens, CachedTokens = t.CachedTokens, TokensKnown = t.TokensKnown,
-        Seconds = t.Seconds, MedianCallSeconds = t.MedianCallSeconds, TokensPerSecond = t.TokensPerSecond, CostUsd = endpoint.Cost(t.PromptTokens, t.CompletionTokens),
+        Seconds = t.Seconds, MedianCallSeconds = t.MedianCallSeconds, TokensPerSecond = t.TokensPerSecond, CostUsd = endpoint.Cost(t.PromptTokens, t.CompletionTokens, t.CachedTokens),
         Note = notes, CallLogPath = callLogPath,
     };
 
