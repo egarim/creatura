@@ -24,6 +24,9 @@ public sealed record ModelEndpoint(
     /// <summary>The published sheet, when the catalog has one.</summary>
     public ModelSheet? Sheet { get; init; }
 
+    /// <summary>The model accepts images (<c>ChatMessage.Images</c>); a text-only model fails on them or quietly ignores them.</summary>
+    public bool Vision { get; init; }
+
     /// <summary>The provider as the rows write it.</summary>
     public string ProviderName => Provider.AsRow();
 

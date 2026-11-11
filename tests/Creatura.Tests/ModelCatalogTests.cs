@@ -108,6 +108,17 @@ public class ModelCatalogTests
     }
 
     [Fact]
+    public void TheCatalogSaysWhichModelsSeeImages()
+    {
+        var all = ModelCatalog.Compile(Everything);
+        Assert.Equal(["gpt-4.1-mini", "gpt-4.1-nano", "gpt-5.4-mini", "gpt-5.4-nano"], all.Endpoints.Where(e => e.Vision).Select(e => e.Name));
+        Assert.False(all.TryFind("deepseek-chat")!.Vision);
+        var parsed = ModelCatalog.Parse("""{ "models": [ { "name": "a", "provider": "openai", "baseUrl": "x", "model": "m", "vision": true }, { "name": "b", "provider": "openai", "baseUrl": "x", "model": "m" } ] }""", "v.json", Nothing);
+        Assert.True(parsed.TryFind("a")!.Vision);
+        Assert.False(parsed.TryFind("b")!.Vision);                                          // left out means text only
+    }
+
+    [Fact]
     public void TheSampleFileIsTheCompiledTable()
     {
         var expected = ModelCatalog.DefaultJson();

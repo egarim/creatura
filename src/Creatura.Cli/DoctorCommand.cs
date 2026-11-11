@@ -300,6 +300,10 @@ public static class DoctorCommand
         yield return new Check(set.Count > 0 ? Level.Ok : Level.Info,
             $"model keys (for --seat model:<name> and the sk template): {(set.Count == 0 ? "none set" : "set: " + Names(set))}" +
             (unset.Count == 0 ? "" : $"; not set: {Names(unset)}"));
+        var seeing = catalog.Endpoints.Where(e => e.Vision).Select(e => e.Name).ToList();
+        yield return new Check(Level.Info, seeing.Count == 0
+            ? "vision models (for creatura ux --vision): none in the catalog"
+            : $"vision models (for creatura ux --vision): {string.Join(", ", seeing)}");
     }
 
     private static string Names(IEnumerable<string> variables) => string.Join(", ", variables.Select(v => v.Replace("|", " or ", StringComparison.Ordinal)));

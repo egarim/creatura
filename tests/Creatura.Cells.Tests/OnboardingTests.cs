@@ -190,6 +190,7 @@ public sealed class OnboardingTests
         Assert.Contains("http://hub.test:5181 did not answer", output);
         Assert.Contains("model keys", output);
         Assert.DoesNotContain("none set", output);
+        Assert.Contains("vision models (for creatura ux --vision):", output);
         Assert.False(Directory.Exists(env.Home));                                          // it looked; it made nothing
 
         asked.Clear();

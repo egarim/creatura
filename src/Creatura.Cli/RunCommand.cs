@@ -143,7 +143,7 @@ public static class RunCommand
         foreach (var model in models.Endpoints)
         {
             var key = model.KeyEnv is null ? "no key needed" : $"key in {model.KeyEnv}";
-            output.WriteLine($"  model:{model.Name,-24}{key}");
+            output.WriteLine($"  model:{model.Name,-24}{key}{(model.Vision ? "; sees images" : "")}");
         }
     }
 
