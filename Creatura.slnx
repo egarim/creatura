@@ -13,6 +13,7 @@
     <Project Path="src/Creatura.Ratings/Creatura.Ratings.csproj" />
     <Project Path="src/Creatura.Cli/Creatura.Cli.csproj" />
     <Project Path="src/Creatura.Operator/Creatura.Operator.csproj" />
+    <Project Path="src/Creatura.Tray/Creatura.Tray.csproj" />
     <Project Path="src/Creatura.Hosts.AgentFramework/Creatura.Hosts.AgentFramework.csproj" />
     <Project Path="src/Creatura.Hosts.SemanticKernel/Creatura.Hosts.SemanticKernel.csproj" />
   </Folder>

@@ -358,7 +358,7 @@ namespace Creatura.Operator
             return null;
         }
 
-        private static string? LastHub(string root)
+        public static string? LastHub(string root)
         {
             var sync = Path.Combine(root, "sync");
             if (!Directory.Exists(sync)) return null;
@@ -369,7 +369,7 @@ namespace Creatura.Operator
             return cut <= 0 || !int.TryParse(name[(cut + 1)..], out var port) ? null : $"http://{name[..cut]}:{port}";
         }
 
-        private static void OpenInBrowser(Uri address)
+        public static void OpenInBrowser(Uri address)
         {
             try
             {
