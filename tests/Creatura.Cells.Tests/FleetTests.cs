@@ -82,7 +82,7 @@ public class FleetTests
         var rows = FleetView.Rows(ledger, now);
         Assert.Equal([b.Id, a.Id, c.Id], rows.Select(r => r.Cell));
         Assert.Equal(("rotate the logs", "disk full", 0.9, true, 0.42), (rows[0].Claim, rows[0].Progress, rows[0].Stress!.Value, rows[0].Blocked, rows[0].Load!.Value));
-        Assert.Equal(("codex on second", b.Identity.Creatura.Value), (rows[0].Name, rows[0].Creatura));   // the ledger knows a creatura by its id
+        Assert.Equal(("beta on second", b.Identity.Creatura.Value), (rows[0].Name, rows[0].Creatura));    // the name its hello says, and its id
         Assert.Equal(("migration step 16", "golden diff empty", false), (rows[1].Claim, rows[1].Progress, rows[1].Blocked));
         Assert.Null(rows[2].Claim);
 

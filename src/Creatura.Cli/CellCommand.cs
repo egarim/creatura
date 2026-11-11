@@ -211,15 +211,61 @@ public static class CellCommand
         var hello = SayHelloIfNeeded(ledger, cell);
         store.Save(ledger);
         c.Out.WriteLine(hello is null ? "hello        already in the ledger" : $"hello        {hello.Id} written to {store.Path}");
-        // Without --creatura the cell is "creatura": offer a name that tells it apart, never choose one for the owner.
-        if (!c.Options.ContainsKey("--creatura")) c.Out.WriteLine("name         'creatura', the default; `creatura cell name --role <role>` suggests one that tells cells apart");
+        NameHint(c, ledger, cell);
         return 0;
     }
 
     /// <summary>
+    /// Without --creatura the cell is "creatura": offer a name that tells it apart, never choose one for the owner. With
+    /// one, warn when another creatura's hello already says it (a warning only: the owner may mean it).
+    /// </summary>
+    private static void NameHint(Context c, WorkLedger ledger, LocalCell cell)
+    {
+        if (!c.Options.ContainsKey("--creatura")) c.Out.WriteLine("name         'creatura', the default; `creatura cell name --role <role>` suggests one that tells cells apart");
+        else if (OtherCreaturasNamed(ledger, cell) is { Count: > 0 } others)
+            c.Err.WriteLine($"warning      another creatura already said the name '{cell.Name}' ({string.Join(", ", others)}); `creatura cell name --role <role>` suggests a free one");
+    }
+
+    /// <summary>The creatura ids, other than this cell's, whose hellos in the ledger say this cell's name.</summary>
+    internal static IReadOnlyList<string> OtherCreaturasNamed(WorkLedger ledger, LocalCell cell) =>
+        CreaturaNames.InLedger(ledger).TryGetValue(cell.Name, out var ids)
+            ? [.. ids.Where(id => id != cell.Identity.Creatura.Value).Order(StringComparer.Ordinal)]
+            : [];
+
+    /// <summary>
+    /// The ledger read without opening a cell (nothing created, nothing written): trusting this home's owner key and the
+    /// owners named in the endorsements its cells hold. Empty when the home has no ledger yet.
+    /// </summary>
+    private static WorkLedger ReadLedger(Context c)
+    {
+        var trusted = new List<string>();
+        using (var owner = c.Home.LoadOwner()) if (owner is not null) trusted.Add(owner.PublicKey);
+        if (Directory.Exists(c.Home.CellsDirectory))
+        {
+            foreach (var file in Directory.EnumerateFiles(c.Home.CellsDirectory, "*.endorsement.json", SearchOption.AllDirectories))
+            {
+                try
+                {
+                    if (JsonSerializer.Deserialize<VesselEndorsement>(File.ReadAllText(file), CellJson.Options) is { } e) trusted.Add(e.OwnerPublicKey);
+                }
+                catch (JsonException)
+                {
+                    // An unreadable endorsement trusts nobody; the cell that holds it says so when it opens.
+                }
+            }
+        }
+
+        var ledger = new WorkLedger(trusted.Distinct());
+        c.Home.ApplyRevocations(ledger);
+        Report(c, LedgerStores.LoadInto(c.Home, c.Home.Ledger, ledger));
+        return ledger;
+    }
+
+    /// <summary>
     /// Suggests names for a new creatura (<see cref="CreaturaNames"/>). It reads and creates nothing: the vessel comes
-    /// from --vessel or this home's salt; the names taken are every cell this home holds a key for, on any vessel, and
-    /// --taken (names known elsewhere, comma separated). The ledger carries creatura ids, not names, so it cannot say.
+    /// from --vessel or this home's salt; the names taken are every cell this home holds a key for, on any vessel, every
+    /// name a cell said in its hello in the ledger (so two vessels synced through a hub never suggest the same one), and
+    /// --taken (names known elsewhere, comma separated).
     /// </summary>
     private static int Name(Context c)
     {
@@ -235,6 +281,7 @@ public static class CellCommand
 
         vessel ??= new VesselProbe(c.Home.LoadSalt(), c.Source).Probe().VesselId;
         var taken = CreaturaNames.InHome(c.Home.CellsDirectory).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (c.Home.IsInitialized) taken.UnionWith(CreaturaNames.InLedger(ReadLedger(c)).Keys);
         taken.UnionWith((c.Options.GetValueOrDefault("--taken") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         foreach (var name in CreaturaNames.Suggest(vessel, role, taken, count)) c.Out.WriteLine(name);
         return 0;
@@ -969,8 +1016,7 @@ public static class CellCommand
         var hello = SayHelloIfNeeded(ledger, cell);
         store.Save(ledger);
         c.Out.WriteLine(hello is null ? "hello        already in the ledger" : $"hello        {hello.Id} written to {store.Path}");
-        // Without --creatura the cell is "creatura": offer a name that tells it apart, never choose one for the owner.
-        if (!c.Options.ContainsKey("--creatura")) c.Out.WriteLine("name         'creatura', the default; `creatura cell name --role <role>` suggests one that tells cells apart");
+        NameHint(c, ledger, cell);
         return 0;
     }
 

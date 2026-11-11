@@ -15,6 +15,12 @@ public sealed record CellIdentity(CreaturaId Creatura, Hardware Hardware, Positi
     /// <summary>The public half of the cell's encryption key (<see cref="CellCipher"/>): what files are sealed to. Null in a hello from before shared files.</summary>
     public string? EncryptionKey { get; init; }
 
+    /// <summary>
+    /// The creatura's name in its home (<c>--creatura</c>), such as <c>renderer-gamayun</c>: said in the hello so every
+    /// vessel can tell which names are taken (issue #52). Null in a hello from before names were said.
+    /// </summary>
+    public string? Name { get; init; }
+
         /// <summary>The model the creatura runs on here (the Core's <see cref="Vessel"/>), when known.</summary>
     public Vessel? Model { get; init; }
 
@@ -64,7 +70,7 @@ public sealed class LocalCell : IDisposable
 
     public static LocalCell Create(CreaturaId creatura, Hardware hardware, Position position, CellKey key, VesselEndorsement? endorsement = null, string name = "creatura",
         CellCipher? cipher = null) =>
-        new(new CellIdentity(creatura, hardware, position, key.PublicKey) { Endorsement = endorsement, EncryptionKey = cipher?.PublicKey }, key, name, cipher);
+        new(new CellIdentity(creatura, hardware, position, key.PublicKey) { Endorsement = endorsement, EncryptionKey = cipher?.PublicKey, Name = name }, key, name, cipher);
 
     /// <summary>The key agreed between this cell's encryption key and another public key (<see cref="CellCipher.Agree"/>). Throws when the cell has none.</summary>
     public byte[] Agree(string otherPublicKey, byte[] context) =>

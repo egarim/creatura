@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Cell names in the ledger** (follows issue #52). A hello now says the creatura's name (`name`, null in older
+  hellos), so every vessel synced through a hub knows which names are taken: `cell name` skips them as well as the
+  home's own and `--taken`, and `cell init`/`cell accept` with `--creatura` warn (never refuse) when another creatura
+  already said that name. The stream and the Fleet show the name (`renderer-gamayun on surface`) instead of the kind
+  when the owner gave one. A cell says one new hello after the upgrade, because what it says changed.
 - **A figure for each kind of actor on the stream page** (issue #6; decision 5 (a) of docs/design-activity-stream.md).
   The owner keeps the icon; Claude Code cells wear the ram with the golden fleece, Codex the ibex, Creatura's own
   loops the winged lion, any other tool the navy ram, so every kind has one; the ring still says the vessel. The

@@ -63,12 +63,31 @@ public static class CreaturaNames
     }
 
     /// <summary>
-    /// The creatura names a home holds a cell for, on any vessel: each <c>cells/&lt;vessel&gt;/&lt;name&gt;.key</c>. (The
-    /// ledger cannot say: its entries carry the creatura's id, not the name it was opened with.)
+    /// The creatura names a home holds a cell for, on any vessel: each <c>cells/&lt;vessel&gt;/&lt;name&gt;.key</c>,
+    /// including cells that have not said a hello yet (see <see cref="InLedger"/> for the names the fleet said).
     /// </summary>
     public static IEnumerable<string> InHome(string cellsDirectory) =>
         !Directory.Exists(cellsDirectory) ? [] : Directory.EnumerateFiles(cellsDirectory, "*.key", SearchOption.AllDirectories)
             .Select(Path.GetFileName).OfType<string>()
             .Where(f => !f.EndsWith(".encryption.key", StringComparison.Ordinal))
             .Select(f => f[..^".key".Length]);
+
+    /// <summary>
+    /// Each name the ledger's cells said in their hellos, with the creatura ids that said it (a revoked cell left out).
+    /// One name with two ids is two creaturas sharing a name; the same id on several vessels is one creatura that moved.
+    /// </summary>
+    public static IReadOnlyDictionary<string, IReadOnlySet<string>> InLedger(WorkLedger ledger)
+    {
+        var names = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in ledger.Entries.Where(e => e.Kind == EntryKind.Hello))
+        {
+            if (ledger.IsRevoked(entry.Cell)) continue;
+            var cell = entry.Body<HelloPayload>().Cell;
+            if (string.IsNullOrWhiteSpace(cell.Name)) continue;
+            if (!names.TryGetValue(cell.Name, out var ids)) names[cell.Name] = ids = new HashSet<string>(StringComparer.Ordinal);
+            ids.Add(cell.Creatura.Value);
+        }
+
+        return names.ToDictionary(p => p.Key, p => (IReadOnlySet<string>)p.Value, StringComparer.OrdinalIgnoreCase);
+    }
 }

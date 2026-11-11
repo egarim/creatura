@@ -165,8 +165,12 @@ public static class ActivityStream
 
     internal static Dictionary<string, string> ActorNames(WorkLedger ledger) => ledger.Entries.GroupBy(e => e.Cell).ToDictionary(
         g => g.Key,
-        g => $"{KindOf(g)} on {VesselName(g.LastOrDefault(e => e.Kind == EntryKind.Hello)?.Body<HelloPayload>().Cell, g.Last().Endorsement.VesselId)}",
+        g => ActorName(KindOf(g), g.LastOrDefault(e => e.Kind == EntryKind.Hello)?.Body<HelloPayload>().Cell, g.Last().Endorsement.VesselId),
         StringComparer.Ordinal);
+
+    /// <summary>"renderer-gamayun on surface" when the hello names the creatura; "claude-code on surface" for the default name or none.</summary>
+    private static string ActorName(string kind, CellIdentity? hello, string vesselId) =>
+        $"{(hello?.Name is { Length: > 0 } name && name != "creatura" ? name : kind)} on {VesselName(hello, vesselId)}";
 
     private static JsonObject Activity(SignedEntry e, IReadOnlyDictionary<string, string> names, IReadOnlyDictionary<string, OfferState> offers, IReadOnlyDictionary<string, string> vessels)
     {

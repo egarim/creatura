@@ -85,6 +85,67 @@ public class NameTests
         Assert.Contains("creatura.key", cells);
     }
 
+    private static (int Code, string Out, string Err) On(string home, FakeVessel vessel, params string[] args)
+    {
+        var output = new StringWriter();
+        var error = new StringWriter();
+        var code = CellCommand.Run(["cell", .. args, "--home", home, "--no-mesh"], output, error, vessel);
+        return (code, output.ToString(), error.ToString());
+    }
+
+    [Fact]
+    public void N5_ANameAnotherVesselSaidInTheLedgerIsTakenAndWarnedAbout()
+    {
+        using var air = new TempHome();
+        using var surface = new TempHome();
+        using var hand = new TempHome();
+        var airVessel = new FakeVessel("raw-air-names", "air");
+        var surfaceVessel = new FakeVessel("raw-surface-names", "surface");
+        Assert.Equal(0, On(air.Path, airVessel, "init").Code);
+        var wanted = On(air.Path, airVessel, "name", "--role", "renderer").Out.Trim();
+
+        // The surface joins and takes that name; its hello says it, and the air reads the surface's ledger.
+        var request = Path.Combine(hand.Path, "request.json");
+        var endorsement = Path.Combine(hand.Path, "endorsement.json");
+        Assert.Equal(0, On(surface.Path, surfaceVessel, "request", "--creatura", wanted, "--out", request).Code);
+        Assert.Equal(0, On(air.Path, airVessel, "endorse", "--request", request, "--out", endorsement).Code);
+        Assert.Equal(0, On(surface.Path, surfaceVessel, "accept", "--creatura", wanted, "--endorsement", endorsement).Code);
+        File.Copy(new CellHome(surface.Path).LedgerPath, new CellHome(air.Path).LedgerPath, overwrite: true);
+
+        Assert.DoesNotContain(wanted, CreaturaNames.InHome(new CellHome(air.Path).CellsDirectory));        // the air holds no key by that name
+        var now = On(air.Path, airVessel, "name", "--role", "renderer");
+        Assert.Equal(0, now.Code);
+        Assert.NotEqual(wanted, now.Out.Trim());                                                             // the ledger said it is taken
+
+        // Taking it anyway on the air is allowed, with a warning naming the other creatura.
+        var clash = On(air.Path, airVessel, "init", "--creatura", wanted);
+        Assert.Equal(0, clash.Code);
+        Assert.Contains($"another creatura already said the name '{wanted}'", clash.Err);
+
+        // The same creatura on a second vessel of one home is one creatura that moved: no warning.
+        var moved = On(surface.Path, surfaceVessel, "accept", "--creatura", wanted, "--endorsement", endorsement);
+        Assert.DoesNotContain("another creatura", moved.Err);
+    }
+
+    [Fact]
+    public void N6_TheHelloSaysTheNameAndTheStreamShowsIt()
+    {
+        using var dir = new TempHome();
+        var vessel = new FakeVessel("raw-stream-names", "studio");
+        Assert.Equal(0, On(dir.Path, vessel, "init", "--creatura", "critic-sphinx").Code);
+        Assert.Equal(0, On(dir.Path, vessel, "init").Code);
+        var home = new CellHome(dir.Path);
+        using var owner = home.LoadOwner()!;
+        var ledger = new WorkLedger([owner.PublicKey]);
+        home.Ledger.LoadInto(ledger);
+        var names = CreaturaNames.InLedger(ledger);
+        Assert.Single(names["critic-sphinx"]);
+        Assert.Single(names["creatura"]);
+        var actors = ActivityStream.Actors(ledger).Select(a => (string)a["name"]!).ToList();
+        Assert.Contains("critic-sphinx on studio", actors);                                                 // the name, when the owner gave one
+        Assert.DoesNotContain(actors, a => a.StartsWith("creatura on", StringComparison.Ordinal));          // the default name keeps the kind
+    }
+
     [Fact]
     public void WithoutAHomeTheVesselMustBeNamed()
     {
