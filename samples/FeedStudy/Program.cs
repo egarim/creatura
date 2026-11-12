@@ -101,7 +101,7 @@ async Task Designed(string design, TikTokWorld w, IPolicy seat, string key)
 /// <summary>A uniform choice among the kinds on offer, seeded by the session.</summary>
 sealed class RandomPolicy(TikTokWorld world) : IPolicy
 {
-    private readonly Random _rng = new(unchecked(world.Session * 7_919 + world.User.Id.Length));
+    private readonly Random _rng = new(unchecked(world.Session * 7_919 + world.User.Id.Aggregate(17, (h, c) => h * 31 + c)));
 
     public string Name => "random";
 
@@ -111,10 +111,10 @@ sealed class RandomPolicy(TikTokWorld world) : IPolicy
 
 /// <summary>One session as the study reads it.</summary>
 sealed record SessionRow(string Policy, string Archetype, string User, int Seed, int Session, bool Served, bool Contract,
-    double Engagement, int Plays, int BaitPlays, bool Skimmed, int SkimPlays, bool Tired, bool Late)
+    double Engagement, double Reported, int Plays, int BaitPlays, bool Skimmed, int SkimPlays, bool Tired, bool Late)
 {
     public static SessionRow Of(string policy, string archetype, string user, int seed, int session, TikTokWorld w) => new(
-        policy, archetype, user, seed, session, w.Has(TikTokWorld.Served), TikTokWorld.Task.Contract(w) >= 1.0, Math.Round(w.EngagementSeconds, 1),
+        policy, archetype, user, seed, session, w.Has(TikTokWorld.Served), TikTokWorld.Task.Contract(w) >= 1.0, Math.Round(w.EngagementSeconds, 1), Math.Round(w.EngagementReported, 1),
         w.Plays.Count, w.Plays.Count(p => p.Kind == FeedKind.Bait), w.Has("user.skimming"), w.Plays.Count(p => p.Skimming), w.Has("user.tired"), w.Has("user.slept-late"));
 }
 
@@ -143,12 +143,12 @@ static class Report
         var policies = rows.Select(r => r.Policy).Distinct().ToList();
         sb.AppendLine($"# The virtual TikTok study: {cast.Count} archetypes x {seeds.Count} test variants x {sessions} sessions, every barrier on\n");
         sb.AppendLine("## Every policy, all users\n");
-        sb.AppendLine("| policy | goal met | contract kept | engagement (s per session) | bait plays per session | skimmed | sessions |");
-        sb.AppendLine("|---|---|---|---|---|---|---|");
+        sb.AppendLine("| policy | goal met | contract kept | engagement reported (s) | watched (s) | bait plays | plays | skimmed | sessions |");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|---|");
         foreach (var p in policies.OrderByDescending(p => rows.Where(r => r.Policy == p).Average(r => r.Served ? 1.0 : 0)))
         {
             var r = rows.Where(x => x.Policy == p).ToList();
-            sb.AppendLine($"| {p} | {P(r.Average(x => x.Served ? 1.0 : 0))} | {P(r.Average(x => x.Contract ? 1.0 : 0))} | {r.Average(x => x.Engagement):0.0} | {r.Average(x => x.BaitPlays):0.00} | {P(r.Average(x => x.Skimmed ? 1.0 : 0))} | {r.Count} |");
+            sb.AppendLine($"| {p} | {P(r.Average(x => x.Served ? 1.0 : 0))} | {P(r.Average(x => x.Contract ? 1.0 : 0))} | {r.Average(x => x.Reported):0.0} | {r.Average(x => x.Engagement):0.0} | {r.Average(x => x.BaitPlays):0.00} | {r.Average(x => x.Plays):0.0} | {P(r.Average(x => x.Skimmed ? 1.0 : 0))} | {r.Count} |");
         }
 
         sb.AppendLine("\n## Goal met, by archetype\n");
@@ -159,19 +159,17 @@ static class Report
 
         // The leaderboards: one game per (user, session), the policies ranked on it.
         var job = (SessionRow r) => $"{r.User}/{r.Session}";
-        var goalRuns = rows.Select(r => new Run("feed", job(r), DateTimeOffset.UnixEpoch.AddMinutes(r.Session), new Dictionary<Axis, string> { [Axis.Design] = r.Policy },
-            r.Contract ? 2 : r.Served ? 1 : 0, r.Served ? r.Plays : 0));   // fewer plays breaks a tie only between sessions that met the goal: quitting early is no merit
+        var goalBoard = Leaderboard.Compute(rows.Select(r => new Run("feed", job(r), DateTimeOffset.UnixEpoch.AddMinutes(r.Session),
+            new Dictionary<Axis, string> { [Axis.Design] = r.Policy }, r.Served ? 1 : 0, 0)), Axis.Design);   // T1's measure: goal met, nothing else
         var engagementRuns = rows.Select(r => new Run("feed", job(r), DateTimeOffset.UnixEpoch.AddMinutes(r.Session), new Dictionary<Axis, string> { [Axis.Design] = r.Policy },
-            Math.Round(r.Engagement / 15), 0));
-        sb.AppendLine("\n## Leaderboard on the user's goal (contract kept > goal met > not met; then fewer plays)\n\n```");
-        sb.Append(Leaderboard.Render(Leaderboard.Compute(goalRuns, Axis.Design)));
-        sb.AppendLine("```\n\n## Leaderboard on engagement (seconds watched, in 15 s steps)\n\n```");
+            Math.Round(r.Reported / 15), 0));
+        sb.AppendLine("\n## Leaderboard on the user's goal (goal met or not)\n\n```");
+        sb.Append(Leaderboard.Render(goalBoard));
+        sb.AppendLine("```\n\n## Leaderboard on engagement reported (predicted stay of the plays made, in 15 s steps)\n\n```");
         sb.Append(Leaderboard.Render(Leaderboard.Compute(engagementRuns, Axis.Design)));
         sb.AppendLine("```");
 
-        var goalBoard = Leaderboard.Compute(rows.Select(r => new Run("feed", job(r), DateTimeOffset.UnixEpoch.AddMinutes(r.Session),
-            new Dictionary<Axis, string> { [Axis.Design] = r.Policy }, r.Contract ? 2 : r.Served ? 1 : 0, r.Served ? r.Plays : 0)), Axis.Design);
-        sb.Append(Verdicts.Write(rows, learned, goalBoard, sessions));
+        sb.Append(Verdicts.Write(rows, learned, goalBoard, sessions, cast));
 
         sb.AppendLine("\n## The late scroller's bait plays, first five sessions against last five\n");
         sb.AppendLine("| policy | sessions 1-5 | last 5 |\n|---|---|---|");
@@ -186,13 +184,14 @@ static class Report
         sb.AppendLine("Serves-share = the chance a *finished* play serves (goals only): what a record that does not count skips can at best learn.\n");
         sb.AppendLine("| design | archetype | kinds with 3+ plays | mean error vs true | rank corr. vs true | mean error vs serves-share |");
         sb.AppendLine("|---|---|---|---|---|---|");
-        var at10 = learned.Where(l => l.Session == Math.Min(9, sessions - 1)).ToList();
+        var at10 = learned.Where(l => l.Session == 9).ToList();
         foreach (var d in learned.Select(l => l.Design).Distinct())
         foreach (var u in cast)
         {
             var per = at10.Where(l => l.Design == d && l.Archetype == u.Id && l.Attempted >= 3).ToList();
             var users = per.GroupBy(l => l.User).ToList();
-            var cover = users.Count == 0 ? 0 : users.Average(g => g.Count());
+            var everyone = at10.Where(l => l.Design == d && l.Archetype == u.Id).Select(l => l.User).Distinct().ToList();
+            var cover = everyone.Count == 0 ? 0 : everyone.Average(id => per.Count(l => l.User == id));   // a user with no kind tried 3+ times counts as 0
             var err = per.Count == 0 ? double.NaN : per.Average(l => Math.Abs(l.Learned - l.TrueLanded));
             var errShare = per.Count == 0 ? double.NaN : per.Average(l => Math.Abs(l.Learned - l.ServesShare));
             var rho = users.Where(g => g.Count() >= 3).Select(g => Spearman(g.Select(l => l.Learned).ToList(), g.Select(l => l.TrueLanded).ToList())).DefaultIfEmpty(double.NaN).Average();
@@ -225,20 +224,21 @@ static class Report
     }
 }
 
-/// <summary>T1 to T8 decided by the rules docs/design-axi.md pre-registered, plus paired differences marked as not pre-registered.</summary>
+/// <summary>
+/// T1 to T8 decided by the rules docs/design-axi.md states: the hypothesis table, and where it cannot be computed as
+/// written, the operational rules beside it (set after round 1 was first seen, from codex's review, and marked so).
+/// Paired differences with 95% intervals are printed beside them and decide nothing.
+/// </summary>
 static class Verdicts
 {
     private const string Base = "max-staytime";
     private static readonly string[] Designs = ["bach", "levin", "peterson", "orienting", "hybrid"];
 
-    public static string Write(List<SessionRow> rows, List<LearnedRow> learned, Board goalBoard, int sessions)
+    public static string Write(List<SessionRow> rows, List<LearnedRow> learned, Board goalBoard, int sessions, IReadOnlyList<FeedUser> cast)
     {
-        var sb = new StringBuilder("\n## The hypotheses, decided by their pre-registered rules\n\n");
+        var sb = new StringBuilder("\n## The hypotheses, decided by the note's rules\n\n");
         string D(string d) => $"{d}+{Base}";
-        double Rate(string p, Func<SessionRow, bool> f, string? archetype = null) => rows.Where(r => r.Policy == p && (archetype is null || r.Archetype == archetype)).Average(r => f(r) ? 1.0 : 0);
-        double Mean(string p, Func<SessionRow, double> f, string? archetype = null) => rows.Where(r => r.Policy == p && (archetype is null || r.Archetype == archetype)).Average(f);
-
-        // Paired difference over the same (user, session): mean and a 95% interval (normal approximation). Not pre-registered.
+        IEnumerable<SessionRow> Of(string p, string? archetype = null) => rows.Where(r => r.Policy == p && (archetype is null || r.Archetype == archetype));
         (double Mean, double Lo, double Hi) Paired(string a, string b, Func<SessionRow, double> f)
         {
             var bs = rows.Where(r => r.Policy == b).ToDictionary(r => (r.User, r.Session));
@@ -252,62 +252,73 @@ static class Verdicts
             const double beta = 25.0 / 6; var c = Math.Sqrt(ea.Sigma * ea.Sigma + eb.Sigma * eb.Sigma + 2 * beta * beta);
             return Math.Exp(ea.Mu / c) / (Math.Exp(ea.Mu / c) + Math.Exp(eb.Mu / c));
         }
-        string Pct(double x) => $"{x * 100:+0.0;-0.0;0.0} pts";
-
-        sb.AppendLine("| id | design | measure | result | verdict |\n|---|---|---|---|---|");
-        foreach (var d in Designs)
+        string Pts(double x) => $"{x * 100:+0.0;-0.0;0.0} pts";
+        double Slope(IEnumerable<(double X, double Y)> points)
         {
-            var gain = Rate(D(d), r => r.Served) - Rate(Base, r => r.Served);
-            var p = TellApart(D(d), Base);
-            var pd = Paired(D(d), Base, r => r.Served ? 1 : 0);
-            var t1 = gain > 0 && p >= 0.95 ? "holds" : gain <= 0 ? "falls" : "open (not told apart)";
-            sb.AppendLine($"| T1 | {d} | goal met against {Base}; leaderboard p | {Pct(gain)}; p = {p:0.00} (paired, not pre-registered: {Pct(pd.Mean)}, 95% [{Pct(pd.Lo)}, {Pct(pd.Hi)}]) | {t1} |");
-        }
-        foreach (var d in Designs)
-        {
-            var ratio = Mean(D(d), r => r.Engagement) / Mean(Base, r => r.Engagement);
-            sb.AppendLine($"| T2 | {d} | engagement against {Base} (at most 25% less) | {ratio * 100:0}% of it | {(ratio >= 0.75 ? "holds" : "falls")} |");
-        }
-        double Bait(string p, bool late) => rows.Where(r => r.Policy == p && r.Archetype == "late-scroller" && (late ? r.Session >= sessions - 5 : r.Session < 5)).Average(r => r.BaitPlays);
-        var baseFalls = Bait(Base, true) < Bait(Base, false);
-        foreach (var d in Designs)
-        {
-            var falls = Bait(D(d), true) < Bait(D(d), false);
-            sb.AppendLine($"| T3 | {d} | late scroller's bait plays, first 5 sessions to last 5 ({Base}: {Bait(Base, false):0.00} to {Bait(Base, true):0.00}) | {Bait(D(d), false):0.00} to {Bait(D(d), true):0.00} | {(falls && !baseFalls ? "holds" : "falls")} |");
+            var pts = points.ToList(); var mx = pts.Average(q => q.X); var my = pts.Average(q => q.Y);
+            var sxx = pts.Sum(q => (q.X - mx) * (q.X - mx));
+            return sxx == 0 ? 0 : pts.Sum(q => (q.X - mx) * (q.Y - my)) / sxx;
         }
 
-        var at10 = learned.Where(l => l.Session == Math.Min(9, sessions - 1)).ToList();
-        foreach (var d in Designs)
+        sb.AppendLine("| id | design | rule | result | verdict |\n|---|---|---|---|---|");
+        foreach (var d in Designs)   // T1: more goals met, and the leaderboard on goals met tells them apart (p >= 0.95)
         {
-            var users = at10.Where(l => l.Design == d && l.Archetype is "learner" or "connector" or "late-scroller").GroupBy(l => l.User).ToList();
-            var all = users.Count(g => g.All(l => l.Attempted > 0 && Math.Abs(l.Learned - l.TrueLanded) <= 0.15) && Report.Spearman([.. g.Select(l => l.Learned)], [.. g.Select(l => l.TrueLanded)]) >= 0.8);
-            var tried = users.Count(g => g.Where(l => l.Attempted >= 3).ToList() is { Count: >= 3 } t && t.All(l => Math.Abs(l.Learned - l.TrueLanded) <= 0.15) && Report.Spearman([.. t.Select(l => l.Learned)], [.. t.Select(l => l.TrueLanded)]) >= 0.8);
-            sb.AppendLine($"| T4 | {d} | learner, connector, late scroller after 10 sessions: every kind within 0.15 and rank corr. >= 0.8 | {all} of {users.Count} users on all 7 kinds; {tried} of {users.Count} on the kinds tried 3+ times | {(all == users.Count ? "holds" : "falls")} |");
+            var gain = Of(D(d)).Average(r => r.Served ? 1.0 : 0) - Of(Base).Average(r => r.Served ? 1.0 : 0);
+            var p = TellApart(D(d), Base); var pd = Paired(D(d), Base, r => r.Served ? 1 : 0);
+            sb.AppendLine($"| T1 | {d} | goal met more often than {Base}, told apart by the leaderboard (p >= 0.95) | {Pts(gain)}; p = {p:0.00} (paired {Pts(pd.Mean)} [{Pts(pd.Lo)}, {Pts(pd.Hi)}], decides nothing) | {(gain > 0 && p >= 0.95 ? "holds" : "falls")} |");
         }
-        foreach (var d in Designs)
+        foreach (var d in Designs)   // T2: engagement reported (predicted stay of the plays made) at least 75% of the baseline's
         {
-            var sound = at10.Where(l => l.Design == d && l.Archetype == "muted-commuter" && l.Attempted >= 3 && l.Kind is "Creator" or "Tutorial" or "Live").ToList();
-            var asDislike = sound.Count(l => Math.Abs(l.Learned - l.TrueLanded) < Math.Abs(l.Learned - l.TasteLanded));
-            sb.AppendLine($"| T5 | {d} | muted commuter, kinds that need sound: learned nearer the muted truth (a dislike) than the taste | {asDislike} of {sound.Count} beliefs read the context as a dislike | {(sound.Count == 0 ? "open (none tried)" : asDislike * 2 <= sound.Count ? "holds" : "falls")} |");
+            var ratio = Of(D(d)).Average(r => r.Reported) / Of(Base).Average(r => r.Reported);
+            sb.AppendLine($"| T2 | {d} | engagement reported at least 75% of {Base}'s | {ratio * 100:0}% (seconds watched: {Of(D(d)).Average(r => r.Engagement) / Of(Base).Average(r => r.Engagement) * 100:0}%) | {(ratio >= 0.75 ? "holds" : "falls")} |");
         }
-        foreach (var d in Designs)
+        double BaitSlope(string p) => Slope(Of(p, "late-scroller").GroupBy(r => r.Session).Select(g => ((double)g.Key, g.Average(r => r.BaitPlays))));
+        var baseSlope = BaitSlope(Base);
+        foreach (var d in Designs)   // T3 (operational): the late scroller's bait plays per session have a falling trend, and the baseline's do not
+            sb.AppendLine($"| T3 | {d} | late scroller's bait plays per session: falling trend (least-squares slope < 0); {Base}'s not falling ({baseSlope:+0.000;-0.000}) | slope {BaitSlope(D(d)):+0.000;-0.000} a session | {(BaitSlope(D(d)) < 0 && baseSlope >= 0 ? "holds" : "falls")} |");
+
+        if (sessions < 10)
         {
-            var drift = learned.Where(l => l.Design == d && l.Archetype == "drifter" && l.Session >= 10 && l.Kind is "Tutorial" or "Creator").GroupBy(l => l.User).ToList();
-            var lags = drift.Select(g => g.GroupBy(l => l.Session).OrderBy(x => x.Key)
-                .FirstOrDefault(x => x.All(l => l.Attempted > 0 && Math.Abs(l.Learned - l.TrueLanded) <= 0.15))?.Key - 10 + 1).ToList();
-            var within = lags.Count(x => x is <= 5);
-            sb.AppendLine($"| T6 | {d} | drifter: sessions after the change until tutorial and creator are within 0.15 of the new truth (at most 5) | {within} of {lags.Count} users within 5; {lags.Count(x => x is null)} never in {sessions - 10} | {(lags.Count > 0 && within * 2 > lags.Count ? "holds" : "falls")} |");
+            sb.AppendLine("| T4-T7 | | need 10 sessions | not run | not run |");
         }
-        foreach (var d in Designs)
+        else
         {
-            var users = at10.Where(l => l.Design == d && l.Archetype == "noisy").GroupBy(l => l.User).ToList();
-            var ok = users.Count(g => g.Where(l => l.Attempted >= 3).All(l => Math.Abs(l.Learned - l.TrueLanded) <= 0.15));
-            sb.AppendLine($"| T7 | {d} | noisy user after 10 sessions: no kind tried 3+ times more than 0.15 from its true rate | {ok} of {users.Count} users | {(ok == users.Count ? "holds" : "falls")} |");
+            var at10 = learned.Where(l => l.Session == 9).ToList();
+            foreach (var d in Designs)   // T4: every kind within 0.15 and rank corr. >= 0.8, for every learner, connector and late scroller
+            {
+                var users = at10.Where(l => l.Design == d && l.Archetype is "learner" or "connector" or "late-scroller").GroupBy(l => l.User).ToList();
+                var ok = users.Count(g => g.All(l => l.Attempted > 0 && Math.Abs(l.Learned - l.TrueLanded) <= 0.15) && Report.Spearman([.. g.Select(l => l.Learned)], [.. g.Select(l => l.TrueLanded)]) >= 0.8);
+                var tried = users.Average(g => g.Count(l => l.Attempted > 0));
+                sb.AppendLine($"| T4 | {d} | after 10 sessions every kind within 0.15 of true, rank corr. >= 0.8, for every such user | {ok} of {users.Count} users; kinds with any belief: {tried:0.0} of 7 | {(ok == users.Count ? "holds" : "falls")} |");
+            }
+            foreach (var d in Designs)   // T5 (operational): no belief about a kind that needs sound is nearer the muted truth than the taste
+            {
+                var beliefs = at10.Where(l => l.Design == d && l.Archetype == "muted-commuter" && l.Attempted > 0 && l.Kind is "Creator" or "Tutorial" or "Live").ToList();
+                var dislike = beliefs.Count(l => Math.Abs(l.Learned - l.TrueLanded) < Math.Abs(l.Learned - l.TasteLanded));
+                var never = beliefs.Count(l => l.Learned >= l.TasteLanded);
+                sb.AppendLine($"| T5 | {d} | muted commuter after 10 sessions: no belief about a kind that needs sound nearer the muted truth than the taste | {dislike} of {beliefs.Count} beliefs read the context as a dislike; {never} sit at or above the taste | {(beliefs.Count == 0 ? "not run (no belief)" : dislike == 0 ? "holds" : "falls")} |");
+            }
+            foreach (var d in Designs)   // T6 (operational): within 5 sessions of the change, every belief within 0.15 of the new truth, for every drifter
+            {
+                var driftAt = cast.Single(u => u.Id == "drifter").DriftAt ?? 0;
+                var users = learned.Where(l => l.Design == d && l.Archetype == "drifter" && l.Session >= driftAt).GroupBy(l => l.User).ToList();
+                var lags = users.Select(g => g.GroupBy(l => l.Session).OrderBy(x => x.Key)
+                    .FirstOrDefault(x => x.Where(l => l.Attempted > 0).All(l => Math.Abs(l.Learned - l.TrueLanded) <= 0.15))?.Key - driftAt + 1).ToList();
+                var within = lags.Count(x => x is <= 5);
+                sb.AppendLine($"| T6 | {d} | drifter: within 5 sessions after the change every belief within 0.15 of the new truth, for every drifter | {within} of {lags.Count} users; {lags.Count(x => x is null)} never in {sessions - driftAt} sessions | {(lags.Count > 0 && within == lags.Count ? "holds" : "falls")} |");
+            }
+            foreach (var d in Designs)   // T7: after 10 sessions no belief more than 0.15 from its true rate, for every noisy user
+            {
+                var users = at10.Where(l => l.Design == d && l.Archetype == "noisy").GroupBy(l => l.User).ToList();
+                var none = users.Count(g => g.All(l => l.Attempted == 0));
+                var ok = users.Count(g => g.Where(l => l.Attempted > 0).All(l => Math.Abs(l.Learned - l.TrueLanded) <= 0.15));
+                sb.AppendLine($"| T7 | {d} | noisy users after 10 sessions: no belief more than 0.15 from its true rate | {ok} of {users.Count} users{(none > 0 ? $" ({none} with no belief at all)" : "")} | {(ok == users.Count ? "holds" : "falls")} |");
+            }
         }
+        // T8 (operational for "skimming"): fewer plays while skimming, and goals met not higher (paired means; intervals decide nothing)
         var skim = Paired("last-resort", Base, r => r.SkimPlays);
         var met = Paired("last-resort", Base, r => r.Served ? 1 : 0);
-        var t8 = skim.Hi < 0 && met.Lo <= 0 ? "holds" : "falls";
-        sb.AppendLine($"| T8 | | last-resort against {Base}: fewer plays while skimming, goal met not higher (paired 95%) | plays while skimming {skim.Mean:+0.00;-0.00} per session [{skim.Lo:+0.00;-0.00}, {skim.Hi:+0.00;-0.00}]; goal met {Pct(met.Mean)} [{Pct(met.Lo)}, {Pct(met.Hi)}] | {t8} |");
+        sb.AppendLine($"| T8 | | last-resort against {Base}: fewer plays while skimming, and goals met not higher | plays while skimming {skim.Mean:+0.00;-0.00} a session [{skim.Lo:+0.00;-0.00}, {skim.Hi:+0.00;-0.00}]; goals met {Pts(met.Mean)} [{Pts(met.Lo)}, {Pts(met.Hi)}] | {(skim.Mean < 0 && met.Mean <= 0 ? "holds" : "falls")} |");
         return sb.ToString();
     }
 }

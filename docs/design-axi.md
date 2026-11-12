@@ -271,51 +271,73 @@ session's goal helps with any user; its control role is its flat taste, and T7 w
 same `max-staytime` chooser, so "max-staytime" against "bach+max-staytime" differs only by the control layer. About 4 s
 on the Mac Studio; a second run gives a byte-identical report. Every conclusion below is **in the simulation**.
 
-| policy | goal met | contract kept | engagement (s a session) | bait plays a session | plays a session |
-|---|---|---|---|---|---|
-| oracle (the ceiling) | 91% | 90% | 39.1 | 0.00 | 3.1 |
-| orienting + max-staytime | 77% | 75% | 70.8 | 1.34 | 5.6 |
-| last-resort | 77% | 75% | 95.5 | 1.76 | 6.0 |
-| max-staytime | 73% | 72% | 95.1 | 1.94 | 6.1 |
-| peterson + max-staytime | 68% | 67% | 72.1 | 1.57 | 6.1 |
-| random | 66% | 63% | 64.1 | 1.22 | 7.2 |
-| bach + max-staytime | 61% | 61% | 49.0 | 0.74 | 3.3 |
-| levin + max-staytime | 61% | 61% | 49.0 | 0.74 | 3.3 |
-| hybrid + max-staytime | 56% | 56% | 44.1 | 0.63 | 2.9 |
+**A first pass was withdrawn.** Codex reviewed the first pass (structure, then meaning) and found defects in the
+instrument and in how the verdicts were computed: the truth left out the noise's clipping at 0 and 1; a failed ad was not
+counted as a play; the noisy user's variants lost their flat taste; the profile checks let an unknown goal through; and
+in several places the verdict code used a window, a minimum number of plays or a majority allowance the hypothesis table
+never stated, and measured engagement as seconds watched where this note defines engagement reported as the predictions
+acted on. All were fixed and round 1 was run again; the numbers below are that run. Where the hypothesis table cannot be
+computed as written, the rule used is stated here. **These operational rules were set after the first pass was seen,**
+which makes them weaker than rules written before any run; they are stated before the rerun and applied as written:
+
+| id | the rule used |
+|---|---|
+| T1 | goal met (served or not) per session; the leaderboard is computed on that alone; "not told apart" (p < 0.95) falls, as the table says |
+| T2 | engagement reported = the predicted stay time of every play made, summed per session |
+| T3 | "falls from session to session" = the least-squares slope of the late scroller's mean bait plays per session over the session index is below 0, and the baseline's is not |
+| T4 | as the table: every one of the 7 kinds, for every learner, connector and late scroller user |
+| T5 | a belief (any play counted) about a kind that needs sound "reads the context as a dislike" when it is nearer the truth with muted sessions than the taste without them; holds only if none does |
+| T6 | "follows" = every belief within 0.15 of the new truth (T4's tolerance); within 5 sessions of the change, for every drifter user |
+| T7 | every belief (any play counted), for every noisy user |
+| T8 | "skimming" = plays made while the user is skimming; holds only if the paired mean is below 0 and the paired mean of goals met is not above 0 |
+
+| policy | goal met | contract kept | engagement reported (s) | watched (s) | bait plays | plays a session |
+|---|---|---|---|---|---|---|
+| oracle (a strong reference) | 91% | 90% | 75.3 | 38.3 | 0.00 | 3.1 |
+| orienting + max-staytime | 76% | 74% | 135.6 | 70.1 | 1.39 | 5.7 |
+| last-resort | 76% | 74% | 183.5 | 93.8 | 1.85 | 6.0 |
+| max-staytime | 71% | 70% | 206.1 | 94.0 | 2.07 | 6.2 |
+| peterson + max-staytime | 67% | 65% | 140.3 | 71.1 | 1.59 | 6.1 |
+| bach + max-staytime | 60% | 60% | 81.4 | 47.9 | 0.75 | 3.4 |
+| levin + max-staytime | 60% | 60% | 81.4 | 47.9 | 0.75 | 3.4 |
+| random | 58% | 55% | 100.1 | 58.0 | 1.15 | 8.0 |
+| hybrid + max-staytime | 55% | 55% | 71.7 | 43.3 | 0.64 | 2.9 |
+
+**Every hypothesis falls in round 1.** The thesis, as stated, does not hold in the simulation.
 
 | id | verdict | in a line |
 |---|---|---|
-| T1 | **falls** (4 designs), **open** (orienting) | Bach −12.3 points of goals met, Levin −12.3, Peterson −5.1, Hybrid −17.3. Orienting +3.3 (paired 95% [+0.7, +5.9]) but the leaderboard does not tell it apart (p = 0.56) |
-| T2 | **holds** for Peterson only | engagement kept: Peterson 76%, Orienting 74%, Bach and Levin 52%, Hybrid 46% |
-| T3 | **holds** for Peterson and Orienting | the late scroller's bait plays fall from the first 5 sessions to the last 5 (2.66 to 2.20, 2.50 to 2.14); Bach's stay low but do not fall (1.20 to 1.34); max-staytime 5.62 to 5.76 |
-| T4 | **falls** for every design | no user has all 7 kinds learned: the designs try 3 to 4 kinds of 7. On the kinds tried 3+ times Bach and Levin pass for 12 of 30 users, Hybrid 14, Peterson and Orienting 0 |
-| T5 | **falls** for Bach, Levin, Hybrid, as predicted | 26 of 30 beliefs read the muted commuter's context as a dislike. Peterson and Orienting "hold" only because they never count a skip |
-| T6 | **falls** everywhere, as predicted | no record follows the drifter's change within the 10 sessions after it |
-| T7 | **falls** | with flat taste, beliefs from a few plays drift past 0.15 for 4 of 10 noisy users under Bach (9 of 10 under Peterson, 10 under Orienting) |
-| T8 | **falls** | the last-resort rule plays a little less while skimming (−0.14 plays a session) and also meets more goals (+3.3 points), because live serves two of the three goals |
+| T1 | falls, every design | goals met against max-staytime: Bach and Levin −11.8 points, Peterson −4.9, Hybrid −16.7, Orienting **+4.3** (paired 95% [+1.7, +7.0]), but the leaderboard tells no design apart (p 0.40 to 0.55) |
+| T2 | falls, every design | engagement reported kept: Peterson 68%, Orienting 66%, Bach and Levin 40%, Hybrid 35% |
+| T3 | falls, every design | the baseline's bait plays also drift down (slope −0.015), so the rule cannot hold; Peterson (−0.024) and Orienting (−0.019) fall faster than the baseline, Bach does not fall (+0.001) |
+| T4 | falls, every design | no user has a belief about every kind: the designs hold beliefs about 3.4 to 4.8 kinds of 7 |
+| T5 | falls, every design | Bach and Levin: 26 of 30 beliefs read the muted commuter's context as a dislike; Peterson 8 of 24, Orienting 3 of 25 (most of theirs sit at or above the taste, because they never count a skip) |
+| T6 | falls, every design | no record follows the drifter's change within the 10 sessions after it |
+| T7 | falls, every design | 4 of 10 noisy users under Bach have a belief more than 0.15 off; 9 under Peterson, 10 under Orienting |
+| T8 | falls | the last-resort rule plays less while skimming (−0.19 plays a session) but also meets more goals (+4.2 points), because live serves two of the three goals |
 
 **What round 1 found:**
 
 1. **The control layer, as it is, makes a recommender quit.** Bach, Levin and Hybrid distrust a kind after one skip and
-   stop after five failures: 3.3 plays a session against 6.1 for the bare chooser. In a task world a failure means
-   something is wrong; in a feed a skip is ordinary. That is why T1 falls. Orienting, which keeps going, is the one design
-   that meets more goals than the bare chooser.
-2. **It does protect the user from bait, within a session.** Bach's late scroller sees 1.2 bait plays a session against
-   5.6 under max-staytime. Only Peterson and Orienting improve on that from session to session (T3).
-3. **What is learned is accurate where it looks, and it looks at half the kinds.** Bach and Hybrid's records are within
-   0.04 to 0.10 of the user's true rate per kind, mostly in the true order (rank correlation 0.70 to 0.95), on the kinds
-   they tried, about 3.5 of 7 (T4 falls on coverage).
+   stop after five failures: about 3 plays a session against 6.2 for the bare chooser. In a task world a failure means
+   something is wrong; in a feed a skip is ordinary. Orienting, which keeps going, is the one design that meets more goals
+   than the bare chooser, by a margin the paired test sees and the leaderboard does not.
+2. **It does protect the user from bait, within a session.** Under Bach the late scroller sees a third of the bait plays
+   it sees under max-staytime; only Peterson and Orienting improve on that from session to session.
+3. **What is learned is accurate where it looks, and it does not look everywhere.** Bach and Hybrid's records are within
+   0.04 to 0.10 of the user's true rate on the kinds tried 3 or more times (rank correlation 0.59 to 0.95), but they hold
+   beliefs about fewer than 5 of the 7 kinds.
 4. **Two records learn two different things.** Peterson and Orienting never count a skip (an honest failure), so their
-   records learn which kinds serve the goal once finished (within 0.06 to 0.17 of that), not the user's taste.
-5. **The two expected failures happened:** no context (T5) and no fading of old evidence (T6). With few plays, a flat user
-   also looks like it has preferences (T7).
+   records learn which kinds serve the goal once finished, not the user's taste.
+5. **The two expected failures happened:** no context (T5) and no fading of old evidence (T6). With few plays, a flat
+   user also looks as if it had preferences (T7).
 6. **Bach and Levin made the same plays in all 1,200 sessions.** With the same chooser both distrust a kind after one
    failed play and both stop after five, so they never diverge; Hybrid differs in 524.
-7. **The leaderboard told no adjacent pair apart in 1,200 games** (every p between 0.50 and 0.73). A session's outcome is
-   one of three classes with many ties, and the 0.95 bar of docs/design-ratings.md is strict for that. The paired
-   differences, not pre-registered, are clear (T1's intervals exclude zero for every design).
+7. **The leaderboard is too blunt for a yes-or-no outcome.** It told no adjacent pair apart in 1,200 games, while the
+   paired differences exclude zero for every design. T1 as registered can hardly hold on this outcome.
 
-**Proposed for round 2,** each for the owner's approval before it is built, then the same seeds again:
+**Proposed for round 2,** each for the owner's approval before it is built, written into this note before round 2 runs,
+then the same seeds again:
 
 | | change | aimed at |
 |---|---|---|
@@ -324,4 +346,4 @@ on the Mac Studio; a second run gives a byte-identical report. Every conclusion 
 | P3 | fade old evidence in the record (a window or a decay on a skill belief) | T6 |
 | P4 | context in the record: a belief per kind and muted or not | T5 |
 | P5 | a belief counts only after enough plays (for example 5) | T7 |
-| P6 | decide T1 by the paired difference, written into this note before round 2 runs | T1's decider |
+| P6 | decide T1 by the paired difference, and T3 against the baseline's slope rather than requiring it to be flat | T1, T3 |
