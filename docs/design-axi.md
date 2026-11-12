@@ -803,3 +803,46 @@ Predicted and not borne out: H4 (predicted to hold). H5 was uncertain and fell.
    shown, and none is ruled out.
 5. **Still open:** taste on every kind that matters (H4, 57%) and drift (H5, 10%). Exploration was tuned to 0 on the
    train seeds, so the change that was meant for H4 is off in v2; change detection did not follow the drifter.
+
+## The next learner (slice I): pre-registered 2026-11-12, before it was built or run
+
+**Why, from two diagnostics read after slice H** (`--improved --trace <archetype>`, on train seeds; they decide nothing):
+
+- **The drifter** (H5, 2 of 20): change detection relearned tutorial in the first session after the change (0.67 to 0.19
+  against a true 0.13). Creator failed twice over. In that session the learner, sure the user wanted to learn, played
+  tutorial nine times in a row while the user skipped it: **the model is updated only after a session**, so a kind skipped
+  again and again keeps its value. By then the user was skimming, which halves every finish, and the creator plays
+  skipped while skimming were **counted as taste**. Change detection then reset creator to 0.34 (true 0.86), and with no
+  discount it climbed back slowly (0.60 ten sessions later).
+- **The muted commuter** (57% against the oracle's 68%): in muted sessions the learner played creator up to ten times in
+  a row (the same missing within-session update), until the user tired (45% of its sessions against the oracle's 34%).
+  Part of the gap is **the oracle's privilege**: when nothing on offer can serve, the bare oracle plays nothing and gets
+  the next batch free (5.6 plays a session against v2's 6.5). On a feed every swipe is a play.
+
+**v3** is v2 with two changes, and tuned differently:
+
+| | change |
+|---|---|
+| within-session update | each kind's draw includes this session's plays of it: the posterior mean in the session's context (the sound rate, times the muted factor in a muted session) and its strength (prior plus counted plays) form a Beta, which this session's finishes and skips of that kind update before the draw |
+| skimming as context | plays made while the user is skimming (a state a platform sees: the session's short plays in a row) teach neither the taste nor the muted factor nor change detection, and do not enter the within-session update |
+| tuning | a grid on the train seeds over ask {0.6, 0.7, 0.8} × ε {0, 0.1, 0.2} × τ {0.3, 0.4, 0.5}, pool weight 2: among the settings within 0.2 points of the best share of goals met, the one with the highest H4 share (the kinds serving a goal weighed 0.2 or more, within 0.15 after 50 sessions) is frozen; a tie goes to the earlier one in that listing order (codex's first proposal). The setting is committed before the confirmation |
+
+**The fair oracle**, reported beside the old one: it knows the truth, and when nothing on offer can serve the session's
+goal it still plays, the offered kind the user is most likely to finish.
+
+**Tests**, once, on **fresh seeds 241-260**, 50 sessions; v2 with slice H's frozen setting:
+
+| id | claim | falsifier |
+|---|---|---|
+| I1 | v3 meets more goals than v2 | the paired 95% interval (sessions as units) is not above 0 |
+| I2 | for the muted commuter, v3 meets more goals than v2 | the paired 95% interval over the muted commuter's sessions is not above 0 |
+| I3 | H4 for v3: the kinds that matter within 0.15, for at least 80% of learner, connector and late-scroller users | fewer than 80% |
+| I4 | H5 for v3: tutorial and creator within 0.15 of the new taste by session 20, for at least 80% of drifters | fewer |
+| I5 | v3 predicts the persona better than v2: per user, its mean Brier score in sessions 26-50 is lower than v2's | the 95% interval of the mean difference (users as units) is not below 0 |
+
+Reported beside them, deciding nothing: goals met by archetype for every policy, including both oracles, and goals met
+by blocks of sessions per archetype (codex's fifth proposal).
+
+**Predicted before the run:** I1 holds by a few points; I2 holds; I4 holds (the skimming bias was the drifter's
+problem); I3 uncertain (it depends on whether the tuning keeps ε above 0); I5 holds, since within-session evidence and
+skimming as context both make the stated chance closer to the outcome.
