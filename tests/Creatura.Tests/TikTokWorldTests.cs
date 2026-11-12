@@ -145,6 +145,8 @@ public class TikTokWorldTests
         for (var i = 0; i < 2; i++) { world.BeginTick(i); world.Act(world.AvailableTools.First(t => t.Id.StartsWith("play-", StringComparison.Ordinal)).Id); }
         Assert.True(world.Has("user.tired"));
         Assert.Equal(["end-session"], world.AvailableTools.Select(t => t.Id));
+        Assert.True(world.Act("end-session").Succeeded);
+        Assert.Empty(world.AvailableTools);                   // the user has left
 
         var late = new TikTokWorld(Only("late"), Certain(t => t[FeedKind.Tutorial] = 0) with { TiredAfter = 2, Late = 1.0 });
         Assert.True(late.IsLate);
