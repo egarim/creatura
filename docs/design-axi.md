@@ -694,3 +694,48 @@ plays a kind it does not need and the discount of 0.85 keeps about 7 sessions of
    ten sessions** (G7, for the two kinds tested), and **the goal mix is within 0.15 for about 60% of users** (G9).
 5. **Where it lives:** the user model is a part of each user's record (`AgentRecord`); the population prior is held in
    memory for the run, not in a record. No Core change beyond round 3's `RecordOnly`.
+
+## The improved learner (slice H, issue #79): pre-registered 2026-11-12, before it was built or run
+
+The owner approved the proposal in #79 ("yes do it", 2026-11-12). Everything runs inside Levin with round 3's layer, as
+the learner of slice G did (Bach made the same plays under that learner, so it is not run again). Seeds: the **train
+seeds 1-20** for tuning only; the confirmation once, on **fresh seeds 221-240** (never used), 50 sessions each.
+
+**v1** is slice G's learner, unchanged. **The ablation** runs v1 five more times on seeds 221-240, each without one lever:
+`-goal` (no goal belief: every goal weighs the user's goal mix, nothing is ruled out, no asking), `-model` (no user
+model: the finish rate is the prior alone, the muted factor 1), `-pool` (no population prior: always the feed's
+prediction worth 2), `-discount` (no discount), `-ask` (goal belief kept, never asks).
+
+**v2** is v1 with three changes and the discount removed:
+
+| | change |
+|---|---|
+| soft goal evidence | after each session the goal mix gains the session's final belief over its goal as a full weight of evidence (one-hot when the user answered; when a play served, the belief restricted to the goals that kind serves; otherwise the belief left after the plays ruled goals out), instead of v1's answer-or-served count |
+| targeted exploration | when the most likely goal has belief 0.6 or more and two or more kinds on offer serve it, with probability ε the one of them with the fewest plays in the user's model is played instead of the sampled best; kinds that serve no goal with belief 0.2 or more are never explored |
+| change detection | per kind, the last 5 outcomes with sound are kept; after each such play, when 5 are kept and their finish rate differs from the kind's posterior mean by more than τ, the kind's counts are reset to those 5 plays. No discount |
+
+**Tuning, on the train seeds only:** a grid over the ask threshold {0.5, 0.6, 0.7}, the population prior's weight {2, 4,
+8}, ε {0, 0.1, 0.2} and τ {0.3, 0.4, 0.5}: 81 settings, each run on the 6 archetypes × 20 train variants × 50 sessions.
+**The setting with the highest share of goals met is frozen**; a tie goes to the earlier one in that listing order. The
+frozen setting is committed to this note before the confirmation runs.
+
+**The prediction score** (the owner's question: can the learner predict the persona?): before every play the learner
+states the chance the user finishes it (its posterior mean, times the muted factor in a muted session). After the play the
+outcome is known, and so is the persona's true chance (taste, muted, skimming and late effects, noise included), which
+the learner never reads. The Brier score of a play is (stated − outcome)²; the feed's own prediction is scored the same way.
+
+**Tests on seeds 221-240,** decided as written:
+
+| id | claim | falsifier |
+|---|---|---|
+| H1-goal, H1-model, H1-pool, H1-discount, H1-ask | each lever helps: v1 without it meets fewer goals than v1 | the paired 95% interval (sessions as units) of (ablated − v1) is not below 0 |
+| H2 | v2 meets more goals than v1 | the paired 95% interval of (v2 − v1) is not above 0 |
+| H3 | v2 learns the goal mix: every goal's weight within 0.15 of the truth after 50 sessions, for at least 80% of learner, connector, late-scroller and muted-commuter users | fewer than 80% |
+| H4 | v2 learns the taste that matters: after 50 sessions, every kind that serves a goal the user's true mix weighs at 0.2 or more has its finish rate within 0.15, for at least 80% of learner, connector and late-scroller users | fewer than 80% |
+| H5 | v2 follows drift: tutorial's and creator's finish rates within 0.15 of the new taste by session 20, for at least 80% of drifters | fewer |
+| H6 | v2 learns to predict the persona: per user, its mean Brier score on plays in sessions 26-50 is lower than in sessions 1-5 (drifter left out, users as units) | the 95% interval of the mean change is not below 0 |
+| H7 | v2 predicts better than the feed: per user, its mean Brier score in sessions 26-50 is lower than the feed's on the same plays | the 95% interval of the mean difference is not below 0 |
+
+**Predicted before the run:** H1-goal and H1-ask hold (knowing the goal was the lever); H1-model and H1-pool small, may
+fall; H1-discount falls (the discount mostly forgot); H2 holds by a few points; H3 holds (soft evidence uses every
+session); H4 holds for most users; H5 uncertain; H6 holds; H7 holds, since the feed is blind to mute and skimming.
