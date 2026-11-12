@@ -559,7 +559,7 @@ first pass had been seen and are marked so; the last round ran on users no run h
   engagement maximiser.** Levin: +3.7 points against max-staytime on seeds 101-110 and +4.3 on the unused seeds 111-120;
   Orienting: +3.6 on the unused seeds (not on 101-110). The option is `HonestFailureRule.RecordOnly` (#75): a skip
   recorded but not spent. The seat is Thompson sampling over the per-user record, with the feed's prediction as its prior.
-- **Bait plays drop.** Round 3's designs play a quarter to a third of the bait max-staytime plays; for Levin, Peterson
+- **Bait plays drop.** Round 3's designs play a sixth to a third of the bait max-staytime plays (0.33 to 0.73 bait plays a session against 2.07); for Levin, Peterson
   and Hybrid the late scroller's bait falls faster across sessions than the baseline's (T3).
 - **Where a record has evidence, it is close to the truth** for the designs that keep a self-model: in round 1, Bach's and
   Hybrid's records were within 0.04 to 0.10 of the true rate on the kinds tried 3 or more times (rank correlation 0.59 to
