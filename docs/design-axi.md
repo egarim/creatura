@@ -423,3 +423,24 @@ promised no Core change.
 | R3-1 | the Core option above: an honest failure recorded, not spent, the tool kept visible | T1, T4 together |
 | R3-2 | explore less and only among kinds the predictions do not rule out (one play in ten) | T1 |
 | R3-3 | keep P4 (a record per context) and P3 (fading); drop P5's floor to 3 plays | T4, T5, T6 |
+
+### A local model in the seat (2026-11-12): Liquid AI LFM3-1.7B
+
+Bach with LFM3-1.7B choosing (llama.cpp on the MacBook Air, 100.64.0.5:8080, native tool calls, no paid call), on round
+1's corrected instrument, one test variant per archetype (seed 101) × 20 sessions: 120 sessions, 495 calls, 6 invalid
+(1.2%), 3.3 s a call, 27 minutes. Against the other policies **on the same 120 sessions**:
+
+| policy | goal met | engagement reported (s) | watched (s) | bait plays | plays a session |
+|---|---|---|---|---|---|
+| oracle | 90% | 92.7 | 38.3 | 0.00 | 3.6 |
+| max-staytime | 74% | 190.1 | 84.7 | 2.29 | 6.0 |
+| orienting + max-staytime | 74% | 129.3 | 62.8 | 1.52 | 5.5 |
+| random | 62% | 97.6 | 55.2 | 1.07 | 7.9 |
+| bach + max-staytime | 60% | 78.3 | 44.2 | 0.89 | 3.3 |
+| **bach + LFM3-1.7B** | **51%** | 49.7 | 30.5 | **0.34** | 3.1 |
+
+It answers with one listed tool almost every time, as issue #55 found, and it plays the least bait of any policy. It also
+asks the user what they want in every session (120 asks, once each: the world no longer offers it twice). But it meets
+fewer goals than random choice: its most-played kind is the ad (102 plays), which serves no goal, so it is not reading the
+predictions and the goal it is told. One variant per archetype is too few to decide anything; it is a first look, and a
+seat to try again once the design stops quitting (round 3).
