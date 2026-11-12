@@ -71,8 +71,8 @@ public sealed record FeedUser
 /// <summary>What the feed predicts about one kind this tick: what a tool <em>reports</em> it will do, before it runs.</summary>
 public sealed record FeedPrediction(FeedKind Kind, double Skip, double Finish, double StaySeconds);
 
-/// <summary>One play, as the world knows it: what was reported and what landed.</summary>
-public sealed record FeedPlay(int Tick, FeedKind Kind, bool Finished, bool Served, double Seconds, bool Muted, bool Skimming);
+/// <summary>One play, as the world knows it: what the feed predicted for it, what was watched, and what landed.</summary>
+public sealed record FeedPlay(int Tick, FeedKind Kind, bool Finished, bool Served, double Seconds, bool Muted, bool Skimming, double PredictedStay = 0);
 
 /// <summary>
 /// A virtual TikTok (docs/design-axi.md): one session of one synthetic user. The recommender is the agent; each tick
@@ -170,8 +170,14 @@ public sealed class TikTokWorld : CatalogueWorld, ITickedWorld
 
     public IReadOnlyList<FeedPlay> Plays => _plays;
 
-    /// <summary>The seconds the plays reported as watched: the engagement the feed would count.</summary>
+    /// <summary>The seconds actually watched, over every play.</summary>
     public double EngagementSeconds => _plays.Sum(p => p.Seconds);
+
+    /// <summary>
+    /// Engagement reported: the predicted stay time of every play the recommender made, what it acted on
+    /// (docs/design-axi.md, "Reported versus landed"). T2 is decided on this one.
+    /// </summary>
+    public double EngagementReported => _plays.Sum(p => p.PredictedStay);
 
     /// <summary>The kinds on offer this tick.</summary>
     public IReadOnlyCollection<FeedKind> Batch => _batch;
@@ -223,7 +229,7 @@ public sealed class TikTokWorld : CatalogueWorld, ITickedWorld
     /// <summary>One play into the session's record, and what it does to the user: focus and tiredness.</summary>
     private void Record(FeedKind kind, bool finished, bool served, double seconds)
     {
-        _plays.Add(new FeedPlay(Ticks, kind, finished, served, seconds, IsMuted, IsSkimming));
+        _plays.Add(new FeedPlay(Ticks, kind, finished, served, seconds, IsMuted, IsSkimming, _predictions.GetValueOrDefault(kind)?.StaySeconds ?? 0));
         _shortInARow = seconds < SkimSeconds ? _shortInARow + 1 : 0;
         if (_barriers.GetValueOrDefault("skim") && _shortInARow >= User.SkimAfter && !IsSkimming)
         {
