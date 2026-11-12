@@ -182,6 +182,7 @@ public sealed class TikTokWorld : CatalogueWorld, ITickedWorld
 
     protected override bool Offered(Tool tool)
     {
+        if (Has("session.ended")) return false;                 // the user has left: nothing more is offered
         if (Has("user.tired")) return tool.Id == "end-session";
         if (KindOf(tool.Id) is { } kind) return _batch.Contains(kind);
         return tool.Id != "mark-session-complete" || _barriers.GetValueOrDefault("autoplay");
