@@ -778,6 +778,10 @@ archetypes × 20 fresh variants × 50 sessions, 6,000 sessions per policy; repea
 | H6 | **holds** | per user, v2's prediction error (Brier score) falls by 0.024 from sessions 1-5 to 26-50 [−0.038, −0.011] |
 | H7 | **holds** | in sessions 26-50 v2's Brier score is 0.086 below the feed's on the same plays [−0.102, −0.069] |
 
+**One detail beyond the registration** (codex's review): change detection skips bait played late at night, as the
+finish rate does ("late sessions do not count toward bait's rate"), so those plays never enter the five-play window.
+Bait is played about 0.05 times a session.
+
 Predicted before the run and borne out: H1-goal, H1-ask, H2, H3, H6, H7 hold; H1-model, H1-pool, H1-discount fall.
 Predicted and not borne out: H4 (predicted to hold). H5 was uncertain and fell.
 
@@ -786,13 +790,16 @@ Predicted and not borne out: H4 (predicted to hold). H5 was uncertain and fell.
 1. **Which lever did the work.** Knowing the session's goal: the goal belief is worth about 17 points of goals met and
    asking about 2 more. Removing the user model, the population prior or the discount changes goals met by less than half
    a point either way.
-2. **Learning the goal mix from every session's evidence works**: 98% of users within 0.15, against about 60% for v1 in
-   slice G. It goes with asking more (39% of sessions, against v1's 21%, from the tuned threshold of 0.7).
-3. **The learner learns to predict the persona.** Its Brier score falls from 0.174 (sessions 1-5) to 0.150 (26-50); a
-   predictor that knew each persona exactly would score 0.133 and 0.138 on the same plays, so the gap to that floor narrows
-   from 0.041 to 0.011. Its stated chance of finishing is off from the persona's true chance by 0.16 on average in the
-   first five sessions and 0.08 in sessions 26-50; the feed's prediction is off by 0.25 (it cannot see mute or skimming).
+2. **v2 learns the goal mix**: 98% of users within 0.15, against about 60% for v1 in slice G. v2 differs from v1 in
+   soft goal evidence, change detection, no discount and the tuned settings at once, and it also asks more (39% of
+   sessions against v1's 21%), so this study does not say which of these gave how much.
+3. **The learner learns to predict the persona** (H6, H7). In the report's tables: its Brier score is 0.174 in sessions
+   1-5 and between 0.143 and 0.156 in each block from 26 to 50, where a predictor that knew each persona exactly scores
+   0.133 to 0.142 on the same plays. Its stated chance of finishing is off from the persona's true chance by 0.161 on
+   average in sessions 1-5 and by 0.078 to 0.086 in each block from 26 to 50; the feed's prediction is off by 0.23 to 0.27
+   throughout (it cannot see mute or skimming).
 4. **Predicting well and serving well are different jobs here.** The user model predicts the persona better and better,
-   but removing it does not cost goals: the goal belief decides what is served.
+   while removing it from v1 changed goals met by −0.2 points with an interval from −0.8 to +0.3: no benefit to goals is
+   shown, and none is ruled out.
 5. **Still open:** taste on every kind that matters (H4, 57%) and drift (H5, 10%). Exploration was tuned to 0 on the
    train seeds, so the change that was meant for H4 is off in v2; change detection did not follow the drifter.

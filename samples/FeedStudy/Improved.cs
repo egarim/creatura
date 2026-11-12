@@ -235,6 +235,14 @@ static class ImprovedReport
             sb.AppendLine($"| the truth, on {l}'s plays (the floor) | " + string.Join(" | ", blocks.Select(b => x.Where(p => p.Session >= b.From && p.Session < b.To).Select(p => (p.Truth - p.Finished) * (p.Truth - p.Finished)).DefaultIfEmpty(double.NaN).Average().ToString("0.000", ic))) + " |");
         }
         sb.AppendLine("\nThe truth row is what a predictor that knew each persona exactly would score: the noise of the draws themselves.");
+        sb.AppendLine("\n## Predicting the persona: mean absolute difference from the persona's true chance of finishing (lower is better)\n");
+        sb.AppendLine("| who predicts | " + string.Join(" | ", blocks.Select(b => $"{b.From + 1}-{b.To}")) + " |\n|---" + string.Concat(blocks.Select(_ => "|---")) + "|");
+        foreach (var l in new[] { "v1", "v2" })
+        {
+            var x = plays.Where(p => p.Learner == l).ToList();
+            sb.AppendLine($"| {l} | " + string.Join(" | ", blocks.Select(b => x.Where(p => p.Session >= b.From && p.Session < b.To).Select(p => Math.Abs(p.Stated - p.Truth)).DefaultIfEmpty(double.NaN).Average().ToString("0.000", ic))) + " |");
+            sb.AppendLine($"| the feed, on {l}'s plays | " + string.Join(" | ", blocks.Select(b => x.Where(p => p.Session >= b.From && p.Session < b.To).Select(p => Math.Abs(p.Feed - p.Truth)).DefaultIfEmpty(double.NaN).Average().ToString("0.000", ic))) + " |");
+        }
 
         sb.AppendLine("\n## Goal met by blocks of sessions (drifter left out)\n");
         sb.AppendLine("| policy | " + string.Join(" | ", blocks.Select(b => $"{b.From + 1}-{b.To}")) + " |\n|---" + string.Concat(blocks.Select(_ => "|---")) + "|");
