@@ -17,6 +17,8 @@ for (var i = 0; i + 1 < args.Length; i += 2) opts[args[i]] = args[i + 1];
 if (args.Contains("--learning")) return await LearningStudy.Run(args.Where(a => a != "--learning").ToArray());   // slice G, Learning.cs
 if (args.Contains("--tune")) return await ImprovedStudy.Run(args.Where(a => a != "--tune").ToArray(), tune: true);           // slice H, Improved.cs
 if (args.Contains("--improved")) return await ImprovedStudy.Run(args.Where(a => a != "--improved").ToArray(), tune: false);  // slice H, Improved.cs
+if (args.Contains("--tune-i")) return await NextStudy.Run(args.Where(a => a != "--tune-i").ToArray(), tune: true);           // slice I, Next.cs
+if (args.Contains("--next")) return await NextStudy.Run(args.Where(a => a != "--next").ToArray(), tune: false);              // slice I, Next.cs
 var seedCount = int.Parse(opts.GetValueOrDefault("--seeds", "10"));
 var sessions = int.Parse(opts.GetValueOrDefault("--sessions", "20"));
 var outDir = Directory.CreateDirectory(opts.GetValueOrDefault("--out", "feed-study-out")).FullName;

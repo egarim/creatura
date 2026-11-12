@@ -26,6 +26,7 @@ static class ImprovedStudy
         var outDir = Directory.CreateDirectory(opts.GetValueOrDefault("--out", tune ? "feed-tune-out" : "feed-improved-out")).FullName;
         var cast = FeedCast.Load();
         if (tune) return await Tune(cast, outDir);
+        if (opts.ContainsKey("--trace")) return await Trace(cast, opts["--trace"], opts);
 
         double D(string k) => double.Parse(opts[k], CultureInfo.InvariantCulture);
         var v2 = V2(D("--ask"), D("--poolw"), D("--eps"), D("--tau"));
@@ -71,6 +72,49 @@ static class ImprovedStudy
         var report = ImprovedReport.Write(rows, scored, models, v2);
         File.WriteAllText(Path.Combine(outDir, "report-improved.md"), report);
         Console.WriteLine(report);
+        return 0;
+    }
+
+    /// <summary>
+    /// A diagnostic, deciding nothing: one archetype's users under v2 (the frozen setting unless given), session by session —
+    /// what the model holds for each kind against the truth, the goal mix, and what was played and how it went.
+    /// </summary>
+    private static async Task<int> Trace(IReadOnlyList<FeedUser> cast, string archetype, Dictionary<string, string> opts)
+    {
+        double D(string k, double d) => opts.TryGetValue(k, out var v) ? double.Parse(v, CultureInfo.InvariantCulture) : d;
+        var o = V2(D("--ask", 0.7), D("--poolw", 2), D("--eps", 0), D("--tau", 0.4));
+        if (opts.ContainsKey("--v3")) o = o with { WithinSession = true, SkimAware = true };
+        var seeds = opts.TryGetValue("--trace-seeds", out var ts) ? ts.Split(',').Select(int.Parse).ToArray() : [.. FeedCast.TrainSeeds];
+        var a = cast.Single(u => u.Id == archetype);
+        var barriers = WorldCatalog.TikTok.Barriers.ToDictionary(b => b.Id, _ => true);
+        var store = new InMemoryRecordStore();
+        var population = new Population(o);
+        var ic = CultureInfo.InvariantCulture;
+        foreach (var seed in seeds)
+        {
+            var user = FeedCast.Variant(a, seed);
+            Console.WriteLine($"\n## {user.Id}\n\n| s | muted | goal | asked | plays (kind: finished/served) | model finish rate vs truth (sound), [plays, recent] | goal mix |\n|---|---|---|---|---|---|---|");
+            for (var s = 0; s < Sessions; s++)
+            {
+                var w = new TikTokWorld(barriers, user, seed, s);
+                var key = $"trace/{user.Id}";
+                var model = UserModel.Load(store, key);
+                model.Decay(o.Discount);
+                var seat = new LearnerSeat(w, model, population, unchecked(seed * 15_485_863 + s), o);
+                var options = AgentOptions.With(new FeedNotes(), new RecordCarryExtension(store, key, recordHonestFailures: true));
+                var layer = Round2.Layer("levin") with { HonestFailureRule = HonestFailureRule.RecordOnly };
+                await AgentCatalog.Make("levin", new AgentBuild(seat, TikTokWorld.Task, options, 1, layer, Store: store, RecordKey: key)).RunAsync(w, MaxTicks);
+                model.Learn(w, population, o);
+                model.Save(store, key);
+                var drifted = user.DriftAt is { } at && s >= at;
+                var taste = drifted && user.FinishAfterDrift is { } f ? f : user.Finish;
+                var kinds = string.Join(", ", new[] { FeedKind.Tutorial, FeedKind.Creator, FeedKind.Live, FeedKind.Friend }.Select(k =>
+                    string.Create(ic, $"{k} {model.FinishMean(k, model.PriorFor(k, population)):0.00}/{FeedCast.Clipped(taste.GetValueOrDefault(k), user.Noise):0.00} [{model.Played.GetValueOrDefault(k):0.#}, {string.Concat(model.Recent.GetValueOrDefault(k) ?? [])}]")));
+                var played = string.Join(" ", w.Plays.Select(p => $"{p.Kind.ToString()[..Math.Min(3, p.Kind.ToString().Length)]}:{(p.Finished ? "f" : "-")}{(p.Served ? "S" : "")}{(p.Muted ? "m" : "")}"));
+                var mix = string.Join(" ", Enum.GetValues<FeedGoal>().Select(g => string.Create(ic, $"{g.ToString()[..3]} {model.GoalWeight(g):0.00}")));
+                Console.WriteLine($"| {s + 1} | {(w.IsMuted ? "m" : "")} | {w.Goal.ToString()[..3]} | {(w.Has("goal.known") ? "y" : "")} | {played} | {kinds} | {mix} |");
+            }
+        }
         return 0;
     }
 
