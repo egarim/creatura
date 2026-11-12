@@ -643,6 +643,9 @@ or the asking is wrong.
 (seeds 201-220) × 50 sessions, 6,000 sessions per policy; repeatable. One smoke run saw 2 of the 20 variants for 30
 sessions before the full run; nothing was changed after it.
 
+**One implementation detail beyond the registration:** each Beta shape of a prior is kept at 0.01 or more, so a pooled or
+predicted rate of 0 or 1 still gives a valid prior; at those ends the prior weighs 4.01 or 2.01 plays instead of 4 or 2.
+
 **A first run was withdrawn.** Codex's review found the code different from this note's pre-registration in four places:
 each prior carried an extra Beta(1, 1), so it was worth 6 and 4 plays instead of 4 and 2; the muted factor and the
 end-of-run reading used a prediction of 0.5 instead of the feed's; kinds that do not need sound counted toward taste in
@@ -667,7 +670,7 @@ study was run again; the numbers below are that run. (The first run had reported
 | G2 | **holds**, both | Levin +9.9 points against round 3's Levin [+8.9, +10.9]; Bach +10.8 [+9.7, +11.8] |
 | G3 | falls, both | the gap to max-staytime grows by +3.6 (Levin, 95% [−1.7, +9.0]) and +4.9 (Bach, [−0.8, +10.6]) points from sessions 1-5 to 26-50, over 100 users: an estimate above zero whose interval includes zero |
 | G4 | **holds**, both | sessions 26-50: 88% against the taste-known chooser's 81% (109% and 108%) |
-| G5 | falls, both | no learner, connector or late scroller has every kind's finish rate within 0.15 |
+| G5 | falls, both | 13 of 60 learner, connector and late-scroller users have every kind's finish rate within 0.15, below 80% |
 | G6 | **holds**, both | 18 of 20 muted commuters have the muted factor within 0.1 (learned 0.21 and 0.20 against 0.20) |
 | G7 | falls, both | no drifter's tutorial and creator rates within 0.15 of the new taste by session 20 |
 | G8 | falls, both | no noisy user has every kind within 0.15 |
@@ -675,7 +678,7 @@ study was run again; the numbers below are that run. (The first run had reported
 
 **Diagnostics, read after the run (not pre-registered; they decide nothing):** the learner asked the user in 21% of its
 sessions (27% of its first five, 22% of its last five). On the kinds with 3 or more discounted plays, its finish rates are
-off by 0.11 on average; on the rest, 0.23; three in four kind-user pairs have fewer than 3, because the learner seldom
+off by 0.11 on average; on the rest, 0.15; three in four kind-user pairs have fewer than 3, because the learner seldom
 plays a kind it does not need and the discount of 0.85 keeps about 7 sessions of evidence.
 
 **What the learning study found** (in the simulation; these are readings of the tables, not separate tests):
@@ -683,9 +686,11 @@ plays a kind it does not need and the discount of 0.85 keeps about 7 sessions of
 1. **The learner meets more goals than everything but the oracle:** 86%, against 76% for round 3's best design, 80% for a
    greedy chooser that knows each user's true taste, and 91% for the oracle, with almost no bait. The learner differs from
    round 3 in all five levers at once, so this study does not say which lever gave how much.
-2. **Goals met do not show a clear climb across sessions** (G3): the estimate is positive and its interval includes zero.
-3. **Context is learned** (G6): the muted factor, shared across kinds, lands on the truth for 18 of 20 commuters.
-4. **Taste is learned only where the learner plays** (G5, G8 fall on the kinds it seldom plays), **drift is not followed
-   within ten sessions** (G7, for the two kinds tested), and **the goal mix is close for about 60% of users** (G9).
+2. **The gap to max-staytime does not clearly grow across sessions** (G3): the estimate is positive and its interval
+   includes zero.
+3. **Context is learned** (G6): the muted factor, shared across kinds, is within 0.1 of the truth for 18 of 20 commuters.
+4. **Taste is not learned for every kind** (G5, G8 fall). The diagnostic above is consistent with thin evidence (most
+   kind-user pairs have fewer than 3 discounted plays) without showing that it is the cause. **Drift is not followed within
+   ten sessions** (G7, for the two kinds tested), and **the goal mix is within 0.15 for about 60% of users** (G9).
 5. **Where it lives:** the user model is a part of each user's record (`AgentRecord`); the population prior is held in
    memory for the run, not in a record. No Core change beyond round 3's `RecordOnly`.

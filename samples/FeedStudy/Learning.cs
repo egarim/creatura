@@ -263,6 +263,9 @@ sealed class LearnerSeat(TikTokWorld world, UserModel model, Population populati
         if (belief.Values.Max() < LearningStudy.AskBelow && world.Plays.Count == 0 && context.Tools.Any(t => t.Id == "ask-what-they-want"))
             return Task.FromResult(new PolicySuggestion("ask-what-they-want", $"unsure of the goal ({belief.Values.Max():0.00})"));
 
+        // Every prediction on offer is observable: the model keeps the last one per kind, played or not.
+        foreach (var k in world.Batch) if (world.Predicted(k) is { } seen) model.Predicted[k] = seen.Finish;
+
         var best = context.Tools.Where(t => TikTokWorld.KindOf(t.Id) is { } k && world.Predicted(k) is not null)
             .Select(t =>
             {
