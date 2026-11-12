@@ -889,8 +889,13 @@ Predicted and borne out: I2, I5. Predicted and not: I1 (a few points), I4. I3 wa
 1. **Against the fair oracle, the learner is close.** v3 meets 88% of goals; an oracle that knows each persona and the
    session's goal but must play every tick meets 90%; the old oracle's 92% included free skips. For the muted commuter the
    gap is 5 points against the fair oracle (56% against 61%), where slice H measured 11 against the old one.
-2. **Within-session updating and skimming as context improve prediction more than goals.** v3's stated chance of finishing
-   is off from the persona's true chance by 0.120 in sessions 1-5 (v2: 0.158) and 0.069 in sessions 46-50 (v2: 0.079).
+2. **Within-session updating and skimming as context improve prediction more than goals** (I5 holds, I1 does not). The
+   stated chance of finishing against the persona's true chance, mean absolute difference, from the report:
+
+   | who predicts | 1-5 | 6-10 | 11-15 | 16-20 | 21-25 | 26-30 | 31-35 | 36-40 | 41-45 | 46-50 |
+   |---|---|---|---|---|---|---|---|---|---|---|
+   | v2 | 0.158 | 0.130 | 0.137 | 0.096 | 0.092 | 0.089 | 0.081 | 0.090 | 0.086 | 0.079 |
+   | v3 | 0.120 | 0.111 | 0.111 | 0.089 | 0.082 | 0.076 | 0.073 | 0.075 | 0.075 | 0.069 |
 3. **The kinds that matter are learned for most users** (78%, up from 57%), with exploration kept on by the H4 tiebreak.
 
 **Why I4 got worse, from a trace read after the run** (`--improved --trace drifter --v3`, a train seed; it decides
