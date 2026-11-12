@@ -286,7 +286,7 @@ which makes them weaker than rules written before any run; they are stated befor
 | T2 | engagement reported = the predicted stay time of every play made, summed per session |
 | T3 | "falls from session to session" = the least-squares slope of the late scroller's mean bait plays per session over the session index is below 0, and the baseline's is not |
 | T4 | as the table: every one of the 7 kinds, for every learner, connector and late scroller user |
-| T5 | a belief (any play counted) about a kind that needs sound "reads the context as a dislike" when it is nearer the truth with muted sessions than the taste without them; holds only if none does |
+| T5 | read after 10 sessions, as T4 and T7 are; a belief (any play counted) about a kind that needs sound "reads the context as a dislike" when it is nearer the truth with muted sessions than the taste without them; holds only if none does (and holds, said so, when there is no belief) |
 | T6 | "follows" = every belief within 0.15 of the new truth (T4's tolerance); within 5 sessions of the change, for every drifter user |
 | T7 | every belief (any play counted), for every noisy user |
 | T8 | "skimming" = plays made while the user is skimming; holds only if the paired mean is below 0 and the paired mean of goals met is not above 0 |

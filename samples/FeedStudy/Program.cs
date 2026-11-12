@@ -296,7 +296,7 @@ static class Verdicts
                 var beliefs = at10.Where(l => l.Design == d && l.Archetype == "muted-commuter" && l.Attempted > 0 && l.Kind is "Creator" or "Tutorial" or "Live").ToList();
                 var dislike = beliefs.Count(l => Math.Abs(l.Learned - l.TrueLanded) < Math.Abs(l.Learned - l.TasteLanded));
                 var never = beliefs.Count(l => l.Learned >= l.TasteLanded);
-                sb.AppendLine($"| T5 | {d} | muted commuter after 10 sessions: no belief about a kind that needs sound nearer the muted truth than the taste | {dislike} of {beliefs.Count} beliefs read the context as a dislike; {never} sit at or above the taste | {(beliefs.Count == 0 ? "not run (no belief)" : dislike == 0 ? "holds" : "falls")} |");
+                sb.AppendLine($"| T5 | {d} | muted commuter after 10 sessions: no belief about a kind that needs sound nearer the muted truth than the taste | {dislike} of {beliefs.Count} beliefs read the context as a dislike; {never} sit at or above the taste | {(dislike == 0 ? beliefs.Count == 0 ? "holds (no belief at all)" : "holds" : "falls")} |");
             }
             foreach (var d in Designs)   // T6 (operational): within 5 sessions of the change, every belief within 0.15 of the new truth, for every drifter
             {
