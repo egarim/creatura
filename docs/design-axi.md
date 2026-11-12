@@ -260,8 +260,8 @@ An `src/Creatura.Axi` project, an AXI object model, a new event bus, capability 
 ### Slices B and B2 (2026-11-12): the world and the users
 
 The virtual TikTok is `tiktok` in the catalog (#71); the six archetypes, their variants, checks, truth and oracle are
-`FeedCast` (#72). Every archetype is learnable: the oracle meets the goal within 5 plays 29 to 44 points more often than
-random choice (train seeds). One correction before any run: the noisy user shows that gap too, because knowing the
+`FeedCast` (#72). Every archetype is learnable: the oracle meets the goal within 5 plays 31 to 50 points more often than
+random choice (train seeds; measured after codex's fixes). One correction before any run: the noisy user shows that gap too, because knowing the
 session's goal helps with any user; its control role is its flat taste, and T7 was reworded to compare with its true rates.
 
 ### Slice D, round 1 (2026-11-12): the study
