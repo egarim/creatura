@@ -168,7 +168,7 @@ The bench writes the rows, and `creatura rate` gives the leaderboard on two axes
 | the late scroller | high bait susceptibility; lies down after midnight | engagement that harms: does a policy protect the goal |
 | the muted commuter | walking or in a car, mostly muted | a context effect that looks like a dislike |
 | the drifter | learner for some sessions, then entertainment | following a change |
-| the noisy one | no stable taste: responses are random | the control: there is **nothing to learn**, so any confident belief is false learning |
+| the noisy one | flat taste (every kind 0.35), every goal equally likely, large noise | the control: its only structure is the goal-to-kind mapping every user shares, so any preference a learner finds beyond that is false learning |
 
 Then **variants** for scale: each archetype's fields jittered by seed, so each policy meets many users of each kind.
 
@@ -177,7 +177,7 @@ Then **variants** for scale: each archetype's fields jittered by seed, so each p
 **The users are checked before they are used.** A user that cannot be told apart from random is a badly designed user, not a finding. Before any comparison:
 - every profile is valid: chances between 0 and 1, goal weights summing to 1;
 - an **oracle** policy that reads the profile (a small `IPolicy` in the sample; the bench's `IOracle` already judges runs) reaches each user's goal far more often than a random policy does;
-- the noisy user is the exception and must show no gap;
+- the noisy user shows a gap too, because knowing the session's goal helps with any user; its control role is its flat taste (corrected 2026-11-12, before any run);
 - seeds are split into training and test users before anything is recorded, as the other Creatura notes do.
 
 **What is learned, where it lives.** The recommender keeps one record per user, across sessions, through the record store the loop already has (`ReferenceLoop`'s `store` and `recordKey`, the key being the user's id). Because there is one tool per kind of video, the record's per-tool numbers are per-kind numbers about this user:
@@ -220,7 +220,7 @@ All of these are read from the records and the profiles after the runs by one sm
 | T4 | after 10 sessions, each kind's learned landed rate is within 0.15 of the profile's true rate, and the kinds are ranked in the same order (rank correlation at least 0.8), for the learner, the connector and the late scroller | further off, or ranked differently |
 | T5 | the muted commuter's skips while muted are not learned as a dislike of the kinds that need sound | they are |
 | T6 | after the drifter's change, the record follows within 5 sessions | it takes longer |
-| T7 | the noisy user produces no confident belief: no kind's learned rate more than 0.15 from the user's base rate after 10 sessions | any kind further off |
+| T7 | the noisy user produces no invented preference: after 10 sessions no kind's learned rate is more than 0.15 from its true rate, whose differences come only from the shared goal mapping | any kind further off |
 | T8 | the `last-resort` rule lowers skimming but does not raise goals met compared with `max-staytime` | it raises goals met |
 
 **Two failures are expected, and say so in advance.** The record keeps one count per kind of video (`SkillBelief`: supported and attempted; `EffectMemory`: tried, landed, failed, lied), with **no context and no fading of old evidence**. So T5 should fail (a skip while muted counts as a dislike) and T6 should be slow (old sessions weigh as much as new ones). If they fail as predicted, the study has found the limits of a per-kind memory, and the next round knows what to add.
@@ -245,7 +245,7 @@ All of these are read from the records and the profiles after the runs by one sm
 |---|---|---|---|
 | A | #63 | this note | the owner has read the thesis before the runs |
 | B | #64 | the virtual TikTok world, its barriers, the two baselines | golden runs; each barrier fails a plain loop where it should |
-| B2 | #65 | the synthetic users, the checks, the oracle | every profile valid; the oracle beats random for every user but the noisy one |
+| B2 | #65 | the synthetic users, the checks, the oracle | every profile valid; the oracle beats random by at least 15 points for every user |
 | C | #66 | `samples/Axi` | slice 1 runs offline and prints the four shapes |
 | D | #67 | the study | T1 to T8 each concluded: holds, falls or open |
 | E | #68 | the grid setting | as B, on the grid |
