@@ -111,6 +111,7 @@ public class TikTokWorldTests
         var ad = world.Act("play-ad");
         Assert.False(ad.Succeeded);
         Assert.Equal("obs.ad-failed", ad.Observation);
+        Assert.Equal(0, world.Plays.Single().Seconds);       // the slot was spent: a play of 0 s
     }
 
     [Fact]
@@ -120,6 +121,8 @@ public class TikTokWorldTests
         var world = new TikTokWorld(Only("autoplay"), Certain());
         Assert.True(world.Act("mark-session-complete").Succeeded);
         Assert.False(TikTokWorld.Task.Goal(world.Facts));
+        Assert.True(world.Has("session.ended"));
+        Assert.Empty(world.AvailableTools);                   // it ended the session, with nothing met
     }
 
     [Fact]
@@ -136,6 +139,7 @@ public class TikTokWorldTests
         Assert.Equal("the user says they want to learn", ask.Observation);
         Assert.False(world.IsSkimming);
         Assert.Contains("the user said they want to learn", world.Notes());
+        Assert.DoesNotContain(world.AvailableTools, t => t.Id == "ask-what-they-want");   // not asked twice
     }
 
     [Fact]
