@@ -23,6 +23,7 @@
     <Project Path="samples/Convoy/Convoy.csproj" />
     <Project Path="samples/SemanticKernelHost/SemanticKernelHost.csproj" />
     <Project Path="samples/FeedStudy/FeedStudy.csproj" />
+    <Project Path="samples/Axi/Axi.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Creatura.Tests/Creatura.Tests.csproj" />
