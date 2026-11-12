@@ -739,3 +739,9 @@ the learner never reads. The Brier score of a play is (stated − outcome)²; th
 **Predicted before the run:** H1-goal and H1-ask hold (knowing the goal was the lever); H1-model and H1-pool small, may
 fall; H1-discount falls (the discount mostly forgot); H2 holds by a few points; H3 holds (soft evidence uses every
 session); H4 holds for most users; H5 uncertain; H6 holds; H7 holds, since the feed is blind to mute and skimming.
+
+**Frozen 2026-11-12, after tuning on the train seeds and before the confirmation ran:** ask below **0.7**, population
+prior weight **2**, ε **0**, τ **0.4**: 87.80% of goals met on the train seeds (the 81 settings ranged from 85.8% to
+87.8%; `samples/FeedStudy/results/slice-h-tune.csv`). Averaged over the grid, the ask threshold moved goals met most
+(0.5: 86.1%, 0.6: 87.0%, 0.7: 87.7%); the prior weight, ε and τ each moved it by 0.3 points or less. **ε came out at 0,
+so targeted exploration is off in the frozen v2**; H4 is decided on v2 as frozen.
