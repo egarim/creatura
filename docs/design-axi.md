@@ -846,3 +846,8 @@ by blocks of sessions per archetype (codex's fifth proposal).
 **Predicted before the run:** I1 holds by a few points; I2 holds; I4 holds (the skimming bias was the drifter's
 problem); I3 uncertain (it depends on whether the tuning keeps ε above 0); I5 holds, since within-session evidence and
 skimming as context both make the stated chance closer to the outcome.
+
+**Frozen 2026-11-12, after tuning on the train seeds and before the confirmation ran:** ask below **0.8**, ε **0.1**, τ
+**0.5** (pool weight 2): 88.05% of goals met on the train seeds, the best of the 27 settings, with an H4 share of 80%
+there (`samples/FeedStudy/results/slice-i-tune.csv`). Exploration stays on this time: within 0.2 points of the best, the
+H4 tiebreak chose ε 0.1 over ε 0 (whose best H4 share was 73%).
