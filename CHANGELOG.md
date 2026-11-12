@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **`HonestFailureRule.RecordOnly`: an honest failure recorded but not spent** (issue #75). Prediction and reliability
+  record it as a failure; the budget is not spent, the design's own failure accounting is not told, and the tool stays
+  visible. `RecordCarryExtension` gains `recordHonestFailures` to do the same for designs without a self-model. Found by
+  the AXI study (docs/design-axi.md, rounds 1 and 2): `Habituate` stopped a recommender quitting on skips but left the
+  skips unrecorded, so nothing was learned; `StaysVisible` recorded them but spent the budget. Defaults unchanged.
 - **Cell names in the ledger** (follows issue #52). A hello now says the creatura's name (`name`, null in older
   hellos), so every vessel synced through a hub knows which names are taken: `cell name` skips them as well as the
   home's own and `--taken`, and `cell init`/`cell accept` with `--creatura` warn (never refuse) when another creatura
