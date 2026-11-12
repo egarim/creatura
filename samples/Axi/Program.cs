@@ -91,7 +91,7 @@ static class Axi
         ["goalId"] = task.Name,
         ["status"] = task.Goal(world.Facts) ? "succeeded" : world.Has("session.ended") ? "cancelled" : "failed",
         ["accepted"] = accepted,
-        ["reported"] = new JsonObject { ["engagement"] = Math.Round(world.EngagementSeconds, 1), ["plays"] = events.Plays, ["lies"] = events.Lies },
+        ["reported"] = new JsonObject { ["engagement"] = Math.Round(world.EngagementReported, 1), ["watchedSeconds"] = Math.Round(world.EngagementSeconds, 1), ["plays"] = events.Plays, ["lies"] = events.Lies },
         ["confirmed"] = new JsonObject
         {
             ["goalMet"] = task.Goal(world.Facts),
