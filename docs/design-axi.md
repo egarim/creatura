@@ -534,3 +534,52 @@ on **test seeds 111-120, which no run has used.** Nothing else changes: round 3'
 **Predicted before the run:** L1′ holds for Bach and Levin, carried mostly by the noisy users and the late scroller (the
 users with room to learn); T1 holds again for Levin, perhaps Bach. **This is the last round.** Afterwards the note says
 what holds and what does not, and the loop stops.
+
+### Slice D, round 4 (2026-11-12): the results, on unused seeds 111-120
+
+`dotnet run --project samples/FeedStudy -- --seeds 10 --seed-skip 10 --sessions 20`, round 3's settings unchanged.
+
+| id | verdict | in a line |
+|---|---|---|
+| L1′ | falls, every design | the change in the per-user gap to the baseline, sessions 11-20 against 1-2: Bach +0.4 points (95% [−10.3, +11.1]), Levin −4.6 [−15.2, +6.0], Peterson +4.2, Orienting −3.6, Hybrid +8.0 [−3.4, +19.4]; 50 users each |
+| T1 | **holds for Levin and Orienting**, again for Levin | Levin +4.3 points against max-staytime (95% [+1.7, +7.0]), Orienting +3.1 [+0.2, +5.9], Bach +2.4 [−0.3, +5.1], Peterson −3.3, Hybrid −10.2 |
+
+Goals met on these seeds: oracle 92%, Levin + r3 76%, Bach + r3 74%, max-staytime 71%.
+
+## What holds and what does not (the loop stops here, 2026-11-12)
+
+Four rounds, every rule written down before its round ran, the last on users no run had seen. In the simulation:
+
+**Holds**
+- **With one Core option and a seat that reads the record, Creatura's control layer serves users' goals better than an
+  engagement maximiser.** Levin meets 3.4 points more goals than max-staytime on seeds 101-110 and 4.3 more on the unseen
+  seeds 111-120; Orienting +3.1 on the unseen seeds. The option is `HonestFailureRule.RecordOnly` (#75): a skip recorded
+  but not spent. The seat is Thompson sampling over the per-user record, with the feed's prediction as its prior.
+- **It protects the user from bait.** Round 3's designs play about a quarter of the bait max-staytime plays, and for four
+  of them the late scroller's bait falls faster across sessions than the baseline's (T3).
+- **What a record learns is close to the truth where it has evidence** (round 1: within 0.04 to 0.10 of the true rate on
+  the kinds tried, rank correlation 0.59 to 0.95).
+
+**Does not hold**
+- **Steady improvement across sessions is not shown** (L1, L1′). The gain appears from the second session and then holds;
+  whether it keeps growing is not measurable with these tests: two early sessions per user are too few.
+- **Engagement is kept** (T2): the designs give up half or more of the engagement the maximiser reports. Meeting goals
+  and fewer bait plays cost engagement here.
+- **The records do not learn every kind** (T4), **do not separate context from taste reliably** (T5), **do not follow a
+  change of taste within 10 sessions** (T6), and **invent preferences for a flat user** (T7).
+- **The last-resort rule** meets more goals than the maximiser, not fewer (T8).
+- **Bach, Hybrid and Peterson** do not beat the maximiser on goals, and **Hybrid** still quits.
+
+**What it means for Creatura:** the control layer, as designed for task worlds, treats every failure as a reason to stop;
+in a feed that makes it quit, and with the documented rule it learns nothing. One option in the Core and one seat in the
+example turn it into a recommender that meets more goals with much less bait. What remains open is learning that keeps
+improving, context and drift; those need a record with context and fading built into the Core, not bolted on in the
+study, and longer runs to measure.
+
+**What it means for AXI:** the agent side of AXI on Creatura needs no AXI engine. The four JSON shapes and an example are
+enough to exchange capabilities, proposals, events and outcomes (#66), and the outcome must keep reported and confirmed
+apart: in the slice, the feed reported 228.7 s of predicted engagement for a user who watched 5.3 s.
+
+**Not covered:** real people (every result is in the simulation); a model seat beyond one small run (Liquid AI
+LFM3-1.7B in round 1: 51% goals met, below random); the grid (Instagram-like) setting (#68); several predictors judged by
+their records; the Singular side (#69).

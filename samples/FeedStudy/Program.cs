@@ -20,7 +20,7 @@ var outDir = Directory.CreateDirectory(opts.GetValueOrDefault("--out", "feed-stu
 const int MaxTicks = 20;
 var barriers = WorldCatalog.TikTok.Barriers.ToDictionary(b => b.Id, _ => true);
 var cast = FeedCast.Load();
-var seeds = FeedCast.TestSeeds.Take(seedCount).ToList();
+var seeds = FeedCast.TestSeeds.Skip(int.Parse(opts.GetValueOrDefault("--seed-skip", "0"))).Take(seedCount).ToList();   // round 4: --seed-skip 10, seeds 111-120
 string[] designs = ["bach", "levin", "peterson", "orienting", "hybrid"];
 
 // The choosers. Bare ones run with no control layer: the feed as it is. Designs wrap the same max-staytime chooser in
@@ -387,6 +387,18 @@ static class Verdicts
                 var diff = late.Average() - early.Average(); var h = 1.96 * Math.Sqrt(Var(early) / early.Count + Var(late) / late.Count);
                 var decides = p != Base;
                 sb.AppendLine($"| L1 | {p} | goals met, sessions {sessions - 4}-{sessions} against 1-5: 95% interval above 0 | {early.Average() * 100:0}% to {late.Average() * 100:0}%: {Pts(diff)} [{Pts(diff - h)}, {Pts(diff + h)}] | {(decides ? diff - h > 0 ? "holds" : "falls" : "(baseline, decides nothing)")} |");
+            }
+            // L1' (round 4): per user, the paired gap to the baseline in sessions 11-20 minus the gap in sessions 1-2; users as units.
+            var baseRows = Of(Base).ToDictionary(r => (r.User, r.Session));
+            foreach (var d in Designs)
+            {
+                var deltas = Of(D(d)).Where(r => r.Archetype != "drifter").GroupBy(r => r.User).Select(g =>
+                {
+                    double Gap(Func<int, bool> when) => g.Where(r => when(r.Session)).Average(r => (r.Served ? 1.0 : 0) - (baseRows[(r.User, r.Session)].Served ? 1.0 : 0));
+                    return Gap(x => x < 2) - Gap(x => x >= 10);
+                }).Select(x => -x).ToList();
+                var m = deltas.Average(); var sd = Math.Sqrt(deltas.Sum(x => (x - m) * (x - m)) / (deltas.Count - 1)); var h = 1.96 * sd / Math.Sqrt(deltas.Count);
+                sb.AppendLine($"| L1' | {d} | per user, the gap to {Base} in sessions 11-20 minus the gap in sessions 1-2: 95% interval above 0 | {Pts(m)} [{Pts(m - h)}, {Pts(m + h)}] over {deltas.Count} users | {(m - h > 0 ? "holds" : "falls")} |");
             }
         }
         foreach (var d in Designs)   // T1: more goals met, and the leaderboard on goals met tells them apart (p >= 0.95)
