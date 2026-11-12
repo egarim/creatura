@@ -851,3 +851,56 @@ skimming as context both make the stated chance closer to the outcome.
 **0.5** (pool weight 2): 88.05% of goals met on the train seeds, the best of the 27 settings, with an H4 share of 80%
 there (`samples/FeedStudy/results/slice-i-tune.csv`). Exploration stays on this time: within 0.2 points of the best, the
 H4 tiebreak chose ε 0.1 over ε 0 (whose best H4 share was 73%).
+
+### The next learner (2026-11-12): the results, on fresh seeds 241-260
+
+`dotnet run --project samples/FeedStudy -- --next --ask 0.8 --eps 0.1 --tau 0.5`, once, as pre-registered: 6 archetypes ×
+20 fresh variants × 50 sessions; repeatable (two runs, one report).
+
+| policy | goal met | engagement reported (s) | bait plays | plays a session | tired | asked |
+|---|---|---|---|---|---|---|
+| oracle | 92% | 69.2 | 0.00 | 3.0 | 9% | 0% |
+| oracle, fair (never a free skip) | 90% | 68.8 | 0.09 | 3.3 | 10% | 0% |
+| **v3** | **88%** | 73.5 | 0.05 | 3.7 | 12% | 55% |
+| v2 | 88% | 76.4 | 0.04 | 3.7 | 13% | 38% |
+| max-staytime | 71% | 212.4 | 2.03 | 6.3 | 28% | 0% |
+
+| archetype | max-staytime | v2 | v3 | oracle, fair | oracle |
+|---|---|---|---|---|---|
+| learner | 87% | 92% | 91% | 94% | 94% |
+| connector | 96% | 98% | 98% | 99% | 100% |
+| late scroller | 81% | 97% | 97% | 98% | 98% |
+| muted commuter | 43% | 54% | 56% | 61% | 66% |
+| drifter | 73% | 91% | 91% | 94% | 94% |
+| noisy | 46% | 95% | 96% | 95% | 97% |
+
+| id | verdict | in a line |
+|---|---|---|
+| I1 | falls | v3 meets 0.4 points more goals than v2, 95% [−0.1, +0.8] |
+| I2 | **holds** | for the muted commuter, +2.6 points [+0.9, +4.3] |
+| I3 | falls | the kinds that matter are within 0.15 for 78% of users (v2: 57%), below the 80% bar |
+| I4 | falls | 0 of 20 drifters (v2: 5 of 20) |
+| I5 | **holds** | per user, v3's Brier score in sessions 26-50 is 0.007 below v2's [−0.012, −0.002] |
+
+Predicted and borne out: I2, I5. Predicted and not: I1 (a few points), I4. I3 was uncertain.
+
+**Readings of the tables (not separate tests):**
+
+1. **Against the fair oracle, the learner is close.** v3 meets 88% of goals; an oracle that knows each persona and the
+   session's goal but must play every tick meets 90%; the old oracle's 92% included free skips. For the muted commuter the
+   gap is 5 points against the fair oracle (56% against 61%), where slice H measured 11 against the old one.
+2. **Within-session updating and skimming as context improve prediction more than goals.** v3's stated chance of finishing
+   is off from the persona's true chance by 0.120 in sessions 1-5 (v2: 0.158) and 0.069 in sessions 46-50 (v2: 0.079).
+3. **The kinds that matter are learned for most users** (78%, up from 57%), with exploration kept on by the H4 tiebreak.
+
+**Why I4 got worse, from a trace read after the run** (`--improved --trace drifter --v3`, a train seed; it decides
+nothing): after the change v3 asks the user almost every session (its tuned threshold is 0.8), learns that they now want
+to be entertained, and never plays tutorial again, so tutorial's rate stays at the old taste (0.70 against a true 0.13).
+v2 relearned tutorial only by accident, playing it many times in the first session after the change before it asked.
+**I4 asks for the rate of a kind the user no longer wants, which a learner serving the user has no reason to play.** The
+kind that does matter after the change, creator, is relearned slowly (0.60 by session 20 against 0.86): nothing fades the
+old evidence, and the tuned change threshold of 0.5 rarely fires.
+
+**What this suggests next** (proposals, not results): measure drift on the kinds that matter after the change, not on
+every kind; bring back fading of old evidence for drift (v2 dropped the discount), tuned with drift in the tiebreak; and
+compare every learner with the fair oracle from now on.

@@ -83,6 +83,7 @@ static class ImprovedStudy
     {
         double D(string k, double d) => opts.TryGetValue(k, out var v) ? double.Parse(v, CultureInfo.InvariantCulture) : d;
         var o = V2(D("--ask", 0.7), D("--poolw", 2), D("--eps", 0), D("--tau", 0.4));
+        if (opts.ContainsKey("--v3")) o = o with { WithinSession = true, SkimAware = true };
         var seeds = opts.TryGetValue("--trace-seeds", out var ts) ? ts.Split(',').Select(int.Parse).ToArray() : [.. FeedCast.TrainSeeds];
         var a = cast.Single(u => u.Id == archetype);
         var barriers = WorldCatalog.TikTok.Barriers.ToDictionary(b => b.Id, _ => true);
