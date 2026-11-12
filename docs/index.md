@@ -37,6 +37,9 @@ agent tools around it, as hosts and as cells.
 - [A language for agents to talk in](design-agent-language.md): Latin 1 r0, ten typed messages whose claims carry
   checks the world runs, decoded into the owner's language, with a digest for the person in the loop (v0 built as the
   two-creatures arm MT, with fake agents; issue #47).
+- [AXI with Creatura](design-axi.md): the Adaptive Experience & Intelligence Framework's agent side as an example
+  and a sample world, a virtual TikTok with synthetic users whose truth is known, and a pre-registered thesis that
+  compares what the recommender learns with that truth (proposed; issue #62).
 - [Web worlds](design-web-worlds.md): a persona uses a real web app through Playwright, sees only the visible text
   and the numbered controls, and is judged by the app's own data; barriers between the browser and the app (phase 1
   built, with an offline demo).

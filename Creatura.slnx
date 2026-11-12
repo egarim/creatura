@@ -22,6 +22,7 @@
     <Project Path="samples/AgentFrameworkHost/AgentFrameworkHost.csproj" />
     <Project Path="samples/Convoy/Convoy.csproj" />
     <Project Path="samples/SemanticKernelHost/SemanticKernelHost.csproj" />
+    <Project Path="samples/FeedStudy/FeedStudy.csproj" />
     <Project Path="samples/Axi/Axi.csproj" />
   </Folder>
   <Folder Name="/tests/">
