@@ -14,6 +14,7 @@ using Creatura.Worlds.Samples;
 CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
 var opts = new Dictionary<string, string>(StringComparer.Ordinal);
 for (var i = 0; i + 1 < args.Length; i += 2) opts[args[i]] = args[i + 1];
+if (args.Contains("--learning")) return await LearningStudy.Run(args.Where(a => a != "--learning").ToArray());   // slice G, Learning.cs
 var seedCount = int.Parse(opts.GetValueOrDefault("--seeds", "10"));
 var sessions = int.Parse(opts.GetValueOrDefault("--sessions", "20"));
 var outDir = Directory.CreateDirectory(opts.GetValueOrDefault("--out", "feed-study-out")).FullName;
@@ -177,23 +178,29 @@ sealed class ThompsonSeat(TikTokWorld world, AgentRecord? record, int seed) : IP
             : new PolicySuggestion(best.Tool.Id, $"sampled {best.Draw:0.00}"));
     }
 
-    private double Beta(double a, double b) { var x = Gamma(a); return x / (x + Gamma(b)); }
+    private double Beta(double a, double b) => Sampling.Beta(_rng, a, b);
+}
+
+/// <summary>Beta draws from two gamma draws; shared by round 3's seat and the learner.</summary>
+static class Sampling
+{
+    public static double Beta(Random rng, double a, double b) { var x = Gamma(rng, a); return x / (x + Gamma(rng, b)); }
 
     /// <summary>Marsaglia and Tsang's method; for a shape below 1, the usual boost.</summary>
-    private double Gamma(double shape)
+    public static double Gamma(Random rng, double shape)
     {
-        if (shape < 1) return Gamma(shape + 1) * Math.Pow(_rng.NextDouble(), 1 / shape);
+        if (shape < 1) return Gamma(rng, shape + 1) * Math.Pow(rng.NextDouble(), 1 / shape);
         var d = shape - 1.0 / 3; var c = 1 / Math.Sqrt(9 * d);
         while (true)
         {
             double x, v;
-            do { x = Normal(); v = 1 + c * x; } while (v <= 0);
-            v = v * v * v; var u = _rng.NextDouble();
+            do { x = Normal(rng); v = 1 + c * x; } while (v <= 0);
+            v = v * v * v; var u = rng.NextDouble();
             if (u < 1 - 0.0331 * x * x * x * x || Math.Log(u) < 0.5 * x * x + d * (1 - v + Math.Log(v))) return d * v;
         }
     }
 
-    private double Normal() => Math.Sqrt(-2 * Math.Log(1 - _rng.NextDouble())) * Math.Cos(2 * Math.PI * _rng.NextDouble());
+    private static double Normal(Random rng) => Math.Sqrt(-2 * Math.Log(1 - rng.NextDouble())) * Math.Cos(2 * Math.PI * rng.NextDouble());
 }
 
 /// <summary>
@@ -225,11 +232,11 @@ sealed class RandomPolicy(TikTokWorld world) : IPolicy
 
 /// <summary>One session as the study reads it.</summary>
 sealed record SessionRow(string Policy, string Archetype, string User, int Seed, int Session, bool Served, bool Contract,
-    double Engagement, double Reported, int Plays, int BaitPlays, bool Skimmed, int SkimPlays, bool Tired, bool Late)
+    double Engagement, double Reported, int Plays, int BaitPlays, bool Skimmed, int SkimPlays, bool Tired, bool Late, bool Asked = false)
 {
     public static SessionRow Of(string policy, string archetype, string user, int seed, int session, TikTokWorld w) => new(
         policy, archetype, user, seed, session, w.Has(TikTokWorld.Served), TikTokWorld.Task.Contract(w) >= 1.0, Math.Round(w.EngagementSeconds, 1), Math.Round(w.EngagementReported, 1),
-        w.Plays.Count, w.Plays.Count(p => p.Kind == FeedKind.Bait), w.Has("user.skimming"), w.Plays.Count(p => p.Skimming), w.Has("user.tired"), w.Has("user.slept-late"));
+        w.Plays.Count, w.Plays.Count(p => p.Kind == FeedKind.Bait), w.Has("user.skimming"), w.Plays.Count(p => p.Skimming), w.Has("user.tired"), w.Has("user.slept-late"), w.Has("goal.known"));
 }
 
 /// <summary>What a design's record holds about one kind for one user after a session, beside the truth.</summary>

@@ -636,3 +636,56 @@ lacked); G5, G8 and G9 hold, since every play now teaches the finish rate; G6 ho
 forgets about half of the evidence in 4 sessions, enough to follow the change if the drifter plays creator after it. A
 miss on G1 or G2 would mean the learned model does not beat round 3's simpler record; a miss on G4 that the goal belief
 or the asking is wrong.
+
+### The learning study (2026-11-12): the results
+
+`dotnet run --project samples/FeedStudy -- --learning --seeds 20 --sessions 50`, as pre-registered: 6 archetypes × 20
+fresh variants (seeds 201-220) × 50 sessions, 6,000 sessions per policy; repeatable (two runs, one report). One smoke run
+saw 2 of the 20 variants for 30 sessions before the full run; nothing was changed after it.
+
+| policy | goal met | engagement reported (s) | bait plays | plays a session |
+|---|---|---|---|---|
+| oracle | 91% | 71.2 | 0.00 | 3.1 |
+| **levin + learner** | **89%** | 73.3 | 0.04 | 3.7 |
+| **bach + learner** | **89%** | 73.3 | 0.04 | 3.7 |
+| taste-known | 80% | 102.4 | 0.00 | 4.4 |
+| levin + r3 | 76% | 93.2 | 0.45 | 5.0 |
+| bach + r3 | 75% | 90.5 | 0.42 | 4.9 |
+| last-resort | 75% | 190.2 | 1.80 | 6.2 |
+| max-staytime | 70% | 216.7 | 2.00 | 6.4 |
+| random | 62% | 99.4 | 1.10 | 7.7 |
+
+| id | verdict | in a line |
+|---|---|---|
+| G1 | **holds**, both | +18.1 points of goals met against max-staytime (95% [+16.9, +19.3]) |
+| G2 | **holds**, both | Levin +12.2 points against round 3's Levin [+11.2, +13.3]; Bach +13.5 [+12.4, +14.5] |
+| G3 | falls, both | the gap to max-staytime grows by +2.4 points from sessions 1-5 to 26-50, 95% [−2.2, +7.0], 100 users: the learner is at 88% from the first five sessions |
+| G4 | **holds**, both | sessions 26-50: 90% against taste-known's 81% (111%): it beats the chooser that knows each user's taste, because it infers or asks the session's goal |
+| G5 | falls, both | no learner, connector or late scroller has every kind's finish rate within 0.15 |
+| G6 | falls, both | 14 of 20 muted commuters (70%, below 80%); learned factor 0.26 against 0.20 |
+| G7 | falls, both | no drifter's tutorial and creator rates within 0.15 of the new taste by session 20 |
+| G8 | falls, both | no noisy user has every kind within 0.15 |
+| G9 | falls, both | 34 of 80 users have every goal's weight within 0.15 |
+
+Levin and Bach with the learner made the same plays in every session: the layer no longer stops them (`RecordOnly`) and
+the seat makes every choice, so the two designs never diverge.
+
+**Diagnostics, read after the run (not pre-registered; they decide nothing):** the learner asked the user in 51% of its
+sessions, 79% of its first five and 45% of its last five: it learns each user's goal mix well enough to ask less while
+keeping 88-90% of goals met. Its finish rates are within 0.10 of the truth on the kinds it has 3 or more discounted plays
+of, and 0.22 off on the rest; 70% of kind-user pairs have fewer, because the learner seldom plays a kind it does not need
+and the discount of 0.85 keeps about 7 sessions of evidence.
+
+**What the learning study found:**
+
+1. **Knowing the session's goal is the lever.** Inferring it from the plays and asking when unsure took goals met from
+   round 3's 76% to 89%, two points from the oracle (91%), above a chooser that knows every user's true taste (80%), with
+   almost no bait. Learning taste alone could not have done this: its ceiling was 81%.
+2. **The learning that shows is learning to ask less.** The goal mix, learned across sessions, cuts the asking from 79%
+   to 45% of sessions with no loss of goals met. Goals met themselves do not climb (G3): they start high.
+3. **The user model is accurate where it looks and does not look everywhere.** G5 to G8 ask for every kind; the learner
+   needs only a few kinds per user, and the discount keeps evidence short. Whether the model's other kinds matter is not
+   tested: they did not cost goals here.
+4. **Context is learned roughly** (G6: the muted factor 0.26 against 0.20, 70% of commuters within 0.1); **drift** is not
+   learned within ten sessions (G7).
+5. **All of it lives in the record** (a part of `AgentRecord`), with no further Core change.
