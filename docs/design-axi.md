@@ -588,3 +588,109 @@ apart: in the slice, the feed reported 228.7 s of predicted engagement for a use
 **Not covered:** real people (every result is in the simulation); a model seat beyond one small run (Liquid AI
 LFM3-1.7B in round 1: 51% goals met, below random); the grid (Instagram-like) setting (#68); several predictors judged by
 their records; the Singular side (#69).
+
+## The learning study (slice G, issue #77): pre-registered 2026-11-12, before it was built or run
+
+**Why.** After the four rounds above, round 3's best design met 75% of goals; a chooser that knows each user's true
+per-kind rates meets 81%, and one that also knows the session's goal 91%; after 20 sessions a record held about 6 plays
+per kind. The owner asked for all five levers ("let's do all 5", 2026-11-12).
+
+**The learner.** A seat in `samples/FeedStudy`, run inside Levin and Bach with round 3's layer (`ReportFirst`,
+`RecordOnly`), so the control layer is unchanged. It reads only what a platform can observe: the kinds on offer and their
+predictions, whether the session is muted, the outcomes of this session's plays (finished or skipped; served or not, the
+registry's fact), and the user's answer when asked. It never reads the profile or the session's goal.
+
+| lever | what is built |
+|---|---|
+| 1. goal inference | a belief over this session's goal: starts from the user's learned goal mix; a play the user **finished** that did not serve rules out every goal that kind serves; asking reveals the goal. It asks (once a session, as its first action) when no goal has belief 0.6 or more. Each kind's value is Σ_goal belief × serves(kind, goal) × finish(kind); the highest is played |
+| 2. a factorized user model | kept in the user's record, in its parts (`AgentRecord.SetPart`, no Core change), one per design and user: per kind, finished and played counts in sessions with sound; one muted factor for kinds that need sound (finishes against expected finishes in muted sessions, prior 0.5 worth 2 plays); the goal mix (counts per goal, from the answer when asked, else from the kind that served: a kind serving one goal counts 1 for it, live 0.5 for each of its two) |
+| 3. a population prior | each kind's finish rate pooled over every user this design has already met, as a prior worth 4 plays, once the pool holds 50 plays of that kind; before that, the feed's predicted finish worth 2 plays |
+| 4. discounting | at the start of every session the user's counts (finish, goal mix, muted factor) are multiplied by 0.85 |
+| 5. power | 20 fresh variants (seeds 201-220, never used), 50 sessions each, every barrier on; the drifter changes at session 10 as before |
+
+Finish rates are drawn by Thompson sampling: Beta(prior + finished, prior + played − finished) per kind; in a muted
+session a kind that needs sound is multiplied by the muted factor. Late sessions do not count toward bait's rate.
+
+**Policies:** max-staytime, last-resort, random, oracle (as before); **taste-known** (bare: plays the kind with the
+highest true landed rate, without the session's goal); **levin + r3** and **bach + r3** (round 3's configuration); and
+**levin + learner**, **bach + learner**.
+
+**Tests,** decided as written, every one on seeds 201-220:
+
+| id | claim | falsifier |
+|---|---|---|
+| G1 | the learner meets more goals than max-staytime | the paired 95% interval (sessions as units) is not above 0 |
+| G2 | the learner meets more goals than round 3's same design (levin + learner against levin + r3, bach against bach) | the paired 95% interval is not above 0 |
+| G3 | learning reaches behaviour: per user, the gap to max-staytime in sessions 26-50 is larger than in sessions 1-5 (drifter left out, users as units) | the 95% interval of the mean change is not above 0 |
+| G4 | the learner reaches at least 80% of the taste-known chooser's goals met in sessions 26-50 | below 80% |
+| G5 | the user model learns taste: after 50 sessions, for at least 80% of learner, connector and late-scroller users, every kind's learned finish rate (sound, posterior mean) is within 0.15 of the true rate (the clipped taste) | fewer than 80% |
+| G6 | context: for at least 80% of muted-commuter users the learned muted factor is within 0.1 of the true one (finishing a sound kind muted against with sound, from the profile) | fewer |
+| G7 | drift: for at least 80% of drifters, the learned finish rates of tutorial and creator are within 0.15 of the new taste by session 20 (10 sessions after the change) | fewer |
+| G8 | no invented preference: for at least 80% of noisy users, every kind's learned finish rate is within 0.15 of the true (flat) rate after 50 sessions | fewer |
+| G9 | the goal mix is learned: for at least 80% of learner, connector, late-scroller and muted-commuter users, every goal's learned weight is within 0.15 of the true weight after 50 sessions | fewer |
+
+G1 to G4 are decided for levin + learner and bach + learner separately; G5 to G9 on each one's model.
+
+**Predicted before the run:** G1, G2 and G4 hold for both; G3 holds for at least one (50 sessions give the power round 4
+lacked); G5, G8 and G9 hold, since every play now teaches the finish rate; G6 holds; G7 is uncertain: the discount of 0.85
+forgets about half of the evidence in 4 sessions, enough to follow the change if the drifter plays creator after it. A
+miss on G1 or G2 would mean the learned model does not beat round 3's simpler record; a miss on G4 that the goal belief
+or the asking is wrong.
+
+### The learning study (2026-11-12): the results
+
+`dotnet run --project samples/FeedStudy -- --learning --seeds 20 --sessions 50`: 6 archetypes × 20 fresh variants
+(seeds 201-220) × 50 sessions, 6,000 sessions per policy; repeatable. One smoke run saw 2 of the 20 variants for 30
+sessions before the full run; nothing was changed after it.
+
+**One implementation detail beyond the registration:** each Beta shape of a prior is kept at 0.01 or more, so a pooled or
+predicted rate of 0 or 1 still gives a valid prior; at those ends the prior weighs 4.01 or 2.01 plays instead of 4 or 2.
+
+**A first run was withdrawn.** Codex's review found the code different from this note's pre-registration in four places:
+each prior carried an extra Beta(1, 1), so it was worth 6 and 4 plays instead of 4 and 2; the muted factor and the
+end-of-run reading used a prediction of 0.5 instead of the feed's; kinds that do not need sound counted toward taste in
+muted sessions; and the goal mix carried an unregistered pseudo-count. The code now does what the note says, and the
+study was run again; the numbers below are that run. (The first run had reported 89% goals met.)
+
+| policy | goal met | engagement reported (s) | bait plays | plays a session |
+|---|---|---|---|---|
+| oracle | 91% | 71.2 | 0.00 | 3.1 |
+| **levin + learner** | **86%** | 81.8 | 0.03 | 3.9 |
+| **bach + learner** | **86%** | 81.4 | 0.03 | 3.9 |
+| taste-known | 80% | 102.4 | 0.00 | 4.4 |
+| levin + r3 | 76% | 93.2 | 0.45 | 5.0 |
+| bach + r3 | 75% | 90.5 | 0.42 | 4.9 |
+| last-resort | 75% | 190.2 | 1.80 | 6.2 |
+| max-staytime | 70% | 216.7 | 2.00 | 6.4 |
+| random | 62% | 99.4 | 1.10 | 7.7 |
+
+| id | verdict | in a line |
+|---|---|---|
+| G1 | **holds**, both | Levin +15.8 points of goals met against max-staytime (95% [+14.6, +16.9]); Bach +15.5 [+14.3, +16.6] |
+| G2 | **holds**, both | Levin +9.9 points against round 3's Levin [+8.9, +10.9]; Bach +10.8 [+9.7, +11.8] |
+| G3 | falls, both | the gap to max-staytime grows by +3.6 (Levin, 95% [−1.7, +9.0]) and +4.9 (Bach, [−0.8, +10.6]) points from sessions 1-5 to 26-50, over 100 users: an estimate above zero whose interval includes zero |
+| G4 | **holds**, both | sessions 26-50: 88% against the taste-known chooser's 81% (109% and 108%) |
+| G5 | falls, both | 13 of 60 learner, connector and late-scroller users have every kind's finish rate within 0.15, below 80% |
+| G6 | **holds**, both | 18 of 20 muted commuters have the muted factor within 0.1 (learned 0.21 and 0.20 against 0.20) |
+| G7 | falls, both | no drifter's tutorial and creator rates within 0.15 of the new taste by session 20 |
+| G8 | falls, both | no noisy user has every kind within 0.15 |
+| G9 | falls, both | 50 (Levin) and 48 (Bach) of 80 users have every goal's weight within 0.15, below 80% |
+
+**Diagnostics, read after the run (not pre-registered; they decide nothing):** the learner asked the user in 21% of its
+sessions (27% of its first five, 22% of its last five). On the kinds with 3 or more discounted plays, its finish rates are
+off by 0.11 on average; on the rest, 0.15; three in four kind-user pairs have fewer than 3, because the learner seldom
+plays a kind it does not need and the discount of 0.85 keeps about 7 sessions of evidence.
+
+**What the learning study found** (in the simulation; these are readings of the tables, not separate tests):
+
+1. **The learner meets more goals than everything but the oracle:** 86%, against 76% for round 3's best design, 80% for a
+   greedy chooser that knows each user's true taste, and 91% for the oracle, with almost no bait. The learner differs from
+   round 3 in all five levers at once, so this study does not say which lever gave how much.
+2. **The gap to max-staytime does not clearly grow across sessions** (G3): the estimate is positive and its interval
+   includes zero.
+3. **Context is learned** (G6): the muted factor, shared across kinds, is within 0.1 of the truth for 18 of 20 commuters.
+4. **Taste is not learned for every kind** (G5, G8 fall). The diagnostic above is consistent with thin evidence (most
+   kind-user pairs have fewer than 3 discounted plays) without showing that it is the cause. **Drift is not followed within
+   ten sessions** (G7, for the two kinds tested), and **the goal mix is within 0.15 for about 60% of users** (G9).
+5. **Where it lives:** the user model is a part of each user's record (`AgentRecord`); the population prior is held in
+   memory for the run, not in a record. No Core change beyond round 3's `RecordOnly`.
