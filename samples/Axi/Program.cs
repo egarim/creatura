@@ -16,6 +16,7 @@ var barriers = WorldCatalog.TikTok.Barriers.ToDictionary(b => b.Id, _ => true);
 var world = new TikTokWorld(barriers, user, seed, session: 0);
 var task = TikTokWorld.Task;
 var events = new AxiEvents();
+bool? accepted = null;
 
 // 1-2. The user begins a goal; the world observes. Creatura runs its first plays under its own control layer.
 Emit(Axi.Started(task, world));
@@ -32,19 +33,21 @@ if (!task.Goal(world.Facts) && friction >= 0.5 && world.AvailableTools.Any(t => 
     Emit(proposal);
     // 5. The user authorizes it. (In the simulation the synthetic user always says yes; a real app asks on its own screen.)
     Emit(Axi.Event("approval.accepted", world.Ticks, "ask-what-they-want", "the user said yes"));
-    // 6. Creatura runs it as a goal of its own, under its own control layer: AXI grants nothing.
+    accepted = true;
+    // 6. Creatura runs it as a goal of its own, under its own control layer, with its planner, which plans toward that
+    //    goal: AXI grants nothing and runs nothing itself.
     var ask = task with { Name = "ask what they want", GoalText = "The user said what they came for.", Goal = f => f.Contains("goal.known") };
-    await Run(ask, maxTicks: 2);
+    await Run(ask, maxTicks: 2, new PlannerPolicy());
 }
 
-// 7. Progress is re-evaluated: the main goal goes on, and the outcome goes back to AXI.
-await Run(task, maxTicks: 12);
-Emit(Axi.Outcome(task, world, events, before, accepted: events.Approved));
+// 7. Progress is re-evaluated: the main goal goes on while it is not met, and the outcome goes back to AXI.
+if (!task.Goal(world.Facts)) await Run(task, maxTicks: 12);
+Emit(Axi.Outcome(task, world, events, before, accepted));
 return 0;
 
-async Task Run(AgentTask goal, int maxTicks)
+async Task Run(AgentTask goal, int maxTicks, IPolicy? seat = null)
 {
-    var agent = AgentCatalog.Make("orienting", new AgentBuild(new MaxStaytimePolicy(world), goal, AgentOptions.With(new FeedNotes(), events), seed));
+    var agent = AgentCatalog.Make("orienting", new AgentBuild(seat ?? new MaxStaytimePolicy(world), goal, AgentOptions.With(new FeedNotes(), events), seed));
     await agent.RunAsync(world, maxTicks);
     foreach (var e in events.Drain()) Emit(e);
 }
@@ -113,8 +116,6 @@ sealed class AxiEvents : IAgentExtension
 
     public int Lies { get; private set; }
 
-    public bool? Approved { get; private set; }
-
     /// <summary>The share of plays that were skipped or reported engagement with nothing served.</summary>
     public double Friction => Plays == 0 ? 0 : (double)Failed / Plays;
 
@@ -127,7 +128,6 @@ sealed class AxiEvents : IAgentExtension
             if (verdict != ActionVerdict.Landed) Failed++;
             if (verdict == ActionVerdict.Lied) Lies++;
         }
-        if (tool.Id == "ask-what-they-want" && verdict == ActionVerdict.Landed) Approved = true;
         _pending.Add(Axi.Event(kind, context.Tick, tool.Id, outcome.Observation ?? ""));
     }
 
