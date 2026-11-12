@@ -517,6 +517,7 @@ public sealed class RecordCarryExtension : IAgentExtension
     private readonly IRecordStore _store;
     private readonly string _key;
     private readonly int _resampleEvery;
+    private readonly bool _recordHonestFailures;
     private AgentRecord _record = new();
     private Dictionary<string, int> _lastTried = new(StringComparer.Ordinal);
 
@@ -533,11 +534,16 @@ public sealed class RecordCarryExtension : IAgentExtension
     /// <param name="store">Where the record is read before the run and written at sleep.</param>
     /// <param name="key">The record's key in the store.</param>
     /// <param name="resampleEvery">See <see cref="RecordCarryExtension(int)"/>.</param>
-    public RecordCarryExtension(IRecordStore store, string key, int resampleEvery = 0)
+    /// <param name="recordHonestFailures">
+    /// For a design without a self-model: count an honest failure in the tool's record as a failure (the layer's
+    /// <see cref="HonestFailureRule.RecordOnly"/> does the same for a design with one). False keeps the documented rule.
+    /// </param>
+    public RecordCarryExtension(IRecordStore store, string key, int resampleEvery = 0, bool recordHonestFailures = false)
     {
         _store = store;
         _key = key;
         _resampleEvery = resampleEvery;
+        _recordHonestFailures = recordHonestFailures;
         _record = store.Load(key) ?? new AgentRecord { Key = key };
         _lastTried = _record.GetPart<Dictionary<string, int>>(LastTriedPart) ?? new Dictionary<string, int>(StringComparer.Ordinal);
     }
@@ -606,7 +612,7 @@ public sealed class RecordCarryExtension : IAgentExtension
     public void AfterAction(TickContext context, Tool tool, ActionOutcome outcome, ActionVerdict verdict)
     {
         _lastTried[tool.Id] = Cases;
-        if (context.SelfModel is not null || verdict == ActionVerdict.HonestFailure) return;
+        if (context.SelfModel is not null || (verdict == ActionVerdict.HonestFailure && !_recordHonestFailures)) return;
         _record.Skills[tool.Id] = _record.Skills.TryGetValue(tool.Id, out var b) ? b.With(verdict == ActionVerdict.Landed) : new SkillBelief(tool.Id, verdict == ActionVerdict.Landed ? 1 : 0, 1);
     }
 

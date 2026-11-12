@@ -140,6 +140,53 @@ public class ControlLayerComponentTests
     }
 
     [Fact]
+    public void RecordOnlyRecordsAnHonestFailureSpendsNothingAndKeepsTheToolVisible()
+    {
+        var record = Fresh(ControlLayerOptions.Design with { JudgeRule = JudgeRule.ReportFirst, HonestFailureRule = HonestFailureRule.RecordOnly });
+        var patch = record.World.Tool("apply-patch")!;
+        var honest = record.Layer.Judge(patch, new ActionReport("failed", new ActionOutcome("apply-patch", false, [], "preconditions unmet")));
+        Assert.Equal(ActionVerdict.HonestFailure, honest.Verdict);
+        Assert.False(honest.Terminate);
+        Assert.Equal(0, record.Layer.Failures);                    // not spent
+        Assert.Equal(1, record.Layer.Predictions.Total);           // recorded
+        Assert.Equal(0, record.Layer.Predictions.Correct);
+        Assert.Equal(new SkillBelief("apply-patch", 0, 1), record.Layer.Ledger.Skills["apply-patch"]);
+        Assert.Contains("apply-patch", record.Layer.Offer().Select(t => t.Id));   // still visible
+
+        // A report of failure when the grants already held from before: still recorded as a failure.
+        var again = Fresh(ControlLayerOptions.Design with { JudgeRule = JudgeRule.ReportFirst, HonestFailureRule = HonestFailureRule.RecordOnly });
+        foreach (var step in new[] { "inspect-logs", "identify-component", "apply-patch" }) again.World.Act(step);
+        var patch2 = again.World.Tool("apply-patch")!;
+        Assert.True(again.World.EffectsLanded(patch2));
+        var late = again.Layer.Judge(patch2, new ActionReport("failed", new ActionOutcome("apply-patch", false, [], "timeout")));
+        Assert.Equal(ActionVerdict.HonestFailure, late.Verdict);
+        Assert.Equal(0, again.Layer.Predictions.Correct);
+        Assert.Equal(new SkillBelief("apply-patch", 0, 1), again.Layer.Ledger.Skills["apply-patch"]);
+
+        // A lie is still a lie under RecordOnly: spent and hidden.
+        var lie = record.Layer.Judge(patch, new ActionReport("done", new ActionOutcome("apply-patch", true, [], "reported success")));
+        Assert.Equal(ActionVerdict.Lied, lie.Verdict);
+        Assert.Equal(1, record.Layer.Failures);
+        Assert.DoesNotContain("apply-patch", record.Layer.Offer().Select(t => t.Id));
+    }
+
+    [Fact]
+    public void TheRecordCarriesHonestFailuresOnlyWhenAskedForADesignWithoutASelfModel()
+    {
+        foreach (var asked in new[] { false, true })
+        {
+            var store = new InMemoryRecordStore();
+            var carry = new RecordCarryExtension(store, "k", recordHonestFailures: asked);
+            var world = RestoreServiceDomain.NewWorld();
+            var context = new TickContext { Agent = "a", World = world, Task = RestoreServiceDomain.Task, Tick = 1, MaxTicks = 5, Notes = [], Trace = [] };
+            var tool = world.Tool("apply-patch")!;
+            carry.AfterAction(context, tool, new ActionOutcome("apply-patch", false, [], "no"), ActionVerdict.HonestFailure);
+            if (asked) Assert.Equal(new SkillBelief("apply-patch", 0, 1), carry.Skills["apply-patch"]);
+            else Assert.False(carry.Skills.ContainsKey("apply-patch"));
+        }
+    }
+
+    [Fact]
     public void FailuresResetPerRoundForTheHostAndNeverForTheDesigns()
     {
         var perRound = Fresh();

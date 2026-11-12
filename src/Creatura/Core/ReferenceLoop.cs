@@ -204,7 +204,8 @@ public sealed class ReferenceLoop : IAgent
                 v => _ext.AfterAction(tctx, tool, outcome, v));
             history.Add(_regulator.Remembered(tool, outcome, judgement.Verdict, landed));
 
-            if (judgement.Verdict == ActionVerdict.HonestFailure && _layerOptions.HonestFailureRule == HonestFailureRule.Habituate) continue;
+            // Under Habituate and RecordOnly an honest failure is not the design's to account for: it spends nothing.
+            if (judgement.Verdict == ActionVerdict.HonestFailure && _layerOptions.HonestFailureRule is HonestFailureRule.Habituate or HonestFailureRule.RecordOnly) continue;
 
             if (_regulator.Record(ctx, tool, outcome, judgement.Verdict) is { } handOff)
             {

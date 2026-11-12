@@ -21,6 +21,13 @@ public enum HonestFailureRule
 
     /// <summary>The host's rule: the oracle that reports red is still the oracle. Prediction and reliability are recorded, budget is spent, the tool stays visible.</summary>
     StaysVisible,
+
+    /// <summary>
+    /// Recorded, not spent: prediction and reliability are recorded as a failure, the budget is not spent, the design's own
+    /// failure accounting is not told, and the tool stays visible. For worlds where an honest failure is ordinary and
+    /// worth learning from, such as a viewer skipping a video (docs/design-axi.md, round 3; issue #75).
+    /// </summary>
+    RecordOnly,
 }
 
 /// <summary>When <see cref="ControlLayer.Failures"/> goes back to zero.</summary>
@@ -347,8 +354,10 @@ public sealed class ControlLayer
                 $"{report.Reported}\n\n[not verified: {string.Join(", ", missing)} still false; the tool reported failure]");
         }
 
-        Predictions.Record(landed);
-        Ledger.RecordOutcome(tool.Id, landed);
+        // Under RecordOnly an honest failure is recorded as a failure even when the tool's grants already held from before.
+        var counted = landed && !(verdict == ActionVerdict.HonestFailure && _options.HonestFailureRule == HonestFailureRule.RecordOnly);
+        Predictions.Record(counted);
+        Ledger.RecordOutcome(tool.Id, counted);
         Audit.Claim();
         if (verdict == ActionVerdict.Lied)
         {
@@ -356,6 +365,14 @@ public sealed class ControlLayer
         }
 
         Distrust.Judged(tool.Id, verdict, Tick, habituated: false);
+        if (verdict == ActionVerdict.HonestFailure && _options.HonestFailureRule == HonestFailureRule.RecordOnly)
+        {
+            // Recorded above as a failure of the tool; not spent: no failure counted, the run goes on, the tool stays visible.
+            _frame.Acted(this, tool, report, verdict, landed, habituated: false);
+            return new EffectJudgement(verdict, false, missing, false,
+                $"{report.Reported}\n\n[not verified: {string.Join(", ", missing)} still false; the tool reported failure]");
+        }
+
         if (landed)
         {
             if (_options.ResetFailures == ResetFailures.Never) Failures = 0;
