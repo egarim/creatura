@@ -95,7 +95,7 @@ public static class FeedCast
         Chance("noise", u.Noise);
         if (u.SkimAfter < 1) problems.Add("skimAfter is below 1");
         if (u.TiredAfter < 1) problems.Add("tiredAfter is below 1");
-        if (u.DriftAt is < 1) problems.Add($"driftAt is {u.DriftAt}: a drift starts at session 1 or later");
+        if (u.DriftAt is < 0) problems.Add($"driftAt is {u.DriftAt}: sessions count from 0");
         if (u.DriftAt is not null && u.FinishAfterDrift is null && u.GoalsAfterDrift is null) problems.Add("driftAt without anything to drift to");
         if (u.DriftAt is null && (u.FinishAfterDrift is not null || u.GoalsAfterDrift is not null)) problems.Add("a taste after drift with no driftAt");
         if (u.FinishAfterDrift is { } f) Taste("finishAfterDrift", f);

@@ -61,7 +61,7 @@ public class FeedCastTests
         Assert.Contains("bait is 1.5, not a chance between 0 and 1", problems);
         Assert.Contains("driftAt without anything to drift to", problems);
         Assert.Contains("goals sum to 0.5000, not 1", FeedCast.Problems(FeedUser.Learner with { Goals = new Dictionary<FeedGoal, double> { [FeedGoal.Learn] = 0.5 } }));
-        Assert.Contains("driftAt is -1: a drift starts at session 1 or later", FeedCast.Problems(FeedUser.Learner with { DriftAt = -1, GoalsAfterDrift = FeedUser.Learner.Goals }));
+        Assert.Contains("driftAt is -1: sessions count from 0", FeedCast.Problems(FeedUser.Learner with { DriftAt = -1, GoalsAfterDrift = FeedUser.Learner.Goals }));
     }
 
     [Fact]
