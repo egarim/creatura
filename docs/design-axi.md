@@ -347,3 +347,29 @@ then the same seeds again:
 | P4 | context in the record: a belief per kind and muted or not | T5 |
 | P5 | a belief counts only after enough plays (for example 5) | T7 |
 | P6 | decide T1 by the paired difference, and T3 against the baseline's slope rather than requiring it to be flat | T1, T3 |
+
+### Slice D, round 2: pre-registered 2026-11-12, before it was built or run
+
+The owner approved P1 to P6 ("let's do your recommendation", 2026-11-12). Same seeds, users, sessions and barriers as
+round 1; the baselines are unchanged. Each design runs once more as `<design>+r2`, with these changes:
+
+| | what is built | how |
+|---|---|---|
+| P1 | a skip is an honest failure and does not count toward stopping | each design's own layer with `JudgeRule.ReportFirst` and `HonestFailureRule.Habituate`, options the Core has |
+| P2 | try kinds not yet tried | a seat wrapper in the study: one play in four (seeded) is the offered kind with the fewest counted plays in the user's record; otherwise max-staytime. The Core's exploration extension acts only when there is no route, and this chooser always has one |
+| P3 | fade old evidence | before each session, a belief with more than 10 counted plays has its counts halved (a study extension; the record's own type is untouched) |
+| P4 | context in the record | one record per design, user **and context** (muted or with sound): the record key carries it |
+| P5 | a belief counts only after 5 counted plays | in the reading: a kind with fewer is "no belief" |
+| P6 | the deciders | T1 holds when the paired 95% interval of goals met against max-staytime lies above 0. T3 holds when the late scroller's bait slope is below 0 **and** below the baseline's slope |
+
+The other rules are round 1's operational rules, with one change from P4: T4, T6 and T7 compare the **with-sound**
+record with the truth with sound (`TrueLandedRate` with no muted sessions), and T5 holds when no with-sound belief about a
+kind that needs sound is nearer the muted truth than the taste.
+
+**Predicted before the run** (predictions, not rules):
+- P1 stops the quitting: goals met and engagement rise for Bach, Levin and Hybrid; T1 and T2 may hold.
+- **P1 has a cost the Core forces:** under `Habituate` a skip is recorded nowhere, so every design's record learns which
+  kinds serve once finished, as Peterson's and Orienting's did in round 1, and not the user's taste. T4 should still fall.
+  Learning taste without quitting needs an option the Core does not have (an honest failure recorded but not spent): if
+  round 2 shows this, that is the one Core change the study points to.
+- P4 should make T5 hold; P2 should raise the number of kinds with a belief; P3 should shorten T6's lag.
