@@ -119,7 +119,7 @@ sealed class TasteKnownPolicy(TikTokWorld world) : IPolicy
     }
 }
 
-/// <summary>Each kind's finish rate pooled over every user a design has met (sessions with sound): lever 3.</summary>
+/// <summary>Each kind's finish rate pooled over every user a design has met (sessions with sound): lever 3. Held in memory for the run, not in a record.</summary>
 sealed class Population
 {
     public Dictionary<FeedKind, (double Finished, double Played)> Pool { get; } = [];
@@ -130,11 +130,15 @@ sealed class Population
         Pool[k] = (f + (finished ? 1 : 0), n + 1);
     }
 
-    /// <summary>The prior for a kind: the pool's rate worth 4 plays once it holds 50 plays of it, else the feed's prediction worth 2.</summary>
+    /// <summary>
+    /// The prior for a kind, as pre-registered: the pool's rate worth 4 plays once it holds 50 plays of it, else the feed's
+    /// prediction worth 2. Each shape is kept at least 0.01 so a rate of 0 or 1 still gives a valid Beta.
+    /// </summary>
     public (double A, double B) Prior(FeedKind k, double predicted)
     {
         var (f, n) = Pool.GetValueOrDefault(k);
-        return n >= 50 ? (1 + 4 * f / n, 1 + 4 * (1 - f / n)) : (1 + 2 * predicted, 1 + 2 * (1 - predicted));
+        var (rate, weight) = n >= 50 ? (f / n, 4.0) : (predicted, 2.0);
+        return (Math.Max(0.01, weight * rate), Math.Max(0.01, weight * (1 - rate)));
     }
 }
 
@@ -155,6 +159,13 @@ sealed class UserModel
     public double MutedExpected { get; set; }
 
     public Dictionary<FeedGoal, double> Goals { get; set; } = [];
+
+    /// <summary>The feed's last predicted finish seen for each kind: the prior before the pool fills, outside a session.</summary>
+    public Dictionary<FeedKind, double> Predicted { get; set; } = [];
+
+    /// <summary>The prior the seat uses for a kind: the pool's, else the feed's prediction.</summary>
+    public (double A, double B) PriorFor(FeedKind k, Population population, double? predicted = null) =>
+        population.Prior(k, predicted ?? Predicted.GetValueOrDefault(k, 0.5));
 
     public static UserModel Load(IRecordStore store, string key) => store.Load(key)?.GetPart<UserModel>(Part) ?? new UserModel();
 
@@ -182,8 +193,8 @@ sealed class UserModel
     /// <summary>The muted factor: finishes against expected finishes of sound kinds in muted sessions; prior 0.5 worth 2.</summary>
     public double MutedFactor => (MutedFinished + 1) / (MutedExpected + 2);
 
-    /// <summary>The goal mix: counts plus one each, normalised.</summary>
-    public double GoalWeight(FeedGoal g) => (Goals.GetValueOrDefault(g) + 1) / (Goals.Values.Sum() + Enum.GetValues<FeedGoal>().Length);
+    /// <summary>The goal mix, as pre-registered: the counts, normalised; every goal equal while there are none.</summary>
+    public double GoalWeight(FeedGoal g) => Goals.Values.Sum() is var sum and > 0 ? Goals.GetValueOrDefault(g) / sum : 1.0 / Enum.GetValues<FeedGoal>().Length;
 
     /// <summary>
     /// After a session: every play teaches the finish rate (a sound kind in a muted session teaches the muted factor;
@@ -194,11 +205,16 @@ sealed class UserModel
     {
         foreach (var p in w.Plays)
         {
+            Predicted[p.Kind] = p.PredictedFinish;
             if (p.Kind == FeedKind.Bait && w.IsLate) continue;
-            if (p.Muted && TikTokWorld.NeedsSound(p.Kind))
+            if (p.Muted)
             {
-                MutedExpected += FinishMean(p.Kind, population.Prior(p.Kind, 0.5));
-                MutedFinished += p.Finished ? 1 : 0;
+                // A muted session teaches only the muted factor, through the kinds that need sound; taste is learned with sound.
+                if (TikTokWorld.NeedsSound(p.Kind))
+                {
+                    MutedExpected += FinishMean(p.Kind, PriorFor(p.Kind, population, p.PredictedFinish));
+                    MutedFinished += p.Finished ? 1 : 0;
+                }
                 continue;
             }
             Played[p.Kind] = Played.GetValueOrDefault(p.Kind) + 1;
@@ -251,7 +267,7 @@ sealed class LearnerSeat(TikTokWorld world, UserModel model, Population populati
             .Select(t =>
             {
                 var k = TikTokWorld.KindOf(t.Id)!.Value;
-                var prior = population.Prior(k, world.Predicted(k)!.Finish);
+                var prior = model.PriorFor(k, population, world.Predicted(k)!.Finish);
                 var finish = Sampling.Beta(_rng, prior.A + model.Finished.GetValueOrDefault(k), prior.B + model.Played.GetValueOrDefault(k) - model.Finished.GetValueOrDefault(k));
                 if (world.IsMuted && TikTokWorld.NeedsSound(k)) finish *= model.MutedFactor;
                 var serves = belief.Sum(kv => TikTokWorld.Serves(k, kv.Key) ? kv.Value : 0);
@@ -274,7 +290,7 @@ sealed record ModelRow(string Design, string Archetype, string User, int Session
         foreach (var k in TikTokWorld.Kinds)
         {
             var truth = FeedCast.Clipped(k == FeedKind.Bait ? user.Bait : taste.GetValueOrDefault(k), user.Noise);
-            yield return new ModelRow(design, archetype, user.Id, session, $"finish:{k}", model.FinishMean(k, population.Prior(k, 0.5)), truth, model.Played.GetValueOrDefault(k));
+            yield return new ModelRow(design, archetype, user.Id, session, $"finish:{k}", model.FinishMean(k, model.PriorFor(k, population)), truth, model.Played.GetValueOrDefault(k));
         }
         var sound = TikTokWorld.Kinds.Where(TikTokWorld.NeedsSound).ToList();
         var mutedTruth = sound.Sum(k => FeedCast.Clipped(taste.GetValueOrDefault(k) * 0.2, user.Noise)) / sound.Sum(k => FeedCast.Clipped(taste.GetValueOrDefault(k), user.Noise));

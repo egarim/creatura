@@ -72,7 +72,7 @@ public sealed record FeedUser
 public sealed record FeedPrediction(FeedKind Kind, double Skip, double Finish, double StaySeconds);
 
 /// <summary>One play, as the world knows it: what the feed predicted for it, what was watched, and what landed.</summary>
-public sealed record FeedPlay(int Tick, FeedKind Kind, bool Finished, bool Served, double Seconds, bool Muted, bool Skimming, double PredictedStay = 0);
+public sealed record FeedPlay(int Tick, FeedKind Kind, bool Finished, bool Served, double Seconds, bool Muted, bool Skimming, double PredictedStay = 0, double PredictedFinish = 0);
 
 /// <summary>
 /// A virtual TikTok (docs/design-axi.md): one session of one synthetic user. The recommender is the agent; each tick
@@ -229,7 +229,7 @@ public sealed class TikTokWorld : CatalogueWorld, ITickedWorld
     /// <summary>One play into the session's record, and what it does to the user: focus and tiredness.</summary>
     private void Record(FeedKind kind, bool finished, bool served, double seconds)
     {
-        _plays.Add(new FeedPlay(Ticks, kind, finished, served, seconds, IsMuted, IsSkimming, _predictions.GetValueOrDefault(kind)?.StaySeconds ?? 0));
+        _plays.Add(new FeedPlay(Ticks, kind, finished, served, seconds, IsMuted, IsSkimming, _predictions.GetValueOrDefault(kind)?.StaySeconds ?? 0, _predictions.GetValueOrDefault(kind)?.Finish ?? 0));
         _shortInARow = seconds < SkimSeconds ? _shortInARow + 1 : 0;
         if (_barriers.GetValueOrDefault("skim") && _shortInARow >= User.SkimAfter && !IsSkimming)
         {

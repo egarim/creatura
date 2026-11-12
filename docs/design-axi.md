@@ -639,15 +639,21 @@ or the asking is wrong.
 
 ### The learning study (2026-11-12): the results
 
-`dotnet run --project samples/FeedStudy -- --learning --seeds 20 --sessions 50`, as pre-registered: 6 archetypes × 20
-fresh variants (seeds 201-220) × 50 sessions, 6,000 sessions per policy; repeatable (two runs, one report). One smoke run
-saw 2 of the 20 variants for 30 sessions before the full run; nothing was changed after it.
+`dotnet run --project samples/FeedStudy -- --learning --seeds 20 --sessions 50`: 6 archetypes × 20 fresh variants
+(seeds 201-220) × 50 sessions, 6,000 sessions per policy; repeatable. One smoke run saw 2 of the 20 variants for 30
+sessions before the full run; nothing was changed after it.
+
+**A first run was withdrawn.** Codex's review found the code different from this note's pre-registration in four places:
+each prior carried an extra Beta(1, 1), so it was worth 6 and 4 plays instead of 4 and 2; the muted factor and the
+end-of-run reading used a prediction of 0.5 instead of the feed's; kinds that do not need sound counted toward taste in
+muted sessions; and the goal mix carried an unregistered pseudo-count. The code now does what the note says, and the
+study was run again; the numbers below are that run. (The first run had reported 89% goals met.)
 
 | policy | goal met | engagement reported (s) | bait plays | plays a session |
 |---|---|---|---|---|
 | oracle | 91% | 71.2 | 0.00 | 3.1 |
-| **levin + learner** | **89%** | 73.3 | 0.04 | 3.7 |
-| **bach + learner** | **89%** | 73.3 | 0.04 | 3.7 |
+| **levin + learner** | **86%** | 81.8 | 0.03 | 3.9 |
+| **bach + learner** | **86%** | 81.4 | 0.03 | 3.9 |
 | taste-known | 80% | 102.4 | 0.00 | 4.4 |
 | levin + r3 | 76% | 93.2 | 0.45 | 5.0 |
 | bach + r3 | 75% | 90.5 | 0.42 | 4.9 |
@@ -657,35 +663,29 @@ saw 2 of the 20 variants for 30 sessions before the full run; nothing was change
 
 | id | verdict | in a line |
 |---|---|---|
-| G1 | **holds**, both | +18.1 points of goals met against max-staytime (95% [+16.9, +19.3]) |
-| G2 | **holds**, both | Levin +12.2 points against round 3's Levin [+11.2, +13.3]; Bach +13.5 [+12.4, +14.5] |
-| G3 | falls, both | the gap to max-staytime grows by +2.4 points from sessions 1-5 to 26-50, 95% [−2.2, +7.0], 100 users: the learner is at 88% from the first five sessions |
-| G4 | **holds**, both | sessions 26-50: 90% against taste-known's 81% (111%): it beats the chooser that knows each user's taste, because it infers or asks the session's goal |
+| G1 | **holds**, both | Levin +15.8 points of goals met against max-staytime (95% [+14.6, +16.9]); Bach +15.5 [+14.3, +16.6] |
+| G2 | **holds**, both | Levin +9.9 points against round 3's Levin [+8.9, +10.9]; Bach +10.8 [+9.7, +11.8] |
+| G3 | falls, both | the gap to max-staytime grows by +3.6 (Levin, 95% [−1.7, +9.0]) and +4.9 (Bach, [−0.8, +10.6]) points from sessions 1-5 to 26-50, over 100 users: an estimate above zero whose interval includes zero |
+| G4 | **holds**, both | sessions 26-50: 88% against the taste-known chooser's 81% (109% and 108%) |
 | G5 | falls, both | no learner, connector or late scroller has every kind's finish rate within 0.15 |
-| G6 | falls, both | 14 of 20 muted commuters (70%, below 80%); learned factor 0.26 against 0.20 |
+| G6 | **holds**, both | 18 of 20 muted commuters have the muted factor within 0.1 (learned 0.21 and 0.20 against 0.20) |
 | G7 | falls, both | no drifter's tutorial and creator rates within 0.15 of the new taste by session 20 |
 | G8 | falls, both | no noisy user has every kind within 0.15 |
-| G9 | falls, both | 34 of 80 users have every goal's weight within 0.15 |
+| G9 | falls, both | 50 (Levin) and 48 (Bach) of 80 users have every goal's weight within 0.15, below 80% |
 
-Levin and Bach with the learner made the same plays in every session: the layer no longer stops them (`RecordOnly`) and
-the seat makes every choice, so the two designs never diverge.
+**Diagnostics, read after the run (not pre-registered; they decide nothing):** the learner asked the user in 21% of its
+sessions (27% of its first five, 22% of its last five). On the kinds with 3 or more discounted plays, its finish rates are
+off by 0.11 on average; on the rest, 0.23; three in four kind-user pairs have fewer than 3, because the learner seldom
+plays a kind it does not need and the discount of 0.85 keeps about 7 sessions of evidence.
 
-**Diagnostics, read after the run (not pre-registered; they decide nothing):** the learner asked the user in 51% of its
-sessions, 79% of its first five and 45% of its last five: it learns each user's goal mix well enough to ask less while
-keeping 88-90% of goals met. Its finish rates are within 0.10 of the truth on the kinds it has 3 or more discounted plays
-of, and 0.22 off on the rest; 70% of kind-user pairs have fewer, because the learner seldom plays a kind it does not need
-and the discount of 0.85 keeps about 7 sessions of evidence.
+**What the learning study found** (in the simulation; these are readings of the tables, not separate tests):
 
-**What the learning study found:**
-
-1. **Knowing the session's goal is the lever.** Inferring it from the plays and asking when unsure took goals met from
-   round 3's 76% to 89%, two points from the oracle (91%), above a chooser that knows every user's true taste (80%), with
-   almost no bait. Learning taste alone could not have done this: its ceiling was 81%.
-2. **The learning that shows is learning to ask less.** The goal mix, learned across sessions, cuts the asking from 79%
-   to 45% of sessions with no loss of goals met. Goals met themselves do not climb (G3): they start high.
-3. **The user model is accurate where it looks and does not look everywhere.** G5 to G8 ask for every kind; the learner
-   needs only a few kinds per user, and the discount keeps evidence short. Whether the model's other kinds matter is not
-   tested: they did not cost goals here.
-4. **Context is learned roughly** (G6: the muted factor 0.26 against 0.20, 70% of commuters within 0.1); **drift** is not
-   learned within ten sessions (G7).
-5. **All of it lives in the record** (a part of `AgentRecord`), with no further Core change.
+1. **The learner meets more goals than everything but the oracle:** 86%, against 76% for round 3's best design, 80% for a
+   greedy chooser that knows each user's true taste, and 91% for the oracle, with almost no bait. The learner differs from
+   round 3 in all five levers at once, so this study does not say which lever gave how much.
+2. **Goals met do not show a clear climb across sessions** (G3): the estimate is positive and its interval includes zero.
+3. **Context is learned** (G6): the muted factor, shared across kinds, lands on the truth for 18 of 20 commuters.
+4. **Taste is learned only where the learner plays** (G5, G8 fall on the kinds it seldom plays), **drift is not followed
+   within ten sessions** (G7, for the two kinds tested), and **the goal mix is close for about 60% of users** (G9).
+5. **Where it lives:** the user model is a part of each user's record (`AgentRecord`); the population prior is held in
+   memory for the run, not in a record. No Core change beyond round 3's `RecordOnly`.
