@@ -444,3 +444,37 @@ asks the user what they want in every session (120 asks, once each: the world no
 fewer goals than random choice: its most-played kind is the ad (102 plays), which serves no goal, so it is not reading the
 predictions and the goal it is told. One variant per archetype is too few to decide anything; it is a first look, and a
 seat to try again once the design stops quitting (round 3).
+
+### Slice D, round 3: pre-registered 2026-11-12, before it was built or run
+
+**Why rounds 1 and 2 did not learn** (diagnosed after round 2, with the owner): the learning went into the record and never
+came back out. The chooser in every design was max-staytime, which reads the feed's predictions and never the record, and
+no design chooses by its learned reliability (Bach reads its skills only to print them at sleep). Goals met were flat
+across the 20 sessions for every policy (Bach round 1: 56%, 54%, 63%, 52% by blocks of 5 sessions). Round 2 then stopped
+recording skips at all. Round 3 closes the loop; the owner said yes ("yes pre-register", 2026-11-12), including the Core
+change.
+
+| | what is built | how |
+|---|---|---|
+| R3-1 | **the Core option**: an honest failure recorded, not spent | `HonestFailureRule.RecordOnly`: recorded in the predictions and the per-tool record as a failure, not counted toward the budget, not passed to the design's own failure accounting, the tool kept visible. `RecordCarryExtension` gains a switch to record honest failures for the designs without a self-model. Its own pull request on Creatura, with tests |
+| R3-2 | **a seat that chooses from the record** | Thompson sampling in the study: for each kind on offer, a draw from Beta(1 + 2p + s, 1 + 2(1 − p) + n − s), where p is the feed's predicted finish, s and n the kind's landed and counted plays in this user's record for this context; the highest draw is played. Seeded per session. It reads the record; it does not see the truth or the session's goal |
+| R3-3 | keep P4 (a record per context) and P3 (fading counts above 10); P5's floor drops to 3 plays; no P2 (the sampling explores) | as in round 2 |
+
+Each design runs once more as `<design>+r3`, with its own layer plus `ReportFirst` and `RecordOnly`, the Thompson seat
+and the record-carry extension recording honest failures. Same seeds, users, sessions and barriers.
+
+**The new test, and the one the loop is about:**
+
+| id | claim | falsifier |
+|---|---|---|
+| L1 | learning reaches behaviour: goals met in sessions 16-20 are higher than in sessions 1-5, every archetype but the drifter pooled | the difference's 95% interval (normal approximation, sessions as units) does not lie above 0 |
+
+T1 to T8 are decided as in round 2, with P5's floor at 3 plays.
+
+**Predicted before the run:** L1 holds for Bach and Levin (+r3); T1 may hold for them, since the sampling stops trusting
+the over-predicted bait once the record says otherwise; T4's coverage rises (skips are recorded again); T5 should hold
+with beliefs this time; T6 should shorten (fading plus sampling). T7 may still fall: sampling acts on few plays.
+
+**Do we need another round? The stopping rule, set now:** the loop stops after round 3 if L1 holds and T1 holds for at
+least one design. If not, one more round is run only if the result names one specific change; round 4 is the last
+either way, and the note then says what holds and what does not.
