@@ -6,8 +6,9 @@ namespace Creatura.Worlds.Samples;
 
 /// <summary>
 /// The synthetic users of the virtual TikTok (docs/design-axi.md, "The synthetic users"): the six archetypes as JSON
-/// profiles (Samples/FeedUsers, embedded), seeded variants of them, the checks a user must pass before it is used, and
-/// the truth the study compares the recommender's learning with.
+/// profiles (Samples/FeedUsers, embedded), seeded variants of them, the checks a user must pass (<see cref="Load"/>
+/// refuses an invalid profile; the tests check every variant and that the oracle beats random), and the truth the study
+/// compares the recommender's learning with.
 /// </summary>
 public static class FeedCast
 {
@@ -36,7 +37,8 @@ public static class FeedCast
         return [.. Archetypes.Select(id =>
         {
             using var stream = assembly.GetManifestResourceStream($"FeedUsers/{id}.json") ?? throw new InvalidOperationException($"no embedded profile {id}.json");
-            return Parse(new StreamReader(stream).ReadToEnd());
+            var user = Parse(new StreamReader(stream).ReadToEnd());
+            return Problems(user) is { Count: > 0 } problems ? throw new FormatException($"{id}.json: {string.Join("; ", problems)}") : user;
         })];
     }
 
@@ -48,7 +50,16 @@ public static class FeedCast
     {
         var rng = new Random(unchecked(seed * 92_821 + user.Id.Aggregate(17, (h, c) => h * 31 + c)));
         double Jitter(double p) => p <= 0 ? 0 : Math.Clamp(p + (rng.NextDouble() * 2 - 1) * 0.1, 0.01, 0.99);
-        Dictionary<FeedKind, double> Taste(IReadOnlyDictionary<FeedKind, double> t) => t.OrderBy(kv => kv.Key).ToDictionary(kv => kv.Key, kv => Jitter(kv.Value));
+        Dictionary<FeedKind, double> Taste(IReadOnlyDictionary<FeedKind, double> t)
+        {
+            // A flat taste (the noisy user) moves as one, so every variant of it is flat too.
+            if (t.Where(kv => kv.Key != FeedKind.Bait).Select(kv => kv.Value).Distinct().Count() == 1)
+            {
+                var offset = (rng.NextDouble() * 2 - 1) * 0.1;
+                return t.OrderBy(kv => kv.Key).ToDictionary(kv => kv.Key, kv => kv.Value <= 0 ? 0 : Math.Clamp(kv.Value + offset, 0.01, 0.99));
+            }
+            return t.OrderBy(kv => kv.Key).ToDictionary(kv => kv.Key, kv => Jitter(kv.Value));
+        }
         return user with
         {
             Id = $"{user.Id}-s{seed}",
@@ -65,6 +76,7 @@ public static class FeedCast
         void Chance(string name, double p) { if (p is < 0 or > 1 || double.IsNaN(p)) problems.Add($"{name} is {p}, not a chance between 0 and 1"); }
         void Goals(string name, IReadOnlyDictionary<FeedGoal, double> g)
         {
+            foreach (var goal in g.Keys.Where(k => !Enum.IsDefined(k))) problems.Add($"{name} has a goal that does not exist: {(int)goal}");
             if (Math.Abs(g.Values.Sum() - 1) > 1e-6) problems.Add($"{name} sum to {g.Values.Sum():F4}, not 1");
             foreach (var (goal, w) in g) Chance($"{name}.{goal}", w);
         }
@@ -83,6 +95,7 @@ public static class FeedCast
         Chance("noise", u.Noise);
         if (u.SkimAfter < 1) problems.Add("skimAfter is below 1");
         if (u.TiredAfter < 1) problems.Add("tiredAfter is below 1");
+        if (u.DriftAt is < 1) problems.Add($"driftAt is {u.DriftAt}: a drift starts at session 1 or later");
         if (u.DriftAt is not null && u.FinishAfterDrift is null && u.GoalsAfterDrift is null) problems.Add("driftAt without anything to drift to");
         if (u.DriftAt is null && (u.FinishAfterDrift is not null || u.GoalsAfterDrift is not null)) problems.Add("a taste after drift with no driftAt");
         if (u.FinishAfterDrift is { } f) Taste("finishAfterDrift", f);
@@ -102,8 +115,21 @@ public static class FeedCast
         var taste = drifted && u.FinishAfterDrift is { } f ? f : u.Finish;
         var goals = drifted && u.GoalsAfterDrift is { } g ? g : u.Goals;
         var m = mutedBarrier ? u.Muted : 0;
-        var finish = taste.GetValueOrDefault(kind) * (TikTokWorld.NeedsSound(kind) ? (1 - m) + m * 0.2 : 1);
+        var p = taste.GetValueOrDefault(kind);
+        var finish = TikTokWorld.NeedsSound(kind) ? (1 - m) * Clipped(p, u.Noise) + m * Clipped(p * 0.2, u.Noise) : Clipped(p, u.Noise);
         return goals.Sum(kv => TikTokWorld.Serves(kind, kv.Key) ? kv.Value * finish : 0);
+    }
+
+    /// <summary>
+    /// The mean of clamp(p + U(-n, n), 0, 1): the chance the world really draws with, noise and its clipping at 0 and 1
+    /// included (TikTokWorld.ChanceToFinish). Without clipping it is p.
+    /// </summary>
+    public static double Clipped(double p, double n)
+    {
+        if (n <= 0) return Math.Clamp(p, 0, 1);
+        // E[clamp(X, 0, 1)] for X uniform on [p - n, p + n]: integrate the clamp piecewise.
+        double F(double x) => x <= 0 ? 0 : x >= 1 ? x - 0.5 : x * x / 2;   // the antiderivative of clamp(x, 0, 1)
+        return (F(p + n) - F(p - n)) / (2 * n);
     }
 
     /// <summary>
@@ -129,8 +155,11 @@ public static class FeedCast
     }
 
     /// <summary>The oracle's choice: the offered kind most likely to serve this session's goal now, read from the truth; none when nothing offered can.</summary>
-    public static string? OracleChoice(TikTokWorld w, Random _) =>
-        w.Batch.Select(k => (Kind: k, Value: TikTokWorld.Serves(k, w.Goal) ? w.ExpectedChance(k) : 0))
+    public static string? OracleChoice(TikTokWorld w, Random _) => OracleChoice(w, w.Batch);
+
+    /// <summary>The same among the given kinds only: what the oracle chooses when a loop lets it see fewer.</summary>
+    public static string? OracleChoice(TikTokWorld w, IEnumerable<FeedKind> kinds) =>
+        kinds.Select(k => (Kind: k, Value: TikTokWorld.Serves(k, w.Goal) ? w.ExpectedChance(k) : 0))
             .Where(x => x.Value > 0).OrderByDescending(x => x.Value).ThenBy(x => x.Kind).Select(x => TikTokWorld.ToolOf(x.Kind)).FirstOrDefault();
 
     /// <summary>A random play among the kinds offered.</summary>
@@ -148,16 +177,19 @@ public static class FeedCast
     }
 }
 
-/// <summary>The oracle as a seat for a Creatura loop: it reads the user's truth, so no policy can do better. The ceiling of the study.</summary>
+/// <summary>
+/// The oracle as a seat: it reads the user's truth and plays, greedily, the visible kind most likely to serve this
+/// session's goal now. A strong reference, not a proven optimum: it does not plan ahead, and the draw can still go against it.
+/// </summary>
 public sealed class FeedOraclePolicy(TikTokWorld world) : IPolicy
 {
     public string Name => "oracle";
 
     public Task<PolicySuggestion> NextAsync(PolicyContext context, CancellationToken cancellationToken = default)
     {
-        var visible = context.Tools.Select(t => t.Id).ToHashSet(StringComparer.Ordinal);
-        var choice = FeedCast.OracleChoice(world, new Random(0));
-        return Task.FromResult(choice is not null && visible.Contains(choice)
+        var visible = context.Tools.Select(t => TikTokWorld.KindOf(t.Id)).OfType<FeedKind>();
+        var choice = FeedCast.OracleChoice(world, visible);
+        return Task.FromResult(choice is not null
             ? new PolicySuggestion(choice, "the truth says this serves the goal now")
             : new PolicySuggestion(null, "nothing on offer serves the goal; wait for the next batch"));
     }
