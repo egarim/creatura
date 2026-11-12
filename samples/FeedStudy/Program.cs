@@ -65,15 +65,17 @@ foreach (var seed in seeds)
             // Round 2 (docs/design-axi.md, pre-registered): P1 skips are honest and not spent, P2 explore, P3 fade, P4 a record per context.
             var w2 = new TikTokWorld(barriers, user, seed, s);
             var key2 = $"{design}+r2/{user.Id}/{(w2.IsMuted ? "muted" : "sound")}";
-            await Designed(design, w2, new ExploringSeat(w2, new MaxStaytimePolicy(w2), store.Load(key2), unchecked(seed * 7_919 + s)), key2, Round2.Layer(design), new FadeExtension(store, key2));
+            Fade.Apply(store, key2);   // P3, before anything reads the record: the seat, the carry and the design
+            await Designed(design, w2, new ExploringSeat(w2, new MaxStaytimePolicy(w2), store.Load(key2), unchecked(seed * 7_919 + s)), key2, Round2.Layer(design));
             rows.Add(SessionRow.Of($"{design}+r2", archetype.Id, user.Id, seed, s, w2));
             learned.AddRange(LearnedRow.Of($"{design}+r2", archetype.Id, user, s, store.Load($"{design}+r2/{user.Id}/sound")));
 
             // Round 3 (pre-registered): skips recorded, not spent (the Core's RecordOnly); a seat that chooses from the record; P3, P4 kept.
             var w3 = new TikTokWorld(barriers, user, seed, s);
             var key3 = $"{design}+r3/{user.Id}/{(w3.IsMuted ? "muted" : "sound")}";
+            Fade.Apply(store, key3);   // P3, before anything reads the record: the seat, the carry and the design
             await Designed(design, w3, new ThompsonSeat(w3, store.Load(key3), unchecked(seed * 104_729 + s)), key3,
-                Round2.Layer(design) with { HonestFailureRule = HonestFailureRule.RecordOnly }, new FadeExtension(store, key3), recordHonest: true);
+                Round2.Layer(design) with { HonestFailureRule = HonestFailureRule.RecordOnly }, recordHonest: true);
             rows.Add(SessionRow.Of($"{design}+r3", archetype.Id, user.Id, seed, s, w3));
             learned.AddRange(LearnedRow.Of($"{design}+r3", archetype.Id, user, s, store.Load($"{design}+r3/{user.Id}/sound")));
         }
@@ -194,12 +196,14 @@ sealed class ThompsonSeat(TikTokWorld world, AgentRecord? record, int seed) : IP
     private double Normal() => Math.Sqrt(-2 * Math.Log(1 - _rng.NextDouble())) * Math.Cos(2 * Math.PI * _rng.NextDouble());
 }
 
-/// <summary>P3: before a session, a belief with more than 10 counted plays has its counts halved.</summary>
-sealed class FadeExtension(IRecordStore store, string key) : IAgentExtension
+/// <summary>
+/// P3: before a session, a belief with more than 10 counted plays has its counts halved. Applied to the stored record
+/// before the seat, the record-carry extension or the design reads it (codex's review found an extension ran too late:
+/// the seat had already copied the record, and Hybrid restored its unfaded cell).
+/// </summary>
+static class Fade
 {
-    public string Name => "fade";
-
-    public void BeforeRun(TickContext context)
+    public static void Apply(IRecordStore store, string key)
     {
         if (store.Load(key) is not { } record) return;
         foreach (var (tool, b) in record.Skills.ToList())

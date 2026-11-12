@@ -481,28 +481,30 @@ either way, and the note then says what holds and what does not.
 
 ### Slice D, round 3 (2026-11-12): the results
 
-Run as pre-registered on seeds 101-110. Rounds 1 and 2 in the same report give the same verdicts (the leaderboard's p
-values move in the second decimal, because it now rates more policies).
+Run as pre-registered on seeds 101-110. **Corrected after codex's third review:** P3's fading ran after the seat had
+already read the record, and Hybrid restored its unfaded counts, so the first run of rounds 3 and 4 had no working fade;
+the fade now runs before anything reads the record, and both rounds were run again. Rounds 1 and 2 give the same
+verdicts (the leaderboard's p values move in the second decimal, because it now rates more policies).
 
 | policy | goal met | engagement reported (s) | bait plays | plays a session |
 |---|---|---|---|---|
-| levin + r3 | 75% | 95.5 | 0.54 | 5.4 |
-| bach + r3 | 74% | 93.0 | 0.52 | 5.2 |
+| levin + r3 | 75% | 95.9 | 0.52 | 5.3 |
+| bach + r3 | 73% | 93.8 | 0.52 | 5.2 |
+| orienting + r3 | 72% | 104.6 | 0.64 | 5.8 |
 | max-staytime (baseline) | 71% | 206.1 | 2.07 | 6.2 |
-| orienting + r3 | 71% | 104.1 | 0.64 | 5.8 |
-| peterson + r3 | 68% | 101.5 | 0.72 | 5.9 |
-| hybrid + r3 | 59% | 59.8 | 0.33 | 3.3 |
+| peterson + r3 | 68% | 102.6 | 0.73 | 5.9 |
+| hybrid + r3 | 59% | 60.4 | 0.33 | 3.3 |
 
 | id | verdict | in a line |
 |---|---|---|
-| L1 | falls, every design | goals met in sessions 16-20 are not above sessions 1-5 (Bach 76% to 73%, Levin 76% to 72%) |
-| T1 | **holds for Levin**; falls for the others | Levin +3.4 points against max-staytime (95% [+0.6, +6.2]); Bach +2.2 [−0.7, +5.0]; Orienting −0.4; Peterson −3.0; Hybrid −12.4 |
-| T2 | falls, every design | engagement reported kept 29% to 51%: the designs play a quarter of the bait |
-| T3 | **holds for Levin, Peterson, Orienting, Hybrid** | the late scroller's bait plays fall faster than the baseline's (slopes −0.016 to −0.028 against −0.015); Bach's equals it |
+| L1 | falls, every design | goals met in sessions 16-20 are not above sessions 1-5 (Bach 76% to 70%, Levin 76% to 73%) |
+| T1 | **holds for Levin**; falls for the others | Levin +3.7 points against max-staytime (95% [+0.8, +6.5]); Bach +1.8 [−1.1, +4.6]; Orienting +0.3; Peterson −3.7; Hybrid −12.2 |
+| T2 | falls, every design | engagement reported kept: 29% to 51% |
+| T3 | **holds for Levin, Peterson, Hybrid** | the late scroller's bait plays fall faster than the baseline's (slopes −0.019 to −0.030 against −0.015); Bach −0.014, Orienting −0.007 |
 | T4 | falls, every design | beliefs about 2.8 to 4.0 kinds of 7; 2 users of 30 pass under Peterson |
-| T5 | holds for Peterson and Orienting, falls for Bach, Levin, Hybrid | few with-sound beliefs exist (1 to 3); 1 or 2 of them read the context as a dislike |
+| T5 | holds for Peterson and Orienting, falls for Bach, Levin, Hybrid | few with-sound beliefs exist (1 to 3 per design); 1 or 2 of them read the context as a dislike |
 | T6 | falls, every design | no record follows the drift within 10 sessions |
-| T7 | falls, every design | 5 to 9 of 10 noisy users pass |
+| T7 | falls, every design | 6 to 9 of 10 noisy users pass |
 | T8 | falls | unchanged |
 
 **How much was there to learn?** A diagnostic, not pre-registered (bare choosers, the same sessions, up to 20 plays):
@@ -514,11 +516,11 @@ values move in the second decimal, because it now rates more policies).
 | the oracle, which also knows the session's goal | 91% | |
 
 **Why L1 fell, read after the run:** every policy meets the same users in the same batches at a given session index, so a
-session's difficulty moves every policy together (even the oracle goes from 76% to 96% between sessions). Comparing
-sessions 1-5 with 16-20 without the baseline measures the sessions, not the learning. Against the baseline on the same
-sessions the learning shows, and early: Bach is 6 points under the baseline in session 1 and 2 to 10 points above it from
-session 2 on; for the noisy users Levin goes from 45% (sessions 1-2) to 68% (sessions 11-20) while the baseline goes from
-70% to 38%. L1 as registered could not see this; that is a fault of the test, found after the run.
+session's difficulty moves every policy together (the oracle itself goes from 76% to 96% between sessions). Comparing
+sessions 1-5 with 16-20 without the baseline measures the sessions as much as the learning. Against the baseline on the
+same sessions (a reading, not a test): Bach is 6 points under it in session 1 and mostly above it afterwards, between −6
+and +8 points from one session to the next; for the noisy users Levin goes from 45% (sessions 1-2) to 64% (sessions
+11-20) while the baseline goes from 70% to 38%. L1 as registered could not separate this from session difficulty.
 
 ### Slice D, round 4: pre-registered 2026-11-12, before it was run; the last round
 
@@ -537,44 +539,47 @@ what holds and what does not, and the loop stops.
 
 ### Slice D, round 4 (2026-11-12): the results, on unused seeds 111-120
 
-`dotnet run --project samples/FeedStudy -- --seeds 10 --seed-skip 10 --sessions 20`, round 3's settings unchanged.
+`dotnet run --project samples/FeedStudy -- --seeds 10 --seed-skip 10 --sessions 20`, round 3's settings unchanged (run
+again with the fade fixed, as round 3 was).
 
 | id | verdict | in a line |
 |---|---|---|
-| L1′ | falls, every design | the change in the per-user gap to the baseline, sessions 11-20 against 1-2: Bach +0.4 points (95% [−10.3, +11.1]), Levin −4.6 [−15.2, +6.0], Peterson +4.2, Orienting −3.6, Hybrid +8.0 [−3.4, +19.4]; 50 users each |
-| T1 | **holds for Levin and Orienting**, again for Levin | Levin +4.3 points against max-staytime (95% [+1.7, +7.0]), Orienting +3.1 [+0.2, +5.9], Bach +2.4 [−0.3, +5.1], Peterson −3.3, Hybrid −10.2 |
+| L1′ | falls, every design | the change in the per-user gap to the baseline, sessions 11-20 against 1-2: Bach +1.0 points (95% [−9.6, +11.6]), Levin −4.8 [−15.8, +6.2], Peterson +3.8, Orienting −3.0, Hybrid +7.8 [−3.6, +19.2]; 50 users each |
+| T1 | **holds for Levin and Orienting** | Levin +4.3 points against max-staytime (95% [+1.6, +6.9]), Orienting +3.6 [+0.8, +6.4], Bach +2.4 [−0.3, +5.1], Peterson −3.1, Hybrid −10.5 |
 
-Goals met on these seeds: oracle 92%, Levin + r3 76%, Bach + r3 74%, max-staytime 71%.
+Goals met on these seeds: oracle 92%, Levin + r3 76%, Orienting + r3 75%, Bach + r3 74%, max-staytime 71%.
 
 ## What holds and what does not (the loop stops here, 2026-11-12)
 
-Four rounds, every rule written down before its round ran, the last on users no run had seen. In the simulation:
+Four rounds. Each round's rules were written before it ran, except round 1's operational rules, which were set after its
+first pass had been seen and are marked so; the last round ran on users no run had used. In the simulation:
 
 **Holds**
-- **With one Core option and a seat that reads the record, Creatura's control layer serves users' goals better than an
-  engagement maximiser.** Levin meets 3.4 points more goals than max-staytime on seeds 101-110 and 4.3 more on the unseen
-  seeds 111-120; Orienting +3.1 on the unseen seeds. The option is `HonestFailureRule.RecordOnly` (#75): a skip recorded
-  but not spent. The seat is Thompson sampling over the per-user record, with the feed's prediction as its prior.
-- **It protects the user from bait.** Round 3's designs play about a quarter of the bait max-staytime plays, and for four
-  of them the late scroller's bait falls faster across sessions than the baseline's (T3).
-- **What a record learns is close to the truth where it has evidence** (round 1: within 0.04 to 0.10 of the true rate on
-  the kinds tried, rank correlation 0.59 to 0.95).
+- **With one Core option and a seat that reads the record, two of the designs meet more users' goals than an
+  engagement maximiser.** Levin: +3.7 points against max-staytime on seeds 101-110 and +4.3 on the unused seeds 111-120;
+  Orienting: +3.6 on the unused seeds (not on 101-110). The option is `HonestFailureRule.RecordOnly` (#75): a skip
+  recorded but not spent. The seat is Thompson sampling over the per-user record, with the feed's prediction as its prior.
+- **Bait plays drop.** Round 3's designs play a quarter to a third of the bait max-staytime plays; for Levin, Peterson
+  and Hybrid the late scroller's bait falls faster across sessions than the baseline's (T3).
+- **Where a record has evidence, it is close to the truth** for the designs that keep a self-model: in round 1, Bach's and
+  Hybrid's records were within 0.04 to 0.10 of the true rate on the kinds tried 3 or more times (rank correlation 0.59 to
+  0.95).
 
 **Does not hold**
-- **Steady improvement across sessions is not shown** (L1, L1′). The gain appears from the second session and then holds;
-  whether it keeps growing is not measurable with these tests: two early sessions per user are too few.
-- **Engagement is kept** (T2): the designs give up half or more of the engagement the maximiser reports. Meeting goals
-  and fewer bait plays cost engagement here.
+- **Improvement across sessions is not shown** (L1, L1′ fall). Read against the baseline, round 3's designs start below
+  it in the first session and are mostly above it afterwards, but neither test shows a gain that grows, and L1′'s
+  intervals are about ±10 points wide.
+- **Engagement is kept** (T2): the designs report half or less of the engagement the maximiser reports.
 - **The records do not learn every kind** (T4), **do not separate context from taste reliably** (T5), **do not follow a
-  change of taste within 10 sessions** (T6), and **invent preferences for a flat user** (T7).
+  change of taste within 10 sessions** (T6), and **show preferences a flat user does not have** (T7).
 - **The last-resort rule** meets more goals than the maximiser, not fewer (T8).
-- **Bach, Hybrid and Peterson** do not beat the maximiser on goals, and **Hybrid** still quits.
+- **Bach, Peterson and Hybrid** do not beat the maximiser on goals, and **Hybrid** still quits early (3.3 plays a session).
 
-**What it means for Creatura:** the control layer, as designed for task worlds, treats every failure as a reason to stop;
-in a feed that makes it quit, and with the documented rule it learns nothing. One option in the Core and one seat in the
-example turn it into a recommender that meets more goals with much less bait. What remains open is learning that keeps
-improving, context and drift; those need a record with context and fading built into the Core, not bolted on in the
-study, and longer runs to measure.
+**What it means for Creatura:** the control layer, as designed for task worlds, counts a failure toward stopping; in a
+feed, where a skip is ordinary, that made the designs quit (round 1), and the documented alternative records nothing, so
+nothing was learned (round 2). One option in the Core and one seat in the example gave two designs more goals met with
+far less bait (rounds 3 and 4). Context, drift and learning that keeps improving stay open: this study added a record per
+context and a fade outside the Core and saw no effect on T5 and T6; whether they belong in the Core is not tested here.
 
 **What it means for AXI:** the agent side of AXI on Creatura needs no AXI engine. The four JSON shapes and an example are
 enough to exchange capabilities, proposals, events and outcomes (#66), and the outcome must keep reported and confirmed
