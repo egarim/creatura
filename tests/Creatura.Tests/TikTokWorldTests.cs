@@ -95,7 +95,7 @@ public class TikTokWorldTests
     {
         var muted = new TikTokWorld(Only("muted"), Certain() with { Muted = 1.0 });
         Assert.True(muted.IsMuted);
-        Assert.Equal(0.2, muted.ChanceToFinish(FeedKind.Tutorial), 6);
+        Assert.Equal(0.2, muted.ExpectedChance(FeedKind.Tutorial), 6);
         Offer(muted, FeedKind.Tutorial);
         Assert.True(muted.Predicted(FeedKind.Tutorial)!.Finish >= 0.9);
 
@@ -166,7 +166,7 @@ public class TikTokWorldTests
         var after = new TikTokWorld(Only(), drifter, session: 5);
         Assert.Equal(FeedGoal.Learn, before.Goal);
         Assert.Equal(FeedGoal.Entertain, after.Goal);
-        Assert.Equal(1.0, after.ChanceToFinish(FeedKind.Creator), 6);
+        Assert.Equal(1.0, after.ExpectedChance(FeedKind.Creator), 6);
         Offer(after, FeedKind.Tutorial);
         Assert.True(after.Predicted(FeedKind.Tutorial)!.Finish >= 0.9, "the feed's prediction lags the drift");
     }

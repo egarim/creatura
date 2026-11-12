@@ -217,15 +217,20 @@ public sealed class TikTokWorld : CatalogueWorld, ITickedWorld
             : new ActionOutcome(tool.Id, false, [], said + (IsMuted && NeedsSound(kind) ? ", skipped: muted" : ", skipped"));
     }
 
-    /// <summary>The user's real chance to finish a kind now: taste, then context, then noise. Only the world knows it.</summary>
-    public double ChanceToFinish(FeedKind kind)
+    /// <summary>
+    /// The user's chance to finish a kind now, before noise: taste, then context. Only the world knows it; reading it draws
+    /// nothing, so an oracle can read it without changing the session.
+    /// </summary>
+    public double ExpectedChance(FeedKind kind)
     {
         var p = kind == FeedKind.Bait ? User.Bait * (IsLate ? 1.5 : 1.0) : Taste.GetValueOrDefault(kind);
         if (IsMuted && NeedsSound(kind)) p *= 0.2;
         if (IsSkimming && kind != FeedKind.Live) p *= 0.5;
-        p += (_rng.NextDouble() * 2 - 1) * User.Noise;
         return Math.Clamp(p, 0, 1);
     }
+
+    /// <summary>The chance this play is drawn with: the expected chance plus the user's noise. Draws from the session.</summary>
+    private double ChanceToFinish(FeedKind kind) => Math.Clamp(ExpectedChance(kind) + (_rng.NextDouble() * 2 - 1) * User.Noise, 0, 1);
 
     /// <summary>The lines a seat reads each tick (through <see cref="FeedNotes"/>): the batch's predictions and the counters.</summary>
     public IReadOnlyList<string> Notes()
