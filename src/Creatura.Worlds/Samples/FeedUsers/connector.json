@@ -1,0 +1,8 @@
+{
+  "id": "connector",
+  "archetype": "connector",
+  "about": "Comes for friends' posts and lives; skips creators and tutorials. The feed under-predicts friends' posts (bias 0.6), so a policy that trusts the predictions misses what this user wants.",
+  "goals": { "Connect": 0.8, "Entertain": 0.2 },
+  "finish": { "Friend": 0.85, "Creator": 0.2, "Tutorial": 0.15, "Ad": 0.05, "Shop": 0.05, "Live": 0.5, "Bait": 0.0 },
+  "bait": 0.15, "skimAfter": 4, "tiredAfter": 12, "muted": 0.1, "late": 0.1, "noise": 0.05
+}

@@ -1,0 +1,8 @@
+{
+  "id": "learner",
+  "archetype": "learner",
+  "about": "Comes to learn. Finishes tutorials, sometimes a creator; rarely falls for bait. The plain case: does learning converge.",
+  "goals": { "Learn": 0.8, "Entertain": 0.2 },
+  "finish": { "Friend": 0.3, "Creator": 0.4, "Tutorial": 0.8, "Ad": 0.05, "Shop": 0.1, "Live": 0.2, "Bait": 0.0 },
+  "bait": 0.1, "skimAfter": 4, "tiredAfter": 12, "muted": 0.2, "late": 0.05, "noise": 0.05
+}

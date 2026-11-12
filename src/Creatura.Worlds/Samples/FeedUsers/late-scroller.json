@@ -1,0 +1,8 @@
+{
+  "id": "late-scroller",
+  "archetype": "late-scroller",
+  "about": "Comes to be entertained, often lying down after midnight, and watches bait to the end most of the time. Engagement that harms: does a policy protect the goal and the night.",
+  "goals": { "Entertain": 0.9, "Connect": 0.1 },
+  "finish": { "Friend": 0.4, "Creator": 0.55, "Tutorial": 0.1, "Ad": 0.1, "Shop": 0.2, "Live": 0.3, "Bait": 0.0 },
+  "bait": 0.8, "skimAfter": 5, "tiredAfter": 15, "muted": 0.1, "late": 0.7, "noise": 0.05
+}
