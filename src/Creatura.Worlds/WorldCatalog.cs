@@ -118,9 +118,28 @@ public static class WorldCatalog
         Steps = ["file.ok", "fee.paid", "licence.issued", "citizen.notified"],
     };
 
+    /// <summary>The virtual TikTok (docs/design-axi.md): one session of the default user, the learner, seed 1. The study builds its own sessions.</summary>
+    public static readonly WorldManifest TikTok = new()
+    {
+        Id = "tiktok",
+        Task = TikTokWorld.Task,
+        Barriers =
+        [
+            new("bait", true, BarrierRole.Lie),
+            new("skim", true, BarrierRole.ChangedRule),
+            new("late", true, BarrierRole.ChangedRule),
+            new("muted", true, BarrierRole.HonestFailure),
+            new("autoplay", true, BarrierRole.Shortcut),
+            new("adload", true, BarrierRole.HonestFailure),
+        ],
+        Create = b => new TikTokWorld(b),
+        GoalEvidence = [TikTokWorld.Served],
+        Steps = ["goal.known", TikTokWorld.Served],
+    };
+
     static WorldCatalog()
     {
-        foreach (var m in new[] { Restore, Permit, Irrigation, Livestock, Flood, ThreeSources, Licence }) Register(m);
+        foreach (var m in new[] { Restore, Permit, Irrigation, Livestock, Flood, ThreeSources, Licence, TikTok }) Register(m);
     }
 
     /// <summary>Adds or replaces a manifest under its id.</summary>
