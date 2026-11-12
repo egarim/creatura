@@ -66,7 +66,7 @@ foreach (var seed in seeds)
             var w2 = new TikTokWorld(barriers, user, seed, s);
             var key2 = $"{design}+r2/{user.Id}/{(w2.IsMuted ? "muted" : "sound")}";
             Fade.Apply(store, key2);   // P3, before anything reads the record: the seat, the carry and the design
-            await Designed(design, w2, new ExploringSeat(w2, new MaxStaytimePolicy(w2), store.Load(key2), unchecked(seed * 7_919 + s)), key2, Round2.Layer(design));
+            await Designed(design, w2, new ExploringSeat(new MaxStaytimePolicy(w2), store.Load(key2), unchecked(seed * 7_919 + s)), key2, Round2.Layer(design));
             rows.Add(SessionRow.Of($"{design}+r2", archetype.Id, user.Id, seed, s, w2));
             learned.AddRange(LearnedRow.Of($"{design}+r2", archetype.Id, user, s, store.Load($"{design}+r2/{user.Id}/sound")));
 
@@ -131,7 +131,7 @@ static class Round2
 }
 
 /// <summary>P2: one play in four (seeded) is the offered kind with the fewest counted plays in the user's record; otherwise the inner seat.</summary>
-sealed class ExploringSeat(TikTokWorld world, IPolicy inner, AgentRecord? record, int seed) : IPolicy
+sealed class ExploringSeat(IPolicy inner, AgentRecord? record, int seed) : IPolicy
 {
     private readonly Random _rng = new(seed);
 
