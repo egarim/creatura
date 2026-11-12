@@ -15,6 +15,8 @@ CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
 var opts = new Dictionary<string, string>(StringComparer.Ordinal);
 for (var i = 0; i + 1 < args.Length; i += 2) opts[args[i]] = args[i + 1];
 if (args.Contains("--learning")) return await LearningStudy.Run(args.Where(a => a != "--learning").ToArray());   // slice G, Learning.cs
+if (args.Contains("--tune")) return await ImprovedStudy.Run(args.Where(a => a != "--tune").ToArray(), tune: true);           // slice H, Improved.cs
+if (args.Contains("--improved")) return await ImprovedStudy.Run(args.Where(a => a != "--improved").ToArray(), tune: false);  // slice H, Improved.cs
 var seedCount = int.Parse(opts.GetValueOrDefault("--seeds", "10"));
 var sessions = int.Parse(opts.GetValueOrDefault("--sessions", "20"));
 var outDir = Directory.CreateDirectory(opts.GetValueOrDefault("--out", "feed-study-out")).FullName;

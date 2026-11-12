@@ -119,9 +119,32 @@ sealed class TasteKnownPolicy(TikTokWorld world) : IPolicy
     }
 }
 
-/// <summary>Each kind's finish rate pooled over every user a design has met (sessions with sound): lever 3. Held in memory for the run, not in a record.</summary>
-sealed class Population
+/// <summary>
+/// The learner's switches and settings. The defaults are slice G's learner (v1) exactly; slice H's ablations turn one lever
+/// off, and v2 adds soft goal evidence, targeted exploration and change detection, without the discount (docs/design-axi.md).
+/// </summary>
+sealed record LearnerOptions
 {
+    public bool Goal { get; init; } = true;          // the goal belief: rule-outs and the answer
+    public bool Ask { get; init; } = true;
+    public double AskBelow { get; init; } = 0.6;
+    public bool Model { get; init; } = true;         // the user model's counts and muted factor
+    public bool Pool { get; init; } = true;          // the population prior
+    public double PoolWeight { get; init; } = 4;
+    public double PredWeight { get; init; } = 2;
+    public double Discount { get; init; } = 0.85;
+    public bool SoftGoals { get; init; }             // v2: the session's final belief as goal evidence
+    public double Explore { get; init; }             // v2: ε, targeted exploration
+    public double ChangeTau { get; init; }           // v2: change detection threshold; 0 = off
+
+    public static readonly LearnerOptions V1 = new();
+}
+
+/// <summary>Each kind's finish rate pooled over every user a design has met (sessions with sound): lever 3. Held in memory for the run, not in a record.</summary>
+sealed class Population(LearnerOptions? options = null)
+{
+    private readonly LearnerOptions _o = options ?? LearnerOptions.V1;
+
     public Dictionary<FeedKind, (double Finished, double Played)> Pool { get; } = [];
 
     public void Add(FeedKind k, bool finished)
@@ -137,7 +160,7 @@ sealed class Population
     public (double A, double B) Prior(FeedKind k, double predicted)
     {
         var (f, n) = Pool.GetValueOrDefault(k);
-        var (rate, weight) = n >= 50 ? (f / n, 4.0) : (predicted, 2.0);
+        var (rate, weight) = _o.Pool && n >= 50 ? (f / n, _o.PoolWeight) : (predicted, _o.PredWeight);
         return (Math.Max(0.01, weight * rate), Math.Max(0.01, weight * (1 - rate)));
     }
 }
@@ -159,6 +182,9 @@ sealed class UserModel
     public double MutedExpected { get; set; }
 
     public Dictionary<FeedGoal, double> Goals { get; set; } = [];
+
+    /// <summary>v2's change detection: the last 5 outcomes with sound per kind (1 finished, 0 skipped).</summary>
+    public Dictionary<FeedKind, List<int>> Recent { get; set; } = [];
 
     /// <summary>The feed's last predicted finish seen for each kind: the prior before the pool fills, outside a session.</summary>
     public Dictionary<FeedKind, double> Predicted { get; set; } = [];
@@ -186,6 +212,37 @@ sealed class UserModel
         MutedExpected *= g;
     }
 
+    /// <summary>v2: after 5 recent outcomes, if their rate differs from the posterior mean by more than τ, the kind restarts from them.</summary>
+    private void Detect(FeedKind k, bool finished, Population population, LearnerOptions o)
+    {
+        var recent = Recent.TryGetValue(k, out var r) ? r : Recent[k] = [];
+        recent.Add(finished ? 1 : 0);
+        if (recent.Count > 5) recent.RemoveAt(0);
+        if (recent.Count < 5) return;
+        var rate = recent.Average();
+        if (Math.Abs(rate - FinishMean(k, PriorFor(k, population))) > o.ChangeTau)
+        {
+            Finished[k] = recent.Sum();
+            Played[k] = recent.Count;
+        }
+    }
+
+    /// <summary>
+    /// The belief over a session's goal, from what a platform observes: one-hot when the user answered; else the goal mix with
+    /// every goal ruled out by a finished play that did not serve removed (<paramref name="evidence"/>), and, after the session,
+    /// restricted to the goals the serving kind serves (<paramref name="servedToo"/>). Uniform when nothing is left.
+    /// </summary>
+    public static Dictionary<FeedGoal, double> GoalBelief(TikTokWorld w, UserModel m, bool evidence, bool servedToo = false)
+    {
+        var all = Enum.GetValues<FeedGoal>();
+        if (evidence && LearnerSeat.Answer(w) is { } said) return all.ToDictionary(g => g, g => g == said ? 1.0 : 0);
+        var ruledOut = evidence ? w.Plays.Where(p => p.Finished && !p.Served).SelectMany(p => all.Where(g => TikTokWorld.Serves(p.Kind, g))).ToHashSet() : [];
+        var served = servedToo ? w.Plays.LastOrDefault(p => p.Served) : null;
+        var raw = all.ToDictionary(g => g, g => ruledOut.Contains(g) || (served is not null && !TikTokWorld.Serves(served.Kind, g)) ? 0 : m.GoalWeight(g));
+        var sum = raw.Values.Sum();
+        return sum <= 0 ? all.ToDictionary(g => g, _ => 1.0 / all.Length) : raw.ToDictionary(kv => kv.Key, kv => kv.Value / sum);
+    }
+
     /// <summary>A kind's finish rate with sound, as the posterior mean under the prior.</summary>
     public double FinishMean(FeedKind k, (double A, double B) prior) =>
         (prior.A + Finished.GetValueOrDefault(k)) / (prior.A + prior.B + Played.GetValueOrDefault(k));
@@ -201,8 +258,10 @@ sealed class UserModel
     /// bait in a late session teaches nothing); the goal mix learns from the answer when asked, else from the kind that served.
     /// Only what a platform observes is read: the plays, the muted state, the late state, the answer and the served fact.
     /// </summary>
-    public void Learn(TikTokWorld w, Population population)
+    public void Learn(TikTokWorld w, Population population, LearnerOptions? options = null)
     {
+        var o = options ?? LearnerOptions.V1;
+        var soft = o.SoftGoals ? GoalBelief(w, this, evidence: true, servedToo: true) : null;   // read before the counts change
         foreach (var p in w.Plays)
         {
             Predicted[p.Kind] = p.PredictedFinish;
@@ -220,8 +279,14 @@ sealed class UserModel
             Played[p.Kind] = Played.GetValueOrDefault(p.Kind) + 1;
             Finished[p.Kind] = Finished.GetValueOrDefault(p.Kind) + (p.Finished ? 1 : 0);
             population.Add(p.Kind, p.Finished);
+            if (o.ChangeTau > 0) Detect(p.Kind, p.Finished, population, o);
         }
 
+        if (soft is not null)
+        {
+            foreach (var (g, b) in soft) Goals[g] = Goals.GetValueOrDefault(g) + b;
+            return;
+        }
         if (LearnerSeat.Answer(w) is { } said) Goals[said] = Goals.GetValueOrDefault(said) + 1;
         else if (w.Plays.LastOrDefault(p => p.Served) is { } served)
         {
@@ -236,31 +301,36 @@ sealed class UserModel
 /// the plays (a finished play that did not serve rules out its goals) and by the answer when asked; it asks once, first,
 /// when no goal has belief 0.6; each kind's value is the belief that it serves × a Thompson draw of its finish rate.
 /// </summary>
-sealed class LearnerSeat(TikTokWorld world, UserModel model, Population population, int seed) : IPolicy
+sealed class LearnerSeat(TikTokWorld world, UserModel model, Population population, int seed, LearnerOptions? options = null) : IPolicy
 {
     private readonly Random _rng = new(seed);
+    private readonly LearnerOptions _o = options ?? LearnerOptions.V1;
+
+    /// <summary>The chance of finishing the learner stated before each play, keyed by the tick the play will land on: the prediction score's input.</summary>
+    public List<(int Tick, FeedKind Kind, double P)> Stated { get; } = [];
 
     public string Name => "learner";
+
+    /// <summary>The chance of finishing the learner states for a kind now: its posterior mean, times the muted factor when it applies.</summary>
+    public double StatedFinish(FeedKind k)
+    {
+        var prior = model.PriorFor(k, population, world.Predicted(k)?.Finish);
+        double f = _o.Model ? model.Finished.GetValueOrDefault(k) : 0, n = _o.Model ? model.Played.GetValueOrDefault(k) : 0;
+        var p = (prior.A + f) / (prior.A + prior.B + n);
+        return _o.Model && world.IsMuted && TikTokWorld.NeedsSound(k) ? p * model.MutedFactor : p;
+    }
 
     /// <summary>The user's answer, as the platform heard it, or null when not asked.</summary>
     public static FeedGoal? Answer(TikTokWorld w) =>
         w.Has("goal.known") && w.Notes().FirstOrDefault(n => n.StartsWith("the user said they want to ", StringComparison.Ordinal)) is { } line
             ? Enum.Parse<FeedGoal>(line["the user said they want to ".Length..], ignoreCase: true) : null;
 
-    public Dictionary<FeedGoal, double> Belief()
-    {
-        if (Answer(world) is { } said) return Enum.GetValues<FeedGoal>().ToDictionary(g => g, g => g == said ? 1.0 : 0);
-        var ruledOut = world.Plays.Where(p => p.Finished && !p.Served)
-            .SelectMany(p => Enum.GetValues<FeedGoal>().Where(g => TikTokWorld.Serves(p.Kind, g))).ToHashSet();
-        var raw = Enum.GetValues<FeedGoal>().ToDictionary(g => g, g => ruledOut.Contains(g) ? 0 : model.GoalWeight(g));
-        var sum = raw.Values.Sum();
-        return sum <= 0 ? Enum.GetValues<FeedGoal>().ToDictionary(g => g, _ => 1.0 / 3) : raw.ToDictionary(kv => kv.Key, kv => kv.Value / sum);
-    }
+    public Dictionary<FeedGoal, double> Belief() => UserModel.GoalBelief(world, model, evidence: _o.Goal);
 
     public Task<PolicySuggestion> NextAsync(PolicyContext context, CancellationToken cancellationToken = default)
     {
         var belief = Belief();
-        if (belief.Values.Max() < LearningStudy.AskBelow && world.Plays.Count == 0 && context.Tools.Any(t => t.Id == "ask-what-they-want"))
+        if (_o.Goal && _o.Ask && belief.Values.Max() < _o.AskBelow && world.Plays.Count == 0 && context.Tools.Any(t => t.Id == "ask-what-they-want"))
             return Task.FromResult(new PolicySuggestion("ask-what-they-want", $"unsure of the goal ({belief.Values.Max():0.00})"));
 
         // Every prediction on offer is observable: the model keeps the last one per kind, played or not.
@@ -271,12 +341,24 @@ sealed class LearnerSeat(TikTokWorld world, UserModel model, Population populati
             {
                 var k = TikTokWorld.KindOf(t.Id)!.Value;
                 var prior = model.PriorFor(k, population, world.Predicted(k)!.Finish);
-                var finish = Sampling.Beta(_rng, prior.A + model.Finished.GetValueOrDefault(k), prior.B + model.Played.GetValueOrDefault(k) - model.Finished.GetValueOrDefault(k));
-                if (world.IsMuted && TikTokWorld.NeedsSound(k)) finish *= model.MutedFactor;
+                double f = _o.Model ? model.Finished.GetValueOrDefault(k) : 0, n = _o.Model ? model.Played.GetValueOrDefault(k) : 0;
+                var finish = Sampling.Beta(_rng, prior.A + f, prior.B + n - f);
+                if (_o.Model && world.IsMuted && TikTokWorld.NeedsSound(k)) finish *= model.MutedFactor;
                 var serves = belief.Sum(kv => TikTokWorld.Serves(k, kv.Key) ? kv.Value : 0);
                 return (Tool: t, Value: serves * finish);
             })
             .OrderByDescending(x => x.Value).ThenBy(x => x.Tool.Id, StringComparer.Ordinal).FirstOrDefault();
+
+        // v2: targeted exploration, only among kinds on offer that serve the goal the belief is sure of.
+        var top = belief.MaxBy(kv => kv.Value);
+        if (_o.Explore > 0 && best.Tool is not null && top.Value >= 0.6)
+        {
+            var serving = context.Tools.Where(t => TikTokWorld.KindOf(t.Id) is { } k && world.Predicted(k) is not null && TikTokWorld.Serves(k, top.Key)).ToList();
+            if (serving.Count >= 2 && _rng.NextDouble() < _o.Explore)
+                best = (serving.OrderBy(t => model.Played.GetValueOrDefault(TikTokWorld.KindOf(t.Id)!.Value)).ThenBy(t => t.Id, StringComparer.Ordinal).First(), best.Value);
+        }
+
+        if (best.Tool is not null && TikTokWorld.KindOf(best.Tool.Id) is { } chosen) Stated.Add((world.Ticks + 1, chosen, StatedFinish(chosen)));
         return Task.FromResult(best.Tool is null
             ? new PolicySuggestion(context.Tools.Any(t => t.Id == "end-session") ? "end-session" : null, "nothing to play")
             : new PolicySuggestion(best.Tool.Id, $"value {best.Value:0.00}"));
