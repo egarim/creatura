@@ -373,3 +373,53 @@ kind that needs sound is nearer the muted truth than the taste.
   Learning taste without quitting needs an option the Core does not have (an honest failure recorded but not spent): if
   round 2 shows this, that is the one Core change the study points to.
 - P4 should make T5 hold; P2 should raise the number of kinds with a belief; P3 should shorten T6's lag.
+
+### Slice D, round 2 (2026-11-12): the results
+
+Run as pre-registered, the same 1,200 sessions per policy; round 1's verdicts in the same report are unchanged.
+
+| policy | goal met | engagement reported (s) | bait plays | plays a session |
+|---|---|---|---|---|
+| max-staytime (baseline) | 71% | 206.1 | 2.07 | 6.2 |
+| bach + r2 (round 1: 60%) | 71% | 123.2 | 1.25 | 6.3 |
+| levin + r2 (round 1: 60%) | 71% | 123.2 | 1.25 | 6.3 |
+| orienting + r2 (round 1: 76%) | 69% | 132.9 | 1.45 | 6.5 |
+| peterson + r2 (round 1: 67%) | 63% | 135.7 | 1.64 | 6.8 |
+| hybrid + r2 (round 1: 55%) | 52% | 75.2 | 0.73 | 3.7 |
+
+| id | verdict | in a line |
+|---|---|---|
+| T1 | falls, every design | Bach and Levin now meet as many goals as the baseline (−0.2 points, 95% [−3.0, +2.7]), not more; Orienting −2.2, Peterson −8.6, Hybrid −19.1 |
+| T2 | falls, every design | engagement reported kept: Peterson 66%, Orienting 64%, Bach and Levin 60%, Hybrid 36% |
+| T3 | falls, every design | no design's bait slope is below the baseline's (−0.015); Bach's now rises (+0.014) |
+| T4 | falls, every design | a kind reaches 5 counted plays for about 1 kind in 7 |
+| T5 | holds, **vacuously** | no design has any with-sound belief about a kind that needs sound for the muted commuter: nothing to read as a dislike |
+| T6 | falls, every design | no record follows the drift |
+| T7 | falls, every design | 4 to 7 of 10 noisy users pass |
+| T8 | falls | unchanged (the baselines did not change) |
+
+**What round 2 found:**
+
+1. **P1 stopped most of the quitting, and only that.** Bach and Levin play as long as the baseline (6.3 plays against
+   3.4 in round 1) and meet 11 points more goals than in round 1, level with the baseline, while keeping 40% fewer bait
+   plays. They still do not meet more goals than the bare chooser. Hybrid still quits: its own coherence audit stops it.
+2. **The predicted cost came, larger than expected.** Under `Habituate` a skip is recorded nowhere, so a kind gets counted
+   plays only when the user finishes it. With P5's floor of 5 plays and P4 splitting the record by context, about one
+   kind in seven has a belief: the records learned almost nothing. T5 "holds" only because there is nothing to read.
+3. **Exploration (P2) cost goals and bought no learning.** Its plays go to the least-tried kinds, which are mostly the
+   ones the user skips, and a skip is no longer recorded: Orienting fell from 76% to 69%.
+4. **Fading (P3) had nothing to fade:** no belief reached 10 counted plays.
+
+**The one Core change the study points to.** Learning a user's taste without quitting needs an honest failure that is
+**recorded but not spent**: counted in the tool's reliability and the prediction record, not in the budget that stops
+the run. The Core has `Habituate` (not recorded, not spent) and `StaysVisible` (recorded and spent); neither does it.
+That is a third value of `HonestFailureRule`, a few lines in `ControlLayer`, and the owner's decision, since the plan
+promised no Core change.
+
+**Proposed for round 3,** for the owner's approval:
+
+| | change | aimed at |
+|---|---|---|
+| R3-1 | the Core option above: an honest failure recorded, not spent, the tool kept visible | T1, T4 together |
+| R3-2 | explore less and only among kinds the predictions do not rule out (one play in ten) | T1 |
+| R3-3 | keep P4 (a record per context) and P3 (fading); drop P5's floor to 3 plays | T4, T5, T6 |

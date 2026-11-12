@@ -61,6 +61,13 @@ foreach (var seed in seeds)
             await Designed(design, w, new MaxStaytimePolicy(w), $"{design}/{user.Id}");
             rows.Add(SessionRow.Of($"{design}+max-staytime", archetype.Id, user.Id, seed, s, w));
             learned.AddRange(LearnedRow.Of(design, archetype.Id, user, s, store.Load($"{design}/{user.Id}")));
+
+            // Round 2 (docs/design-axi.md, pre-registered): P1 skips are honest and not spent, P2 explore, P3 fade, P4 a record per context.
+            var w2 = new TikTokWorld(barriers, user, seed, s);
+            var key2 = $"{design}+r2/{user.Id}/{(w2.IsMuted ? "muted" : "sound")}";
+            await Designed(design, w2, new ExploringSeat(w2, new MaxStaytimePolicy(w2), store.Load(key2), unchecked(seed * 7_919 + s)), key2, Round2.Layer(design), new FadeExtension(store, key2));
+            rows.Add(SessionRow.Of($"{design}+r2", archetype.Id, user.Id, seed, s, w2));
+            learned.AddRange(LearnedRow.Of($"{design}+r2", archetype.Id, user, s, store.Load($"{design}+r2/{user.Id}/sound")));
         }
 
         if (endpoint is not null && seeds.IndexOf(seed) < modelSeeds)
@@ -91,11 +98,58 @@ async Task Bare(TikTokWorld w, IPolicy policy)
     }
 }
 
-async Task Designed(string design, TikTokWorld w, IPolicy seat, string key)
+async Task Designed(string design, TikTokWorld w, IPolicy seat, string key, ControlLayerOptions? layer = null, IAgentExtension? first = null)
 {
-    var options = AgentOptions.With(new FeedNotes(), new RecordCarryExtension(store, key));
-    var agent = AgentCatalog.Make(design, new AgentBuild(seat, TikTokWorld.Task, options, 1, Store: store, RecordKey: key));
+    // The fade (P3) runs before the record is read, so the session starts from the faded record.
+    var options = first is null ? AgentOptions.With(new FeedNotes(), new RecordCarryExtension(store, key)) : AgentOptions.With(first, new FeedNotes(), new RecordCarryExtension(store, key));
+    var agent = AgentCatalog.Make(design, new AgentBuild(seat, TikTokWorld.Task, options, 1, layer, Store: store, RecordKey: key));
     await agent.RunAsync(w, MaxTicks);
+}
+
+/// <summary>Round 2's settings that are not code of their own.</summary>
+static class Round2
+{
+    /// <summary>P1: each design's own layer, with a skip judged an honest failure (report first) that is habituated, not spent.</summary>
+    public static ControlLayerOptions Layer(string design) => (design switch
+    {
+        "levin" => AgentCatalog.ColonyLayer,
+        "peterson" => AgentCatalog.MapKeeperLayer,
+        "orienting" => AgentCatalog.OrientingLayer,
+        _ => ControlLayerOptions.Design,
+    }) with { JudgeRule = JudgeRule.ReportFirst, HonestFailureRule = HonestFailureRule.Habituate };
+}
+
+/// <summary>P2: one play in four (seeded) is the offered kind with the fewest counted plays in the user's record; otherwise the inner seat.</summary>
+sealed class ExploringSeat(TikTokWorld world, IPolicy inner, AgentRecord? record, int seed) : IPolicy
+{
+    private readonly Random _rng = new(seed);
+
+    public string Name => $"explore+{inner.Name}";
+
+    public Task<PolicySuggestion> NextAsync(PolicyContext context, CancellationToken cancellationToken = default)
+    {
+        var plays = context.Tools.Where(t => TikTokWorld.KindOf(t.Id) is not null).ToList();
+        if (plays.Count > 0 && _rng.Next(4) == 0)
+        {
+            var least = plays.OrderBy(t => record?.Skills.GetValueOrDefault(t.Id)?.Attempted ?? 0).ThenBy(t => t.Id, StringComparer.Ordinal).First();
+            return Task.FromResult(new PolicySuggestion(least.Id, "explore: the least-tried kind on offer"));
+        }
+        return inner.NextAsync(context, cancellationToken);
+    }
+}
+
+/// <summary>P3: before a session, a belief with more than 10 counted plays has its counts halved.</summary>
+sealed class FadeExtension(IRecordStore store, string key) : IAgentExtension
+{
+    public string Name => "fade";
+
+    public void BeforeRun(TickContext context)
+    {
+        if (store.Load(key) is not { } record) return;
+        foreach (var (tool, b) in record.Skills.ToList())
+            if (b.Attempted > 10) record.Skills[tool] = b with { Supported = b.Supported / 2, Attempted = b.Attempted / 2 };
+        store.Save(key, record);
+    }
 }
 
 /// <summary>A uniform choice among the kinds on offer, seeded by the session.</summary>
@@ -169,7 +223,8 @@ static class Report
         sb.Append(Leaderboard.Render(Leaderboard.Compute(engagementRuns, Axis.Design)));
         sb.AppendLine("```");
 
-        sb.Append(Verdicts.Write(rows, learned, goalBoard, sessions, cast));
+        sb.Append(Verdicts.Write(rows, learned, goalBoard, sessions, cast, round2: false));
+        sb.Append(Verdicts.Write(rows, learned, goalBoard, sessions, cast, round2: true));
 
         sb.AppendLine("\n## The late scroller's bait plays, first five sessions against last five\n");
         sb.AppendLine("| policy | sessions 1-5 | last 5 |\n|---|---|---|");
@@ -234,10 +289,13 @@ static class Verdicts
     private const string Base = "max-staytime";
     private static readonly string[] Designs = ["bach", "levin", "peterson", "orienting", "hybrid"];
 
-    public static string Write(List<SessionRow> rows, List<LearnedRow> learned, Board goalBoard, int sessions, IReadOnlyList<FeedUser> cast)
+    public static string Write(List<SessionRow> rows, List<LearnedRow> learned, Board goalBoard, int sessions, IReadOnlyList<FeedUser> cast, bool round2)
     {
-        var sb = new StringBuilder("\n## The hypotheses, decided by the note's rules\n\n");
-        string D(string d) => $"{d}+{Base}";
+        var sb = new StringBuilder(round2 ? "\n## Round 2: the hypotheses, decided by the rules pre-registered for it\n\n" : "\n## Round 1: the hypotheses, decided by the note's rules\n\n");
+        string D(string d) => round2 ? $"{d}+r2" : $"{d}+{Base}";
+        string L(string d) => round2 ? $"{d}+r2" : d;                        // the design's name in the learned rows
+        bool Belief(LearnedRow l) => round2 ? l.Attempted >= 5 : l.Attempted > 0;   // P5
+        double Truth(LearnedRow l) => round2 ? l.TasteLanded : l.TrueLanded;        // P4: the with-sound record against the truth with sound
         IEnumerable<SessionRow> Of(string p, string? archetype = null) => rows.Where(r => r.Policy == p && (archetype is null || r.Archetype == archetype));
         (double Mean, double Lo, double Hi) Paired(string a, string b, Func<SessionRow, double> f)
         {
@@ -265,7 +323,8 @@ static class Verdicts
         {
             var gain = Of(D(d)).Average(r => r.Served ? 1.0 : 0) - Of(Base).Average(r => r.Served ? 1.0 : 0);
             var p = TellApart(D(d), Base); var pd = Paired(D(d), Base, r => r.Served ? 1 : 0);
-            sb.AppendLine($"| T1 | {d} | goal met more often than {Base}, told apart by the leaderboard (p >= 0.95) | {Pts(gain)}; p = {p:0.00} (paired {Pts(pd.Mean)} [{Pts(pd.Lo)}, {Pts(pd.Hi)}], decides nothing) | {(gain > 0 && p >= 0.95 ? "holds" : "falls")} |");
+            if (round2) sb.AppendLine($"| T1 | {d} | goal met more often than {Base}: the paired 95% interval above 0 | {Pts(pd.Mean)} [{Pts(pd.Lo)}, {Pts(pd.Hi)}] | {(pd.Lo > 0 ? "holds" : "falls")} |");
+            else sb.AppendLine($"| T1 | {d} | goal met more often than {Base}, told apart by the leaderboard (p >= 0.95) | {Pts(gain)}; p = {p:0.00} (paired {Pts(pd.Mean)} [{Pts(pd.Lo)}, {Pts(pd.Hi)}], decides nothing) | {(gain > 0 && p >= 0.95 ? "holds" : "falls")} |");
         }
         foreach (var d in Designs)   // T2: engagement reported (predicted stay of the plays made) at least 75% of the baseline's
         {
@@ -274,8 +333,12 @@ static class Verdicts
         }
         double BaitSlope(string p) => Slope(Of(p, "late-scroller").GroupBy(r => r.Session).Select(g => ((double)g.Key, g.Average(r => r.BaitPlays))));
         var baseSlope = BaitSlope(Base);
-        foreach (var d in Designs)   // T3 (operational): the late scroller's bait plays per session have a falling trend, and the baseline's do not
-            sb.AppendLine($"| T3 | {d} | late scroller's bait plays per session: falling trend (least-squares slope < 0); {Base}'s not falling ({baseSlope:+0.000;-0.000}) | slope {BaitSlope(D(d)):+0.000;-0.000} a session | {(BaitSlope(D(d)) < 0 && baseSlope >= 0 ? "holds" : "falls")} |");
+        foreach (var d in Designs)   // T3: round 1, a falling trend and a baseline not falling; round 2 (P6), below 0 and below the baseline's slope
+        {
+            var slope = BaitSlope(D(d));
+            var holds = round2 ? slope < 0 && slope < baseSlope : slope < 0 && baseSlope >= 0;
+            sb.AppendLine($"| T3 | {d} | late scroller's bait plays per session: slope < 0 and {(round2 ? "below" : "the baseline's not falling,")} {Base}'s ({baseSlope:+0.000;-0.000}) | slope {slope:+0.000;-0.000} a session | {(holds ? "holds" : "falls")} |");
+        }
 
         if (sessions < 10)
         {
@@ -286,14 +349,14 @@ static class Verdicts
             var at10 = learned.Where(l => l.Session == 9).ToList();
             foreach (var d in Designs)   // T4: every kind within 0.15 and rank corr. >= 0.8, for every learner, connector and late scroller
             {
-                var users = at10.Where(l => l.Design == d && l.Archetype is "learner" or "connector" or "late-scroller").GroupBy(l => l.User).ToList();
-                var ok = users.Count(g => g.All(l => l.Attempted > 0 && Math.Abs(l.Learned - l.TrueLanded) <= 0.15) && Report.Spearman([.. g.Select(l => l.Learned)], [.. g.Select(l => l.TrueLanded)]) >= 0.8);
-                var tried = users.Average(g => g.Count(l => l.Attempted > 0));
+                var users = at10.Where(l => l.Design == L(d) && l.Archetype is "learner" or "connector" or "late-scroller").GroupBy(l => l.User).ToList();
+                var ok = users.Count(g => g.All(l => Belief(l) && Math.Abs(l.Learned - Truth(l)) <= 0.15) && Report.Spearman([.. g.Select(l => l.Learned)], [.. g.Select(Truth)]) >= 0.8);
+                var tried = users.Average(g => g.Count(l => Belief(l)));
                 sb.AppendLine($"| T4 | {d} | after 10 sessions every kind within 0.15 of true, rank corr. >= 0.8, for every such user | {ok} of {users.Count} users; kinds with any belief: {tried:0.0} of 7 | {(ok == users.Count ? "holds" : "falls")} |");
             }
             foreach (var d in Designs)   // T5 (operational): no belief about a kind that needs sound is nearer the muted truth than the taste
             {
-                var beliefs = at10.Where(l => l.Design == d && l.Archetype == "muted-commuter" && l.Attempted > 0 && l.Kind is "Creator" or "Tutorial" or "Live").ToList();
+                var beliefs = at10.Where(l => l.Design == L(d) && l.Archetype == "muted-commuter" && Belief(l) && l.Kind is "Creator" or "Tutorial" or "Live").ToList();
                 var dislike = beliefs.Count(l => Math.Abs(l.Learned - l.TrueLanded) < Math.Abs(l.Learned - l.TasteLanded));
                 var never = beliefs.Count(l => l.Learned >= l.TasteLanded);
                 sb.AppendLine($"| T5 | {d} | muted commuter after 10 sessions: no belief about a kind that needs sound nearer the muted truth than the taste | {dislike} of {beliefs.Count} beliefs read the context as a dislike; {never} sit at or above the taste | {(dislike == 0 ? beliefs.Count == 0 ? "holds (no belief at all)" : "holds" : "falls")} |");
@@ -301,17 +364,17 @@ static class Verdicts
             foreach (var d in Designs)   // T6 (operational): within 5 sessions of the change, every belief within 0.15 of the new truth, for every drifter
             {
                 var driftAt = cast.Single(u => u.Id == "drifter").DriftAt ?? 0;
-                var users = learned.Where(l => l.Design == d && l.Archetype == "drifter" && l.Session >= driftAt).GroupBy(l => l.User).ToList();
+                var users = learned.Where(l => l.Design == L(d) && l.Archetype == "drifter" && l.Session >= driftAt).GroupBy(l => l.User).ToList();
                 var lags = users.Select(g => g.GroupBy(l => l.Session).OrderBy(x => x.Key)
-                    .FirstOrDefault(x => x.Where(l => l.Attempted > 0).All(l => Math.Abs(l.Learned - l.TrueLanded) <= 0.15))?.Key - driftAt + 1).ToList();
+                    .FirstOrDefault(x => x.Where(l => Belief(l)).All(l => Math.Abs(l.Learned - Truth(l)) <= 0.15))?.Key - driftAt + 1).ToList();
                 var within = lags.Count(x => x is <= 5);
                 sb.AppendLine($"| T6 | {d} | drifter: within 5 sessions after the change every belief within 0.15 of the new truth, for every drifter | {within} of {lags.Count} users; {lags.Count(x => x is null)} never in {sessions - driftAt} sessions | {(lags.Count > 0 && within == lags.Count ? "holds" : "falls")} |");
             }
             foreach (var d in Designs)   // T7: after 10 sessions no belief more than 0.15 from its true rate, for every noisy user
             {
-                var users = at10.Where(l => l.Design == d && l.Archetype == "noisy").GroupBy(l => l.User).ToList();
-                var none = users.Count(g => g.All(l => l.Attempted == 0));
-                var ok = users.Count(g => g.Where(l => l.Attempted > 0).All(l => Math.Abs(l.Learned - l.TrueLanded) <= 0.15));
+                var users = at10.Where(l => l.Design == L(d) && l.Archetype == "noisy").GroupBy(l => l.User).ToList();
+                var none = users.Count(g => g.All(l => !Belief(l)));
+                var ok = users.Count(g => g.Where(l => Belief(l)).All(l => Math.Abs(l.Learned - Truth(l)) <= 0.15));
                 sb.AppendLine($"| T7 | {d} | noisy users after 10 sessions: no belief more than 0.15 from its true rate | {ok} of {users.Count} users{(none > 0 ? $" ({none} with no belief at all)" : "")} | {(ok == users.Count ? "holds" : "falls")} |");
             }
         }
