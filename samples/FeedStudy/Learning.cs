@@ -136,6 +136,8 @@ sealed record LearnerOptions
     public bool SoftGoals { get; init; }             // v2: the session's final belief as goal evidence
     public double Explore { get; init; }             // v2: ε, targeted exploration
     public double ChangeTau { get; init; }           // v2: change detection threshold; 0 = off
+    public bool WithinSession { get; init; }         // v3: this session's plays update the draw
+    public bool SkimAware { get; init; }             // v3: plays while skimming teach nothing
 
     public static readonly LearnerOptions V1 = new();
 }
@@ -265,6 +267,7 @@ sealed class UserModel
         foreach (var p in w.Plays)
         {
             Predicted[p.Kind] = p.PredictedFinish;
+            if (o.SkimAware && p.Skimming) continue;   // v3: a play while skimming says nothing about taste
             if (p.Kind == FeedKind.Bait && w.IsLate) continue;
             if (p.Muted)
             {
@@ -316,8 +319,28 @@ sealed class LearnerSeat(TikTokWorld world, UserModel model, Population populati
     {
         var prior = model.PriorFor(k, population, world.Predicted(k)?.Finish);
         double f = _o.Model ? model.Finished.GetValueOrDefault(k) : 0, n = _o.Model ? model.Played.GetValueOrDefault(k) : 0;
+        if (_o.WithinSession)
+        {
+            var (a, b) = InSession(k, prior, f, n);
+            return a / (a + b);
+        }
         var p = (prior.A + f) / (prior.A + prior.B + n);
         return _o.Model && world.IsMuted && TikTokWorld.NeedsSound(k) ? p * model.MutedFactor : p;
+    }
+
+    /// <summary>
+    /// v3: the Beta for a kind in this session's context: the posterior mean with sound, times the muted factor in a muted
+    /// session, at the posterior's strength, updated by this session's finishes and skips of that kind (plays while skimming
+    /// left out when skimming is context).
+    /// </summary>
+    private (double A, double B) InSession(FeedKind k, (double A, double B) prior, double f, double n)
+    {
+        var strength = prior.A + prior.B + n;
+        var mean = (prior.A + f) / strength;
+        if (_o.Model && world.IsMuted && TikTokWorld.NeedsSound(k)) mean *= model.MutedFactor;
+        var here = world.Plays.Where(p => p.Kind == k && !(_o.SkimAware && p.Skimming)).ToList();
+        var sf = here.Count(p => p.Finished);
+        return (Math.Max(0.01, mean * strength) + sf, Math.Max(0.01, (1 - mean) * strength) + here.Count - sf);
     }
 
     /// <summary>The user's answer, as the platform heard it, or null when not asked.</summary>
@@ -342,8 +365,17 @@ sealed class LearnerSeat(TikTokWorld world, UserModel model, Population populati
                 var k = TikTokWorld.KindOf(t.Id)!.Value;
                 var prior = model.PriorFor(k, population, world.Predicted(k)!.Finish);
                 double f = _o.Model ? model.Finished.GetValueOrDefault(k) : 0, n = _o.Model ? model.Played.GetValueOrDefault(k) : 0;
-                var finish = Sampling.Beta(_rng, prior.A + f, prior.B + n - f);
-                if (_o.Model && world.IsMuted && TikTokWorld.NeedsSound(k)) finish *= model.MutedFactor;
+                double finish;
+                if (_o.WithinSession)
+                {
+                    var (a, b) = InSession(k, prior, f, n);
+                    finish = Sampling.Beta(_rng, a, b);
+                }
+                else
+                {
+                    finish = Sampling.Beta(_rng, prior.A + f, prior.B + n - f);
+                    if (_o.Model && world.IsMuted && TikTokWorld.NeedsSound(k)) finish *= model.MutedFactor;
+                }
                 var serves = belief.Sum(kv => TikTokWorld.Serves(k, kv.Key) ? kv.Value : 0);
                 return (Tool: t, Value: serves * finish);
             })
