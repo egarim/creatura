@@ -478,3 +478,59 @@ with beliefs this time; T6 should shorten (fading plus sampling). T7 may still f
 **Do we need another round? The stopping rule, set now:** the loop stops after round 3 if L1 holds and T1 holds for at
 least one design. If not, one more round is run only if the result names one specific change; round 4 is the last
 either way, and the note then says what holds and what does not.
+
+### Slice D, round 3 (2026-11-12): the results
+
+Run as pre-registered on seeds 101-110. Rounds 1 and 2 in the same report give the same verdicts (the leaderboard's p
+values move in the second decimal, because it now rates more policies).
+
+| policy | goal met | engagement reported (s) | bait plays | plays a session |
+|---|---|---|---|---|
+| levin + r3 | 75% | 95.5 | 0.54 | 5.4 |
+| bach + r3 | 74% | 93.0 | 0.52 | 5.2 |
+| max-staytime (baseline) | 71% | 206.1 | 2.07 | 6.2 |
+| orienting + r3 | 71% | 104.1 | 0.64 | 5.8 |
+| peterson + r3 | 68% | 101.5 | 0.72 | 5.9 |
+| hybrid + r3 | 59% | 59.8 | 0.33 | 3.3 |
+
+| id | verdict | in a line |
+|---|---|---|
+| L1 | falls, every design | goals met in sessions 16-20 are not above sessions 1-5 (Bach 76% to 73%, Levin 76% to 72%) |
+| T1 | **holds for Levin**; falls for the others | Levin +3.4 points against max-staytime (95% [+0.6, +6.2]); Bach +2.2 [−0.7, +5.0]; Orienting −0.4; Peterson −3.0; Hybrid −12.4 |
+| T2 | falls, every design | engagement reported kept 29% to 51%: the designs play a quarter of the bait |
+| T3 | **holds for Levin, Peterson, Orienting, Hybrid** | the late scroller's bait plays fall faster than the baseline's (slopes −0.016 to −0.028 against −0.015); Bach's equals it |
+| T4 | falls, every design | beliefs about 2.8 to 4.0 kinds of 7; 2 users of 30 pass under Peterson |
+| T5 | holds for Peterson and Orienting, falls for Bach, Levin, Hybrid | few with-sound beliefs exist (1 to 3); 1 or 2 of them read the context as a dislike |
+| T6 | falls, every design | no record follows the drift within 10 sessions |
+| T7 | falls, every design | 5 to 9 of 10 noisy users pass |
+| T8 | falls | unchanged |
+
+**How much was there to learn?** A diagnostic, not pre-registered (bare choosers, the same sessions, up to 20 plays):
+
+| chooser | goal met | |
+|---|---|---|
+| the feed's predictions (max-staytime) | 71% | |
+| a chooser that knows each user's true per-kind rate, not the session's goal: the best a per-user record can reach | 81% | late scroller +12 points over the predictions, drifter +13, noisy +26; learner, connector, muted commuter about +1 to +5 |
+| the oracle, which also knows the session's goal | 91% | |
+
+**Why L1 fell, read after the run:** every policy meets the same users in the same batches at a given session index, so a
+session's difficulty moves every policy together (even the oracle goes from 76% to 96% between sessions). Comparing
+sessions 1-5 with 16-20 without the baseline measures the sessions, not the learning. Against the baseline on the same
+sessions the learning shows, and early: Bach is 6 points under the baseline in session 1 and 2 to 10 points above it from
+session 2 on; for the noisy users Levin goes from 45% (sessions 1-2) to 68% (sessions 11-20) while the baseline goes from
+70% to 38%. L1 as registered could not see this; that is a fault of the test, found after the run.
+
+### Slice D, round 4: pre-registered 2026-11-12, before it was run; the last round
+
+The stopping rule allows one more round when the result names one specific change; round 3 names one: **measure L1
+against the baseline on the same sessions, per user.** Because that change was chosen after seeing round 3, round 4 runs
+on **test seeds 111-120, which no run has used.** Nothing else changes: round 3's settings, users, sessions, barriers.
+
+| id | claim | falsifier |
+|---|---|---|
+| L1′ | learning reaches behaviour: for each user, the gap in goals met between a design and max-staytime on the same sessions is larger in sessions 11-20 than in sessions 1-2; every archetype but the drifter, users as units | the 95% interval (normal approximation over users) of the mean change in gap does not lie above 0 |
+| T1 | as in round 3, on the new seeds | as in round 3 |
+
+**Predicted before the run:** L1′ holds for Bach and Levin, carried mostly by the noisy users and the late scroller (the
+users with room to learn); T1 holds again for Levin, perhaps Bach. **This is the last round.** Afterwards the note says
+what holds and what does not, and the loop stops.

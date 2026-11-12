@@ -68,6 +68,14 @@ foreach (var seed in seeds)
             await Designed(design, w2, new ExploringSeat(w2, new MaxStaytimePolicy(w2), store.Load(key2), unchecked(seed * 7_919 + s)), key2, Round2.Layer(design), new FadeExtension(store, key2));
             rows.Add(SessionRow.Of($"{design}+r2", archetype.Id, user.Id, seed, s, w2));
             learned.AddRange(LearnedRow.Of($"{design}+r2", archetype.Id, user, s, store.Load($"{design}+r2/{user.Id}/sound")));
+
+            // Round 3 (pre-registered): skips recorded, not spent (the Core's RecordOnly); a seat that chooses from the record; P3, P4 kept.
+            var w3 = new TikTokWorld(barriers, user, seed, s);
+            var key3 = $"{design}+r3/{user.Id}/{(w3.IsMuted ? "muted" : "sound")}";
+            await Designed(design, w3, new ThompsonSeat(w3, store.Load(key3), unchecked(seed * 104_729 + s)), key3,
+                Round2.Layer(design) with { HonestFailureRule = HonestFailureRule.RecordOnly }, new FadeExtension(store, key3), recordHonest: true);
+            rows.Add(SessionRow.Of($"{design}+r3", archetype.Id, user.Id, seed, s, w3));
+            learned.AddRange(LearnedRow.Of($"{design}+r3", archetype.Id, user, s, store.Load($"{design}+r3/{user.Id}/sound")));
         }
 
         if (endpoint is not null && seeds.IndexOf(seed) < modelSeeds)
@@ -98,10 +106,11 @@ async Task Bare(TikTokWorld w, IPolicy policy)
     }
 }
 
-async Task Designed(string design, TikTokWorld w, IPolicy seat, string key, ControlLayerOptions? layer = null, IAgentExtension? first = null)
+async Task Designed(string design, TikTokWorld w, IPolicy seat, string key, ControlLayerOptions? layer = null, IAgentExtension? first = null, bool recordHonest = false)
 {
     // The fade (P3) runs before the record is read, so the session starts from the faded record.
-    var options = first is null ? AgentOptions.With(new FeedNotes(), new RecordCarryExtension(store, key)) : AgentOptions.With(first, new FeedNotes(), new RecordCarryExtension(store, key));
+    var carry = new RecordCarryExtension(store, key, recordHonestFailures: recordHonest);
+    var options = first is null ? AgentOptions.With(new FeedNotes(), carry) : AgentOptions.With(first, new FeedNotes(), carry);
     var agent = AgentCatalog.Make(design, new AgentBuild(seat, TikTokWorld.Task, options, 1, layer, Store: store, RecordKey: key));
     await agent.RunAsync(w, MaxTicks);
 }
@@ -136,6 +145,53 @@ sealed class ExploringSeat(TikTokWorld world, IPolicy inner, AgentRecord? record
         }
         return inner.NextAsync(context, cancellationToken);
     }
+}
+
+/// <summary>
+/// Round 3's seat: Thompson sampling from the record. For each kind on offer, a draw from
+/// Beta(1 + 2p + s, 1 + 2(1 - p) + n - s): p the feed's predicted finish (a prior worth two plays), s and n the kind's
+/// landed and counted plays in this user's record for this context. The highest draw is played. It never sees the truth
+/// or the session's goal.
+/// </summary>
+sealed class ThompsonSeat(TikTokWorld world, AgentRecord? record, int seed) : IPolicy
+{
+    private readonly Random _rng = new(seed);
+
+    public string Name => "thompson";
+
+    public Task<PolicySuggestion> NextAsync(PolicyContext context, CancellationToken cancellationToken = default)
+    {
+        var best = context.Tools.Where(t => TikTokWorld.KindOf(t.Id) is { } k && world.Predicted(k) is not null)
+            .Select(t =>
+            {
+                var p = world.Predicted(TikTokWorld.KindOf(t.Id)!.Value)!.Finish;
+                var b = record?.Skills.GetValueOrDefault(t.Id);
+                double s = b?.Supported ?? 0, n = b?.Attempted ?? 0;
+                return (Tool: t, Draw: Beta(1 + 2 * p + s, 1 + 2 * (1 - p) + n - s));
+            })
+            .OrderByDescending(x => x.Draw).ThenBy(x => x.Tool.Id, StringComparer.Ordinal).FirstOrDefault();
+        return Task.FromResult(best.Tool is null
+            ? new PolicySuggestion(context.Tools.Any(t => t.Id == "end-session") ? "end-session" : null, "nothing to play")
+            : new PolicySuggestion(best.Tool.Id, $"sampled {best.Draw:0.00}"));
+    }
+
+    private double Beta(double a, double b) { var x = Gamma(a); return x / (x + Gamma(b)); }
+
+    /// <summary>Marsaglia and Tsang's method; for a shape below 1, the usual boost.</summary>
+    private double Gamma(double shape)
+    {
+        if (shape < 1) return Gamma(shape + 1) * Math.Pow(_rng.NextDouble(), 1 / shape);
+        var d = shape - 1.0 / 3; var c = 1 / Math.Sqrt(9 * d);
+        while (true)
+        {
+            double x, v;
+            do { x = Normal(); v = 1 + c * x; } while (v <= 0);
+            v = v * v * v; var u = _rng.NextDouble();
+            if (u < 1 - 0.0331 * x * x * x * x || Math.Log(u) < 0.5 * x * x + d * (1 - v + Math.Log(v))) return d * v;
+        }
+    }
+
+    private double Normal() => Math.Sqrt(-2 * Math.Log(1 - _rng.NextDouble())) * Math.Cos(2 * Math.PI * _rng.NextDouble());
 }
 
 /// <summary>P3: before a session, a belief with more than 10 counted plays has its counts halved.</summary>
@@ -223,8 +279,9 @@ static class Report
         sb.Append(Leaderboard.Render(Leaderboard.Compute(engagementRuns, Axis.Design)));
         sb.AppendLine("```");
 
-        sb.Append(Verdicts.Write(rows, learned, goalBoard, sessions, cast, round2: false));
-        sb.Append(Verdicts.Write(rows, learned, goalBoard, sessions, cast, round2: true));
+        sb.Append(Verdicts.Write(rows, learned, goalBoard, sessions, cast, round: 1));
+        sb.Append(Verdicts.Write(rows, learned, goalBoard, sessions, cast, round: 2));
+        sb.Append(Verdicts.Write(rows, learned, goalBoard, sessions, cast, round: 3));
 
         sb.AppendLine("\n## The late scroller's bait plays, first five sessions against last five\n");
         sb.AppendLine("| policy | sessions 1-5 | last 5 |\n|---|---|---|");
@@ -289,12 +346,13 @@ static class Verdicts
     private const string Base = "max-staytime";
     private static readonly string[] Designs = ["bach", "levin", "peterson", "orienting", "hybrid"];
 
-    public static string Write(List<SessionRow> rows, List<LearnedRow> learned, Board goalBoard, int sessions, IReadOnlyList<FeedUser> cast, bool round2)
+    public static string Write(List<SessionRow> rows, List<LearnedRow> learned, Board goalBoard, int sessions, IReadOnlyList<FeedUser> cast, int round)
     {
-        var sb = new StringBuilder(round2 ? "\n## Round 2: the hypotheses, decided by the rules pre-registered for it\n\n" : "\n## Round 1: the hypotheses, decided by the note's rules\n\n");
-        string D(string d) => round2 ? $"{d}+r2" : $"{d}+{Base}";
-        string L(string d) => round2 ? $"{d}+r2" : d;                        // the design's name in the learned rows
-        bool Belief(LearnedRow l) => round2 ? l.Attempted >= 5 : l.Attempted > 0;   // P5
+        var round2 = round >= 2;                                              // rounds 2 and 3 share P4 and P6
+        var sb = new StringBuilder(round == 1 ? "\n## Round 1: the hypotheses, decided by the note's rules\n\n" : $"\n## Round {round}: the hypotheses, decided by the rules pre-registered for it\n\n");
+        string D(string d) => round2 ? $"{d}+r{round}" : $"{d}+{Base}";
+        string L(string d) => round2 ? $"{d}+r{round}" : d;                  // the design's name in the learned rows
+        bool Belief(LearnedRow l) => round switch { 1 => l.Attempted > 0, 2 => l.Attempted >= 5, _ => l.Attempted >= 3 };   // P5, and round 3's floor of 3
         double Truth(LearnedRow l) => round2 ? l.TasteLanded : l.TrueLanded;        // P4: the with-sound record against the truth with sound
         IEnumerable<SessionRow> Of(string p, string? archetype = null) => rows.Where(r => r.Policy == p && (archetype is null || r.Archetype == archetype));
         (double Mean, double Lo, double Hi) Paired(string a, string b, Func<SessionRow, double> f)
@@ -319,6 +377,18 @@ static class Verdicts
         }
 
         sb.AppendLine("| id | design | rule | result | verdict |\n|---|---|---|---|---|");
+        if (round == 3)   // L1, the closed loop: goals met in sessions 16-20 above sessions 1-5, the drifter left out, 95% interval above 0
+        {
+            foreach (var p in Designs.Select(D).Prepend(Base))
+            {
+                var early = Of(p).Where(r => r.Archetype != "drifter" && r.Session < 5).Select(r => r.Served ? 1.0 : 0).ToList();
+                var late = Of(p).Where(r => r.Archetype != "drifter" && r.Session >= sessions - 5).Select(r => r.Served ? 1.0 : 0).ToList();
+                double Var(List<double> x) { var m = x.Average(); return x.Sum(v => (v - m) * (v - m)) / (x.Count - 1); }
+                var diff = late.Average() - early.Average(); var h = 1.96 * Math.Sqrt(Var(early) / early.Count + Var(late) / late.Count);
+                var decides = p != Base;
+                sb.AppendLine($"| L1 | {p} | goals met, sessions {sessions - 4}-{sessions} against 1-5: 95% interval above 0 | {early.Average() * 100:0}% to {late.Average() * 100:0}%: {Pts(diff)} [{Pts(diff - h)}, {Pts(diff + h)}] | {(decides ? diff - h > 0 ? "holds" : "falls" : "(baseline, decides nothing)")} |");
+            }
+        }
         foreach (var d in Designs)   // T1: more goals met, and the leaderboard on goals met tells them apart (p >= 0.95)
         {
             var gain = Of(D(d)).Average(r => r.Served ? 1.0 : 0) - Of(Base).Average(r => r.Served ? 1.0 : 0);
