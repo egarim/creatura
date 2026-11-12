@@ -745,3 +745,54 @@ prior weight **2**, ε **0**, τ **0.4**: 87.80% of goals met on the train seeds
 87.8%; `samples/FeedStudy/results/slice-h-tune.csv`). Averaged over the grid, the ask threshold moved goals met most
 (0.5: 86.1%, 0.6: 87.0%, 0.7: 87.7%); the prior weight, ε and τ each moved it by 0.3 points or less. **ε came out at 0,
 so targeted exploration is off in the frozen v2**; H4 is decided on v2 as frozen.
+
+### The improved learner (2026-11-12): the results, on fresh seeds 221-240
+
+`dotnet run --project samples/FeedStudy -- --improved --ask 0.7 --poolw 2 --eps 0 --tau 0.4`, once, as pre-registered: 6
+archetypes × 20 fresh variants × 50 sessions, 6,000 sessions per policy; repeatable (a second run gives the same report).
+
+| policy | goal met | engagement reported (s) | bait plays | plays a session | asked |
+|---|---|---|---|---|---|
+| oracle | 92% | 69.9 | 0.00 | 3.1 | 0% |
+| **v2** | **88%** | 76.7 | 0.05 | 3.7 | 39% |
+| v1 | 86% | 79.4 | 0.03 | 3.9 | 21% |
+| v1 without discount | 86% | 80.4 | 0.03 | 3.9 | 24% |
+| v1 without population prior | 86% | 80.7 | 0.03 | 3.9 | 21% |
+| v1 without user model | 86% | 82.8 | 0.03 | 4.0 | 22% |
+| v1 without asking | 84% | 85.7 | 0.02 | 4.3 | 0% |
+| taste-known | 80% | 100.5 | 0.00 | 4.4 | 0% |
+| max-staytime | 70% | 211.4 | 2.02 | 6.4 | 0% |
+| v1 without goal belief | 69% | 106.8 | 0.13 | 5.3 | 0% |
+
+| id | verdict | in a line |
+|---|---|---|
+| H1-goal | **holds** | without the goal belief, v1 meets 16.8 points fewer goals (95% [−17.9, −15.7]) |
+| H1-ask | **holds** | without asking, 2.1 fewer [−2.8, −1.4] |
+| H1-model | falls | without the user model, −0.2 [−0.8, +0.3] |
+| H1-pool | falls | without the population prior, +0.2 [−0.4, +0.7] |
+| H1-discount | falls | without the discount, +0.4 [−0.1, +1.0] |
+| H2 | **holds** | v2 meets 1.9 points more goals than v1 [+1.2, +2.6] |
+| H3 | **holds** | v2's goal mix has every goal within 0.15 for 78 of 80 users (98%) |
+| H4 | falls | the kinds that serve a goal the user weighs 0.2 or more are all within 0.15 for 34 of 60 users (57%) |
+| H5 | falls | 2 of 20 drifters have tutorial and creator within 0.15 of the new taste by session 20 |
+| H6 | **holds** | per user, v2's prediction error (Brier score) falls by 0.024 from sessions 1-5 to 26-50 [−0.038, −0.011] |
+| H7 | **holds** | in sessions 26-50 v2's Brier score is 0.086 below the feed's on the same plays [−0.102, −0.069] |
+
+Predicted before the run and borne out: H1-goal, H1-ask, H2, H3, H6, H7 hold; H1-model, H1-pool, H1-discount fall.
+Predicted and not borne out: H4 (predicted to hold). H5 was uncertain and fell.
+
+**Readings of the tables (not separate tests):**
+
+1. **Which lever did the work.** Knowing the session's goal: the goal belief is worth about 17 points of goals met and
+   asking about 2 more. Removing the user model, the population prior or the discount changes goals met by less than half
+   a point either way.
+2. **Learning the goal mix from every session's evidence works**: 98% of users within 0.15, against about 60% for v1 in
+   slice G. It goes with asking more (39% of sessions, against v1's 21%, from the tuned threshold of 0.7).
+3. **The learner learns to predict the persona.** Its Brier score falls from 0.174 (sessions 1-5) to 0.150 (26-50); a
+   predictor that knew each persona exactly would score 0.133 and 0.138 on the same plays, so the gap to that floor narrows
+   from 0.041 to 0.011. Its stated chance of finishing is off from the persona's true chance by 0.16 on average in the
+   first five sessions and 0.08 in sessions 26-50; the feed's prediction is off by 0.25 (it cannot see mute or skimming).
+4. **Predicting well and serving well are different jobs here.** The user model predicts the persona better and better,
+   but removing it does not cost goals: the goal belief decides what is served.
+5. **Still open:** taste on every kind that matters (H4, 57%) and drift (H5, 10%). Exploration was tuned to 0 on the
+   train seeds, so the change that was meant for H4 is off in v2; change detection did not follow the drifter.
