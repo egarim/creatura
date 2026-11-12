@@ -13,4 +13,9 @@
     <ProjectReference Include="../Creatura/Creatura.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The virtual TikTok's synthetic users (docs/design-axi.md): embedded, so loading them is no file IO. -->
+    <EmbeddedResource Include="Samples/FeedUsers/*.json" LogicalName="FeedUsers/%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

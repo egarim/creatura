@@ -1,0 +1,11 @@
+{
+  "id": "drifter",
+  "archetype": "drifter",
+  "about": "A learner for its first ten sessions, then comes only to be entertained by creators. The feed's predictions keep the old taste. Does learning follow the change, and how fast.",
+  "goals": { "Learn": 0.8, "Entertain": 0.2 },
+  "finish": { "Friend": 0.3, "Creator": 0.4, "Tutorial": 0.8, "Ad": 0.05, "Shop": 0.1, "Live": 0.2, "Bait": 0.0 },
+  "bait": 0.1, "skimAfter": 4, "tiredAfter": 12, "muted": 0.2, "late": 0.05, "noise": 0.05,
+  "driftAt": 10,
+  "finishAfterDrift": { "Friend": 0.3, "Creator": 0.85, "Tutorial": 0.1, "Ad": 0.05, "Shop": 0.1, "Live": 0.4, "Bait": 0.0 },
+  "goalsAfterDrift": { "Entertain": 1.0 }
+}

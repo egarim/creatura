@@ -1,0 +1,8 @@
+{
+  "id": "muted-commuter",
+  "archetype": "muted-commuter",
+  "about": "Likes creators and tutorials, but watches on the way to work with the sound off nine times in ten, so it skips what needs sound. A context effect that looks like a dislike.",
+  "goals": { "Learn": 0.5, "Entertain": 0.5 },
+  "finish": { "Friend": 0.5, "Creator": 0.7, "Tutorial": 0.7, "Ad": 0.05, "Shop": 0.1, "Live": 0.3, "Bait": 0.0 },
+  "bait": 0.2, "skimAfter": 4, "tiredAfter": 10, "muted": 0.9, "late": 0.0, "noise": 0.05
+}

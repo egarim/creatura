@@ -19,6 +19,9 @@ public sealed record FeedUser
 
     public string Archetype { get; init; } = "";
 
+    /// <summary>Who this user is, in a sentence: what the archetype is there to test.</summary>
+    public string About { get; init; } = "";
+
     /// <summary>What the user comes for: a weight per goal, summing to 1; each session draws one.</summary>
     public required IReadOnlyDictionary<FeedGoal, double> Goals { get; init; }
 

@@ -1,0 +1,8 @@
+{
+  "id": "noisy",
+  "archetype": "noisy",
+  "about": "The control. Flat taste (every kind 0.35), every goal equally likely, large noise. Its only structure is the one every user shares: which kinds serve which goal. A learner that finds a preference beyond that has invented it.",
+  "goals": { "Connect": 0.3333333333333333, "Learn": 0.3333333333333333, "Entertain": 0.3333333333333334 },
+  "finish": { "Friend": 0.35, "Creator": 0.35, "Tutorial": 0.35, "Ad": 0.35, "Shop": 0.35, "Live": 0.35, "Bait": 0.0 },
+  "bait": 0.35, "skimAfter": 4, "tiredAfter": 12, "muted": 0.0, "late": 0.0, "noise": 0.3
+}
