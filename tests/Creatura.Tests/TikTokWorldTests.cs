@@ -77,6 +77,8 @@ public class TikTokWorldTests
         Assert.True(TikTokWorld.Task.Goal(world.Facts));
         Assert.Equal(1.0, TikTokWorld.Task.Contract(world));
         Assert.Equal(25 + 60, world.Plays.Where(p => p.Finished).Sum(p => p.Seconds));
+        Assert.True(world.EngagementReported > 0);
+        Assert.Equal(world.Plays.Sum(p => p.PredictedStay), world.EngagementReported);
     }
 
     [Fact]
