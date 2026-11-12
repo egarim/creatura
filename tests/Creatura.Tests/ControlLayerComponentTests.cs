@@ -153,6 +153,16 @@ public class ControlLayerComponentTests
         Assert.Equal(new SkillBelief("apply-patch", 0, 1), record.Layer.Ledger.Skills["apply-patch"]);
         Assert.Contains("apply-patch", record.Layer.Offer().Select(t => t.Id));   // still visible
 
+        // A report of failure when the grants already held from before: still recorded as a failure.
+        var again = Fresh(ControlLayerOptions.Design with { JudgeRule = JudgeRule.ReportFirst, HonestFailureRule = HonestFailureRule.RecordOnly });
+        foreach (var step in new[] { "inspect-logs", "identify-component", "apply-patch" }) again.World.Act(step);
+        var patch2 = again.World.Tool("apply-patch")!;
+        Assert.True(again.World.EffectsLanded(patch2));
+        var late = again.Layer.Judge(patch2, new ActionReport("failed", new ActionOutcome("apply-patch", false, [], "timeout")));
+        Assert.Equal(ActionVerdict.HonestFailure, late.Verdict);
+        Assert.Equal(0, again.Layer.Predictions.Correct);
+        Assert.Equal(new SkillBelief("apply-patch", 0, 1), again.Layer.Ledger.Skills["apply-patch"]);
+
         // A lie is still a lie under RecordOnly: spent and hidden.
         var lie = record.Layer.Judge(patch, new ActionReport("done", new ActionOutcome("apply-patch", true, [], "reported success")));
         Assert.Equal(ActionVerdict.Lied, lie.Verdict);

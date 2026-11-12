@@ -354,8 +354,10 @@ public sealed class ControlLayer
                 $"{report.Reported}\n\n[not verified: {string.Join(", ", missing)} still false; the tool reported failure]");
         }
 
-        Predictions.Record(landed);
-        Ledger.RecordOutcome(tool.Id, landed);
+        // Under RecordOnly an honest failure is recorded as a failure even when the tool's grants already held from before.
+        var counted = landed && !(verdict == ActionVerdict.HonestFailure && _options.HonestFailureRule == HonestFailureRule.RecordOnly);
+        Predictions.Record(counted);
+        Ledger.RecordOutcome(tool.Id, counted);
         Audit.Claim();
         if (verdict == ActionVerdict.Lied)
         {
