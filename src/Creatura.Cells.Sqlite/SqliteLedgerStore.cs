@@ -1,12 +1,12 @@
-using System.Security.Cryptography;
-using System.Text;
+using System.Globalization;
 using Microsoft.Data.Sqlite;
 
 namespace Creatura.Cells.Sqlite;
 
 /// <summary>
 /// The work ledger in an owner-only SQLite file: one row per entry, keyed by (cell, sequence), in WAL mode so a
-/// reader never waits for a writer.
+/// reader never waits for a writer. Since issue #88 it is the core's <see cref="VerifiedLedgerStore"/> over the
+/// <see cref="SqliteLedgerEntryStore"/> provider; its public surface is unchanged.
 /// <para>
 /// An entry is verified once, when it enters a ledger from outside (a peer, a relay, the JSON file). This store holds
 /// only what a ledger admitted, so <see cref="LoadInto"/> checks each row's hash and the owner's trust and skips the
@@ -22,117 +22,50 @@ namespace Creatura.Cells.Sqlite;
 /// </summary>
 public sealed class SqliteLedgerStore : ILedgerStore
 {
-    public const int Schema = 1;
+    public const int Schema = SqliteLedgerEntryStore.Schema;
 
     public const string FileName = "ledger.db";
 
-    private readonly Dictionary<(string Cell, long Sequence), SignedEntry> _held = [];
+    private readonly VerifiedLedgerStore _store;
 
-    public SqliteLedgerStore(string path) => Path = System.IO.Path.GetFullPath(path);
+    static SqliteLedgerStore() => LedgerStoreProviders.Register("sqlite", For);
+
+    public SqliteLedgerStore(string path)
+    {
+        Rows = new SqliteLedgerEntryStore(path);
+        _store = new VerifiedLedgerStore(Rows);
+    }
 
     /// <summary>The home's SQLite ledger, beside its JSON one.</summary>
     public static SqliteLedgerStore For(CellHome home) => new(System.IO.Path.Combine(home.Root, FileName));
 
-    public string Path { get; }
+    /// <summary>Registers the <c>sqlite</c> provider with <see cref="LedgerStoreProviders"/> (it is also registered on first use of this type).</summary>
+    public static void Register() => LedgerStoreProviders.Register("sqlite", For);
+
+    /// <summary>The provider underneath: the rows as SQLite holds them.</summary>
+    public SqliteLedgerEntryStore Rows { get; }
+
+    public string Path => Rows.Location;
 
     /// <summary>Check both signatures of every row on load, as a merge from a peer does.</summary>
-    public bool VerifyOnLoad { get; init; }
+    public bool VerifyOnLoad
+    {
+        get => _store.VerifyOnLoad;
+        init => _store.VerifyOnLoad = value;
+    }
 
     /// <summary>Rows the last <see cref="Save"/> inserted or replaced.</summary>
-    public int LastSaveWrites { get; private set; }
+    public int LastSaveWrites => _store.LastSaveWrites;
 
     /// <summary>Entries the last <see cref="Save"/> sent to the database: the ones this store had not loaded or written.</summary>
-    public int LastSaveSent { get; private set; }
+    public int LastSaveSent => _store.LastSaveSent;
 
-    public MergeResult LoadInto(WorkLedger ledger)
-    {
-        var rows = new List<SignedEntry>();
-        var rejected = new List<Rejection>();
-        using (var connection = Open())
-        {
-            using var command = connection.CreateCommand();
-            command.CommandText = "SELECT cell, sequence, hash, json FROM entries ORDER BY cell, sequence";
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                var id = $"{reader.GetString(0)}#{reader.GetInt64(1)}";
-                var json = reader.GetString(3);
-                if (!string.Equals(HashOf(json), reader.GetString(2), StringComparison.Ordinal))
-                {
-                    rejected.Add(new Rejection(id, "a row whose json does not match its hash"));
-                    continue;
-                }
+    public MergeResult LoadInto(WorkLedger ledger) => _store.LoadInto(ledger);
 
-                SignedEntry entry;
-                try
-                {
-                    entry = SignedEntry.Parse(json);
-                }
-                catch (Exception e) when (e is System.Text.Json.JsonException or FormatException or NotSupportedException)
-                {
-                    rejected.Add(new Rejection(id, "a row that is not a signed entry"));
-                    continue;
-                }
+    public void Save(WorkLedger ledger) => _store.Save(ledger);
 
-                if (entry.Id != id)
-                {
-                    rejected.Add(new Rejection(id, "a row filed under another cell or sequence"));
-                    continue;
-                }
-                rows.Add(entry);
-            }
-        }
-
-        var merged = VerifyOnLoad ? ledger.Merge(rows) : ledger.MergeVerified(rows);
-        foreach (var entry in rows)
-        {
-            if (ReferenceEquals(ledger.Get(entry.Cell, entry.Sequence), entry)) _held[(entry.Cell, entry.Sequence)] = entry;
-        }
-        return merged with { Rejected = [.. rejected, .. merged.Rejected] };
-    }
-
-    public void Save(WorkLedger ledger)
-    {
-        var pending = ledger.Entries
-            .Where(e => !(_held.TryGetValue((e.Cell, e.Sequence), out var held) && ReferenceEquals(held, e)))
-            .ToList();
-        var writes = 0;
-        if (pending.Count > 0)
-        {
-            using var connection = Open();
-            using var transaction = connection.BeginTransaction(deferred: false);
-            using var command = connection.CreateCommand();
-            command.Transaction = transaction;
-            command.CommandText = """
-                INSERT INTO entries (cell, sequence, hash, kind, timestamp, json) VALUES ($cell, $sequence, $hash, $kind, $timestamp, $json)
-                ON CONFLICT (cell, sequence) DO UPDATE SET hash = excluded.hash, kind = excluded.kind, timestamp = excluded.timestamp, json = excluded.json
-                WHERE excluded.hash < entries.hash
-                """;
-            var cell = command.Parameters.Add("$cell", SqliteType.Text);
-            var sequence = command.Parameters.Add("$sequence", SqliteType.Integer);
-            var hash = command.Parameters.Add("$hash", SqliteType.Text);
-            var kind = command.Parameters.Add("$kind", SqliteType.Text);
-            var timestamp = command.Parameters.Add("$timestamp", SqliteType.Text);
-            var json = command.Parameters.Add("$json", SqliteType.Text);
-            command.Prepare();
-            foreach (var entry in pending)
-            {
-                var text = entry.ToJson();
-                cell.Value = entry.Cell;
-                sequence.Value = entry.Sequence;
-                hash.Value = HashOf(text);
-                kind.Value = entry.Kind.ToString();
-                timestamp.Value = entry.Timestamp.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
-                json.Value = text;
-                writes += command.ExecuteNonQuery();
-            }
-            transaction.Commit();
-        }
-
-        foreach (var entry in pending) _held[(entry.Cell, entry.Sequence)] = entry;
-        LastSaveWrites = writes;
-        LastSaveSent = pending.Count;
-    }
+    /// <summary>The rows that match, checked for hash, form and id.</summary>
+    public LedgerRead Read(LedgerQuery query) => _store.Read(query);
 
     /// <summary>
     /// When the database holds no entry and the JSON ledger exists, merges the JSON file into a fresh ledger that
@@ -149,6 +82,82 @@ public sealed class SqliteLedgerStore : ILedgerStore
     }
 
     /// <summary>The rows the database holds.</summary>
+    public long Count() => Rows.Count();
+}
+
+/// <summary>
+/// The SQLite ledger provider (issue #88): rows in an owner-only file, table <c>entries</c> keyed by (cell, sequence),
+/// WAL mode, schema version in <c>PRAGMA user_version</c>. It stores rows as given and checks nothing about them; the
+/// core does (<see cref="VerifiedLedgerStore"/>).
+/// </summary>
+public sealed class SqliteLedgerEntryStore(string path) : ILedgerEntryStore
+{
+    public const int Schema = 1;
+
+    public string Location { get; } = System.IO.Path.GetFullPath(path);
+
+    public IEnumerable<StoredEntry> Read(LedgerQuery query)
+    {
+        var rows = new List<StoredEntry>();
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        var where = new List<string> { "sequence > $after" };
+        command.Parameters.AddWithValue("$after", query.AfterSequence);
+        if (query.Cell is not null)
+        {
+            where.Add("cell = $cell");
+            command.Parameters.AddWithValue("$cell", query.Cell);
+        }
+        if (query.Kind is not null)
+        {
+            where.Add("kind = $kind");
+            command.Parameters.AddWithValue("$kind", query.Kind);
+        }
+        command.CommandText = $"SELECT cell, sequence, hash, kind, timestamp, json FROM entries WHERE {string.Join(" AND ", where)} ORDER BY cell, sequence"
+            + (query.Limit is { } limit ? $" LIMIT {Math.Max(0, limit)}" : "");
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            DateTimeOffset.TryParse(reader.GetString(4), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var time);
+            rows.Add(new StoredEntry(reader.GetString(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3), time, reader.GetString(5)));
+        }
+        return rows;
+    }
+
+    public int Write(IReadOnlyCollection<StoredEntry> rows)
+    {
+        if (rows.Count == 0) return 0;
+        var writes = 0;
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction(deferred: false);
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO entries (cell, sequence, hash, kind, timestamp, json) VALUES ($cell, $sequence, $hash, $kind, $timestamp, $json)
+            ON CONFLICT (cell, sequence) DO UPDATE SET hash = excluded.hash, kind = excluded.kind, timestamp = excluded.timestamp, json = excluded.json
+            WHERE excluded.hash < entries.hash
+            """;
+        var cell = command.Parameters.Add("$cell", SqliteType.Text);
+        var sequence = command.Parameters.Add("$sequence", SqliteType.Integer);
+        var hash = command.Parameters.Add("$hash", SqliteType.Text);
+        var kind = command.Parameters.Add("$kind", SqliteType.Text);
+        var timestamp = command.Parameters.Add("$timestamp", SqliteType.Text);
+        var json = command.Parameters.Add("$json", SqliteType.Text);
+        command.Prepare();
+        foreach (var row in rows)
+        {
+            cell.Value = row.Cell;
+            sequence.Value = row.Sequence;
+            hash.Value = row.Hash;
+            kind.Value = row.Kind;
+            timestamp.Value = row.Timestamp.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+            json.Value = row.Json;
+            writes += command.ExecuteNonQuery();
+        }
+        transaction.Commit();
+        return writes;
+    }
+
     public long Count()
     {
         using var connection = Open();
@@ -159,8 +168,8 @@ public sealed class SqliteLedgerStore : ILedgerStore
 
     private SqliteConnection Open()
     {
-        if (!File.Exists(Path)) CreateOwnerOnly();
-        var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = Path, Pooling = false }.ToString());
+        if (!File.Exists(Location)) CreateOwnerOnly();
+        var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = Location, Pooling = false }.ToString());
         connection.Open();
         using var command = connection.CreateCommand();
         command.CommandText = """
@@ -179,7 +188,7 @@ public sealed class SqliteLedgerStore : ILedgerStore
             """;
         command.ExecuteNonQuery();
         command.CommandText = "PRAGMA user_version";
-        var version = Convert.ToInt32(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+        var version = Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
         if (version > Schema) throw new FormatException($"ledger schema {version} is newer than {Schema}");
         if (version < Schema)
         {
@@ -195,13 +204,11 @@ public sealed class SqliteLedgerStore : ILedgerStore
     {
         try
         {
-            OwnerOnly.WriteNew(Path, []);
+            OwnerOnly.WriteNew(Location, []);
         }
-        catch (IOException) when (File.Exists(Path))
+        catch (IOException) when (File.Exists(Location))
         {
             // Another process created it first.
         }
     }
-
-    private static string HashOf(string json) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(json)));
 }
