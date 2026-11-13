@@ -255,6 +255,46 @@ All of these are read from the records and the profiles after the runs by one sm
 
 An `src/Creatura.Axi` project, an AXI object model, a new event bus, capability registry, approval system, planner, memory store or report format, any ML, and anything that lets AXI change a regulator, a permission, a system prompt or a safety rule.
 
+## Production side (Singular ADR-0108)
+
+*Added 2026-11-13 (#92). Singular's [ADR-0108](https://github.com/egarim/singular-framework/blob/46889ca6a4dbcb0c544bd376713d5321387cd8fb/docs/adr/0108-axi.md) was accepted by the owner on 2026-11-13 with every recommended default. Its epic is egarim/singular-framework#853. This section records what it answers for Creatura; the ADR is the reference, and where the two differ the ADR wins on Singular's side.*
+
+**#62's two open questions, answered.**
+
+1. **Who authorises agent help: the person, on the app's own screen.** Not the owner key, as the bestiary does. Singular stores a proposal, the person taps Yes or Not now, and only the signed-in person the proposal belongs to may answer it: every other caller gets a 404, an expired proposal a 410 (ADR §7).
+2. **Singular maps before building: yes.** The ADR's Context section is that map, the same exercise as this note's glossary, done on Singular's code and on this note (ADR §Context, owner decision 2).
+
+**The other answers that touch Creatura** (owner decisions 3-14):
+
+| question | Singular's answer | what it means here |
+|---|---|---|
+| the contract | `axi/v1`: one JSON envelope, a superset of the four shapes above, pinned by a published schema and shared golden vectors that include this sample's real lines | decision 3 holds: no shared package, and neither repository references the other. Only JSON crosses, so the licences never mix |
+| packaging | one opt-in module inside Singular's platform, pure at its core | nothing to install on Creatura's side |
+| storage | raw events in memory only; facts (plans, proposals, outcomes, the person's opt-out) in one platform-only table per tenant. Plans and proposals 30 days, outcomes 365 days with the subject pseudonymised, opt-out until closure | Creatura keeps nothing of Singular's; its own ledger and records are unchanged |
+| who proposes | **Singular produces `axi.proposal`**; Creatura never posts one. An `axi.capability` is accepted only for ids already on the app's agent-capability list and never adds a candidate | the sample's proposal step moves to Singular in production |
+| `confirmed` | **Singular computes it itself**, as the person, at that person's next request. A `confirmed` Creatura sends is stored as `reported.agentConfirmed` and never trusted. `tool.lied` never counts as success | decision 4 holds on both sides: an agent cannot report its own success into the person's numbers |
+| friction | deterministic rules over the person's own task events, labelled task difficulty. **Agent signals never raise the person's friction**: `tool.failed`, `tool.lied`, `approval.rejected` and `task.cancelled` only lower that capability's score and start its cooldown | an agent cannot raise friction to be offered again; decision 2 holds: AXI reads and proposes, Creatura's regulators decide |
+| how Creatura learns the answer | **polling**, at most once every 10 s per app: `GET /api/app/experience/agent/proposals?state=accepted`, then the proposal by id. Realtime is not used, because Singular's owner check cannot serve a service key | the Singular agent client (#91) polls; it does not subscribe |
+| what the agent sees | a proposal's id, capability id, goal id (without its scope unless the capability declares it), reason, static parameters and state. Never a subject, a plan or another row | ids only, as decision 1 asks |
+| who the agent is | **one named, non-admin service account** per tenant and app. The key's access is the grant: Singular grants nothing per proposal | one key per tenant on a Creatura host that serves several |
+| the agent read rules | in v1 an agent capability reads **member-wide data only**: no owner scope, no read scope, no `via` read, not a deny target; a gated collection only through its gate's `openWhen` (for Plaza, `groups` where `visibility = public`). Reading a person's own data waits for a person-delegated token, and writing Singular data goes through ADR-0107's pending-change door | slice 1's capability is read-only `suggest-a-group` |
+| outcomes | posted once per proposal to `POST /api/app/experience/agent`, idempotent by `proposalId`; 409 for a proposal that is not accepted. Creatura retries until the proposal shows `outcome: recorded` | |
+| goal ids | stable and dotted, `<app-goal>[:<scope>]` (`plaza.first-connection`); a sentence is refused as an unknown goal | `task.Name` is mapped to an id at Creatura's edge (#90) |
+| free text | `detail` is discarded at intake; values, prompts and transcripts are refused | production lines carry no `detail` (#90) |
+| baseline first | each app starts in `baseline` mode (records, empty plan); `standard` is refused until a baseline report exists, and policies are judged on `confirmed`, never `reported` | the same rule as this note's study: judge on goals met |
+
+**What is never built in Singular** (ADR §10, owner decisions 13-14): simulation mode, Override mode, the study's policies and the synthetic users. **They stay in Creatura**, which reaches Singular only over HTTP as `axi/v1` lines; a Singular test asserts that its policy router resolves only `standard` and that it references nothing named `Lab` or `Creatura`. Engagement is never an objective on real users: it exists only in this lab, or under a later, separately approved Override experiment with per-person opt-in. A lab tenant (staging Plaza, five fictional members) gets its own report labelled "in the simulation"; `simulated:true` rows are refused on every other tenant.
+
+**Creatura's share,** one issue per PR:
+
+| issue | what |
+|---|---|
+| #90 | `samples/Axi` emits the `axi/v1` envelope: uuid `eventId` and proposal ids, stable goal ids, no `detail`, `approval.*` when the app answers |
+| #91 | the Singular agent client: poll accepted proposals, run read-only `suggest-a-group`, post events and the outcome |
+| #69 | closes with Singular's slice 1 end to end on the Plaza lab tenant (egarim/singular-framework#920) |
+
+Singular's own child issues are listed on egarim/singular-framework#853 (egarim/singular-framework#900 to egarim/singular-framework#925).
+
 ## Results
 
 ### Slices B and B2 (2026-11-12): the world and the users
