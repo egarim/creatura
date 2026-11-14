@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **`samples/AxiAgent`: Creatura's agent client for Singular** (issue #91, CRE-02; Singular ADR-0108 §7 steps 3-4).
+  Over HTTP only, one service key per tenant from the environment (never printed): it polls the accepted proposals at
+  most once every 10 s (honouring `Retry-After`), runs the read-only `suggest-a-group` (`groups` where
+  `visibility=public`) under Creatura's control layer, and posts its events and one outcome with `proposalId` (at most 5
+  suggested refs, never `confirmed`), re-sending the same lines until the proposal shows `outcome: recorded` and stopping
+  on a 409. A failed read is `tool.failed`, a read that serves a non-public group `tool.lied`. Only ids, codes and
+  numbers go on the wire. `AxiAgentTests` drives it against a fake Singular built from the shared vectors, on a fake
+  clock.
 - **`samples/Axi` speaks `axi/v1`** (issue #90, CRE-01; Singular ADR-0108 §4). Every line carries the envelope (`v`, a
   uuid `eventId`, `sessionId`, `correlationId`, `at`, and `tick`); goal ids are stable and dotted (`user.learned`), not
   the task's name; proposal ids are uuids with a coded reason; the sample asks before it acts (`approval.requested`, then

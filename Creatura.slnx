@@ -24,6 +24,7 @@
     <Project Path="samples/SemanticKernelHost/SemanticKernelHost.csproj" />
     <Project Path="samples/FeedStudy/FeedStudy.csproj" />
     <Project Path="samples/Axi/Axi.csproj" />
+    <Project Path="samples/AxiAgent/AxiAgent.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Creatura.Tests/Creatura.Tests.csproj" />

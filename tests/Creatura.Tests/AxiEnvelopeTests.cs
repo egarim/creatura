@@ -13,7 +13,8 @@ namespace Creatura.Tests;
 /// </summary>
 public sealed class AxiEnvelopeTests
 {
-    private static readonly JsonSchema Schema = JsonSchema.FromText(File.ReadAllText(Fixture("axi-v1.schema.json")));
+    // Loaded once per process: JsonSchema.Net registers the schema by its $id and refuses a second load (AxiAgentTests uses this one).
+    internal static readonly JsonSchema Schema = JsonSchema.FromText(File.ReadAllText(Fixture("axi-v1.schema.json")));
     private static readonly Regex GoalId = new(@"^[a-z0-9-]+(\.[a-z0-9-]+)+(:[^\s]+)?$");
     private static readonly Regex Uuid = new("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
 
