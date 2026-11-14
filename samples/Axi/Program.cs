@@ -23,10 +23,8 @@ var line = new Axi(debug, $"s-{Guid.NewGuid():N}");
 line.Goals[task.Name] = Axi.GoalOf(world.Goal);
 var events = new AxiEvents(line);
 bool? accepted = null;
-string? proposalId = null;
 
 // 1-2. The user begins a goal; the world observes. Creatura runs its first plays under its own control layer.
-line.Correlation = Guid.NewGuid().ToString();
 Emit(line.Started(task));
 var before = (Proximity: task.Progress(world), Friction: 0.0);
 await Run(task, maxTicks: 4);
@@ -37,8 +35,10 @@ var friction = events.Friction;
 foreach (var c in line.Candidates(world, task)) Emit(c);
 if (!task.Goal(world.Facts) && friction >= 0.5 && world.AvailableTools.Any(t => t.Id == "ask-what-they-want"))
 {
-    var proposal = line.Proposal("ask-what-they-want", task, friction, events, confirm: true);
-    proposalId = (string)proposal["id"]!;
+    // Singular produces proposals (ADR-0108 §4): this line simulates Singular's, so the run reads end to end. It is
+    // never posted; Singular refuses an axi.proposal from outside (proposal.singular-only).
+    var proposal = line.Proposal("ask-what-they-want", task, friction, events, world.Ticks, confirm: true);
+    var proposalId = (string)proposal["id"]!;
     Emit(proposal);
     // 5. The user is asked, and answers. (The synthetic user says yes unless --answer no; a real app asks on its own
     //    screen.) Everything about the proposal carries its id as the correlation id.
@@ -50,17 +50,21 @@ if (!task.Goal(world.Facts) && friction >= 0.5 && world.AvailableTools.Any(t => 
     if (yes)
     {
         // 6. Creatura runs it as a goal of its own, under its own control layer, with its planner, which plans toward
-        //    that goal: AXI grants nothing and runs nothing itself.
+        //    that goal: AXI grants nothing and runs nothing itself. Its lines echo the proposal's goal (the app declared
+        //    no other; Singular refuses an undeclared one as goal.unknown), and its one outcome names the proposal (§7.4).
         var ask = task with { Name = "ask what they want", GoalText = "The user said what they came for.", Goal = f => f.Contains("goal.known") };
-        line.Goals[ask.Name] = "user.goal-known";
+        line.Goals[ask.Name] = line.GoalId(task);
+        var askBefore = (Proximity: ask.Progress(world), Friction: Math.Round(events.Friction, 2));
         await Run(ask, maxTicks: 2, new PlannerPolicy());
+        Emit(line.Outcome(ask, world, events, askBefore, accepted: true, proposalId));
     }
     line.Correlation = outer;
 }
 
-// 7. Progress is re-evaluated: the main goal goes on while it is not met, and the outcome goes back to AXI.
+// 7. Progress is re-evaluated: the main goal goes on while it is not met, and the outcome goes back to AXI. It names no
+//    proposal: the app reports on its own goal; the proposal's outcome went out above.
 if (!task.Goal(world.Facts)) await Run(task, maxTicks: 12);
-Emit(line.Outcome(task, world, events, before, accepted, proposalId));
+Emit(line.Outcome(task, world, events, before, accepted, proposalId: null));
 return 0;
 
 async Task Run(AgentTask goal, int maxTicks, IPolicy? seat = null)
@@ -126,9 +130,9 @@ sealed class Axi(bool debug, string session)
     });
 
     /// <summary>A proposal with a uuid id and a coded reason (no free text).</summary>
-    public JsonObject Proposal(string capability, AgentTask task, double friction, AxiEvents events, bool confirm)
+    public JsonObject Proposal(string capability, AgentTask task, double friction, AxiEvents events, int tick, bool confirm)
     {
-        var o = Line("axi.proposal", events.Tick);
+        var o = Line("axi.proposal", tick);
         o["id"] = Guid.NewGuid().ToString();
         o["capabilityId"] = capability;
         o["goalId"] = GoalId(task);
@@ -181,9 +185,6 @@ sealed class AxiEvents(Axi line) : IAgentExtension
 
     public int Lies { get; private set; }
 
-    /// <summary>The last tick seen.</summary>
-    public int Tick { get; private set; }
-
     /// <summary>The share of plays that were skipped or reported engagement with nothing served.</summary>
     public double Friction => Plays == 0 ? 0 : (double)Failed / Plays;
 
@@ -196,7 +197,6 @@ sealed class AxiEvents(Axi line) : IAgentExtension
             if (verdict != ActionVerdict.Landed) Failed++;
             if (verdict == ActionVerdict.Lied) Lies++;
         }
-        Tick = context.Tick;
         _pending.Add(line.Event(kind, context.Tick, tool.Id, context.Task, outcome.Observation));
     }
 

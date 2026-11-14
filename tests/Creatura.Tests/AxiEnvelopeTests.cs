@@ -15,6 +15,13 @@ public sealed class AxiEnvelopeTests
 {
     private static readonly JsonSchema Schema = JsonSchema.FromText(File.ReadAllText(Fixture("axi-v1.schema.json")));
     private static readonly Regex GoalId = new(@"^[a-z0-9-]+(\.[a-z0-9-]+)+(:[^\s]+)?$");
+    private static readonly Regex Uuid = new("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
+
+    private static readonly HashSet<string> SchemaRefusals =
+    [
+        "type.unknown", "kind.unknown", "envelope.v", "envelope.eventId", "envelope.unknown", "envelope.tick", "envelope.detail",
+        "envelope.requiresConfirmation", "envelope.status", "envelope.capabilityId", "envelope.goalId", "envelope.proposalId",
+    ];
 
     private static string Fixture(string name) => Path.Combine(AppContext.BaseDirectory, "axi-contract", name);
 
@@ -25,22 +32,35 @@ public sealed class AxiEnvelopeTests
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(Fixture("axi-vectors.json")));
         var checkedCases = 0;
+        var wrong = new List<string>();
         foreach (var c in doc.RootElement.GetProperty("codec").EnumerateArray())
         {
+            var name = c.GetProperty("name").GetString();
             var input = c.GetProperty("input");
             var expect = c.GetProperty("expect");
-            var result = expect.GetProperty("result").GetString();
-            if (input.ValueKind == JsonValueKind.Array) continue;           // batches: their items are cases of their own
-            var reason = expect.TryGetProperty("reason", out var r) ? r.GetString() ?? "" : "";
-            var name = c.GetProperty("name").GetString();
-            if (result == "accepted") Assert.True(Valid(input), $"accepted vector fails the schema: {name}");
-            // ponytail: only refusals the shape itself decides; envelope.at also covers calendar dates checked at intake.
-            else if (reason is "type.unknown" or "kind.unknown" or "envelope.v" or "envelope.eventId" or "envelope.unknown")
-                Assert.False(Valid(input), $"refused vector passes the schema: {name}");
-            else continue;
-            checkedCases++;
+            // A batch's items are cases of their own, each with its own expectation.
+            var cases = input.ValueKind == JsonValueKind.Array
+                ? input.EnumerateArray().Zip(expect.GetProperty("items").EnumerateArray(), (i, e) => (i, e)).ToList()
+                : [(input, expect)];
+            foreach (var (line, e) in cases)
+            {
+                var result = e.GetProperty("result").GetString();
+                var reason = e.TryGetProperty("reason", out var r) ? r.GetString() ?? "" : "";
+                if (result == "accepted" && line.ValueKind == JsonValueKind.Object)
+                {
+                    if (!Valid(line)) wrong.Add($"accepted vector fails the schema: {name}");
+                }
+                // ponytail: only refusals the shape itself decides; envelope.at also covers calendar dates checked at intake.
+                else if (result == "refused" && SchemaRefusals.Contains(reason))
+                {
+                    if (Valid(line)) wrong.Add($"refused vector passes the schema: {name} ({reason})");
+                }
+                else continue;
+                checkedCases++;
+            }
         }
-        Assert.True(checkedCases >= 20, $"only {checkedCases} vectors checked");
+        Assert.Empty(wrong);
+        Assert.True(checkedCases >= 40, $"only {checkedCases} vectors checked");
     }
 
     [Fact]
@@ -57,21 +77,60 @@ public sealed class AxiEnvelopeTests
             Assert.Equal("axi/v1", root.GetProperty("v").GetString());
             Assert.False(root.TryGetProperty("detail", out _), $"detail without --debug: {root}");
             Assert.False(root.TryGetProperty("description", out _), $"description without --debug: {root}");
-            if (root.TryGetProperty("goalId", out var goal)) Assert.Matches(GoalId, goal.GetString()!);
+            // The schema leaves the envelope optional; the sample promises all of it, and a goal on every line.
+            foreach (var key in new[] { "sessionId", "correlationId", "at", "tick", "goalId" })
+                Assert.True(root.TryGetProperty(key, out _), $"no {key}: {root}");
+            Assert.Matches(GoalId, root.GetProperty("goalId").GetString()!);
+            Assert.Matches(Uuid, root.GetProperty("correlationId").GetString()!);
             eventIds.Add(root.GetProperty("eventId").GetString()!);
             if (root.GetProperty("type").GetString() == "axi.proposal")
             {
-                proposals.Add(root.GetProperty("id").GetString()!);
-                Assert.Equal(JsonValueKind.Object, root.GetProperty("reason").ValueKind);   // a code, never a sentence
+                var id = root.GetProperty("id").GetString()!;
+                Assert.Matches(Uuid, id);
+                proposals.Add(id);
+                // A code with numbers, never a sentence: no string anywhere in args, and no parameters.
+                var reason = root.GetProperty("reason");
+                Assert.Equal("friction.high", reason.GetProperty("code").GetString());
+                Assert.All(reason.GetProperty("args").EnumerateObject(), a => Assert.Equal(JsonValueKind.Number, a.Value.ValueKind));
+                Assert.Empty(root.GetProperty("parameters").EnumerateObject());
             }
         }
         Assert.True(proposals.Count >= 2, "no proposal emitted");
         Assert.Equal(proposals.Count, proposals.Distinct().Count());
         Assert.Equal(eventIds.Count, eventIds.Distinct().Count());
-        var kinds = lines.Select(l => l.RootElement.TryGetProperty("kind", out var k) ? k.GetString() : null).ToHashSet();
-        Assert.Contains("approval.requested", kinds);
-        Assert.Contains("approval.accepted", kinds);
-        Assert.Contains("approval.rejected", kinds);
+    }
+
+    [Theory]
+    [InlineData("yes")]
+    [InlineData("no")]
+    public void A_proposal_is_asked_then_answered_and_only_an_accepted_one_runs_and_gets_an_outcome(string answer)
+    {
+        var lines = Run(["--user", "muted-commuter", "--answer", answer]).Select(l => l.RootElement).ToList();
+        var p = lines.FindIndex(l => l.GetProperty("type").GetString() == "axi.proposal");
+        Assert.True(p >= 0, "muted-commuter gets no proposal");
+        var id = lines[p].GetProperty("id").GetString();
+        var goal = lines[p].GetProperty("goalId").GetString();
+        var about = lines.Skip(p + 1).Where(l => l.GetProperty("correlationId").GetString() == id).ToList();
+        string? Kind(JsonElement l) => l.TryGetProperty("kind", out var k) ? k.GetString() : l.GetProperty("type").GetString();
+        Assert.Equal("approval.requested", Kind(about[0]));
+        Assert.Equal(answer == "yes" ? "approval.accepted" : "approval.rejected", Kind(about[1]));
+        Assert.All(about, l => Assert.Equal(goal, l.GetProperty("goalId").GetString()));   // the proposal's goal, declared by the app
+        var outcomes = lines.Where(l => l.GetProperty("type").GetString() == "axi.outcome").ToList();
+        var withProposal = outcomes.Where(o => o.TryGetProperty("proposalId", out _)).ToList();
+        if (answer == "yes")
+        {
+            Assert.True(about.Count > 3, "the accepted proposal did not run");
+            Assert.Equal("axi.outcome", Kind(about[^1]));
+            var o = Assert.Single(withProposal);
+            Assert.Equal(id, o.GetProperty("proposalId").GetString());
+            Assert.True(o.GetProperty("accepted").GetBoolean());
+        }
+        else
+        {
+            Assert.Equal(2, about.Count);   // rejected: nothing ran
+            Assert.Empty(withProposal);     // Singular answers 409 proposal.not-accepted
+        }
+        Assert.Equal(withProposal.Count + 1, outcomes.Count);   // plus the main goal's own outcome
     }
 
     [Fact]
@@ -93,9 +152,13 @@ public sealed class AxiEnvelopeTests
         foreach (var a in args) start.ArgumentList.Add(a);
         using var process = Process.Start(start)!;
         var stdout = process.StandardOutput.ReadToEndAsync();
-        var stderr = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-        Assert.True(process.ExitCode == 0, $"samples/Axi {string.Join(' ', args)} exited {process.ExitCode}: {stderr}");
+        var stderr = process.StandardError.ReadToEndAsync();
+        if (!process.WaitForExit(TimeSpan.FromMinutes(2)))
+        {
+            process.Kill(entireProcessTree: true);
+            Assert.Fail($"samples/Axi {string.Join(' ', args)} did not exit in 2 minutes");
+        }
+        Assert.True(process.ExitCode == 0, $"samples/Axi {string.Join(' ', args)} exited {process.ExitCode}: {stderr.Result}");
         return [.. stdout.Result.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => JsonDocument.Parse(l))];
     }
 }

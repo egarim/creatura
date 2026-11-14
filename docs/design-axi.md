@@ -67,10 +67,16 @@ its schema is `docs/axi/axi-v1.schema.json` in egarim/singular-framework, and it
 `sdk/singular-js/test/axi-vectors.json`. Creatura holds a copy of both as test data only
 (`tests/Creatura.Tests/axi-contract/`, source commit in `AxiEnvelopeTests.cs`); no code crosses. `samples/Axi` emits:
 `v: "axi/v1"`, a uuid `eventId` per line, a `sessionId` per run, a uuid `correlationId` per task (a proposal's own id
-for everything about it), `at` in UTC, and `tick` as before; goal ids are stable and dotted (`user.learned`,
-`user.goal-known`), not `task.Name`; proposal ids are uuids and the reason a code (`friction.high`) with numbers;
-`approval.requested` precedes `approval.accepted` or `approval.rejected` (`--answer no`); `detail` and `description`
-(free text Singular discards) only with `--debug true`. The test validates every line against the copied schema.
+for its approvals, the run of its capability and that run's outcome), `at` in UTC, and `tick` as before; goal ids are
+stable and dotted (`user.learned`), not `task.Name`, and the capability's run echoes the proposal's goal, since the app
+declares no other (Singular refuses an undeclared goal as `goal.unknown`); proposal ids are uuids and the reason a code
+(`friction.high`) with numbers; `approval.requested` precedes `approval.accepted` or `approval.rejected` (`--answer no`);
+only an accepted proposal runs, and only its run's outcome carries `proposalId` (§7.4: an outcome for a rejected one is
+refused with 409); the main goal's own outcome names no proposal; `detail` and `description` (free text Singular
+discards) only with `--debug true`. The `axi.proposal` line simulates Singular's so the run reads end to end: Singular
+produces proposals and refuses one from outside (`proposal.singular-only`), so that line is never posted. Passing the
+schema is necessary, not sufficient: intake also checks declared goals, capabilities and proposal state. The test
+validates every line against the copied schema and checks the approval order and the proposal's outcome.
 
 Event kinds: `task.started`, `plan.generated`, `tool.started`, `tool.completed`, `tool.failed`, `tool.lied`,
 `approval.requested`, `approval.accepted`, `approval.rejected`, `task.completed`, `task.cancelled`, `task.handed-off`.
