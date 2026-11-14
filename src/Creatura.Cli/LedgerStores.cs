@@ -3,18 +3,28 @@ using Creatura.Cells.Sqlite;
 namespace Creatura.Cells;
 
 /// <summary>
-/// The <c>--store</c> option: <c>json</c> (the default, <c>&lt;home&gt;/ledger.json</c>) or <c>sqlite</c>
-/// (<c>&lt;home&gt;/ledger.db</c>). The first SQLite run imports the JSON ledger, checking every signature; after that the
-/// JSON file is no longer written, so a home moved to SQLite stays on it.
+/// The <c>--store</c> option: any name registered with <see cref="LedgerStoreProviders"/> (issue #88). Built in:
+/// <c>json</c> (the default, <c>&lt;home&gt;/ledger.json</c>) and <c>sqlite</c> (<c>&lt;home&gt;/ledger.db</c>). The
+/// first SQLite run imports the JSON ledger, checking every signature; after that the JSON file is no longer written,
+/// so a home moved to SQLite stays on it.
 /// </summary>
 internal static class LedgerStores
 {
-    public static Func<CellHome, ILedgerStore>? Factory(string? name) => name switch
+    static LedgerStores() => SqliteLedgerStore.Register();
+
+    /// <summary>The factory for a <c>--store</c> name; null for the default JSON store. Unknown names throw, listing the known ones.</summary>
+    public static Func<CellHome, ILedgerStore>? Factory(string? name)
     {
-        null or "json" => null,
-        "sqlite" => SqliteLedgerStore.For,
-        _ => throw new ArgumentException($"--store is json or sqlite, not {name}"),
-    };
+        if (name is null || string.Equals(name, "json", StringComparison.OrdinalIgnoreCase)) return null;
+        try
+        {
+            return LedgerStoreProviders.Resolve(name);
+        }
+        catch (ArgumentException)
+        {
+            throw new ArgumentException($"--store is one of {string.Join(", ", LedgerStoreProviders.Names)}, not {name}");
+        }
+    }
 
     /// <summary>The stored ledger merged into <paramref name="ledger"/>; an empty SQLite store first imports ledger.json.</summary>
     public static MergeResult LoadInto(CellHome home, ILedgerStore store, WorkLedger ledger)
