@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <!-- AXI (#90): validates samples/Axi's lines against Singular's axi/v1 schema, copied as data under axi-contract/. Not a Singular package. -->
+    <PackageReference Include="JsonSchema.Net" Version="9.4.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
@@ -31,6 +33,12 @@
     <ProjectReference Include="..\..\src\Creatura.Ratings\Creatura.Ratings.csproj" />
     <!-- creatura rate is tested here beside the ratings it prints. -->
     <ProjectReference Include="..\..\src\Creatura.Cli\Creatura.Cli.csproj" />
+    <!-- AXI (#90): the sample is run as a process; the reference builds it and copies it beside the tests. -->
+    <ProjectReference Include="..\..\samples\Axi\Axi.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="axi-contract\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
