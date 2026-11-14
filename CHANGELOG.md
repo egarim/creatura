@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **`samples/Axi` speaks `axi/v1`** (issue #90, CRE-01; Singular ADR-0108 §4). Every line carries the envelope (`v`, a
+  uuid `eventId`, `sessionId`, `correlationId`, `at`, and `tick`); goal ids are stable and dotted (`user.learned`), not
+  the task's name; proposal ids are uuids with a coded reason; the sample asks before it acts (`approval.requested`, then
+  `approval.accepted` or, with `--answer no`, `approval.rejected`); free-text `detail` and `description` only with
+  `--debug true`. `AxiEnvelopeTests` validates the emitted lines against Singular's schema and checks that schema against
+  the shared vectors, both copied as data into `tests/Creatura.Tests/axi-contract/` (JsonSchema.Net, test only; no
+  Singular package).
 - **`HonestFailureRule.RecordOnly`: an honest failure recorded but not spent** (issue #75). Prediction and reliability
   record it as a failure; the budget is not spent, the design's own failure accounting is not told, and the tool stays
   visible. `RecordCarryExtension` gains `recordHonestFailures` to do the same for designs without a self-model. Found by

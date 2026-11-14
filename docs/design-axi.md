@@ -62,6 +62,16 @@ Creatura's names stay inside the code; these are the only places AXI's names app
   "confirmed": { "goalMet": true, "proximityBefore": 0.0, "proximityAfter": 1.0, "frictionBefore": 0.6, "frictionAfter": 0.2 } }
 ```
 
+**On the wire: `axi/v1`** (creatura#90). Singular's ADR-0108 §4 fixed one envelope, a superset of the four shapes above;
+its schema is `docs/axi/axi-v1.schema.json` in egarim/singular-framework, and its golden cases are
+`sdk/singular-js/test/axi-vectors.json`. Creatura holds a copy of both as test data only
+(`tests/Creatura.Tests/axi-contract/`, source commit in `AxiEnvelopeTests.cs`); no code crosses. `samples/Axi` emits:
+`v: "axi/v1"`, a uuid `eventId` per line, a `sessionId` per run, a uuid `correlationId` per task (a proposal's own id
+for everything about it), `at` in UTC, and `tick` as before; goal ids are stable and dotted (`user.learned`,
+`user.goal-known`), not `task.Name`; proposal ids are uuids and the reason a code (`friction.high`) with numbers;
+`approval.requested` precedes `approval.accepted` or `approval.rejected` (`--answer no`); `detail` and `description`
+(free text Singular discards) only with `--debug true`. The test validates every line against the copied schema.
+
 Event kinds: `task.started`, `plan.generated`, `tool.started`, `tool.completed`, `tool.failed`, `tool.lied`,
 `approval.requested`, `approval.accepted`, `approval.rejected`, `task.completed`, `task.cancelled`, `task.handed-off`.
 `tool.lied` and the `reported` / `confirmed` split are Creatura's additions: without them a lie reads as a success.
