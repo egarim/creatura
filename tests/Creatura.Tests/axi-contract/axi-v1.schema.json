@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/egarim/singular-framework/blob/main/docs/axi/axi-v1.schema.json",
+  "title": "axi/v1",
+  "description": "ADR-0108 §4. One line on the wire between an app or an agent (Creatura) and Singular's AXI module. A superset of Creatura's four shapes (creatura docs/design-axi.md:51-68): every line creatura samples/Axi emits today validates here, and intake policy then refuses or drops what is not allowed (sentence goal ids, capabilities not on the app's list, free-text detail, unknown props). Validating against this schema is necessary, not sufficient. Envelope fields (v, eventId, sessionId, correlationId, at) are optional because Creatura does not send them yet (creatura#69). Tenant, app, actor and roles are never on the wire: the server stamps them.",
+  "oneOf": [
+    { "$ref": "#/$defs/event" },
+    { "$ref": "#/$defs/capability" },
+    { "$ref": "#/$defs/proposal" },
+    { "$ref": "#/$defs/outcome" }
+  ],
+  "$defs": {
+    "v": { "const": "axi/v1" },
+    "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "sessionId": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,64}$" },
+    "at": {
+      "description": "UTC, RFC 3339. The server rounds it to the nearest second, and stamps it when absent. The pattern bounds each field; a calendar-impossible date such as 02-31 is refused at intake.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\\.[0-9]{1,9})?Z$"
+    },
+    "tick": { "description": "Creatura's clock. Kept as tick; the server stamps at. At most 2^53 - 1, so a JS number holds it exactly.", "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "simulated": { "description": "Accepted only on a tenant marked Simulation: true (ADR-0108 §10).", "type": "boolean" },
+    "goalId": {
+      "description": "Should be a stable dotted id, <app-goal>[:<scope>]. A free string here so Creatura's task.Name still parses; intake refuses any id the app did not declare.",
+      "type": "string",
+      "maxLength": 200
+    },
+    "declaredId": {
+      "description": "A uuid, or an id the app declared (capability, candidate, or a baseline slot such as feed#3). Mixed case and _ are allowed: an assistant tool's capabilityId is its Name, which only has to avoid the built-in names (AssistantService.cs AddAssistant).",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.#:-]{0,79}$"
+    },
+    "place": { "type": "string", "pattern": "^[a-z0-9._/-]{1,60}$" },
+    "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$" },
+    "detail": { "description": "Creatura's free text. Read, then discarded at intake; never stored.", "type": "string" },
+    "kind": {
+      "enum": [
+        "view.opened", "view.closed", "field.changed", "validation.failed",
+        "action.started", "action.succeeded", "action.failed", "object.saved",
+        "workflow.started", "workflow.completed", "workflow.interrupted",
+        "task.started", "plan.generated", "tool.started", "tool.completed", "tool.failed", "tool.lied",
+        "approval.requested", "approval.accepted", "approval.rejected",
+        "task.completed", "task.cancelled", "task.handed-off",
+        "candidate.presented", "candidate.selected", "candidate.dismissed",
+        "content.skipped", "content.completed", "intervention.accepted", "intervention.completed"
+      ]
+    },
+    "props": {
+      "description": "Names only, never values. collection/field must exist in the app's metadata (secretFields and hidden names are dropped), rule must be a declared x-rules id, view/action must name a place and never carry a document key, code is numeric or from a fixed enum.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "view": { "$ref": "#/$defs/place" },
+        "action": { "$ref": "#/$defs/place" },
+        "collection": { "$ref": "#/$defs/name" },
+        "field": { "$ref": "#/$defs/name" },
+        "rule": { "description": "x-rules:<kind>#<index>, kind as the kit spells it (compare, requiredWhen, atLeastOne).", "type": "string", "pattern": "^x-rules:[A-Za-z][A-Za-z0-9]{0,39}#[0-9]{1,4}$" },
+        "code": {
+          "anyOf": [
+            { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+            { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,39}$" }
+          ]
+        },
+        "candidateId": { "$ref": "#/$defs/declaredId" },
+        "proposalId": { "$ref": "#/$defs/declaredId" },
+        "capabilityId": { "$ref": "#/$defs/declaredId" }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "kind"],
+      "properties": {
+        "type": { "const": "axi.event" },
+        "v": { "$ref": "#/$defs/v" },
+        "eventId": { "$ref": "#/$defs/uuid" },
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "correlationId": { "$ref": "#/$defs/uuid" },
+        "at": { "$ref": "#/$defs/at" },
+        "tick": { "$ref": "#/$defs/tick" },
+        "simulated": { "$ref": "#/$defs/simulated" },
+        "kind": { "$ref": "#/$defs/kind" },
+        "goalId": { "$ref": "#/$defs/goalId" },
+        "capabilityId": { "anyOf": [{ "$ref": "#/$defs/declaredId" }, { "type": "null" }] },
+        "props": { "$ref": "#/$defs/props" },
+        "detail": { "$ref": "#/$defs/detail" }
+      }
+    },
+    "capability": {
+      "description": "From the agent. Accepted only for capability ids already on the app's agent-capability list; it never adds a candidate.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "capabilityId"],
+      "properties": {
+        "type": { "const": "axi.capability" },
+        "v": { "$ref": "#/$defs/v" },
+        "eventId": { "$ref": "#/$defs/uuid" },
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "correlationId": { "$ref": "#/$defs/uuid" },
+        "at": { "$ref": "#/$defs/at" },
+        "tick": { "$ref": "#/$defs/tick" },
+        "simulated": { "$ref": "#/$defs/simulated" },
+        "capabilityId": { "$ref": "#/$defs/declaredId" },
+        "goalId": { "$ref": "#/$defs/goalId" },
+        "description": { "description": "Creatura's free text; discarded.", "type": "string" },
+        "requiresConfirmation": { "type": "boolean" }
+      }
+    },
+    "proposal": {
+      "description": "Produced by Singular only (id a uuid, reason a code plus arguments). The looser id and string reason exist only so Creatura's own proposal line parses before intake refuses it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "capabilityId", "goalId"],
+      "properties": {
+        "type": { "const": "axi.proposal" },
+        "v": { "$ref": "#/$defs/v" },
+        "eventId": { "$ref": "#/$defs/uuid" },
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "correlationId": { "$ref": "#/$defs/uuid" },
+        "at": { "$ref": "#/$defs/at" },
+        "tick": { "$ref": "#/$defs/tick" },
+        "simulated": { "$ref": "#/$defs/simulated" },
+        "id": { "type": "string", "maxLength": 100 },
+        "capabilityId": { "$ref": "#/$defs/declaredId" },
+        "goalId": { "$ref": "#/$defs/goalId" },
+        "reason": {
+          "anyOf": [
+            { "type": "string" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["code"],
+              "properties": {
+                "code": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,39}$" },
+                "args": { "type": "object" }
+              }
+            }
+          ]
+        },
+        "parameters": { "type": "object" },
+        "requiresConfirmation": { "type": "boolean" },
+        "state": { "enum": ["pending", "accepted", "rejected", "expired"] }
+      }
+    },
+    "confirmed": {
+      "description": "Wire shape: every number required, an agent's reported.agentConfirmed included. Singular's own stored copy (#914) may hold frictionAfter null, meaning no friction data (the session went idle); that stored copy is never served as an axi/v1 line.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["goalMet", "proximityBefore", "proximityAfter", "frictionBefore", "frictionAfter"],
+      "properties": {
+        "goalMet": { "type": "boolean" },
+        "proximityBefore": { "type": "number", "minimum": 0, "maximum": 1 },
+        "proximityAfter": { "type": "number", "minimum": 0, "maximum": 1 },
+        "frictionBefore": { "type": "number", "minimum": 0, "maximum": 1 },
+        "frictionAfter": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "outcome": {
+      "description": "reported and confirmed are kept apart. Only Singular fills confirmed, as the person; a confirmed sent by the agent is stored as reported.agentConfirmed and never trusted. proposalId is optional in the shape because the in-app outcomes the server writes have none; an outcome the agent posts without one is refused at intake (ADR-0108 §7.4).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "goalId", "status"],
+      "properties": {
+        "type": { "const": "axi.outcome" },
+        "v": { "$ref": "#/$defs/v" },
+        "eventId": { "$ref": "#/$defs/uuid" },
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "correlationId": { "$ref": "#/$defs/uuid" },
+        "at": { "$ref": "#/$defs/at" },
+        "tick": { "$ref": "#/$defs/tick" },
+        "simulated": { "$ref": "#/$defs/simulated" },
+        "goalId": { "$ref": "#/$defs/goalId" },
+        "proposalId": { "$ref": "#/$defs/uuid" },
+        "status": { "enum": ["succeeded", "failed", "cancelled", "handed-off"] },
+        "accepted": { "type": ["boolean", "null"] },
+        "reported": {
+          "description": "What the agent reported: numbers only (engagement, watchedSeconds, plays, lies, ...), an agentConfirmed copy, and at most 5 suggested refs the kit reads as the person.",
+          "type": "object",
+          "properties": {
+            "agentConfirmed": { "$ref": "#/$defs/confirmed" },
+            "suggested": {
+              "type": "array",
+              "maxItems": 5,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["collection", "key"],
+                "properties": { "collection": { "$ref": "#/$defs/name" }, "key": { "type": "string", "maxLength": 100 } }
+              }
+            }
+          },
+          "additionalProperties": { "type": "number" }
+        },
+        "confirmed": { "anyOf": [{ "$ref": "#/$defs/confirmed" }, { "type": "null" }] }
+      }
+    }
+  }
+}
