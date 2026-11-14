@@ -35,6 +35,8 @@
     <ProjectReference Include="..\..\src\Creatura.Cli\Creatura.Cli.csproj" />
     <!-- AXI (#90): the sample is run as a process; the reference builds it and copies it beside the tests. -->
     <ProjectReference Include="..\..\samples\Axi\Axi.csproj" />
+    <!-- AXI (#91): the agent client is tested in-process against a fake Singular. -->
+    <ProjectReference Include="..\..\samples\AxiAgent\AxiAgent.csproj" />
   </ItemGroup>
 
   <ItemGroup>
