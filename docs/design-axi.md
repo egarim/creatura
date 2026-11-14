@@ -306,7 +306,7 @@ An `src/Creatura.Axi` project, an AXI object model, a new event bus, capability 
 | issue | what |
 |---|---|
 | #90 | `samples/Axi` emits the `axi/v1` envelope: uuid `eventId` and proposal ids, stable goal ids, no `detail`, `approval.*` when the app answers |
-| #91 | the Singular agent client: poll accepted proposals, run read-only `suggest-a-group`, post events and the outcome |
+| #91 | the Singular agent client: poll accepted proposals, run read-only `suggest-a-group`, post events and the outcome (`samples/AxiAgent`) |
 | #69 | closes with Singular's slice 1 end to end on the Plaza lab tenant (egarim/singular-framework#920) |
 
 Singular's own child issues are listed on egarim/singular-framework#853 (egarim/singular-framework#900 to egarim/singular-framework#925).
