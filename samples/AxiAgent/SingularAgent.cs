@@ -2,6 +2,7 @@
 // HTTP only. It polls the accepted proposals, runs the read-only capability `suggest-a-group` under Creatura's control
 // layer, and posts axi/v1 events and one outcome per proposal. Only ids, codes and numbers go on the wire.
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -11,9 +12,9 @@ using Creatura.Worlds;
 namespace Creatura.Samples.AxiAgent;
 
 /// <summary>
-/// One tenant's agent. The caller gives it an <see cref="HttpClient"/> already holding the tenant's service key
-/// (<c>Authorization: Service …</c>), <c>X-App-Id</c> and <c>X-Tenant-Id</c>; this class never sees the key. Call
-/// <see cref="StepAsync"/> in a loop and wait the time it returns.
+/// One tenant's agent. The caller gives it an <see cref="HttpClient"/> made by <see cref="Client"/>: the tenant's service
+/// key rides on its default headers (<c>Authorization: Service …</c>) with <c>X-App-Id</c> and <c>X-Tenant-Id</c>; this
+/// class never reads or logs it. Call <see cref="StepAsync"/> in a loop and wait the time it returns.
 /// </summary>
 public sealed class SingularAgent(HttpClient http, TimeProvider clock, Action<string>? log = null)
 {
@@ -29,11 +30,25 @@ public sealed class SingularAgent(HttpClient http, TimeProvider clock, Action<st
 
     // proposal id → its lines, built once and re-sent unchanged (same eventIds), so a retry is idempotent; null = not run yet.
     private readonly Dictionary<string, JsonArray?> _pending = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> _done = new(StringComparer.Ordinal);
+    // Finished ids the list still serves (a refused one stays accepted); pruned to the list, so it never outgrows it (max 50).
+    private readonly HashSet<string> _done = new(StringComparer.Ordinal);
     private DateTimeOffset _next = DateTimeOffset.MinValue;
 
-    /// <summary>Proposals this agent is finished with, and why: <c>recorded</c>, or the refusal that stopped it.</summary>
-    public IReadOnlyDictionary<string, string> Done => _done;
+    /// <summary>The environment variable holding a tenant's key: <c>AXI_KEY_</c> and the slug upper-cased, other characters as <c>_</c>.</summary>
+    public static string KeyVariable(string tenant) =>
+        "AXI_KEY_" + new string(tenant.ToUpperInvariant().Select(c => char.IsAsciiLetterOrDigit(c) ? c : '_').ToArray());
+
+    /// <summary>One tenant's client: its own key, the app and the tenant on every request.</summary>
+    public static HttpClient Client(Uri baseUrl, string app, string tenant, string key, HttpMessageHandler? handler = null)
+    {
+        var http = handler is null ? new HttpClient() : new HttpClient(handler);
+        http.BaseAddress = baseUrl;
+        http.Timeout = TimeSpan.FromSeconds(30);
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Service", key);
+        http.DefaultRequestHeaders.Add("X-App-Id", app);
+        http.DefaultRequestHeaders.Add("X-Tenant-Id", tenant);
+        return http;
+    }
 
     /// <summary>One cycle when it is due: poll, then settle each proposal. Returns how long to wait before the next call.</summary>
     public async Task<TimeSpan> StepAsync(CancellationToken ct = default)
@@ -41,42 +56,59 @@ public sealed class SingularAgent(HttpClient http, TimeProvider clock, Action<st
         var now = clock.GetUtcNow();
         if (now < _next) return _next - now;
         _next = now + PollInterval;
+        HashSet<string>? listed = null; // the ids a 200 list served this cycle; null when it served none
         try
         {
-            using (var poll = await http.GetAsync($"{Proposals}?state=accepted", ct))
+            using var poll = await http.GetAsync($"{Proposals}?state=accepted", ct);
+            if (poll.StatusCode == HttpStatusCode.TooManyRequests)
             {
-                if (poll.StatusCode == HttpStatusCode.TooManyRequests)
-                {
-                    var after = poll.Headers.RetryAfter?.Delta ?? PollInterval;
-                    _next = now + (after > PollInterval ? after : PollInterval);
-                    return _next - now;
-                }
-                if (poll.IsSuccessStatusCode)
-                {
-                    foreach (var p in (await poll.Content.ReadFromJsonAsync<ProposalList>(Web, ct))?.Proposals ?? [])
-                        if (p.Id is { } id && p.CapabilityId == Capability && !_done.ContainsKey(id)) _pending.TryAdd(id, null);
-                }
-                else log?.Invoke($"poll {(int)poll.StatusCode}");
+                var after = poll.Headers.RetryAfter is { } ra ? ra.Delta ?? ra.Date - now : null;
+                _next = now + (after > PollInterval ? after.Value : PollInterval);
             }
-            foreach (var id in _pending.Keys.ToList()) await SettleAsync(id, ct);
+            else if (poll.IsSuccessStatusCode)
+            {
+                var views = (await poll.Content.ReadFromJsonAsync<ProposalList>(Web, ct))?.Proposals ?? [];
+                listed = views.Select(p => p.Id).OfType<string>().ToHashSet(StringComparer.Ordinal);
+                _done.IntersectWith(listed);
+                foreach (var p in views)
+                    if (p.Id is { } id && p.CapabilityId == Capability && !_done.Contains(id)) _pending.TryAdd(id, null);
+            }
+            else log?.Invoke($"poll {(int)poll.StatusCode}");
         }
-        catch (Exception e) when (e is HttpRequestException or JsonException or TaskCanceledException && !ct.IsCancellationRequested)
+        catch (Exception e) when (!ct.IsCancellationRequested)
         {
-            log?.Invoke($"cycle failed: {e.GetType().Name}"); // the type only: a message could carry a URL or a body
+            log?.Invoke($"poll failed: {e.GetType().Name}"); // the type only: a message could carry a URL or a body
+        }
+        // Settled even after a 429 or a failed poll: the throttle is the list's only, and these lines are owed.
+        foreach (var id in _pending.Keys.ToList())
+        {
+            try { await SettleAsync(id, listed, ct); }
+            catch (Exception e) when (!ct.IsCancellationRequested)
+            {
+                log?.Invoke($"proposal {id}: {e.GetType().Name}"); // stays pending; the others still settle
+            }
         }
         var wait = _next - clock.GetUtcNow();
         return wait > TimeSpan.Zero ? wait : TimeSpan.Zero;
     }
 
-    /// <summary>Reads the proposal, runs it once, posts its lines; finished on <c>outcome: recorded</c> or a refusal.</summary>
-    private async Task SettleAsync(string id, CancellationToken ct)
+    /// <summary>Reads the proposal, runs it once, posts its lines; finished on <c>outcome: recorded</c> or a refusal of the lines.</summary>
+    private async Task SettleAsync(string id, HashSet<string>? listed, CancellationToken ct)
     {
         ProposalView? view;
         using (var get = await http.GetAsync($"{Proposals}/{Uri.EscapeDataString(id)}", ct))
         {
-            // 404: expired, answered by an opt-out, or not this agent's; nothing left to report on.
-            if (get.StatusCode == HttpStatusCode.NotFound) { Finish(id, "proposal.gone"); return; }
-            if (!get.IsSuccessStatusCode) return;
+            if (get.StatusCode == HttpStatusCode.NotFound)
+            {
+                // Singular answers 404 `proposal.unknown` for a gone proposal (expired, opted out) and for its own failed read
+                // alike, and `agent.only` for a refused or failed caller check: gone only when this cycle's list also left it out.
+                // ponytail: an accepted proposal past the list's newest 50 could be dropped on a failed read; page the list if that bites.
+                if (listed is not null && !listed.Contains(id) && (await get.Content.ReadFromJsonAsync<ErrorBody>(Web, ct))?.Error == "proposal.unknown")
+                    Finish(id, "proposal.gone");
+                else log?.Invoke($"proposal {id}: read 404, kept");
+                return;
+            }
+            if (!get.IsSuccessStatusCode) { log?.Invoke($"proposal {id}: read {(int)get.StatusCode}"); return; }
             view = await get.Content.ReadFromJsonAsync<ProposalView>(Web, ct);
         }
         if (view?.Outcome == "recorded") { Finish(id, "recorded"); return; }
@@ -85,10 +117,13 @@ public sealed class SingularAgent(HttpClient http, TimeProvider clock, Action<st
         var batch = _pending[id] ??= await RunAsync(id, goal, ct);
         using var post = await http.PostAsync(Intake, new StringContent(batch.ToJsonString(), Encoding.UTF8, "application/json"), ct);
         var code = (int)post.StatusCode;
-        if (code is >= 400 and < 500 and not 408 and not 429) { Finish(id, $"refused {code}"); return; }
-        if (!post.IsSuccessStatusCode) return; // 5xx: the same lines next cycle
+        // Only a refusal of these lines ends it; a refused caller (401, 403, 404 `agent.only`), a throttle or a 5xx: the
+        // same lines next cycle.
+        if (code is 400 or 409 or 413 or 422) { Finish(id, $"refused {code}"); return; }
+        if (!post.IsSuccessStatusCode) { log?.Invoke($"proposal {id}: post {code}"); return; }
         var answer = await post.Content.ReadFromJsonAsync<IntakeAnswer>(Web, ct);
-        // 409: the proposal is unknown or not accepted (§7.4); any other refused item means these lines never pass.
+        // 409: the proposal is unknown or not accepted (§7.4); any other refused item means these lines never pass. A
+        // fail-closed 202 (`dropped`, no results) refuses nothing, so the lines go again.
         if (answer?.Results?.FirstOrDefault(r => r.Status >= 400) is { } refused) Finish(id, $"refused {refused.Status} {refused.Reason}");
         // Otherwise the next cycle's GET says whether the outcome is recorded; until then the same lines are re-sent.
     }
@@ -96,7 +131,7 @@ public sealed class SingularAgent(HttpClient http, TimeProvider clock, Action<st
     private void Finish(string id, string why)
     {
         _pending.Remove(id);
-        _done[id] = why;
+        _done.Add(id);
         log?.Invoke($"proposal {id}: {why}");
     }
 
@@ -120,7 +155,11 @@ public sealed class SingularAgent(HttpClient http, TimeProvider clock, Action<st
         return new JsonArray([.. lines.Events, outcome]);
     }
 
-    /// <summary>The capability's one read: member-wide `groups` where visibility = public. Only key and visibility are bound.</summary>
+    /// <summary>
+    /// The capability's one read: member-wide `groups` where visibility = public. Only key and visibility are bound; the
+    /// rest of each row (owner, other payload) arrives in the response buffer and is skipped (the data API has no field
+    /// selection), never bound, kept or sent.
+    /// </summary>
     private GroupsRead ReadGroups(CancellationToken ct)
     {
         try
@@ -133,13 +172,14 @@ public sealed class SingularAgent(HttpClient http, TimeProvider clock, Action<st
             var leaked = rows.Any(g => g.Payload?.Visibility != "public" || g.Key is not { Length: > 0 and <= 100 });
             return new(false, leaked, leaked ? [] : rows.Select(g => g.Key!).ToList());
         }
-        catch (Exception e) when (e is HttpRequestException or JsonException or TaskCanceledException && !ct.IsCancellationRequested)
+        catch (Exception) when (!ct.IsCancellationRequested)
         {
-            return new(true, false, []);
+            return new(true, false, []); // any failed read is an honest failure
         }
     }
 
     // The wire, bound field by field: nothing else is read (no subject, no owner, no payload but visibility).
+    private sealed record ErrorBody(string? Error);
     private sealed record ProposalList(List<ProposalView>? Proposals);
     private sealed record ProposalView(string? Id, string? CapabilityId, string? GoalId, string? Outcome);
     private sealed record IntakeAnswer(List<IntakeItem>? Results);
@@ -171,6 +211,8 @@ public sealed class GroupsWorld(Func<GroupsRead> read)
     protected override ActionOutcome Land(Tool tool, string? observation)
     {
         var r = read();
+        // Singular's filter, not this tool, served the non-public row; modelled as the tool claiming success the registry
+        // does not back, so the control layer finds it the way it finds any lie (Lied) and nothing is suggested.
         if (r.Leaked) return new(tool.Id, true, [], null);
         if (r.Failed || r.Keys.Count == 0) return new(tool.Id, false, [], null); // nothing to suggest is honest too
         Refs = r.Keys;
