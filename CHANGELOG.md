@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **The tray shows other programs' work** (issue #99): a program writes `<home>/status/<name>.json` (docs/status-file.md) and
+  the icon shows its line, its badge, a green dot while it works and an amber one when it stops answering. Read only: text
+  and checked links, no code is loaded.
 - **`samples/AxiAgent`: Creatura's agent client for Singular** (issue #91, CRE-02; Singular ADR-0108 §7 steps 3-4).
   Over HTTP only, one service key per tenant from the environment (never printed): it polls the accepted proposals at
   most once every 10 s (honouring `Retry-After`), runs the read-only `suggest-a-group` (`groups` where
