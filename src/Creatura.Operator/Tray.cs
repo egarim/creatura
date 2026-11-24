@@ -147,27 +147,29 @@ public static class TrayMenu
     public const int Width = 52;
 
     /// <summary>A line that fits a menu.</summary>
-    public static string Short(string text)
+    public static string Short(string text, int width = Width)
     {
         var line = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-        return line.Length > Width ? line[..(Width - 1)].TrimEnd() + "…" : line;
+        if (line.Length <= width) return line;
+        var cut = char.IsHighSurrogate(line[width - 2]) ? width - 2 : width - 1;
+        return line[..cut].TrimEnd() + "…";
     }
 
     public static string Title(ProgramStatus program) => Short($"{program.Name}: {program.Line}");
 
     public static string CreaturaTitle(TrayState state) => Short("Creatura"
-        + (state.Problem is not null ? ": not reading its cells" : state.Blocked + state.OffersWaiting > 0 ? $": {state.Blocked + state.OffersWaiting} waiting" : state.Warning ? ": hub not reached" : ""));
+        + (state.Problem is not null ? ": not reading its cells" : state.Blocked + state.OffersWaiting > 0 ? $": {state.Blocked + state.OffersWaiting} waiting" : state.Warning ? ": its hub needs a look" : ""));
 
     public static IReadOnlyList<string> Creatura(TrayState state)
     {
         var lines = new List<string>();
-        if (state.Problem is { } problem) lines.Add(Short(problem.StartsWith("could not run", StringComparison.Ordinal) ? "The creatura command is not installed here" : problem));
+        if (state.Problem is { } problem) lines.Add(Short(problem.StartsWith("could not run", StringComparison.Ordinal) ? "The creatura command could not be started here" : problem));
         else if (state.Cells.Count == 0) lines.Add("No cells in the ledger yet");
         if (state.Blocked > 0) lines.Add($"{state.Blocked} blocked");
         if (state.OffersWaiting > 0) lines.Add($"{state.OffersWaiting} offer{(state.OffersWaiting == 1 ? "" : "s")} waiting");
-        lines.AddRange(state.Cells.Take(15).Select(Short));
+        lines.AddRange(state.Cells.Take(15).Select(c => Short(c)));
         if (state.Cells.Count > 15) lines.Add($"and {state.Cells.Count - 15} more on the page");
-        lines.Add(Short(state.HubLine));
+        lines.Add(Short(state.HubLine, 90));
         return lines;
     }
 }
@@ -253,6 +255,17 @@ public static class TrayProgram
         <home>/status/ (docs/status-file.md).
         """;
 
+    /// <summary>The command this home has, when nothing else names one: not over CREATURA_CLI or one on the PATH, and only what can be started (a
+    /// shell script is not, on Windows; a command is split at its spaces).</summary>
+    public static string? HomeCommand(string root, string? named, string? path, bool windows)
+    {
+        if (!string.IsNullOrEmpty(named)) return null;
+        var name = windows ? "creatura.exe" : "creatura";
+        if ((path ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries).Any(d => File.Exists(Path.Combine(d, name)))) return null;
+        var own = Path.Combine(root, "bin", name);
+        return File.Exists(own) && !own.Contains(' ', StringComparison.Ordinal) ? own : null;
+    }
+
     public static TrayModel? Model(string[] args, TextWriter error, ICellCommand? cli = null, IPageHost? pages = null, IHubProbe? probe = null)
     {
         var home = new List<string>();
@@ -298,7 +311,7 @@ public static class TrayProgram
 
         var root = home.SkipWhile(a => a != "--home").Skip(1).FirstOrDefault() ?? Environment.GetEnvironmentVariable("CREATURA_HOME") ?? Creatura.Cells.CellHome.DefaultRoot;
         // Started from the desktop there is no shell's PATH: the command installed in this home is used when nothing is named.
-        command ??= new[] { "creatura", "creatura.exe", "creatura.cmd" }.Select(n => Path.Combine(root, "bin", n)).FirstOrDefault(File.Exists);
+        command ??= HomeCommand(root, Environment.GetEnvironmentVariable("CREATURA_CLI"), Environment.GetEnvironmentVariable("PATH"), OperatingSystem.IsWindows());
         web.AddRange(home);
         if (command is not null) web.AddRange(["--creatura", command]);
         if (creatura is not null) web.AddRange(["--as", creatura]);

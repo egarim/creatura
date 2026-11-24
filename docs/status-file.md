@@ -20,6 +20,6 @@ something changes, and often enough not to be stale; keep no history in it. Put 
 | `lines` | Up to 10 more lines. |
 | `waiting` | How many things wait for a person: in the badge. |
 | `staleAfterSeconds` | Older than this is "not answering since ..." (180 when missing or 0, a day at most). |
-| `link` | `https`, or `http` on 127.0.0.1 or localhost; opened by a click on the program's line. |
+| `link` | `https`, or `http` on 127.0.0.1 or localhost; opened by "Open" inside the program's line. |
 
 The tray reads at most 10 files of 64 KB and shows text of 100 characters a line. It writes nothing there and runs nothing from it.
