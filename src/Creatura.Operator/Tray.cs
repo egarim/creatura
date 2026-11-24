@@ -38,9 +38,9 @@ public sealed record TrayState(int Blocked, int OffersWaiting, bool Warning, str
     public string Tooltip =>
         "Creatura" + (Problem is not null ? ": " + Problem
             : Badge == 0 ? $", {Cells.Count} cell{(Cells.Count == 1 ? "" : "s")}, nothing waiting"
-            : $", {Badge} waiting ({Blocked} blocked, {OffersWaiting} offer{(OffersWaiting == 1 ? "" : "s")})")
-        + string.Concat(Programs.Where(p => p.Working || p.Warning).Select(p => $"; {p.Name}: {p.Line}"))
-        + (Warning ? "; " + HubLine : "");
+            : $", {Badge} waiting ({Blocked} blocked, {OffersWaiting} offer{(OffersWaiting == 1 ? "" : "s")}{(Programs.Sum(p => p.Waiting) is > 0 and var n ? $", {n} in programs" : "")})")
+        + (Warning ? "; " + HubLine : "")
+        + string.Concat(Programs.Where(p => p.Working || p.Warning).Take(1).Select(p => $"; {p.Name}: {p.Line}"));
 }
 
 /// <summary>
@@ -216,8 +216,8 @@ public static class TrayProgram
           creatura-tray [--home <dir>] [--store json|sqlite] [--as <creatura>] [--creatura <command>] [--hub <url>] [--port <n>] [--runs <dir>]...
 
         Click opens the console's page (creatura-console web) on 127.0.0.1, starting it when nothing answers on its
-        port (default 7358). The badge counts blocked cells and offers not yet taken; a dot warns when the hub does not
-        answer or has not been synced with for ten minutes. The menu lists the cells, syncs now (creatura cell sync),
+        port (default 7358). The badge counts blocked cells, offers not yet taken and what programs wait for; an amber dot
+        warns when the hub or a program does not answer; a green one says a program is working. The menu lists the cells, syncs now (creatura cell sync),
         and quits, which stops only the page the tray started. It also shows any program that writes a status file in
         <home>/status/ (docs/status-file.md).
         """;

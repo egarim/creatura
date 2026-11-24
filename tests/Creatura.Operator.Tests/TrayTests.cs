@@ -143,6 +143,28 @@ public class TrayTests
     public void Status_T4_ABrokenFileIsOneLineWithAWarning(string text) => Assert.True(Assert.Single(InHome(h => Drawn(h, new Cli()), ("a.json", text)).Programs).Warning);
 
     [Fact]
+    public void Status_T4_AFileAsAWindowsShellWritesItIsRead()
+    {
+        var home = Directory.CreateTempSubdirectory("creatura-status-");
+        try
+        {
+            var folder = Directory.CreateDirectory(Path.Combine(home.FullName, "status")).FullName;
+            foreach (var encoding in new System.Text.Encoding[] { new System.Text.UTF8Encoding(true), System.Text.Encoding.Unicode })
+            {
+                File.WriteAllText(Path.Combine(folder, "a.json"), Status(new { format = 1, state = "idle", line = "ok", updatedAt = Now }), encoding);
+                Assert.Equal(("ok", false), (Drawn(home.FullName, new Cli()).Programs[0].Line, Drawn(home.FullName, new Cli()).Dot));
+            }
+
+            File.WriteAllText(Path.Combine(folder, "b.tmp.json"), "{");
+            Assert.Single(Drawn(home.FullName, new Cli()).Programs);
+        }
+        finally
+        {
+            home.Delete(true);
+        }
+    }
+
+    [Fact]
     public void Status_T4_HugeManyAndHostileFilesAreBounded()
     {
         Assert.True(InHome(h => Drawn(h, new Cli()), ("a.json", Status(new { format = 1, line = new string('x', 70_000), updatedAt = Now }))).Programs[0].Warning);

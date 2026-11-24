@@ -34,7 +34,7 @@ public static class ProgramStatuses
         {
             var folder = Path.Combine(root, "status");
             if (!Directory.Exists(folder)) return [];
-            files = [.. Directory.EnumerateFiles(folder, "*.json").Order(StringComparer.Ordinal).Take(MaxFiles + 1)];
+            files = [.. Directory.EnumerateFiles(folder, "*.json").Where(f => !f.EndsWith(".tmp.json", StringComparison.OrdinalIgnoreCase)).Order(StringComparer.Ordinal).Take(MaxFiles + 1)];
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -77,13 +77,15 @@ public static class ProgramStatuses
         }
     }
 
-    /// <summary>The file's bytes, or null when there are more than the limit. Read while its program may be replacing it.</summary>
-    private static byte[]? Content(string file)
+    /// <summary>The file's text (UTF-8, or UTF-16 with its mark, as a Windows shell writes it), or null when there are more than the limit. Read while its program may be replacing it.</summary>
+    private static string? Content(string file)
     {
         using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         var buffer = new byte[MaxBytes + 1];
         var read = stream.ReadAtLeast(buffer, buffer.Length, throwOnEndOfStream: false);
-        return read > MaxBytes ? null : buffer[..read];
+        if (read > MaxBytes) return null;
+        using var text = new StreamReader(new MemoryStream(buffer, 0, read), System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        return text.ReadToEnd();
     }
 
     private static ProgramStatus Unreadable(string name, string why) => new(name, why, false, 0, true, [], null);
