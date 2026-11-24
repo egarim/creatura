@@ -27,8 +27,11 @@ agent tools around it, as hosts and as cells.
 - [The cognitive graph](cognitive-graph/architecture.md): typed knowledge that outlives a run — entities and
   relationships in six categories, each carrying its provenance, its validity period, how well it is supported and
   who may read it, bounded in memory and optional (the contracts, the store, the governance rules and the agent
-  extension built; the G01–G14 fixtures and the four experimental arms are
-  [#110](https://github.com/egarim/creatura/issues/110), and nothing has been measured yet).
+  extension built; issues [#109](https://github.com/egarim/creatura/issues/109) and
+  [#110](https://github.com/egarim/creatura/issues/110)). Benchmarked against three other memory architectures in
+  [the results](cognitive-graph/results.md), by [the methodology](cognitive-graph/experimental-methodology.md) that
+  was written down first, with [the data model](cognitive-graph/data-model.md),
+  [the security account](cognitive-graph/security.md) and [the roadmap](cognitive-graph/roadmap.md) beside them.
 - [The control layer on the phone](design-mobile.md): a TypeScript port beside an on-device model, for Expo apps,
   and a router, world model and adapter trained from big models in the app's emulated world (S1, the port, and T0, the
   maths tutor's emulated world, built; the rest proposed).

@@ -3,13 +3,13 @@ using System.Reflection;
 namespace Creatura.Tests;
 
 /// <summary>
-/// The six package-free projects stay package-free: no <c>PackageReference</c> in their project files, and no
+/// The seven package-free projects stay package-free: no <c>PackageReference</c> in their project files, and no
 /// reference from their assemblies to an agent framework, a model abstraction or a provider SDK. The two hosts
 /// (<c>Creatura.Hosts.AgentFramework</c> and <c>Creatura.Hosts.SemanticKernel</c>) bring their frameworks; nothing here may need either.
 /// </summary>
 public class CorePurityTest
 {
-    public static TheoryData<string> PackageFreeProjects => ["Creatura", "Creatura.Worlds", "Creatura.Bench", "Creatura.Seats", "Creatura.Ratings", "Creatura.Graph"];
+    public static TheoryData<string> PackageFreeProjects => ["Creatura", "Creatura.Worlds", "Creatura.Bench", "Creatura.Seats", "Creatura.Ratings", "Creatura.Graph", "Creatura.Graph.Bench"];
 
     private static readonly string[] ForbiddenPrefixes = ["Microsoft.Agents.", "Microsoft.Extensions.AI", "Microsoft.SemanticKernel"];
 
@@ -27,6 +27,7 @@ public class CorePurityTest
         "Creatura.Seats" => typeof(Seats.ModelPolicy).Assembly,
         "Creatura.Ratings" => typeof(Ratings.WengLin).Assembly,
         "Creatura.Graph" => typeof(Creatura.Graph.InMemoryGraphStore).Assembly,
+        "Creatura.Graph.Bench" => typeof(Creatura.Graph.Bench.Scenarios).Assembly,
         _ => throw new ArgumentException(project),
     };
 

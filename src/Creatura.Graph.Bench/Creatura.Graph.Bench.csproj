@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Creatura.Graph.Bench</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The cognitive graph benchmark (issue #110): the G01-G14 fixtures with hidden ground truth, the four memory
+         arms that differ only in how they retrieve, and the runner that scores them. No packages
+         (CorePurityTest). It sits beside Creatura.Bench rather than inside it so that the bench stays free of the
+         graph and the graph stays free of the bench: only this project knows about both. -->
+    <ProjectReference Include="../Creatura/Creatura.csproj" />
+    <ProjectReference Include="../Creatura.Bench/Creatura.Bench.csproj" />
+    <ProjectReference Include="../Creatura.Graph/Creatura.Graph.csproj" />
+  </ItemGroup>
+
+</Project>
