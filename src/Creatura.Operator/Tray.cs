@@ -141,6 +141,37 @@ public sealed class TrayModel(FleetModel? fleet, IPageHost pages, IHubProbe prob
     }
 }
 
+/// <summary>The words of the tray's menu: one short line per program, and one for Creatura itself.</summary>
+public static class TrayMenu
+{
+    public const int Width = 52;
+
+    /// <summary>A line that fits a menu.</summary>
+    public static string Short(string text)
+    {
+        var line = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return line.Length > Width ? line[..(Width - 1)].TrimEnd() + "…" : line;
+    }
+
+    public static string Title(ProgramStatus program) => Short($"{program.Name}: {program.Line}");
+
+    public static string CreaturaTitle(TrayState state) => Short("Creatura"
+        + (state.Problem is not null ? ": not reading its cells" : state.Blocked + state.OffersWaiting > 0 ? $": {state.Blocked + state.OffersWaiting} waiting" : state.Warning ? ": hub not reached" : ""));
+
+    public static IReadOnlyList<string> Creatura(TrayState state)
+    {
+        var lines = new List<string>();
+        if (state.Problem is { } problem) lines.Add(Short(problem.StartsWith("could not run", StringComparison.Ordinal) ? "The creatura command is not installed here" : problem));
+        else if (state.Cells.Count == 0) lines.Add("No cells in the ledger yet");
+        if (state.Blocked > 0) lines.Add($"{state.Blocked} blocked");
+        if (state.OffersWaiting > 0) lines.Add($"{state.OffersWaiting} offer{(state.OffersWaiting == 1 ? "" : "s")} waiting");
+        lines.AddRange(state.Cells.Take(15).Select(Short));
+        if (state.Cells.Count > 15) lines.Add($"and {state.Cells.Count - 15} more on the page");
+        lines.Add(Short(state.HubLine));
+        return lines;
+    }
+}
+
 /// <summary>The console's page run in this process (<see cref="ConsoleProgram.Web"/>), and opened in the default browser.</summary>
 public sealed class ConsolePageHost(IReadOnlyList<string> webArgs) : IPageHost
 {
@@ -266,6 +297,8 @@ public static class TrayProgram
         }
 
         var root = home.SkipWhile(a => a != "--home").Skip(1).FirstOrDefault() ?? Environment.GetEnvironmentVariable("CREATURA_HOME") ?? Creatura.Cells.CellHome.DefaultRoot;
+        // Started from the desktop there is no shell's PATH: the command installed in this home is used when nothing is named.
+        command ??= new[] { "creatura", "creatura.exe", "creatura.cmd" }.Select(n => Path.Combine(root, "bin", n)).FirstOrDefault(File.Exists);
         web.AddRange(home);
         if (command is not null) web.AddRange(["--creatura", command]);
         if (creatura is not null) web.AddRange(["--as", creatura]);
