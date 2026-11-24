@@ -31,6 +31,8 @@
     <ProjectReference Include="..\..\src\Creatura.Bench\Creatura.Bench.csproj" />
     <ProjectReference Include="..\..\src\Creatura.Seats\Creatura.Seats.csproj" />
     <ProjectReference Include="..\..\src\Creatura.Ratings\Creatura.Ratings.csproj" />
+    <!-- Creatura.Graph is package-free too, and CorePurityTest says so by name. -->
+    <ProjectReference Include="..\..\src\Creatura.Graph\Creatura.Graph.csproj" />
     <!-- creatura rate is tested here beside the ratings it prints. -->
     <ProjectReference Include="..\..\src\Creatura.Cli\Creatura.Cli.csproj" />
     <!-- AXI (#90): the sample is run as a process; the reference builds it and copies it beside the tests. -->

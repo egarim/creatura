@@ -24,6 +24,7 @@
   <PropertyGroup>
     <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Bench'">Where a Creatura design is trained and tested: oracles that judge a run by evidence the agent cannot author, pre-registered batteries of hypotheses, the trainer and the exam over the record store. No package dependencies.</Description>
     <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Cells'">Identity and a shared, signed work ledger for Creatura agents: each agent gets a key bound to its machine and endorsed by an owner, and every entry is verified on merge. No package dependencies.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Graph'">Optional typed knowledge for a Creatura agent: entities and relationships in six categories, each with its provenance, its validity period, its support and its access scope, bounded in memory. No package dependencies.</Description>
     <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Cells.Sqlite'">The Creatura work ledger in SQLite, in place of the default JSON file. A save writes only the entries that are new.</Description>
     <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Cells.Sync'">The Creatura work ledger over SyncFramework: push to and pull from a ledger hub, with every request signed by its cell and every entry verified before it is merged.</Description>
     <Description Condition="'$(MSBuildProjectName)' == 'Creatura.Cli'">The creatura command as a .NET tool: start a Creatura project, try a design with no code, check your setup, and run this machine's cell (claims, the signed work ledger, offers, sync and the Claude Code hooks).</Description>
@@ -40,6 +41,7 @@
     <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Hosts.SemanticKernel'">$(PackageTags);semantic-kernel;ichatclient;filters</PackageTags>
     <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Seats'">$(PackageTags);openai;ollama;deepseek;azure</PackageTags>
     <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Bench'">$(PackageTags);benchmark;evaluation;training</PackageTags>
+    <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Graph'">$(PackageTags);knowledge-graph;memory;provenance;retrieval</PackageTags>
     <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Cells' or '$(MSBuildProjectName)' == 'Creatura.Cells.Sqlite' or '$(MSBuildProjectName)' == 'Creatura.Cells.Sync'">$(PackageTags);identity;ledger;ecdsa;multi-agent</PackageTags>
     <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Cells.Sqlite'">$(PackageTags);sqlite</PackageTags>
     <PackageTags Condition="'$(MSBuildProjectName)' == 'Creatura.Cells.Sync'">$(PackageTags);sync;syncframework</PackageTags>

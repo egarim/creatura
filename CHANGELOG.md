@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+- **`Creatura.Graph`: an optional cognitive graph** (issue #109). Typed knowledge that outlives a run — nodes and
+  relationships in six categories (semantic, episodic, causal, task, social, environmental), each carrying where it
+  came from (`GraphProvenance`, pointing at a `SignedEntry` when it came through a cell), when it was true
+  (`GraphStamp`, with a validity window that no clock is read to decide), how well it is supported (`GraphSupport`,
+  as counts and a rate in the shape of `SkillBelief`, never a stored float), who may read it (`GraphScope`, behind
+  an `IGraphAccessPolicy`), and which revision of itself it is. A verification ladder runs hypothesis < inferred <
+  claimed < observed < verified, and what a model asserts is claimed and never observed. An exclusive relation held
+  two ways at once contradicts and keeps both sides rather than letting whichever source spoke last win; a relation
+  in time (`preceded`, `coincidedWith`) cannot be verified into a cause at all; an agent may not verify its own
+  claim; deleted knowledge leaves a tombstone and does not come back, not even by re-importing the snapshot it came
+  from. Traversal is bounded on depth, nodes, edges, duration and results, the visited set cannot be switched off,
+  and a `GraphWalk` says which bound stopped it, because "the answer was not there" and "the answer was past the
+  bound" are different findings. Free text is redacted on the way in by the ledger's own `Scrubber` and asserted
+  canary-free out of storage, exports and the audit trail; identifiers are not redacted, so a credential-shaped one
+  is refused instead. `LineExtractor` reads a fixture corpus deterministically with no model and caps what a corpus
+  may claim about its own reliability by who vouches for it. `GraphMemoryExtension` is the whole of the integration:
+  bounded, labelled knowledge in the seat's notes, a tool withheld when the task graph says it is still blocked, and
+  an episode kept for a failure — and it may narrow what an agent is offered and never widen it, so poisoned
+  knowledge can make an agent do less and cannot make it do something the world did not allow. Package-free, so it
+  joins `CorePurityTest`, and the Core does not reference it: an agent that loads no graph extension is the agent
+  that always existed, which a test asserts rather than a comment. Nothing has been benchmarked yet; the G01–G14
+  fixtures and the four experimental arms are issue #110. Docs: `docs/cognitive-graph/architecture.md`,
+  `data-model.md`, `security.md`.
 - **The tray shows other programs' work** (issue #99): a program writes `<home>/status/<name>.json` (docs/status-file.md) and
   the icon shows its line, its badge, a green dot while it works and an amber one when it stops answering. Read only: text
   and checked links, no code is loaded.
