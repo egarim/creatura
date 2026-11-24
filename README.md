@@ -9,6 +9,44 @@
 
 <p align="center">Creatura is a C# framework for building AI agents, training them, and testing them in emulated worlds before they touch the real one.</p>
 
+## Embodiment: intelligence meets the world
+
+A creature needs more than cognition: it needs a way to perceive its environment and act upon it. [Sentiora Terminal](https://github.com/egarim/sentiora-terminal) is the first planned independent sensorimotor organ for terminal applications. A Vessel hosts the creature; an organ provides a capability; a World defines observations, actions and effects. The existing dependency-free core remains unchanged.
+
+```mermaid
+flowchart TB
+    subgraph H["VIVARIUM · habitat and supervision"]
+        subgraph V["VESSEL · computational host"]
+            C["CREATURA<br/>Mind · goals · regulation"]
+            W["World adapter<br/>Creatura.Worlds.Terminal · planned"]
+            subgraph S["SENTIORA TERMINAL · sensorimotor organ"]
+                P["Sensory<br/>Screen · cursor · revisions"]
+                M["Motor<br/>Text · keys · resize"]
+            end
+            C -->|Intention| W
+            W -->|Authorized action| M
+            P -->|Observation| W
+            W -->|Feedback| C
+        end
+    end
+    M -->|Input| T["TERMINAL WORLD<br/>Interactive application"]
+    T -->|Output| P
+    T -.-> J["Independent judge<br/>Actual task outcome"]
+    J -.-> C
+    classDef mind fill:#ede9fe,stroke:#7952b3,color:#302050
+    classDef sense fill:#ccfbf1,stroke:#0d9488,color:#134e4a
+    classDef world fill:#e2e8f0,stroke:#64748b,color:#1e293b
+    class C mind
+    class P,M sense
+    class W,T,J world
+```
+
+**Creatura thinks. Sentiora senses and acts. The Vessel hosts. The World responds.**
+
+This is the intended embodiment architecture, not a claim that the integration is already shipped. Sentiora is an independent runtime; the World adapter and independent task judge belong to the Creatura integration. Vivarium represents the supervisory habitat, not a required runtime dependency.
+
+See [the integration design epic](https://github.com/egarim/creatura/issues/101) and [documentation plan](https://github.com/egarim/creatura/issues/105).
+
 ## Watch
 
 Short videos, each under 75 seconds, narrated by the author.
