@@ -48,7 +48,9 @@ internal sealed class TrayApp : Application
     {
         _icon.Icon = new WindowIcon(Badged(state.Badge, state.Dot, state.Working));
         _icon.ToolTipText = state.Tooltip;
-        var menu = new NativeMenu();
+        // The same menu, its items replaced: macOS refuses another menu on an icon that has one (it ended the program).
+        var menu = _icon.Menu!;
+        menu.Items.Clear();
         menu.Add(Item("Open Creatura", Open));
         foreach (var program in state.Programs)
         {
@@ -69,7 +71,6 @@ internal sealed class TrayApp : Application
         menu.Add(Item("Sync now", SyncNow));
         menu.Add(new NativeMenuItemSeparator());
         menu.Add(Item("Quit", Quit));
-        _icon.Menu = menu;
     }
 
     private static NativeMenuItem Item(string header, Action? click)
