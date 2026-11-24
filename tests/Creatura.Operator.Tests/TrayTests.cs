@@ -180,6 +180,46 @@ public class TrayTests
     }
 
     [Fact]
+    public void TheHomesOwnCommandIsUsedOnlyWhenNothingElseNamesOne()
+    {
+        var home = Directory.CreateTempSubdirectory("creatura-home-");
+        try
+        {
+            var bin = Directory.CreateDirectory(Path.Combine(home.FullName, "bin")).FullName;
+            foreach (var n in new[] { "creatura", "creatura.exe" }) File.WriteAllText(Path.Combine(bin, n), "");
+            Assert.Equal(Path.Combine(bin, "creatura"), TrayProgram.HomeCommand(home.FullName, null, "", false));
+            Assert.Equal(Path.Combine(bin, "creatura.exe"), TrayProgram.HomeCommand(home.FullName, null, null, true));
+            Assert.Null(TrayProgram.HomeCommand(home.FullName, "/opt/creatura", "", false));
+            Assert.Null(TrayProgram.HomeCommand(home.FullName, null, bin, false));
+            File.Delete(Path.Combine(bin, "creatura.exe"));
+            Assert.Null(TrayProgram.HomeCommand(home.FullName, null, "", true));
+            var spaced = Directory.CreateDirectory(Path.Combine(home.FullName, "a b", "bin")).FullName;
+            File.WriteAllText(Path.Combine(spaced, "creatura"), "");
+            Assert.Null(TrayProgram.HomeCommand(Path.Combine(home.FullName, "a b"), null, "", false));
+        }
+        finally
+        {
+            home.Delete(true);
+        }
+    }
+
+    [Fact]
+    public void Menu_EveryLineIsShortAndErrorsArePlain()
+    {
+        var long1 = new string('x', 300);
+        var state = new TrayState(1, 2, true, "Hub: " + long1, [.. Enumerable.Repeat(long1, 20)], "could not run 'creatura': An error occurred trying to start process " + long1)
+        {
+            Programs = [new ProgramStatus("Vivarium", "building T-FW-08, 9 min " + long1, true, 0, false, [], null)],
+        };
+        var lines = TrayMenu.Creatura(state).Append(TrayMenu.CreaturaTitle(state)).Append(TrayMenu.Title(state.Programs[0])).ToList();
+        Assert.All(lines, l => Assert.InRange(l.Length, 1, l.StartsWith("Hub", StringComparison.Ordinal) ? 90 : TrayMenu.Width));
+        Assert.Contains("The creatura command could not be started here", lines);
+        Assert.StartsWith("Vivarium: building T-FW-08, 9 min", TrayMenu.Title(state.Programs[0]));
+        Assert.Equal("Creatura", TrayMenu.CreaturaTitle(new TrayState(0, 0, false, "Hub: h reachable", ["a: idle"], null)));
+        Assert.Equal("Creatura: 2 waiting", TrayMenu.CreaturaTitle(new TrayState(1, 1, false, "Hub", [], null)));
+    }
+
+    [Fact]
     public void Status_T5_WithNoCellTheProgramsAreStillShown()
     {
         var state = InHome(h => Drawn(h), ("a.json", Status(new { format = 1, name = "A", state = "idle", updatedAt = Now })));

@@ -48,29 +48,37 @@ internal sealed class TrayApp : Application
     {
         _icon.Icon = new WindowIcon(Badged(state.Badge, state.Dot, state.Working));
         _icon.ToolTipText = state.Tooltip;
-        var menu = new NativeMenu();
-        menu.Add(Item("Open Creatura", Open));
+        // The same menu, its items replaced: macOS refuses another menu on an icon that has one (it ended the program).
+        var menu = _icon.Menu!;
+        menu.Items.Clear();
         foreach (var program in state.Programs)
         {
-            menu.Add(Item($"{program.Name}: {program.Line}", program.Link is { } link ? () => Task.Run(() => Model.Open(link)) : null));
-            foreach (var line in program.Lines) menu.Add(Item("    " + line, null));
+            var inside = new NativeMenu();
+            foreach (var line in program.Lines) inside.Add(Item(line, null));
+            if (program.Link is { } link)
+            {
+                if (program.Lines.Count > 0) inside.Add(new NativeMenuItemSeparator());
+                inside.Add(Item($"Open {program.Name}", () => Task.Run(() => Model.Open(link))));
+            }
+
+            menu.Add(Under(TrayMenu.Title(program), inside));
         }
 
-        if (state.Programs.Count > 0) menu.Add(new NativeMenuItemSeparator());
-        if (state.Problem is { } problem) menu.Add(Item(problem, null));
-        if (state.Blocked + state.OffersWaiting > 0) menu.Add(Item($"Waiting ({state.Blocked + state.OffersWaiting}): {state.Blocked} blocked, {state.OffersWaiting} offer{(state.OffersWaiting == 1 ? "" : "s")}", Open));
-        if (_note is not null) menu.Add(Item(_note, null));
-        menu.Add(new NativeMenuItemSeparator());
-        if (state.Cells.Count == 0 && state.Problem is null) menu.Add(Item("No cells in the ledger yet", null));
-        foreach (var cell in state.Cells.Take(15)) menu.Add(Item(cell, null));
-        if (state.Cells.Count > 15) menu.Add(Item($"and {state.Cells.Count - 15} more on the page", Open));
-        menu.Add(new NativeMenuItemSeparator());
-        menu.Add(Item(state.HubLine, null));
-        menu.Add(Item("Sync now", SyncNow));
+        // Creatura's own part is one line: its cells, hub and errors are inside it.
+        var own = new NativeMenu();
+        own.Add(Item("Open Creatura", Open));
+        own.Add(new NativeMenuItemSeparator());
+        foreach (var line in TrayMenu.Creatura(state)) own.Add(Item(line, null));
+        if (_note is not null) own.Add(Item(TrayMenu.Short(_note), null));
+        own.Add(new NativeMenuItemSeparator());
+        own.Add(Item("Sync now", SyncNow));
+        menu.Add(Under(TrayMenu.CreaturaTitle(state), own));
         menu.Add(new NativeMenuItemSeparator());
         menu.Add(Item("Quit", Quit));
-        _icon.Menu = menu;
     }
+
+    private static NativeMenuItem Under(string header, NativeMenu inside) =>
+        inside.Items.Count > 0 ? new NativeMenuItem(header) { Menu = inside } : Item(header, null);
 
     private static NativeMenuItem Item(string header, Action? click)
     {
