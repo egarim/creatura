@@ -7,7 +7,17 @@
 
 <h1 align="center">Creatura</h1>
 
-<p align="center">Creatura is a C# framework for building AI agents, training them, and testing them in emulated worlds before they touch the real one.</p>
+<p align="center"><strong>An experimental framework for artificial cognition.</strong></p>
+
+Creatura is a C# framework for building AI agents, training them, and testing them in emulated worlds before they touch the real one. Its research goal is to understand how artificial entities perceive, reason, remember, regulate, adapt and act — not merely to orchestrate language models.
+
+## Why Creatura?
+
+A language model is a component of cognition, not necessarily the entire cognitive system. Creatura makes cognitive architecture an experimental variable: compare regulators and memory designs in controlled worlds, verify outcomes independently, and let evidence guide architectural decisions.
+
+**Hypothesis → Experiment → Evidence → Architectural decision.**
+
+Read the [artificial cognition mission and research principles](docs/artificial-cognition.md) for our research program, differentiation and experimental standards.
 
 ## Embodiment: intelligence meets the world
 
