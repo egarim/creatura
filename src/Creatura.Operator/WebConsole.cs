@@ -15,9 +15,10 @@ namespace Creatura.Operator;
 
 /// <summary>
 /// What the page may write: an offer only on the owner's vessel (<paramref name="CanOffer"/>; otherwise <paramref name="OfferNote"/>
-/// says where offers are made), and a file attached to one only with a hub to hold it (<paramref name="Hub"/>).
+/// says where offers are made), and a file attached to one only with a hub to hold it (<paramref name="Hub"/>). Other programs'
+/// work on this computer is read from their status files under <paramref name="Root"/> (issue #99), when it is given.
 /// </summary>
-public sealed record WebOptions(bool CanOffer = true, string? OfferNote = null, string? Hub = null);
+public sealed record WebOptions(bool CanOffer = true, string? OfferNote = null, string? Hub = null, string? Root = null);
 
 /// <summary>
 /// The console as a page (docs/design-console.md, U5): the Fleet and the Run view in a browser, served on 127.0.0.1
@@ -200,9 +201,26 @@ public sealed class WebConsole : IAsyncDisposable
         return origin.Length == 0 || origin == $"http://127.0.0.1:{Address.Port}" || origin == $"http://localhost:{Address.Port}";
     }
 
+    /// <summary>The programs of this computer, as the tray shows them.</summary>
+    private JsonArray Programs()
+    {
+        var all = new JsonArray();
+        foreach (var p in _options.Root is { } root ? ProgramStatuses.Read(root, DateTimeOffset.UtcNow) : [])
+        {
+            all.Add(new JsonObject
+            {
+                ["name"] = p.Name, ["line"] = p.Line, ["working"] = p.Working, ["waiting"] = p.Waiting, ["warning"] = p.Warning,
+                ["lines"] = new JsonArray([.. p.Lines.Select(l => (JsonNode)l)]), ["link"] = p.Link?.ToString(),
+            });
+        }
+
+        return all;
+    }
+
     private JsonObject State()
     {
         var fleet = Fleet();
+        var programs = Programs();
         var cells = new JsonArray();
         foreach (var r in fleet.Rows)
         {
@@ -239,7 +257,7 @@ public sealed class WebConsole : IAsyncDisposable
             ["offerNote"] = _options.OfferNote,
             ["hub"] = _options.Hub,
             ["problem"] = fleet.Problem,
-            ["cells"] = cells,
+            ["programs"] = programs, ["cells"] = cells,
             ["runs"] = new JsonArray([.. _runs.List().Select(r => (JsonNode)new JsonObject
             {
                 ["id"] = r.Id,

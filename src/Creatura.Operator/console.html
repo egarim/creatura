@@ -183,6 +183,12 @@ button { cursor: pointer; }
 .welcome { max-width: 760px; margin: 0 auto; padding: 64px 24px 40px; }
 .welcome .hero { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
 .welcome .hero img { width: 44px; height: 44px; }
+/* The emblem is dark ink: on any theme it stands on its own paper. */
+.brand img, .welcome .hero img { background: #f3efe6; border-radius: 22%; padding: 3px; box-sizing: border-box; }
+.program { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; display: flex; gap: 12px; align-items: flex-start; }
+.program .who { min-width: 0; flex: 1; }
+.program .sub { overflow-wrap: anywhere; }
+.program a { color: inherit; }
 .welcome h2 { font-size: 26px; letter-spacing: -.02em; margin: 0; font-weight: 650; }
 .welcome p.lead { color: var(--muted); margin: 6px 0 26px; }
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 26px; }
@@ -315,7 +321,7 @@ function renderSide() {
   const fleetHead = el("div", "section"); fleetHead.append(el("span", null, "Fleet"), el("span", null, state.home ? String(state.cells.length) : ""));
   lists.append(fleetHead);
   if (!state.home) lists.append(el("div", "empty-note", "No home here: start it on a vessel with a cell to see the Fleet."));
-  else if (state.problem) lists.append(el("div", "empty-note", "The Fleet could not be read."));
+  else if (state.problem) lists.append(el("div", "empty-note", "Its cells cannot be read here."));
   else if (!cells.length) lists.append(el("div", "empty-note", q ? "No cell matches." : "No cells in this ledger yet."));
   for (const c of cells) {
     const b = el("button", "item" + (route && route.kind === "cell" && route.id === c.cell ? " active" : ""));
@@ -328,7 +334,7 @@ function renderSide() {
 
   const runHead = el("div", "section"); runHead.append(el("span", null, "Runs"), el("span", null, String(state.runs.length)));
   lists.append(runHead);
-  if (!runs.length) lists.append(el("div", "empty-note", q ? "No run matches." : "No runs: start with --runs <folder> to list replays, recordings and records."));
+  if (!runs.length) lists.append(el("div", "empty-note", q ? "No run matches." : "No runs to show."));
   for (const r of runs) {
     const b = el("button", "item" + (route && route.kind === "run" && route.id === r.id ? " active" : ""));
     b.onclick = () => location.hash = "#/run/" + r.id;
@@ -350,7 +356,19 @@ function renderWelcome() {
   const hero = el("div", "hero"); const img = el("img"); img.src = "icon.svg"; img.alt = "";
   hero.append(img, el("h2", null, "Your creatures"));
   w.append(hero, el("p", "lead", "Who is working on what, and every run, step by step: what each saw, decided, did and was told, and what the judge found."));
-  if (state.problem) w.append(el("div", "problem", "The Fleet could not be read: " + state.problem));
+  for (const p of state.programs || []) {
+    const b = el("div", "program");
+    const who = el("div", "who"); who.append(el("div", "name", p.name + ": " + p.line));
+    for (const line of p.lines) who.append(el("div", "sub", line));
+    if (p.link) { const a = el("a", "sub", "Open " + p.name); a.href = p.link; a.target = "_blank"; a.rel = "noopener noreferrer"; who.append(a); }
+    b.append(el("i", "dot " + (p.warning ? "alarm" : p.working ? "work" : "idle")), who);
+    w.append(b);
+  }
+  if (state.problem) {
+    const d = el("details", "problem");
+    d.append(el("summary", null, "Creatura's own cells cannot be read on this computer."), el("div", null, state.problem));
+    w.append(d);
+  }
   const atWork = state.cells.filter(c => c.claim && !c.quiet).length;
   const trouble = state.cells.filter(c => c.look === "alarm").length;
   const stats = el("div", "stats");
