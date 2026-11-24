@@ -259,7 +259,7 @@ public static class TrayProgram
     /// shell script is not, on Windows; a command is split at its spaces).</summary>
     public static string? HomeCommand(string root, string? named, string? path, bool windows)
     {
-        if (!string.IsNullOrEmpty(named)) return null;
+        if (!string.IsNullOrWhiteSpace(named)) return null;
         var name = windows ? "creatura.exe" : "creatura";
         if ((path ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries).Any(d => File.Exists(Path.Combine(d, name)))) return null;
         var own = Path.Combine(root, "bin", name);
