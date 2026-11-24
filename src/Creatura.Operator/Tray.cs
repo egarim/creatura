@@ -24,14 +24,23 @@ public interface IHubProbe
 /// <summary>What the tray shows: the badge count, the warning dot, and the lines of its menu.</summary>
 public sealed record TrayState(int Blocked, int OffersWaiting, bool Warning, string HubLine, IReadOnlyList<string> Cells, string? Problem)
 {
-    /// <summary>The badge: what is waiting for someone, blocked cells and offers not yet taken.</summary>
-    public int Badge => Blocked + OffersWaiting;
+    /// <summary>Other programs' work on this computer, from their status files.</summary>
+    public IReadOnlyList<ProgramStatus> Programs { get; init; } = [];
+
+    public bool Working => Programs.Any(p => p.Working);
+
+    /// <summary>The warning dot: the hub, or a program that does not answer.</summary>
+    public bool Dot => Warning || Problem is not null || Programs.Any(p => p.Warning);
+
+    /// <summary>The badge: what is waiting for someone, blocked cells, offers not yet taken and what programs wait for.</summary>
+    public int Badge => Blocked + OffersWaiting + Programs.Sum(p => p.Waiting);
 
     public string Tooltip =>
         "Creatura" + (Problem is not null ? ": " + Problem
             : Badge == 0 ? $", {Cells.Count} cell{(Cells.Count == 1 ? "" : "s")}, nothing waiting"
-            : $", {Badge} waiting ({Blocked} blocked, {OffersWaiting} offer{(OffersWaiting == 1 ? "" : "s")})")
-        + (Warning ? "; " + HubLine : "");
+            : $", {Badge} waiting ({Blocked} blocked, {OffersWaiting} offer{(OffersWaiting == 1 ? "" : "s")}{(Programs.Sum(p => p.Waiting) is > 0 and var n ? $", {n} in programs" : "")})")
+        + (Warning ? "; " + HubLine : "")
+        + string.Concat(Programs.Where(p => p.Working || p.Warning).Take(1).Select(p => $"; {p.Name}: {p.Line}"));
 }
 
 /// <summary>
@@ -40,8 +49,8 @@ public sealed record TrayState(int Blocked, int OffersWaiting, bool Warning, str
 /// and syncs on request. Like the console it holds no key and opens no store: a sync is <c>creatura cell sync</c>'s
 /// own work, and quitting stops only the page it started.
 /// </summary>
-public sealed class TrayModel(FleetModel? fleet, IPageHost pages, IHubProbe probe, string? hub, int port = 7358, Func<DateTimeOffset?>? lastSync = null)
-    : IAsyncDisposable
+public sealed class TrayModel(FleetModel? fleet, IPageHost pages, IHubProbe probe, string? hub, int port = 7358, Func<DateTimeOffset?>? lastSync = null,
+    Func<DateTimeOffset, IReadOnlyList<ProgramStatus>>? programs = null) : IAsyncDisposable
 {
     /// <summary>A hub not synced with for this long is stale: the sync agents run every minute (launchd-config's default).</summary>
     public static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(10);
@@ -57,7 +66,16 @@ public sealed class TrayModel(FleetModel? fleet, IPageHost pages, IHubProbe prob
 
     public TrayState Refresh(DateTimeOffset? now = null)
     {
-        var (hubLine, hubWarning) = HubStatus(now ?? DateTimeOffset.UtcNow);
+        var at = now ?? DateTimeOffset.UtcNow;
+        return Cells(at) with { Programs = programs?.Invoke(at) ?? [] };
+    }
+
+    /// <summary>Opens a program's own link, which the reader checked.</summary>
+    public void Open(Uri link) => pages.Show(link);
+
+    private TrayState Cells(DateTimeOffset now)
+    {
+        var (hubLine, hubWarning) = HubStatus(now);
         if (fleet is null) return new TrayState(0, 0, hubWarning, hubLine, [], "no cell in this home: run creatura cell init");
         var snapshot = fleet.Read();
         if (snapshot.Problem is { } problem) return new TrayState(0, 0, true, hubLine, [], problem);
@@ -198,9 +216,10 @@ public static class TrayProgram
           creatura-tray [--home <dir>] [--store json|sqlite] [--as <creatura>] [--creatura <command>] [--hub <url>] [--port <n>] [--runs <dir>]...
 
         Click opens the console's page (creatura-console web) on 127.0.0.1, starting it when nothing answers on its
-        port (default 7358). The badge counts blocked cells and offers not yet taken; a dot warns when the hub does not
-        answer or has not been synced with for ten minutes. The menu lists the cells, syncs now (creatura cell sync),
-        and quits, which stops only the page the tray started.
+        port (default 7358). The badge counts blocked cells, offers not yet taken and what programs wait for; an amber dot
+        warns when the hub or a program does not answer; a green one says a program is working. The menu lists the cells, syncs now (creatura cell sync),
+        and quits, which stops only the page the tray started. It also shows any program that writes a status file in
+        <home>/status/ (docs/status-file.md).
         """;
 
     public static TrayModel? Model(string[] args, TextWriter error, ICellCommand? cli = null, IPageHost? pages = null, IHubProbe? probe = null)
@@ -262,6 +281,6 @@ public static class TrayProgram
         }
 
         return new TrayModel(fleet, pages ?? new ConsolePageHost(web), probe ?? new HttpHubProbe(), hub ?? ConsoleProgram.LastHub(root), port,
-            () => TrayModel.LastSyncOf(root));
+            () => TrayModel.LastSyncOf(root), now => ProgramStatuses.Read(root, now));
     }
 }

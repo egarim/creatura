@@ -82,6 +82,111 @@ public class TrayTests
     private static TrayModel Model(Cli cli, IPageHost pages, IHubProbe hub, string? hubUrl = "http://100.64.0.4:5181", int port = 7358, Func<DateTimeOffset?>? lastSync = null) =>
         new(new FleetModel(cli), pages, hub, hubUrl, port, lastSync);
 
+    private static string Status(object o) => System.Text.Json.JsonSerializer.Serialize(o);
+
+    private static T InHome<T>(Func<string, T> use, params (string File, string Text)[] files)
+    {
+        var home = Directory.CreateTempSubdirectory("creatura-status-");
+        try
+        {
+            if (files.Length > 0) Directory.CreateDirectory(Path.Combine(home.FullName, "status"));
+            foreach (var (file, text) in files) File.WriteAllText(Path.Combine(home.FullName, "status", file), text);
+            return use(home.FullName);
+        }
+        finally
+        {
+            home.Delete(true);
+        }
+    }
+
+    private static TrayState Drawn(string home, Cli? cli = null) =>
+        new TrayModel(cli is null ? null : new FleetModel(cli), new Recorded(new ConsolePageHost([])), new Hub(true), null, programs: at => ProgramStatuses.Read(home, at)).Refresh(Now);
+
+    [Fact]
+    public void Status_T1_AWorkingProgramIsShown()
+    {
+        var state = InHome(h => Drawn(h, new Cli()), ("vivarium.json", Status(new { format = 1, name = "Vivarium", state = "working", line = "T-FW-06, building", updatedAt = Now, lines = new[] { "Opus 5.5" }, link = "https://viv.os.sv" })));
+        var p = Assert.Single(state.Programs);
+        Assert.Equal(("Vivarium", "T-FW-06, building", true, "https://viv.os.sv/"), (p.Name, p.Line, p.Working, p.Link!.ToString()));
+        Assert.Equal(["Opus 5.5"], p.Lines);
+        Assert.True(state.Working);
+        Assert.Contains("T-FW-06", state.Tooltip);
+    }
+
+    [Theory]
+    [InlineData("attention", 0, 1)]
+    [InlineData("idle", 2, 2)]
+    [InlineData("idle", 0, 0)]
+    [InlineData("idle", -5, 0)]
+    public void Status_T2_WhatWaitsIsInTheBadge(string state, int waiting, int badge) =>
+        Assert.Equal(badge, InHome(h => Drawn(h, new Cli()), ("a.json", Status(new { format = 1, state, waiting, updatedAt = Now }))).Badge);
+
+    [Fact]
+    public void Status_T3_AStaleFileSaysSoAndNoFolderChangesNothing()
+    {
+        var stale = InHome(h => Drawn(h, new Cli()), ("a.json", Status(new { format = 1, name = "A", state = "working", line = "x", waiting = 4, updatedAt = Now.AddMinutes(-4) })));
+        Assert.StartsWith("not answering since", stale.Programs[0].Line);
+        Assert.Equal((true, false, 0), (stale.Dot, stale.Working, stale.Badge));
+        Assert.False(InHome(h => Drawn(h, new Cli()), ("a.json", Status(new { format = 1, state = "idle", staleAfterSeconds = 600, updatedAt = Now.AddMinutes(-4) }))).Dot);
+        var none = InHome(h => Drawn(h, new Cli()));
+        Assert.Equal((0, false, 0), (none.Programs.Count, none.Dot, none.Badge));
+    }
+
+    [Theory]
+    [InlineData("not json")]
+    [InlineData("[]")]
+    [InlineData("{}")]
+    [InlineData("{\"format\":2}")]
+    [InlineData("{\"format\":1}")]
+    [InlineData("{\"format\":\"1\",\"updatedAt\":5}")]
+    [InlineData("{\"format\":1,\"name\":\"\\ud800\",\"updatedAt\":\"x\"}")]
+    public void Status_T4_ABrokenFileIsOneLineWithAWarning(string text) => Assert.True(Assert.Single(InHome(h => Drawn(h, new Cli()), ("a.json", text)).Programs).Warning);
+
+    [Fact]
+    public void Status_T4_AFileAsAWindowsShellWritesItIsRead()
+    {
+        var home = Directory.CreateTempSubdirectory("creatura-status-");
+        try
+        {
+            var folder = Directory.CreateDirectory(Path.Combine(home.FullName, "status")).FullName;
+            foreach (var encoding in new System.Text.Encoding[] { new System.Text.UTF8Encoding(true), System.Text.Encoding.Unicode })
+            {
+                File.WriteAllText(Path.Combine(folder, "a.json"), Status(new { format = 1, state = "idle", line = "ok", updatedAt = Now }), encoding);
+                Assert.Equal(("ok", false), (Drawn(home.FullName, new Cli()).Programs[0].Line, Drawn(home.FullName, new Cli()).Dot));
+            }
+
+            File.WriteAllText(Path.Combine(folder, "b.tmp.json"), "{");
+            Assert.Single(Drawn(home.FullName, new Cli()).Programs);
+        }
+        finally
+        {
+            home.Delete(true);
+        }
+    }
+
+    [Fact]
+    public void Status_T4_HugeManyAndHostileFilesAreBounded()
+    {
+        Assert.True(InHome(h => Drawn(h, new Cli()), ("a.json", Status(new { format = 1, line = new string('x', 70_000), updatedAt = Now }))).Programs[0].Warning);
+        var many = InHome(h => Drawn(h, new Cli()), [.. Enumerable.Range(0, 30).Select(i => ($"p{i:00}.json", Status(new { format = 1, state = "idle", updatedAt = Now, lines = Enumerable.Repeat("l", 50) })))]);
+        Assert.Equal(ProgramStatuses.MaxFiles + 1, many.Programs.Count);
+        Assert.Equal(ProgramStatuses.MaxLines, many.Programs[0].Lines.Count);
+        var p = InHome(h => Drawn(h, new Cli()), ("a.json", Status(new { format = 1, line = "a\nb\u202ec\u0000" + new string('y', 500), state = "idle", updatedAt = Now }))).Programs[0];
+        Assert.StartsWith("a b c", p.Line);
+        Assert.Equal(ProgramStatuses.MaxLength, p.Line.Length);
+        foreach (var link in new[] { "file:///c:/windows", "javascript:alert(1)", "http://example.org", "https://a@b.c", "vscode://x", "\\\\host\\share", "http://127.0.0.1.evil.example" })
+            Assert.Null(InHome(h => Drawn(h, new Cli()), ("a.json", Status(new { format = 1, link, updatedAt = Now }))).Programs[0].Link);
+        Assert.NotNull(InHome(h => Drawn(h, new Cli()), ("a.json", Status(new { format = 1, link = "http://127.0.0.1:7358/", updatedAt = Now }))).Programs[0].Link);
+    }
+
+    [Fact]
+    public void Status_T5_WithNoCellTheProgramsAreStillShown()
+    {
+        var state = InHome(h => Drawn(h), ("a.json", Status(new { format = 1, name = "A", state = "idle", updatedAt = Now })));
+        Assert.NotNull(state.Problem);
+        Assert.Equal("A", state.Programs[0].Name);
+    }
+
     [Fact]
     public async Task T1_WithThePageStoppedOpenStartsItOn127001AndOpensIt()
     {

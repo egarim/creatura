@@ -46,12 +46,19 @@ internal sealed class TrayApp : Application
 
     private void Draw(TrayState state)
     {
-        _icon.Icon = new WindowIcon(Badged(state.Badge, state.Warning || state.Problem is not null));
+        _icon.Icon = new WindowIcon(Badged(state.Badge, state.Dot, state.Working));
         _icon.ToolTipText = state.Tooltip;
         var menu = new NativeMenu();
         menu.Add(Item("Open Creatura", Open));
+        foreach (var program in state.Programs)
+        {
+            menu.Add(Item($"{program.Name}: {program.Line}", program.Link is { } link ? () => Task.Run(() => Model.Open(link)) : null));
+            foreach (var line in program.Lines) menu.Add(Item("    " + line, null));
+        }
+
+        if (state.Programs.Count > 0) menu.Add(new NativeMenuItemSeparator());
         if (state.Problem is { } problem) menu.Add(Item(problem, null));
-        if (state.Badge > 0) menu.Add(Item($"Waiting ({state.Badge}): {state.Blocked} blocked, {state.OffersWaiting} offer{(state.OffersWaiting == 1 ? "" : "s")}", Open));
+        if (state.Blocked + state.OffersWaiting > 0) menu.Add(Item($"Waiting ({state.Blocked + state.OffersWaiting}): {state.Blocked} blocked, {state.OffersWaiting} offer{(state.OffersWaiting == 1 ? "" : "s")}", Open));
         if (_note is not null) menu.Add(Item(_note, null));
         menu.Add(new NativeMenuItemSeparator());
         if (state.Cells.Count == 0 && state.Problem is null) menu.Add(Item("No cells in the ledger yet", null));
@@ -90,8 +97,8 @@ internal sealed class TrayApp : Application
         (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
     }), TaskScheduler.Default);
 
-    /// <summary>The emblem with a red count in its corner when something waits, and an amber dot when the hub needs a look.</summary>
-    private Bitmap Badged(int count, bool warning)
+    /// <summary>The emblem with a red count in its corner when something waits, an amber dot when the hub or a program needs a look, and a green one while a program works.</summary>
+    private Bitmap Badged(int count, bool warning, bool working)
     {
         const int size = 64;
         var bitmap = new RenderTargetBitmap(new PixelSize(size, size), new Vector(96, 96));
@@ -99,6 +106,7 @@ internal sealed class TrayApp : Application
         {
             context.DrawImage(_emblem, new Rect(0, 0, size, size));
             if (warning) context.DrawEllipse(new SolidColorBrush(Color.FromRgb(0xF5, 0xA6, 0x23)), new Pen(Brushes.White, 2), new Point(12, 12), 10, 10);
+            if (working) context.DrawEllipse(new SolidColorBrush(Color.FromRgb(0x2E, 0x9E, 0x5B)), new Pen(Brushes.White, 2), new Point(12, size - 12), 10, 10);
             if (count > 0)
             {
                 var text = count > 99 ? "99+" : count.ToString(System.Globalization.CultureInfo.InvariantCulture);
