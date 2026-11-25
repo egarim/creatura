@@ -24,7 +24,9 @@ public sealed class ProcessCellCommand(string? command = null) : ICellCommand
     public (int Code, string Output, string Error) Run(IReadOnlyList<string> args)
     {
         var parts = Command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var start = new ProcessStartInfo(parts[0]) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+        // CreateNoWindow: the console polls this every 30 s through the tray, and a console program started from a windowless
+        // parent (Avalonia's tray) would otherwise open a terminal window each time, on top of whatever the person is doing.
+        var start = new ProcessStartInfo(parts[0]) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
         foreach (var part in parts.Skip(1)) start.ArgumentList.Add(part);
         foreach (var arg in args) start.ArgumentList.Add(arg);
         try
