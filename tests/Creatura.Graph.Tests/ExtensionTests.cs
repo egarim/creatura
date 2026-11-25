@@ -39,6 +39,13 @@ public class ExtensionTests
         return await agent.RunAsync(RestoreServiceDomain.NewWorld(), 40);
     }
 
+    private static async Task<AgentRun> Run(IAgentExtension extension)
+    {
+        IAgent agent = new ReferenceLoop(new PlainRegulator(), new PlannerPolicy(), RestoreServiceDomain.Task,
+            AgentOptions.With(extension), name: "graph");
+        return await agent.RunAsync(RestoreServiceDomain.NewWorld(), 40);
+    }
+
     private static async Task<AgentRun> RunPlain()
     {
         IAgent agent = new ReferenceLoop(new PlainRegulator(), new PlannerPolicy(), RestoreServiceDomain.Task,
@@ -249,5 +256,146 @@ public class ExtensionTests
         extension.AfterAction(Tick(world, world.AvailableTools), world.Tool("apply-patch")!,
             new ActionOutcome("apply-patch", true, [], "lied"), ActionVerdict.Lied);
         Assert.Equal(0, extension.Episodes);
+    }
+
+    private static ICognitiveGraph Seeded()
+    {
+        var graph = Graph();
+        graph.Put(Graphs.Node("inspect-logs", "Tool", warrant: Observed()));
+        graph.Put(Graphs.Node("logs.inspected", "Fact", warrant: Observed()));
+        graph.Put(Graphs.Edge("k1", "inspect-logs", "produced", "logs.inspected", GraphCategory.Episodic, Observed()));
+        return graph;
+    }
+
+    private static TickContext AtFreedom(IWorld world, double freedom, int tick = 1)
+    {
+        var context = Tick(world, world.AvailableTools, tick);
+        context.Freedom = freedom;
+        return context;
+    }
+
+    [Fact]
+    public void NoFreedomReadingOpensTheDemandGate()
+    {
+        var extension = new GraphMemoryExtension(Seeded(), new GraphMemoryOptions { Trigger = GraphMemoryTrigger.OnDemand });
+        var world = RestoreServiceDomain.NewWorld();
+
+        // Freedom was the trigger and measurement retired it: over a real run of this world it holds between 0.00 and
+        // 0.20, on Plasticity.Freedom's floor, so no threshold separates calm from stressed — anything above the floor
+        // is open on every tick and anything below it never opens. Nothing reads it now, so at the floor, at the
+        // ceiling and everywhere between, the gate stays shut until the policy reports no route.
+        foreach (var freedom in new[] { 1.0, 0.5, 0.2, 0.0 })
+        {
+            Assert.Empty(extension.PolicyNotes(AtFreedom(world, freedom)));
+            Assert.Empty(extension.LastRetrieved);
+        }
+
+        Assert.Equal(0, extension.Retrievals);
+        Assert.Equal(0, extension.GateOpenedAtTick);
+    }
+
+    [Fact]
+    public void ANoRouteOpensTheGateAndItStaysOpenForTheRestOfTheRun()
+    {
+        var extension = new GraphMemoryExtension(Seeded(), new GraphMemoryOptions { Trigger = GraphMemoryTrigger.OnDemand });
+        var world = RestoreServiceDomain.NewWorld();
+
+        Assert.Empty(extension.PolicyNotes(AtFreedom(world, 1.0)));
+
+        // The wall the agent hit does not un-happen, so the gate latches instead of closing again on the next tick's
+        // reading. It has to: PolicyNotes is the only channel that reaches the seat, and the notes NoRoute writes go
+        // into the run's own list, which a plain SeatView never hands back.
+        Assert.Null(extension.NoRoute(AtFreedom(world, 1.0, tick: 3)));
+        Assert.Equal(3, extension.GateOpenedAtTick);
+
+        Assert.NotEmpty(extension.PolicyNotes(AtFreedom(world, 1.0, tick: 4)));
+        Assert.NotEmpty(extension.LastRetrieved);
+        Assert.Equal(2, extension.Retrievals);
+    }
+
+    [Fact]
+    public void AnAlwaysOnExtensionSpeaksWhetherOrNotItIsNeeded()
+    {
+        var extension = new GraphMemoryExtension(Seeded());
+        var world = RestoreServiceDomain.NewWorld();
+
+        Assert.Equal(GraphMemoryTrigger.Always, extension.Options.Trigger);
+        Assert.NotEmpty(extension.PolicyNotes(AtFreedom(world, 1.0)));
+        Assert.NotEmpty(extension.PolicyNotes(AtFreedom(world, 0.1)));
+    }
+
+    [Fact]
+    public void WithholdingABlockedToolIsNotGatedByDemand()
+    {
+        var graph = Graph();
+        graph.Put(Graphs.Node("apply-patch", "Tool", GraphCategory.Task, Observed()));
+        graph.Put(Graphs.Node("change.freeze", "Condition", GraphCategory.Task, Observed()));
+        graph.Put(Graphs.Edge("gate", "apply-patch", GraphMemoryExtension.BlockedBy, "change.freeze",
+            GraphCategory.Task, Observed()));
+        var extension = new GraphMemoryExtension(graph, new GraphMemoryOptions { Trigger = GraphMemoryTrigger.OnDemand });
+        var world = RestoreServiceDomain.NewWorld();
+
+        // The gate is shut — nothing has reported no route — and a calm agent still is not offered the blocked tool.
+        // Gating the constraint on demand would let an agent walk into a trap for as long as it kept finding a route,
+        // which is exactly when traps get walked into. The gate covers retrieval, which is a cost; not this.
+        Assert.Empty(extension.PolicyNotes(AtFreedom(world, 1.0)));
+        Assert.Equal(0, extension.GateOpenedAtTick);
+        Assert.DoesNotContain(world.Tool("apply-patch")!,
+            extension.VisibleTools(AtFreedom(world, 1.0), world.AvailableTools));
+    }
+
+    [Fact]
+    public void NoRouteWritesWhatItFindsIntoTheNotesAndProposesNoTool()
+    {
+        var extension = new GraphMemoryExtension(Seeded(), new GraphMemoryOptions { Trigger = GraphMemoryTrigger.OnDemand });
+        var context = AtFreedom(RestoreServiceDomain.NewWorld(), 1.0);
+
+        // No route is the one moment retrieval is always worth it, whatever the freedom reading says — and a hand-off
+        // may follow, so there might be no next tick to put the notes in.
+        Assert.Null(extension.NoRoute(context));
+        Assert.Equal(1, extension.GateOpenedAtTick);
+        Assert.NotEmpty(context.Notes);
+        Assert.All(context.Notes, note => Assert.StartsWith("knowledge (", note, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AnAlwaysOnExtensionDoesNotSpeakTwiceWhenThereIsNoRoute()
+    {
+        var extension = new GraphMemoryExtension(Seeded());
+        var context = AtFreedom(RestoreServiceDomain.NewWorld(), 1.0);
+
+        // It already retrieved for this tick through PolicyNotes; NoRoute is the on-demand arm's hook, not a second
+        // helping of the same knowledge.
+        Assert.Null(extension.NoRoute(context));
+        Assert.Empty(context.Notes);
+    }
+
+    [Fact]
+    public async Task TheDemandGateStaysShutOnARunThePolicyNeverLosesTheRoute()
+    {
+        var always = new GraphMemoryExtension(Seeded());
+        var demand = new GraphMemoryExtension(Seeded(), new GraphMemoryOptions { Trigger = GraphMemoryTrigger.OnDemand });
+
+        var withAlways = await Run(always);
+        var withDemand = await Run(demand);
+
+        // This test used to pin a defect: that the freedom gate never closed, because a real six-tick run of this
+        // world holds freedom between 0.00 and 0.20 against a threshold of 0.35, so OnDemand was indistinguishable
+        // from Always and the two arms of the model-seat matrix tied by construction. NoRoute is the trigger now, and
+        // the planner never loses the route here, so demand is never signalled: the gate stays shut for the whole run
+        // and the memory costs nothing at all, while the always-on arm pays for knowledge the seat did not need.
+        // Returning to freedom-gating at any threshold above the floor reopens it and fails this.
+        Assert.True(withAlways.GoalReached);
+        Assert.True(withDemand.GoalReached);
+        Assert.Equal(withAlways.Ticks, withDemand.Ticks);
+        Assert.Equal(Acted(withAlways), Acted(withDemand));
+
+        Assert.Equal(0, demand.GateOpenedAtTick);
+        Assert.Equal(0, demand.Retrievals);
+        Assert.Equal(0, demand.NotesEmitted);
+        Assert.Equal(0, demand.NoteCharacters);
+
+        Assert.True(always.NotesEmitted > 0, "the always-on arm should have something to be compared against");
+        Assert.True(always.Retrievals > 0);
     }
 }

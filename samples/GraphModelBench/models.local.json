@@ -1,0 +1,79 @@
+{
+  "models": [
+    {
+      "name": "deepseek-chat",
+      "provider": "openai",
+      "baseUrl": "https://api.deepseek.com",
+      "model": "deepseek-chat",
+      "keyEnv": "DEEPSEEK_API_KEY|deepseek",
+      "nativeTools": true,
+      "reasoning": false,
+      "vision": false,
+      "inputPerMillion": 0.28,
+      "outputPerMillion": 0.42,
+      "cachedInputPerMillion": 0.028,
+      "sheet": {
+        "contextWindow": 128000,
+        "maxOutput": 8192,
+        "caveat": "PAID - remote; only used because the owner explicitly allowed it to test whether it is faster"
+      }
+    },
+    {
+      "name": "gemma3:4b",
+      "provider": "ollama",
+      "baseUrl": "http://localhost:11434",
+      "baseUrlEnv": "OLLAMA_HOST_URL",
+      "model": "gemma3:4b",
+      "nativeTools": false,
+      "reasoning": false,
+      "vision": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0,
+      "sheet": {
+        "contextWindow": 32768,
+        "contextAsRun": 4096,
+        "maxOutput": 4096,
+        "knowledgeCutoff": "2024",
+        "caveat": "local, free, 4-bit; Ollama reports it does not support tools, so the seat prompts for them"
+      }
+    },
+    {
+      "name": "qwen3:4b-instruct",
+      "provider": "ollama",
+      "baseUrl": "http://localhost:11434",
+      "baseUrlEnv": "OLLAMA_HOST_URL",
+      "model": "qwen3:4b-instruct",
+      "nativeTools": true,
+      "reasoning": false,
+      "vision": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0,
+      "sheet": {
+        "contextWindow": 32768,
+        "contextAsRun": 4096,
+        "maxOutput": 4096,
+        "knowledgeCutoff": "2024",
+        "caveat": "local, free, instruct build"
+      }
+    },
+    {
+      "name": "lfm3:1.7b",
+      "provider": "ollama",
+      "baseUrl": "http://localhost:11434",
+      "baseUrlEnv": "OLLAMA_HOST_URL",
+      "model": "hf.co/LiquidAI/LFM3-1.7B-GGUF:Q4_K_M",
+      "nativeTools": false,
+      "reasoning": false,
+      "vision": false,
+      "inputPerMillion": 0,
+      "outputPerMillion": 0,
+      "sheet": {
+        "contextWindow": 32768,
+        "contextAsRun": 2048,
+        "maxOutput": 2048,
+        "knowledgeCutoff": "2024",
+        "caveat": "local, free, the small end of the small-versus-large comparison"
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The model-in-the-seat arm of the cognitive graph experiment (issue #110, milestone 6). Everything else in
+         the benchmark is deterministic and offline; this is the part that puts a language model in the chair and
+         asks whether structured retrieval changes what an agent DOES rather than only what it retrieves. Local
+         Ollama only - no provider key is read and nothing leaves the machine. -->
+    <ProjectReference Include="../../src/Creatura/Creatura.csproj" />
+    <ProjectReference Include="../../src/Creatura.Worlds/Creatura.Worlds.csproj" />
+    <ProjectReference Include="../../src/Creatura.Seats/Creatura.Seats.csproj" />
+    <ProjectReference Include="../../src/Creatura.Graph/Creatura.Graph.csproj" />
+    <ProjectReference Include="../../src/Creatura.Graph.Bench/Creatura.Graph.Bench.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The catalog of local models this runner is allowed to seat. Deliberately NOT samples/models.json: that file
+         is generated from ModelCatalog.Rows and pinned by a test that counts thirteen seats, so adding a local model
+         there would break an unrelated assertion. ModelCatalog.Use replaces the catalog for this process only. -->
+    <None Include="models.local.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
