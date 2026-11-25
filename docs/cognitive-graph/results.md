@@ -163,11 +163,15 @@ effective sample size is 14 and no confidence interval is claimed.
 
 ## Not done
 
-- **No language model in any arm.** The agent-in-the-loop experiment — a seat reading retrieved context and acting
-  in a world — is designed and not run. `Creatura.Graph.Tests` proves the extension changes behaviour offline (a
-  `blockedBy` edge makes the loop abandon its habit and still reach the goal), but that is one world, one design
-  and no comparison across arms. Local Ollama seats are available (`gemma3:4b`, `qwen3:4b-instruct`,
-  `LFM3-1.7B`) and no paid provider was used.
+- **The agent-in-the-loop experiment has a fixture but no result yet.** A first model-seat pilot on the toy restore
+  world (`experiments/graph-model/pilot.md`, `deepseek-chat`, 5 repeats per arm) was a **negative result and is
+  reported as one**: the seat avoided the trap unaided in 5 of 5 runs with no memory at all, so nothing
+  discriminated. That is the same defect as the eleven tied scenarios above, one level up. `TwoLatches`
+  (`ProbeWorld` + `CommitWorld`) is the response to it — a pair where the commitment world gives no hint which
+  latch holds and a wrong commitment rewrites the right one's precondition into something nothing can grant, so
+  memory is the only route through. Both halves are asserted offline against registry state in `TwoLatchesTests`,
+  including that the blind arm fails *for the right reason*: the latch is really broken, not merely refused by a
+  gate. The model-seat matrix over it has not been run.
 - **No dense retrieval.** Arm B is TF-IDF. H09 in particular should not be considered settled until it has been
   run against a vector arm.
 - **G15 to G20 are not implemented.** Model substitution and small-versus-large need models; consolidation,

@@ -23,6 +23,13 @@ public sealed record GraphMemoryOptions
     /// <summary>Whether a failure is kept as an episode. Successes are not, by default: a graph of everything that went right is a graph nobody can search.</summary>
     public bool RemembersFailures { get; init; } = true;
 
+    /// <summary>
+    /// Whether what the world reports back is read into the graph as knowledge. Without this the episodic memory is
+    /// write-only — episodes are recorded and never consulted — and nothing carries from one run to the next, which
+    /// is the one thing accumulated experience is supposed to do.
+    /// </summary>
+    public bool IngestsObservations { get; init; } = true;
+
     /// <summary>The weakest knowledge worth showing a seat.</summary>
     public VerificationStatus MinVerification { get; init; } = VerificationStatus.Claimed;
 
@@ -55,12 +62,14 @@ public sealed class GraphMemoryExtension : IAgentExtension
 
     private readonly ICognitiveGraph _graph;
     private readonly GraphMemoryOptions _options;
+    private readonly LineExtractor _extractor;
     private int _episodes;
 
     public GraphMemoryExtension(ICognitiveGraph graph, GraphMemoryOptions? options = null)
     {
         _graph = graph;
         _options = options ?? GraphMemoryOptions.Default;
+        _extractor = new LineExtractor(graph.Schema);
     }
 
     public string Name => "graph";
@@ -117,6 +126,23 @@ public sealed class GraphMemoryExtension : IAgentExtension
     /// </summary>
     public void AfterAction(TickContext context, Tool tool, ActionOutcome outcome, ActionVerdict verdict)
     {
+        // What the world said, read as knowledge. This is the only route by which one run can inform the next, and it
+        // is deliberately narrow: a world that reports a well-formed statement contributes it, and a world that
+        // reports prose contributes nothing, because prose is not a claim about the world that a graph can hold.
+        if (_options.IngestsObservations && outcome.Observation is { Length: > 0 } reported)
+        {
+            // What the world confirmed landed is observed; what it did not is a claim. That distinction is the whole
+            // of the verification ladder, and it is the reason a withheld tool needs evidence rather than a rumour.
+            var earned = verdict == ActionVerdict.Landed ? VerificationStatus.Observed : VerificationStatus.Claimed;
+            var said = _extractor.Extract(reported,
+                new GraphProvenance(ProvenanceKind.Observation, context.Agent) { Corpus = $"{tool.Id}@{context.Tick}" },
+                _graph.Caller.Scope);
+            foreach (var node in said.Nodes)
+                _graph.Put(node with { Warrant = node.Warrant with { Verification = earned } });
+            foreach (var edge in said.Edges)
+                _graph.Put(edge with { Warrant = edge.Warrant with { Verification = earned } });
+        }
+
         var id = GraphText.Normalize(tool.Id);
         if (_options.RecordsOutcomes)
             foreach (var known in _graph.Adjacent(id, new GraphQuery { MinVerification = VerificationStatus.Hypothesis }))
