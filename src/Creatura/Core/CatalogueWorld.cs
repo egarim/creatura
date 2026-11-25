@@ -168,7 +168,7 @@ public abstract class CatalogueWorld : IWorld, ICloneableWorld
             }
         }
 
-        return Land(tool, Observation(tool));
+        return Land(tool, Observation(tool, payload));
     }
 
     private bool Applies(Row row, string toolId) =>
@@ -183,6 +183,14 @@ public abstract class CatalogueWorld : IWorld, ICloneableWorld
 
     /// <summary>What a landed act of this tool says. Null by default (the toy world says nothing).</summary>
     protected virtual string? Observation(Tool tool) => null;
+
+    /// <summary>
+    /// What a landed act of this tool says, given what the policy handed it. Defaults to the payload-free form, so a
+    /// world with no <see cref="Tool.NeedsPayload"/> tools overrides that one and never sees this. A world whose tool
+    /// is answered rather than merely done — a lookup, a question put to something that holds the answer — overrides
+    /// this one, because the answer depends on what was asked.
+    /// </summary>
+    protected virtual string? Observation(Tool tool, string? payload) => Observation(tool);
 
     /// <summary>The tool as the registry's knowledge shapes it: fact-triggered <see cref="Tool.Requires"/> rewriting. Identity by default.</summary>
     protected virtual Tool Shape(Tool tool) => tool;
