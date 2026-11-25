@@ -86,6 +86,9 @@ public sealed class GraphMemoryExtension : IAgentExtension
     private readonly GraphMemoryOptions _options;
     private readonly LineExtractor _extractor;
     private int _episodes;
+    private int _notes;
+    private int _characters;
+    private int _retrievals;
 
     public GraphMemoryExtension(ICognitiveGraph graph, GraphMemoryOptions? options = null)
     {
@@ -102,6 +105,18 @@ public sealed class GraphMemoryExtension : IAgentExtension
 
     /// <summary>How many episodes this run has written, so a battery can price the memory it is carrying.</summary>
     public int Episodes => _episodes;
+
+    /// <summary>
+    /// How many lines this run has put in front of a seat. Retrieval is not free, and without this number "the graph
+    /// helps" is unfalsifiable: it could be helping by one fact and costing forty lines an hour.
+    /// </summary>
+    public int NotesEmitted => _notes;
+
+    /// <summary>How many characters those lines cost. This is the number that matters when the seat has a context window.</summary>
+    public int NoteCharacters => _characters;
+
+    /// <summary>How many times this run actually walked the graph, which is not the same as how many ticks it ran.</summary>
+    public int Retrievals => _retrievals;
 
     public IReadOnlyList<GraphEdge> LastRetrieved { get; private set; } = [];
 
@@ -120,12 +135,19 @@ public sealed class GraphMemoryExtension : IAgentExtension
 
         var retrieved = Retrieve(context);
         LastRetrieved = retrieved;
-        return retrieved.Take(_options.MaxNotes).Select(Render).ToList();
+        return Count(retrieved.Take(_options.MaxNotes).Select(Render).ToList());
     }
 
     /// <summary>Whether this tick is one where looking something up is worth what it costs.</summary>
     private bool UnderPressure(TickContext context) =>
         _options.Trigger == GraphMemoryTrigger.Always || context.Freedom < _options.PressureBelowFreedom;
+
+    private IReadOnlyList<string> Count(IReadOnlyList<string> notes)
+    {
+        _notes += notes.Count;
+        foreach (var note in notes) _characters += note.Length;
+        return notes;
+    }
 
     /// <summary>
     /// The policy has found no route: this is the moment memory exists for. Retrieves what the graph holds about the
@@ -136,8 +158,15 @@ public sealed class GraphMemoryExtension : IAgentExtension
     public PolicySuggestion? NoRoute(TickContext context)
     {
         if (_options.Trigger != GraphMemoryTrigger.OnDemand) return null;
+        var added = new List<string>();
         foreach (var note in Retrieve(context).Take(_options.MaxNotes).Select(Render))
-            if (!context.Notes.Contains(note, StringComparer.Ordinal)) context.Notes.Add(note);
+            if (!context.Notes.Contains(note, StringComparer.Ordinal))
+            {
+                context.Notes.Add(note);
+                added.Add(note);
+            }
+
+        Count(added);
         return null;
     }
 
@@ -227,6 +256,7 @@ public sealed class GraphMemoryExtension : IAgentExtension
     /// </summary>
     public IReadOnlyList<GraphEdge> Retrieve(TickContext context)
     {
+        _retrievals++;
         var query = new GraphQuery { MinVerification = _options.MinVerification, Limit = GraphBounds.MaxResultLimit };
         var seeds = new List<string>();
         foreach (var fact in context.World.Facts.OrderBy(f => f, StringComparer.Ordinal))

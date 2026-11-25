@@ -39,6 +39,13 @@ public class ExtensionTests
         return await agent.RunAsync(RestoreServiceDomain.NewWorld(), 40);
     }
 
+    private static async Task<AgentRun> Run(IAgentExtension extension)
+    {
+        IAgent agent = new ReferenceLoop(new PlainRegulator(), new PlannerPolicy(), RestoreServiceDomain.Task,
+            AgentOptions.With(extension), name: "graph");
+        return await agent.RunAsync(RestoreServiceDomain.NewWorld(), 40);
+    }
+
     private static async Task<AgentRun> RunPlain()
     {
         IAgent agent = new ReferenceLoop(new PlainRegulator(), new PlannerPolicy(), RestoreServiceDomain.Task,
@@ -333,5 +340,30 @@ public class ExtensionTests
         // helping of the same knowledge.
         Assert.Null(extension.NoRoute(context));
         Assert.Empty(context.Notes);
+    }
+
+    [Fact]
+    public async Task TheDemandGateNeverClosesBecauseTheRealLoopRunsAtTheFreedomFloor()
+    {
+        var always = new GraphMemoryExtension(Seeded());
+        var demand = new GraphMemoryExtension(Seeded(), new GraphMemoryOptions { Trigger = GraphMemoryTrigger.OnDemand });
+
+        var withAlways = await Run(always);
+        var withDemand = await Run(demand);
+
+        // A defect, pinned so it cannot be mistaken for a working gate. Measured rather than assumed: on a task the
+        // planner completes in six ticks, freedom never rises above Plasticity's floor of 0.2, and the threshold is
+        // 0.35. The gate is therefore open on every tick, OnDemand is indistinguishable from Always, and that — not a
+        // fixture that cannot separate them — is why the two arms tied in the model-seat matrix. Freedom does not
+        // discriminate calm from stressed here, so it cannot be the trigger; NoRoute can, because it only fires when
+        // the policy has genuinely found no path.
+        Assert.True(withAlways.GoalReached);
+        Assert.True(withDemand.GoalReached);
+        Assert.All(withDemand.Trace, t => Assert.True(t.Freedom <= GraphMemoryOptions.Default.PressureBelowFreedom,
+            $"freedom {t.Freedom:0.00} cleared the threshold, so the gate can close and this test is now stale"));
+        Assert.True(always.NotesEmitted > 0, "the counter should have something to count");
+        Assert.Equal(always.NotesEmitted, demand.NotesEmitted);
+        Assert.Equal(always.NoteCharacters, demand.NoteCharacters);
+        Assert.Equal(always.Retrievals, demand.Retrievals);
     }
 }
