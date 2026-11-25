@@ -6,29 +6,35 @@ commits in `CommitWorld`, judged by the registry: `door.open` landed or it did n
 says whether a wrong commitment was actually made. Arm C's graph is fresh per repeat, so the only thing
 it carries is what its own probe run put there.
 
-| arm | repeats | door opened | latch broken | commit-left attempts | mean ticks | mean wall s |
-|---|---|---|---|---|---|---|
-| A none | 6 | 0 | 6 | 6 | 5.0 | 9.0 |
-| C graph | 6 | 6 | 0 | 0 | 1.0 | 4.9 |
-| E demand | 6 | 6 | 0 | 0 | 1.0 | 4.4 |
+`notes` and `retrievals` are the commitment run's own, with the probe run's share taken off: both runs
+share one extension, so its counters are cumulative. `gate` says when demand-gating opened — arm E
+retrieves only from the tick on which the seat reported no route, and keeps retrieving after it. An arm
+reading `never` never asked its memory anything, which is not the same result as one that asked and was
+ignored, and the last matrix over this fixture could not tell the two apart.
 
-| arm | repeat | probe done | door | broken | left | right | ticks | wall s | fault |
-|---|---|---|---|---|---|---|---|---|---|
-| A none | 1 | yes | shut | yes | 1 | 1 | 5 | 9.7 |  |
-| A none | 2 | yes | shut | yes | 1 | 0 | 5 | 8.5 |  |
-| A none | 3 | yes | shut | yes | 1 | 1 | 5 | 8.6 |  |
-| A none | 4 | yes | shut | yes | 1 | 1 | 5 | 7.9 |  |
-| A none | 5 | yes | shut | yes | 1 | 1 | 5 | 10.6 |  |
-| A none | 6 | yes | shut | yes | 1 | 1 | 5 | 8.7 |  |
-| C graph | 1 | yes | **open** | no | 0 | 1 | 1 | 4.5 |  |
-| C graph | 2 | yes | **open** | no | 0 | 1 | 1 | 4.6 |  |
-| C graph | 3 | yes | **open** | no | 0 | 1 | 1 | 5.0 |  |
-| C graph | 4 | yes | **open** | no | 0 | 1 | 1 | 4.8 |  |
-| C graph | 5 | yes | **open** | no | 0 | 1 | 1 | 6.5 |  |
-| C graph | 6 | yes | **open** | no | 0 | 1 | 1 | 4.1 |  |
-| E demand | 1 | yes | **open** | no | 0 | 1 | 1 | 4.4 |  |
-| E demand | 2 | yes | **open** | no | 0 | 1 | 1 | 4.2 |  |
-| E demand | 3 | yes | **open** | no | 0 | 1 | 1 | 4.3 |  |
-| E demand | 4 | yes | **open** | no | 0 | 1 | 1 | 4.8 |  |
-| E demand | 5 | yes | **open** | no | 0 | 1 | 1 | 4.5 |  |
-| E demand | 6 | yes | **open** | no | 0 | 1 | 1 | 4.4 |  |
+| arm | repeats | door opened | latch broken | commit-left attempts | mean ticks | mean notes | gate opened | mean wall s |
+|---|---|---|---|---|---|---|---|---|
+| A none | 6 | 0 | 6 | 6 | 5.0 | 0.0 | 0/6 | 10.0 |
+| C graph | 6 | 6 | 0 | 0 | 1.0 | 1.0 | 0/6 | 5.4 |
+| E demand | 6 | 6 | 0 | 0 | 1.0 | 0.0 | 0/6 | 4.4 |
+
+| arm | repeat | probe done | door | broken | left | right | ticks | notes | retrievals | gate | wall s | fault |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A none | 1 | yes | shut | yes | 1 | 0 | 5 | 0 | 0 | no graph | 12.3 |  |
+| A none | 2 | yes | shut | yes | 1 | 0 | 5 | 0 | 0 | no graph | 9.1 |  |
+| A none | 3 | yes | shut | yes | 1 | 1 | 5 | 0 | 0 | no graph | 8.2 |  |
+| A none | 4 | yes | shut | yes | 1 | 0 | 5 | 0 | 0 | no graph | 9.8 |  |
+| A none | 5 | yes | shut | yes | 1 | 1 | 5 | 0 | 0 | no graph | 10.7 |  |
+| A none | 6 | yes | shut | yes | 1 | 1 | 5 | 0 | 0 | no graph | 10.0 |  |
+| C graph | 1 | yes | **open** | no | 0 | 1 | 1 | 1 | 1 | never | 6.8 |  |
+| C graph | 2 | yes | **open** | no | 0 | 1 | 1 | 1 | 1 | never | 4.8 |  |
+| C graph | 3 | yes | **open** | no | 0 | 1 | 1 | 1 | 1 | never | 4.6 |  |
+| C graph | 4 | yes | **open** | no | 0 | 1 | 1 | 1 | 1 | never | 5.5 |  |
+| C graph | 5 | yes | **open** | no | 0 | 1 | 1 | 1 | 1 | never | 4.1 |  |
+| C graph | 6 | yes | **open** | no | 0 | 1 | 1 | 1 | 1 | never | 6.6 |  |
+| E demand | 1 | yes | **open** | no | 0 | 1 | 1 | 0 | 0 | never | 4.9 |  |
+| E demand | 2 | yes | **open** | no | 0 | 1 | 1 | 0 | 0 | never | 4.4 |  |
+| E demand | 3 | yes | **open** | no | 0 | 1 | 1 | 0 | 0 | never | 3.4 |  |
+| E demand | 4 | yes | **open** | no | 0 | 1 | 1 | 0 | 0 | never | 4.9 |  |
+| E demand | 5 | yes | **open** | no | 0 | 1 | 1 | 0 | 0 | never | 3.7 |  |
+| E demand | 6 | yes | **open** | no | 0 | 1 | 1 | 0 | 0 | never | 4.7 |  |

@@ -59,15 +59,16 @@ async Task<int> Smoke()
 /// the registry judging. Arm C gets a fresh graph per repeat, so nothing leaks between repeats and the only thing it
 /// carries is what its own probe run put there. The oracle is world state — did <c>door.open</c> land — and the run
 /// also records whether the latch got broken, because failing by guessing and failing by being refused are different
-/// failures and only one of them is the fixture working.
+/// failures and only one of them is the fixture working. It reports what each arm paid in retrieved context and when
+/// demand-gating opened as well, because two arms that tie on the door and differ on price are not the same result.
 /// </summary>
 async Task<int> Latches()
 {
     Console.WriteLine($"two latches: seat {model}, design {design}, {repeats} repeats per arm, probe then commit");
     Console.WriteLine();
-    var arms = new (string Name, Func<AgentOptions> Make)[]
+    var arms = new (string Name, Func<(AgentOptions Options, GraphMemoryExtension? Graph)> Make)[]
     {
-        ("A none", () => AgentOptions.None),
+        ("A none", () => (AgentOptions.None, null)),
         ("C graph", () => WithGraph(GraphMemoryOptions.Default)),
         ("E demand", () => WithGraph(new GraphMemoryOptions { Trigger = GraphMemoryTrigger.OnDemand })),
     };
@@ -76,16 +77,18 @@ async Task<int> Latches()
     for (var repeat = 1; repeat <= repeats; repeat++)
     {
         // A fresh graph per repeat per arm: the only thing carried in is what this arm's own probe run put there.
-        var options = make();
+        var (options, graph) = make();
 
         var probeWorld = new ProbeWorld();
         var commitWorld = new CommitWorld();
         var clock = Stopwatch.StartNew();
         string? fault = null;
         AgentRun probe, commit;
+        var (notesAfterProbe, retrievalsAfterProbe, gateAfterProbe) = (0, 0, 0);
         try
         {
             probe = await AgentCatalog.Make(design, policy, ProbeWorld.Task, options, repeat).RunAsync(probeWorld, 10);
+            (notesAfterProbe, retrievalsAfterProbe, gateAfterProbe) = Counted(graph);
             commit = await AgentCatalog.Make(design, policy, CommitWorld.Task, options, repeat).RunAsync(commitWorld, 10);
         }
         catch (Exception ex)
@@ -98,17 +101,34 @@ async Task<int> Latches()
         var acted = commit.Trace.Where(t => t.Level == "cell").Select(t => t.Action).ToList();
         var broken = commitWorld.Has(TwoLatches.Broken);
         var open = commitWorld.Has(TwoLatches.Open);
+
+        // The two runs share one extension, so its counters are cumulative; the probe's share comes off, because the
+        // commitment run is the one whose outcome is being judged. Two arms that tie on the door and differ on what
+        // they paid to open it are not the same result, and the last matrix could not tell them apart.
+        var (notes, retrievals, gateAt) = Counted(graph);
+        var gate = graph is null ? "no graph"
+            : gateAt == 0 ? "never"
+            : gateAfterProbe > 0 ? $"probe (tick {gateAfterProbe})"
+            : $"commit (tick {gateAt})";
+        var commitNotes = notes - notesAfterProbe;
+        var commitRetrievals = retrievals - retrievalsAfterProbe;
         rows.Add(new LatchRow(arm, repeat, probe.GoalReached, open, broken,
             acted.Count(a => a == "commit-left"), acted.Count(a => a == "commit-right"), commit.Ticks,
-            clock.Elapsed.TotalSeconds, fault));
+            clock.Elapsed.TotalSeconds, fault, commitNotes, commitRetrievals, gate));
         Console.WriteLine($"  {arm,-8} r{repeat,2}  probe={(probe.GoalReached ? "yes" : "NO"),-3}  door={(open ? "OPEN" : "shut"),-4}  " +
                           $"broken={(broken ? "yes" : "no"),-3}  left={acted.Count(a => a == "commit-left")} right={acted.Count(a => a == "commit-right")}  " +
-                          $"ticks={commit.Ticks,2}  {clock.Elapsed.TotalSeconds,5:F1}s{(fault is null ? "" : $"  FAULT {fault}")}");
+                          $"ticks={commit.Ticks,2}  notes={commitNotes,3}  gate={gate,-18}  {clock.Elapsed.TotalSeconds,5:F1}s{(fault is null ? "" : $"  FAULT {fault}")}");
     }
 
-    AgentOptions WithGraph(GraphMemoryOptions options) =>
-        AgentOptions.With(new GraphMemoryExtension(
-            new InMemoryGraphStore(GraphSchema.Benchmark()).Open(new GraphCaller(design)), options));
+    static (int Notes, int Retrievals, int GateAt) Counted(GraphMemoryExtension? graph) =>
+        graph is null ? (0, 0, 0) : (graph.NotesEmitted, graph.Retrievals, graph.GateOpenedAtTick);
+
+    (AgentOptions, GraphMemoryExtension?) WithGraph(GraphMemoryOptions options)
+    {
+        var extension = new GraphMemoryExtension(
+            new InMemoryGraphStore(GraphSchema.Benchmark()).Open(new GraphCaller(design)), options);
+        return (AgentOptions.With(extension), extension);
+    }
 
     var markdown = LatchMarkdown(rows);
     Console.WriteLine();
@@ -128,7 +148,12 @@ string LatchMarkdown(List<LatchRow> rows)
     sb.Append("commits in `CommitWorld`, judged by the registry: `door.open` landed or it did not, and `latch.broken`\n");
     sb.Append("says whether a wrong commitment was actually made. Arm C's graph is fresh per repeat, so the only thing\n");
     sb.Append("it carries is what its own probe run put there.\n\n");
-    sb.Append("| arm | repeats | door opened | latch broken | commit-left attempts | mean ticks | mean wall s |\n|---|---|---|---|---|---|---|\n");
+    sb.Append("`notes` and `retrievals` are the commitment run's own, with the probe run's share taken off: both runs\n");
+    sb.Append("share one extension, so its counters are cumulative. `gate` says when demand-gating opened — arm E\n");
+    sb.Append("retrieves only from the tick on which the seat reported no route, and keeps retrieving after it. An arm\n");
+    sb.Append("reading `never` never asked its memory anything, which is not the same result as one that asked and was\n");
+    sb.Append("ignored, and the last matrix over this fixture could not tell the two apart.\n\n");
+    sb.Append("| arm | repeats | door opened | latch broken | commit-left attempts | mean ticks | mean notes | gate opened | mean wall s |\n|---|---|---|---|---|---|---|---|---|\n");
     foreach (var arm in rows.Select(r => r.Arm).Distinct(StringComparer.Ordinal))
     {
         var g = rows.Where(r => r.Arm == arm).ToList();
@@ -138,11 +163,13 @@ string LatchMarkdown(List<LatchRow> rows)
             .Append(" | ").Append(g.Count(r => r.Broken).ToString(inv))
             .Append(" | ").Append(g.Sum(r => r.Left).ToString(inv))
             .Append(" | ").Append(g.Average(r => r.Ticks).ToString("0.0", inv))
+            .Append(" | ").Append(g.Average(r => r.Notes).ToString("0.0", inv))
+            .Append(" | ").Append($"{g.Count(r => r.Gate is not ("never" or "no graph"))}/{g.Count}")
             .Append(" | ").Append(g.Average(r => r.Seconds).ToString("0.0", inv))
             .Append(" |\n");
     }
 
-    sb.Append("\n| arm | repeat | probe done | door | broken | left | right | ticks | wall s | fault |\n|---|---|---|---|---|---|---|---|---|---|\n");
+    sb.Append("\n| arm | repeat | probe done | door | broken | left | right | ticks | notes | retrievals | gate | wall s | fault |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
     foreach (var r in rows)
         sb.Append("| ").Append(r.Arm).Append(" | ").Append(r.Repeat.ToString(inv))
             .Append(" | ").Append(r.Probe ? "yes" : "**NO**")
@@ -151,6 +178,9 @@ string LatchMarkdown(List<LatchRow> rows)
             .Append(" | ").Append(r.Left.ToString(inv))
             .Append(" | ").Append(r.Right.ToString(inv))
             .Append(" | ").Append(r.Ticks.ToString(inv))
+            .Append(" | ").Append(r.Notes.ToString(inv))
+            .Append(" | ").Append(r.Retrievals.ToString(inv))
+            .Append(" | ").Append(r.Gate)
             .Append(" | ").Append(r.Seconds.ToString("0.0", inv))
             .Append(" | ").Append(r.Fault ?? "").Append(" |\n");
     return sb.ToString();
@@ -296,4 +326,4 @@ internal sealed record PilotRow(string Arm, int Repeat, bool Goal, int Ticks, do
     int PatchAttempts, int ConfigAttempts, int Actions, string? Fault);
 
 internal sealed record LatchRow(string Arm, int Repeat, bool Probe, bool Open, bool Broken,
-    int Left, int Right, int Ticks, double Seconds, string? Fault);
+    int Left, int Right, int Ticks, double Seconds, string? Fault, int Notes, int Retrievals, string Gate);

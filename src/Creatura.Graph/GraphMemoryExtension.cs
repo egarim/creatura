@@ -7,11 +7,16 @@ public enum GraphMemoryTrigger
     Always,
 
     /// <summary>
-    /// Retrieve only under pressure: when freedom has fallen below a threshold, or when the policy has found no
-    /// route. Freedom falls as stress rises against the control layer's set point, so a low freedom is the loop's own
-    /// report that things are not going well — which is when looking something up is worth what it costs. Withholding
-    /// a blocked tool is NOT gated: that is a constraint, it is cheap, and gating it would let an agent walk into a
-    /// trap while it still felt confident.
+    /// Retrieve only once there is demand for it: from the tick on which the policy found no route, and every tick
+    /// after it. The wall an agent hit does not un-happen, so the gate latches open instead of closing again on the
+    /// next tick's reading — a gate that shut would leave the notes where no seat ever reads them.
+    /// <para>
+    /// Freedom was the original signal and measurement retired it: over a real six-tick run of the restore world it
+    /// stays between 0.00 and 0.20, on <c>Plasticity.Freedom</c>'s floor, so every threshold above the floor is open
+    /// on every tick and every threshold below it never opens at all. No route is a signal that actually varies.
+    /// Withholding a blocked tool is not gated either way: that is a constraint, it is cheap, and gating it would let
+    /// an agent walk into a trap for as long as it felt confident.
+    /// </para>
     /// </summary>
     OnDemand,
 }
@@ -21,11 +26,8 @@ public sealed record GraphMemoryOptions
 {
     public static readonly GraphMemoryOptions Default = new();
 
-    /// <summary>Whether the extension retrieves every tick or only when the agent is under pressure.</summary>
+    /// <summary>Whether the extension retrieves every tick or only once the policy has found no route.</summary>
     public GraphMemoryTrigger Trigger { get; init; } = GraphMemoryTrigger.Always;
-
-    /// <summary>The freedom below which an agent counts as under pressure and a retrieval is worth its cost.</summary>
-    public double PressureBelowFreedom { get; init; } = 0.35;
 
     /// <summary>How many lines the seat reads. A note per fact in the graph is not retrieval.</summary>
     public int MaxNotes { get; init; } = 8;
@@ -89,6 +91,7 @@ public sealed class GraphMemoryExtension : IAgentExtension
     private int _notes;
     private int _characters;
     private int _retrievals;
+    private int _gateOpenedAt;
 
     public GraphMemoryExtension(ICognitiveGraph graph, GraphMemoryOptions? options = null)
     {
@@ -118,6 +121,13 @@ public sealed class GraphMemoryExtension : IAgentExtension
     /// <summary>How many times this run actually walked the graph, which is not the same as how many ticks it ran.</summary>
     public int Retrievals => _retrievals;
 
+    /// <summary>
+    /// The tick on which demand-gating opened, or 0 while it stays shut. Run-scoped like the counters above and not
+    /// reset between runs, so an extension instance carries one run's worth of state — build a fresh one per run,
+    /// which is what the benches do.
+    /// </summary>
+    public int GateOpenedAtTick => _gateOpenedAt;
+
     public IReadOnlyList<GraphEdge> LastRetrieved { get; private set; } = [];
 
     /// <summary>
@@ -127,7 +137,7 @@ public sealed class GraphMemoryExtension : IAgentExtension
     /// </summary>
     public IEnumerable<string> PolicyNotes(TickContext context)
     {
-        if (!UnderPressure(context))
+        if (!Speaks)
         {
             LastRetrieved = [];
             return [];
@@ -138,9 +148,11 @@ public sealed class GraphMemoryExtension : IAgentExtension
         return Count(retrieved.Take(_options.MaxNotes).Select(Render).ToList());
     }
 
-    /// <summary>Whether this tick is one where looking something up is worth what it costs.</summary>
-    private bool UnderPressure(TickContext context) =>
-        _options.Trigger == GraphMemoryTrigger.Always || context.Freedom < _options.PressureBelowFreedom;
+    /// <summary>
+    /// Whether the seat reads the graph this tick. Always does; on demand does not until the policy has found no
+    /// route, and does every tick after that.
+    /// </summary>
+    private bool Speaks => _options.Trigger == GraphMemoryTrigger.Always || _gateOpenedAt > 0;
 
     private IReadOnlyList<string> Count(IReadOnlyList<string> notes)
     {
@@ -150,16 +162,20 @@ public sealed class GraphMemoryExtension : IAgentExtension
     }
 
     /// <summary>
-    /// The policy has found no route: this is the moment memory exists for. Retrieves what the graph holds about the
+    /// The policy has found no route: this is the moment memory exists for, and under
+    /// <see cref="GraphMemoryTrigger.OnDemand"/> it is what opens the gate. Retrieves what the graph holds about the
     /// situation and writes it straight into the notes, because a hand-off may follow and there would be no next tick
-    /// to put it in. Proposes no tool — the extension may narrow what an agent is offered and never widen it, and a
-    /// suggestion is a widening.
+    /// to put it in; the latch then carries the same knowledge to the seat on every tick that does follow. Proposes no
+    /// tool — the extension may narrow what an agent is offered and never widen it, and a suggestion is a widening.
     /// </summary>
     public PolicySuggestion? NoRoute(TickContext context)
     {
         if (_options.Trigger != GraphMemoryTrigger.OnDemand) return null;
+        if (_gateOpenedAt == 0) _gateOpenedAt = context.Tick;
+        var retrieved = Retrieve(context);
+        LastRetrieved = retrieved;
         var added = new List<string>();
-        foreach (var note in Retrieve(context).Take(_options.MaxNotes).Select(Render))
+        foreach (var note in retrieved.Take(_options.MaxNotes).Select(Render))
             if (!context.Notes.Contains(note, StringComparer.Ordinal))
             {
                 context.Notes.Add(note);
