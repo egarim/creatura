@@ -27,7 +27,9 @@ lines arm B hands back raw, so structure cannot help at answer time — only at 
 under investigation.
 
 That is a deliberate narrowing. It means these results are about **retrieval**, not about reasoning. What an agent
-does with retrieved context when a model is reading it is a different experiment, and it has not been run.
+does with retrieved context when a model is reading it is a different experiment. It has now been run — twice, on
+one fixture that discriminates and one that does not — and is reported in
+[results.md](results.md#the-model-in-the-seat), with its own threats to validity.
 
 ## Fixed before the run
 
@@ -125,8 +127,20 @@ dotnet run --project samples/GraphBench                                    # the
 dotnet run --project samples/GraphBench -- --variants 8                    # the stability run: 448 rows
 dotnet run --project samples/GraphBench -- --only G01,G12 --variants 4     # two scenarios
 dotnet run --project samples/GraphBench -- --seed 99 --out /tmp/other      # another seed, another folder
+dotnet run --project samples/GraphBench -- --gate                          # what demand-gating costs; no model, no key
 dotnet test tests/Creatura.Graph.Bench.Tests                               # the harness, not the result
 ```
+
+The model-in-the-seat runs are a second sample, because they are neither free nor reproducible:
+
+```sh
+dotnet run --project samples/GraphModelBench -- --latches --model deepseek-chat --repeats 6
+```
+
+That needs `DEEPSEEK_API_KEY` and reads its own `models.local.json` through `ModelCatalog.Use` — never
+`samples/models.json`, which is generated from `ModelCatalog.Rows` and pinned by a test counting exactly thirteen
+seats, so adding a model there breaks unrelated tests. Its wall-clock seconds are one machine's and one paid
+provider's; read the counts, not the timings.
 
 The exit code is the decision gate: non-zero when an arm surfaced knowledge it should not have. It is non-zero on
 the current fixtures, because arms B and D do — which is a finding, not a broken build.

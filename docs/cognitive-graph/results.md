@@ -10,6 +10,9 @@ failed, two were not run. Nothing here is evidence that a cognitive graph makes 
 about what structured retrieval does to precision, cost and governance when the question is answerable from a
 corpus.**
 
+With a model in the seat the graph arm wins a fixture the strong seat otherwise fails, 6 times in 6 — by having a
+fatal tool withheld, not by anything the seat read. See [The model in the seat](#the-model-in-the-seat).
+
 ## The arms
 
 | arm | passed | answer rate | evidence recall | violations | learn ms | retrieve ms | chars | items |
@@ -132,6 +135,81 @@ where the answer needed one line, that build cost bought nothing at all (H10).
 
 Wall-clock milliseconds on one machine with an OS scheduler running. Read these as ratios.
 
+## The model in the seat
+
+Everything above is retrieval-level: a corpus, a question, an answer, no agent. Two runs put a language model in the
+chair and let the registry judge. Both are `deepseek-chat` in the `bach` design, and both are reported with their
+negative parts intact.
+
+**The first pilot did not discriminate** (`experiments/graph-model/pilot.md`, 5 repeats per arm). The world was the
+toy restore case with the `patchlies` barrier on, so `apply-patch` reports success and grants nothing. Arm C was
+told, as observed prior knowledge, that `apply-patch` waits on a condition the registry does not hold, and so never
+offered it; arm A was told nothing. **Both arms reached the goal 5 of 5 times, and neither attempted `apply-patch`
+once.** The seat picked `apply-config` unaided, so it never walked into the trap and the graph had nothing to
+prevent. Arm A took 7 ticks and arm C 6, consistently across all five repeats, but no trace was saved and one tick is
+not an effect. A fixture where the control arm already succeeds cannot measure the intervention — the same defect as
+the eleven tied scenarios above, one level up.
+
+**`TwoLatches` was built to be a fixture the strong seat actually fails** (`ProbeWorld` then `CommitWorld`). The
+probe world is cheap, safe and reports what it found in corpus line notation; the commitment world is silent and
+irreversible, and a wrong commitment adds `latch.broken`, which `Shape` uses to rewrite the right choice's
+precondition into a fact nothing grants. Which latch is correct is arbitrary, so reasoning cannot find it — carried
+memory is the only route through. The blind arm fails *for the right reason*: the latch is really broken, not merely
+refused by a gate.
+
+| arm | repeats | door opened | latch broken | commit-left attempts | mean ticks | mean notes | gate opened |
+|---|---|---|---|---|---|---|---|
+| A none | 6 | 0 | 6 | 6 | 5.0 | 0.0 | 0/6 |
+| C graph | 6 | 6 | 0 | 0 | 1.0 | 1.0 | 0/6 |
+| E demand | 6 | 6 | 0 | 0 | 1.0 | 0.0 | 0/6 |
+
+Perfect separation over 6 repeats (`experiments/graph-model/two-latches.md`). The blind arm breaks the latch every
+time; both memory arms open the door on the first tick and never attempt the fatal tool.
+
+**What is doing the work is the constraint, not the retrieved text.** `VisibleTools` withholds `commit-left` because
+a `blockedBy` edge says it waits on a fact the registry does not hold. That is subtraction on the option space, and
+it is why both memory arms win in one tick, on one note or none. **No seat in this matrix was ever persuaded by a
+note it read.** The defensible claim is narrower than "memory helps an agent choose": memory helps by removing an
+option the agent should not take, and the removal is what changes behaviour.
+
+### Demand-gating: what it costs, and a trigger that had to be replaced
+
+Retrieval is not free, and handing an agent knowledge it did not ask for is not neutral either — it is noise the
+seat reads past on every tick. `GraphMemoryTrigger` offers `Always` (retrieve every tick) and `OnDemand` (retrieve
+only once there is demand). Arm E above is `OnDemand`.
+
+The first demand signal was freedom, gated at `PressureBelowFreedom` = 0.35. It was measured, and it does not work:
+over a real six-tick planner run of the restore world, freedom ranges **0.00 to 0.20** and never leaves
+`Plasticity.Freedom`'s floor of 0.2. Any threshold above the floor is open on every tick; any threshold below it
+never opens. Arms C and E were therefore **identical by construction**, and the earlier explanation for their tie —
+that the fixture could not separate them — was wrong. The property is deleted rather than recalibrated: choosing a
+threshold after seeing this data would be result-shopping.
+
+`NoRoute` replaces it. The gate opens on the tick the policy reports no route and latches open for the rest of the
+run, because `PolicyNotes` is the only channel that reaches a seat: the notes `NoRoute` writes go into the run's own
+list, which neither `SeatView.Plain` nor the `bach` design's `Seat` hands back. Withholding a blocked tool is **not**
+gated — the gate covers retrieval, which is a cost; not the constraint, which is a safety. Gating it would let an
+agent walk into a trap for as long as it kept finding a route.
+
+`samples/GraphBench -- --gate` prices this with no model in the seat, because context cost is not stochastic and
+paying DeepSeek to count notes is paying for noise:
+
+| arm | goal | ticks | notes emitted | note chars | retrievals | gate opened at tick |
+|---|---|---|---|---|---|---|
+| C graph always | yes | 6 | 42 | 2388 | 6 | — |
+| E demand gated | yes | 6 | 0 | 0 | 0 | never |
+| E demand, blind on tick 1 | yes | 7 | 49 | 2786 | 7 | 1 |
+
+The third arm forces the demand by blinding the seat on one tick. Without it this mode shows only a gate that stays
+shut, which is indistinguishable from a memory that was switched off. Read together: **on a task the planner
+completes unaided, demand-gating removes the memory's entire context cost and changes nothing else — and once the
+gate is open it costs about what no gate costs.** The whole saving is in keeping it shut.
+
+Two limits on this section, so they are not lost. The gate never opens on `TwoLatches` at all, because withholding
+leaves the seat one visible tool and it never loses the route — that fixture exercises the shut half only, and the
+open half has never run with a model in the seat. And a planner ignores notes, so the identical goals and tick
+counts in the first two `--gate` rows are true by construction and prove nothing about outcome parity.
+
 ## Recommendations (milestone 8)
 
 **On persistence: stay in memory.** Nothing in this run justifies a database. The largest graph built was ~130
@@ -163,15 +241,11 @@ effective sample size is 14 and no confidence interval is claimed.
 
 ## Not done
 
-- **The agent-in-the-loop experiment has a fixture but no result yet.** A first model-seat pilot on the toy restore
-  world (`experiments/graph-model/pilot.md`, `deepseek-chat`, 5 repeats per arm) was a **negative result and is
-  reported as one**: the seat avoided the trap unaided in 5 of 5 runs with no memory at all, so nothing
-  discriminated. That is the same defect as the eleven tied scenarios above, one level up. `TwoLatches`
-  (`ProbeWorld` + `CommitWorld`) is the response to it — a pair where the commitment world gives no hint which
-  latch holds and a wrong commitment rewrites the right one's precondition into something nothing can grant, so
-  memory is the only route through. Both halves are asserted offline against registry state in `TwoLatchesTests`,
-  including that the blind arm fails *for the right reason*: the latch is really broken, not merely refused by a
-  gate. The model-seat matrix over it has not been run.
+- **The agent-in-the-loop experiment has one decisive result and one open half.** `TwoLatches` separates the arms
+  perfectly, so there is now a fixture a strong seat genuinely fails and a memory that rescues it. But the rescue is
+  a withheld tool, not a note read, and no seat has yet been shown to change its mind because of retrieved text.
+  H14's success half — that demand-gating costs context without costing outcomes — needs a fixture where the gate
+  actually opens with a model in the seat, which neither `TwoLatches` nor the restore world provides.
 - **No dense retrieval.** Arm B is TF-IDF. H09 in particular should not be considered settled until it has been
   run against a vector arm.
 - **G15 to G20 are not implemented.** Model substitution and small-versus-large need models; consolidation,
@@ -186,7 +260,7 @@ effective sample size is 14 and no confidence interval is claimed.
 |---|---|
 | Milestone 4, fixtures and independent oracles | **PASS** — 14 scenarios, hidden ground truth, one shared answerer |
 | Milestone 5, the four arms | **PASS** — deterministic; no dense-retrieval arm |
-| Milestone 6, execute G01–G14 and publish | **PASS** for the retrieval-level harness; **NOT RUN** with a model in the seat |
+| Milestone 6, execute G01–G14 and publish | **PASS** for the retrieval-level harness; **PARTIAL** with a model in the seat — the pilot and `TwoLatches` above, one fixture, 6 repeats |
 | Milestone 7, model substitution and consolidation | **NOT TESTED** |
 | Milestone 8, recommend architecture and persistence | **PASS** — above |
 | Decision gate, zero critical security violations | **FAIL for B and D by design, PASS for C** |
