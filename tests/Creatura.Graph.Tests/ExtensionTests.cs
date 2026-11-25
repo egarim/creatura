@@ -250,4 +250,88 @@ public class ExtensionTests
             new ActionOutcome("apply-patch", true, [], "lied"), ActionVerdict.Lied);
         Assert.Equal(0, extension.Episodes);
     }
+
+    private static ICognitiveGraph Seeded()
+    {
+        var graph = Graph();
+        graph.Put(Graphs.Node("inspect-logs", "Tool", warrant: Observed()));
+        graph.Put(Graphs.Node("logs.inspected", "Fact", warrant: Observed()));
+        graph.Put(Graphs.Edge("k1", "inspect-logs", "produced", "logs.inspected", GraphCategory.Episodic, Observed()));
+        return graph;
+    }
+
+    private static TickContext AtFreedom(IWorld world, double freedom)
+    {
+        var context = Tick(world, world.AvailableTools);
+        context.Freedom = freedom;
+        return context;
+    }
+
+    [Fact]
+    public void AnOnDemandExtensionStaysQuietWhileTheAgentIsCoping()
+    {
+        var extension = new GraphMemoryExtension(Seeded(), new GraphMemoryOptions { Trigger = GraphMemoryTrigger.OnDemand });
+        var world = RestoreServiceDomain.NewWorld();
+
+        // Full freedom: nothing is going wrong, so nothing is worth the tokens.
+        Assert.Empty(extension.PolicyNotes(AtFreedom(world, 1.0)));
+        Assert.Empty(extension.LastRetrieved);
+        // Freedom has fallen under the threshold: now it looks.
+        Assert.NotEmpty(extension.PolicyNotes(AtFreedom(world, 0.1)));
+        Assert.NotEmpty(extension.LastRetrieved);
+    }
+
+    [Fact]
+    public void AnAlwaysOnExtensionSpeaksWhetherOrNotItIsNeeded()
+    {
+        var extension = new GraphMemoryExtension(Seeded());
+        var world = RestoreServiceDomain.NewWorld();
+
+        Assert.Equal(GraphMemoryTrigger.Always, extension.Options.Trigger);
+        Assert.NotEmpty(extension.PolicyNotes(AtFreedom(world, 1.0)));
+        Assert.NotEmpty(extension.PolicyNotes(AtFreedom(world, 0.1)));
+    }
+
+    [Fact]
+    public void WithholdingABlockedToolIsNotGatedByPressure()
+    {
+        var graph = Graph();
+        graph.Put(Graphs.Node("apply-patch", "Tool", GraphCategory.Task, Observed()));
+        graph.Put(Graphs.Node("change.freeze", "Condition", GraphCategory.Task, Observed()));
+        graph.Put(Graphs.Edge("gate", "apply-patch", GraphMemoryExtension.BlockedBy, "change.freeze",
+            GraphCategory.Task, Observed()));
+        var extension = new GraphMemoryExtension(graph, new GraphMemoryOptions { Trigger = GraphMemoryTrigger.OnDemand });
+        var world = RestoreServiceDomain.NewWorld();
+
+        // A calm agent still is not offered the blocked tool. Gating the constraint on stress would let an agent walk
+        // into a trap for as long as it felt confident, which is exactly when traps get walked into.
+        Assert.Empty(extension.PolicyNotes(AtFreedom(world, 1.0)));
+        Assert.DoesNotContain(world.Tool("apply-patch")!,
+            extension.VisibleTools(AtFreedom(world, 1.0), world.AvailableTools));
+    }
+
+    [Fact]
+    public void NoRouteWritesWhatItFindsIntoTheNotesAndProposesNoTool()
+    {
+        var extension = new GraphMemoryExtension(Seeded(), new GraphMemoryOptions { Trigger = GraphMemoryTrigger.OnDemand });
+        var context = AtFreedom(RestoreServiceDomain.NewWorld(), 1.0);
+
+        // No route is the one moment retrieval is always worth it, whatever the freedom reading says — and a hand-off
+        // may follow, so there might be no next tick to put the notes in.
+        Assert.Null(extension.NoRoute(context));
+        Assert.NotEmpty(context.Notes);
+        Assert.All(context.Notes, note => Assert.StartsWith("knowledge (", note, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AnAlwaysOnExtensionDoesNotSpeakTwiceWhenThereIsNoRoute()
+    {
+        var extension = new GraphMemoryExtension(Seeded());
+        var context = AtFreedom(RestoreServiceDomain.NewWorld(), 1.0);
+
+        // It already retrieved for this tick through PolicyNotes; NoRoute is the on-demand arm's hook, not a second
+        // helping of the same knowledge.
+        Assert.Null(extension.NoRoute(context));
+        Assert.Empty(context.Notes);
+    }
 }
