@@ -74,7 +74,7 @@ public class StoreTests
     }
 
     [Fact]
-    public void ARelationshipWithoutADeclaredInverseIsOnlyReadTheWayItWasWritten()
+    public void ARelationshipWithNoDeclaredInverseIsStillAdjacentInTheDirectionItWasWritten()
     {
         var graph = Graphs.Store().Open(Graphs.Alice);
         graph.Put(Graphs.Node("a"));
@@ -82,10 +82,17 @@ public class StoreTests
         graph.Put(Graphs.Edge("u1", "a", "uses", "b"));
 
         Assert.Single(graph.Adjacent("a"));
-        Assert.Empty(graph.Adjacent("b"));
-        // And turning the inverse off changes nothing here, because there was no inverse to follow.
-        Assert.Single(graph.Adjacent("a", GraphQuery.All with { FollowInverse = false }));
+        // Adjacent from the far end, but not renamed: "uses" has no inverse in the schema, and inventing one would put
+        // a statement in a seat's notes that the corpus never made.
+        var fromB = graph.Adjacent("b");
+        Assert.Single(fromB);
+        Assert.Equal("u1", fromB[0].Id);
+        Assert.Equal("a", fromB[0].Subject);
+        Assert.Equal("uses", fromB[0].Relation);
+        Assert.Equal("b", fromB[0].Object);
+        // Reading the far end at all is the caller's choice, not the schema's.
         Assert.Empty(graph.Adjacent("b", GraphQuery.All with { FollowInverse = false }));
+        Assert.Single(graph.Adjacent("a", GraphQuery.All with { FollowInverse = false }));
     }
 
     [Fact]
@@ -513,7 +520,11 @@ public class StoreTests
 
         Assert.Empty(graph.Contradictions());
         Assert.Null(store.Schema.Relation("ownedBy"));
-        Assert.Empty(graph.Adjacent("x"));
+        // With no schema there is no inverse to read the relationship back through, but it is still adjacent to the
+        // far node in the direction it was written: unfamiliar knowledge is uninterpreted, not invisible.
+        var fromX = graph.Adjacent("x");
+        Assert.Single(fromX);
+        Assert.Equal("a", fromX[0].Id);
     }
 
     [Fact]

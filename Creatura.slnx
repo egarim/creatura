@@ -12,6 +12,7 @@
     <Project Path="src/Creatura.Scenarios/Creatura.Scenarios.csproj" />
     <Project Path="src/Creatura.Ratings/Creatura.Ratings.csproj" />
     <Project Path="src/Creatura.Graph/Creatura.Graph.csproj" />
+    <Project Path="src/Creatura.Graph.Bench/Creatura.Graph.Bench.csproj" />
     <Project Path="src/Creatura.Cli/Creatura.Cli.csproj" />
     <Project Path="src/Creatura.Operator/Creatura.Operator.csproj" />
     <Project Path="src/Creatura.Tray/Creatura.Tray.csproj" />
@@ -24,6 +25,7 @@
     <Project Path="samples/Convoy/Convoy.csproj" />
     <Project Path="samples/SemanticKernelHost/SemanticKernelHost.csproj" />
     <Project Path="samples/FeedStudy/FeedStudy.csproj" />
+    <Project Path="samples/GraphBench/GraphBench.csproj" />
     <Project Path="samples/Axi/Axi.csproj" />
     <Project Path="samples/AxiAgent/AxiAgent.csproj" />
   </Folder>
@@ -36,5 +38,6 @@
     <Project Path="tests/Creatura.Worlds.Web.Tests/Creatura.Worlds.Web.Tests.csproj" />
     <Project Path="tests/Creatura.Operator.Tests/Creatura.Operator.Tests.csproj" />
     <Project Path="tests/Creatura.Graph.Tests/Creatura.Graph.Tests.csproj" />
+    <Project Path="tests/Creatura.Graph.Bench.Tests/Creatura.Graph.Bench.Tests.csproj" />
   </Folder>
 </Solution>

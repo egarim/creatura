@@ -184,6 +184,7 @@ sample worlds are `Creatura.Worlds.Samples`; and `Creatura.Cli` is in `Creatura.
 | [Creatura.Seats/](src/Creatura.Seats) | the model seats: IModelTransport (Ollama, OpenAI-compatible, Azure Foundry) over an injected HttpClient, ModelClient, ModelPolicy, ModelJudge, ModelCatalog from models.json, the seat's biology, SeatResolver, the call log and the scoreboard | none; may do file IO |
 | [Creatura.Worlds.Web/](src/Creatura.Worlds.Web) | web worlds: WebWorld over a real app in Chromium, the observation (visible text and numbered controls), a tool per control, the declarative data check, barriers by Playwright routing, the persona and script seats, the UX adapter format, the matrix, its report, compare and the gate, and the offline notes demo | Microsoft.Playwright; may do file IO |
 | [Creatura.Graph/](src/Creatura.Graph) | the optional cognitive graph: typed nodes and relationships in six categories, provenance and validity periods, a verification ladder and confidence as counts, contradiction and supersession, tenant and workspace scopes behind an access policy, bounded traversal, secret redaction, snapshot export, a deterministic line extractor, and the agent extension that retrieves through it (docs/cognitive-graph/architecture.md) | none; may do file IO |
+| [Creatura.Graph.Bench/](src/Creatura.Graph.Bench) | the cognitive graph benchmark: the G01–G14 fixtures with hidden ground truth, the four memory arms (none, text, graph, hybrid), the one answerer they are all scored by, the thirteen pre-registered hypotheses, and the JSONL and report writers (docs/cognitive-graph/results.md) | none; may do file IO |
 
 **The hosts** (`src/`)
 
@@ -213,6 +214,7 @@ sample worlds are `Creatura.Worlds.Samples`; and `Creatura.Cli` is in `Creatura.
 | [samples/AgentFrameworkHost/](samples/AgentFrameworkHost) | the control layer on Agent Framework over the toy suite's four barriers, offline by default; `--compare` runs it beside the designs, `--seat <catalog name>` puts a model in it |
 | [samples/SemanticKernelHost/](samples/SemanticKernelHost) | the same on Semantic Kernel, with the same options |
 | [samples/Convoy/](samples/Convoy) | the convoy from the command line: one run, a battery, recordings, datasets, trial runs |
+| [samples/GraphBench/](samples/GraphBench) | the cognitive graph benchmark from the command line: the fourteen fixtures against the four memory arms, offline, with the raw rows and the generated report; its exit code is issue #110's security gate |
 | [samples/ux/](samples/ux) | a web-world adapter template for an app on the Singular starter (not yet run against one) |
 | [samples/models.json](samples/models.json) | the compiled model catalog written out, to copy beside an executable and edit |
 | [models/](models) | trained policy networks (plain JSON weights), embedded in Creatura.Scenarios |
@@ -230,6 +232,7 @@ sample worlds are `Creatura.Worlds.Samples`; and `Creatura.Cli` is in `Creatura.
 | [Creatura.Scenarios.Tests/](tests/Creatura.Scenarios.Tests) | the convoy, the model seat, the recorder, the networks, shared distrust |
 | [Creatura.Worlds.Web.Tests/](tests/Creatura.Worlds.Web.Tests) | web worlds: the check, the observation, the tools, the seats, and the demo in a real browser (skipped, saying why, when no Chromium is found) |
 | [Creatura.Graph.Tests/](tests/Creatura.Graph.Tests) | the cognitive graph: traversal and its bounds, cycles, temporal validity, contradictions, revision, deletion, tenant and workspace isolation, secret canaries, snapshots, the line extractor, and the extension against the real loop |
+| [Creatura.Graph.Bench.Tests/](tests/Creatura.Graph.Bench.Tests) | the benchmark's harness rather than its result: that the fixtures need a memory at all, that the arms differ only in how they retrieve, that a run reproduces itself from its seed, and that no secret reaches a result file |
 
 ```sh
 dotnet build Creatura.slnx

@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **`Creatura.Graph.Bench`: the G01–G14 benchmark, and what it found** (issue #110). The fourteen fixtures with
+  hidden ground truth, the four memory arms issue #110 asks for (A no memory, B TF-IDF over the corpus lines, C the
+  graph, D both over one budget), and one deterministic answerer shared by all four — so an arm can only win by
+  retrieving better, never by parsing better, and arm C hands back its edges rendered as the same lines arm B hands
+  back raw. Thirteen hypotheses pre-registered with their thresholds before the run, `samples/GraphBench` to run it
+  offline, raw JSONL and a generated report in `experiments/graph/`, and an exit code that is issue #110's security
+  gate. At seed 20261125 the graph arm passed 13 of 14 against the text arm's 10, with zero policy violations
+  against four, and handed back 53% less context; five hypotheses held, six failed and two were not run. The
+  failures are the interesting part and are reported in full: hybrid retrieval is *worse* than the graph alone
+  because it inherits the text arm's leaks, every arm including the graph one fails the noisy-graph fixture because
+  a high-degree neighbour eats the budget, and eleven of the fourteen fixtures do not discriminate at all because
+  where one keyword-matched line holds the whole answer, TF-IDF finds it too. The gate is not cleared, by arms B
+  and D and by design. No model sat in any seat, so nothing here is evidence about an agent's behaviour;
+  `docs/cognitive-graph/results.md` says what would be. The methodology document records what was corrected after
+  the first run — one real bug in arm C and two fixtures whose oracles over-reached, two of which made the graph
+  arm look worse.
 - **`Creatura.Graph`: an optional cognitive graph** (issue #109). Typed knowledge that outlives a run — nodes and
   relationships in six categories (semantic, episodic, causal, task, social, environmental), each carrying where it
   came from (`GraphProvenance`, pointing at a `SignedEntry` when it came through a cell), when it was true

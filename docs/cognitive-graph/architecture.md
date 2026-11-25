@@ -5,8 +5,11 @@ Issue [#109](https://github.com/egarim/creatura/issues/109) (architecture) and
 [Zeng et al., *Cognitive Graph for Multi-Agent Reading Comprehension at Scale*](https://arxiv.org/abs/2404.16130).
 
 **Status: the contracts, the in-memory store, the governance rules and the agent extension are built
-(`src/Creatura.Graph`, 81 tests). The G01–G14 fixtures, the four experimental arms and the results are not;
-they are the next unit of work and nothing here claims a measured improvement.**
+(`src/Creatura.Graph`, 81 tests). The G01–G14 fixtures, the four experimental arms and a first run of them are
+built too (`src/Creatura.Graph.Bench`, `samples/GraphBench`, 21 tests), and what that run found — five hypotheses
+held, six failed, two not run, and one scenario every arm failed — is in
+[results.md](results.md). Nothing here claims a measured improvement in an agent's behaviour: no model has been in
+any seat yet.**
 
 The question is not whether a graph database is better than a memory system. It is whether structured
 knowledge — relationships, accumulated experience, provenance — improves the reasoning, learning and efficiency
@@ -150,17 +153,14 @@ contradiction list is the one number in a system like this that can drift from t
 
 - [The data model](data-model.md): the contracts, field by field, with examples.
 - [Security and knowledge governance](security.md): isolation, redaction, the canaries, and the known limitations.
-- Experimental methodology, the G01–G14 fixtures and the results: with issue #110, not here. Nothing has been
-  measured yet.
+- [Experimental methodology](experimental-methodology.md): the pre-registration — what was fixed before the run,
+  the fairness controls, what was corrected after the first run, and the threats to validity.
+- [Results](results.md): what the first run found, including the hypotheses that failed.
+- [Roadmap](roadmap.md): what is built, what is designed and not built, and what the evidence says to do next.
 
 ## Next
 
-1. G01–G14 fixtures with hidden ground truth and independent oracles, as a `Battery` in `Creatura.Bench`
-   (#110). Pre-registered thresholds before any run.
-2. The four arms: no persistent memory, text retrieval, graph retrieval, hybrid. Same seat, prompts, tools,
-   corpus, budgets and oracle; only the retrieval adapter differs.
-3. Retrieval-level evaluation first (deterministic, offline, no model), then the agent-in-the-loop arms on local
-   seats. Graph construction and extraction cost counted on the same side of the ledger as retrieval.
-4. Only then: a recommendation on persistence, and whether any of this was worth it.
+Ranked retrieval, fixtures that actually discriminate, a dense-retrieval arm, and the agent-in-the-loop experiment
+on a local model seat — in that order, and with the reasoning, in [the roadmap](roadmap.md).
 
 Free for noncommercial use under the [PolyForm Noncommercial License 1.0.0](https://github.com/egarim/creatura/blob/main/LICENSE.md).

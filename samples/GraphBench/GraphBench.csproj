@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The cognitive graph benchmark (issue #110): the G01-G14 fixtures, the four memory arms, the pre-registered
+         hypotheses, and the raw JSONL and report writers. No package. -->
+    <ProjectReference Include="../../src/Creatura.Graph.Bench/Creatura.Graph.Bench.csproj" />
+  </ItemGroup>
+</Project>

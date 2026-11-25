@@ -127,8 +127,11 @@ public sealed class InMemoryGraphStore : IGraphStore
             if (query.FollowInverse)
                 foreach (var (edge, inverse) in Incoming(nodeId))
                 {
-                    if (inverse is null || !Readable(caller, edge) || !Matches(edge, query)) continue;
-                    found.Add(edge.Reversed(inverse));
+                    if (!Readable(caller, edge) || !Matches(edge, query)) continue;
+                    // A relation with a declared inverse is read back through it; one without is still adjacent
+                    // knowledge, and is handed back the way it was written, because renaming it on the way out would
+                    // say something the corpus never said.
+                    found.Add(inverse is null ? edge : edge.Reversed(inverse));
                 }
 
             return found.OrderBy(e => e.Id, StringComparer.Ordinal).Take(query.Bound).ToList();
@@ -550,8 +553,8 @@ public sealed class InMemoryGraphStore : IGraphStore
         if (options.FollowInverse)
             foreach (var (edge, inverse) in Incoming(nodeId))
             {
-                if (inverse is null || !Crossable(caller, edge, options)) continue;
-                found.Add(edge.Reversed(inverse));
+                if (!Crossable(caller, edge, options)) continue;
+                found.Add(inverse is null ? edge : edge.Reversed(inverse));
             }
 
         return options.Rank is null
