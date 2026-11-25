@@ -10,8 +10,10 @@ failed, two were not run. Nothing here is evidence that a cognitive graph makes 
 about what structured retrieval does to precision, cost and governance when the question is answerable from a
 corpus.**
 
-With a model in the seat the graph arm wins a fixture the strong seat otherwise fails, 6 times in 6 — by having a
-fatal tool withheld, not by anything the seat read. See [The model in the seat](#the-model-in-the-seat).
+With a model in the seat, memory wins two fixtures the strong seat otherwise fails, 6 times in 6. The first it wins
+by having a fatal tool withheld; the second takes that route away, and the seat wins by asking a question and acting
+on the answer — while the arm that was *told* the same knowledge every tick did no better than the arm that had to
+fetch it. See [The model in the seat](#the-model-in-the-seat).
 
 ## The arms
 
@@ -166,11 +168,55 @@ refused by a gate.
 Perfect separation over 6 repeats (`experiments/graph-model/two-latches.md`). The blind arm breaks the latch every
 time; both memory arms open the door on the first tick and never attempt the fatal tool.
 
-**What is doing the work is the constraint, not the retrieved text.** `VisibleTools` withholds `commit-left` because
-a `blockedBy` edge says it waits on a fact the registry does not hold. That is subtraction on the option space, and
-it is why both memory arms win in one tick, on one note or none. **No seat in this matrix was ever persuaded by a
-note it read.** The defensible claim is narrower than "memory helps an agent choose": memory helps by removing an
-option the agent should not take, and the removal is what changes behaviour.
+**What is doing the work here is the constraint, not the retrieved text.** `VisibleTools` withholds `commit-left`
+because a `blockedBy` edge says it waits on a fact the registry does not hold. That is subtraction on the option
+space, and it is why both memory arms win in one tick, on one note or none. No seat in *this* matrix was persuaded
+by a note it read — which is exactly what the next fixture was built to find out.
+
+### Asked latches: retrieval the agent fetches for itself
+
+`AskedWorld` is `CommitWorld` with the constraint removed. Nothing in its graph uses the `blockedBy` convention, so
+withholding cannot fire and the fatal tool stays on offer; the irreversibility is unchanged, so a wrong guess still
+costs the run. The knowledge is still there and still arbitrary, but the only way to it is a `recall` tool that
+takes a payload — the seat's own question, in its own words. The answer comes back as that action's observation,
+which the loop writes into the seat's history, so it is still being read on every tick after the one it was asked
+on. History is a channel that works; notes, as the demand-gating section below shows, are one that barely reaches
+the seat at all.
+
+Because a payload tool is out of the planner's reach — `PlannerPolicy` filters `Tool.NeedsPayload`, breadth-first
+search having no generator — this fixture cannot be run offline. `AskedLatchesTests` pins that, rather than letting
+a green deterministic test imply that asking was measured. It pins two invariants as well: that withholding really
+cannot win this fixture, and that **asking is not evidence** — the answer is rendered in the `knowledge (observed): …`
+form, which `LineExtractor`'s grammar does not parse, so an answer cannot be re-ingested by `AfterAction` as fresh
+support for itself.
+
+| arm | repeats | door opened | latch broken | asked | commit-left | mean ticks | mean notes |
+|---|---|---|---|---|---|---|---|
+| A blind | 6 | 0 | 6 | 53 | 6 | 10.0 | 0.0 |
+| C ask+notes | 6 | 6 | 0 | 6 | 0 | 2.0 | 4.0 |
+| E ask only | 6 | 6 | 0 | 6 | 0 | 2.0 | **0.0** |
+
+`experiments/graph-model/asked-latches.md`, `deepseek-chat`, 6 repeats, a fresh world and graph per repeat.
+
+Arm A may ask and has nothing to be told: it asks 8 or 9 times a run, is answered "nothing recorded" every time,
+then guesses, breaks the latch and runs out the 10-tick cap. That the blind arm asks *repeatedly* is a finding in
+its own right — the seat treats the tool as the way to get information without being told that it is.
+
+**Arm E is the result this line has been missing.** It emits zero notes and performs zero retrievals; its demand
+gate never opens; the extension tells the seat nothing whatsoever. The seat asks one question, reads the answer out
+of its own history, and commits correctly — 6 of 6, in two ticks, never attempting the fatal tool. Against arm A's
+0 of 6 that is a clean separation, and guessing does not explain it: six coin flips the right way is p ≈ 0.016, and
+arm E did not try `commit-left` once.
+
+**And C ties E.** Both open the door 6 of 6 in 2.0 mean ticks having asked exactly once. C was handed four notes a
+run containing the same two statements E had to ask for, and they bought nothing: same outcome, same ticks, same
+single question. On this fixture at this seat, **injected retrieval and fetched retrieval are worth the same, and
+fetched costs less** — E paid zero note characters against C's four notes.
+
+One honest limit. The task text says "Nothing here says which latch holds; asking does", so every arm is told that
+asking is worth doing. That is deliberate: the variable under test is whether the *answer* changes behaviour, not
+whether a seat can discover that a recall tool exists — and it is shared by arm A, which fails anyway. But it does
+mean this fixture has not measured whether an agent thinks to ask when nobody tells it to.
 
 ### Demand-gating: what it costs, and a trigger that had to be replaced
 
@@ -224,6 +270,15 @@ verification status (the `Rank` hook on `GraphTraversalOptions` already exists f
 fan-out per node so a hub cannot monopolize a budget. Whichever is chosen, the current unranked result is the
 baseline it has to beat, and it is recorded here.
 
+**On delivery: let the agent ask.** The asked-latches matrix is the first result here in which a seat changed what
+it does because of something it read, and it did so with the injection channel switched off — zero notes, zero
+retrievals, the demand gate never opened. The arm handed the same two statements as notes on every tick did no
+better and paid more. The framework already supports this with no new plumbing: a payload tool's answer arrives as
+an observation, the loop writes it into history, and history reaches the seat on every later tick. That is a
+stronger delivery path than `PolicyNotes`, which is the only channel notes have and which a plain `SeatView` never
+feeds back. If one more form of graph memory is worth building, it is a `recall` tool the world offers and the
+graph answers — not a larger note.
+
 **On hybrid retrieval: govern both retrievers or do not mix them.** Arm D's failure mode is a design bug with a
 benchmark score attached. If a hybrid arm is worth pursuing, the policy has to apply to the text side too — which
 in practice means the text index needs scope labels, at which point it is a small graph with worse queries.
@@ -241,11 +296,12 @@ effective sample size is 14 and no confidence interval is claimed.
 
 ## Not done
 
-- **The agent-in-the-loop experiment has one decisive result and one open half.** `TwoLatches` separates the arms
-  perfectly, so there is now a fixture a strong seat genuinely fails and a memory that rescues it. But the rescue is
-  a withheld tool, not a note read, and no seat has yet been shown to change its mind because of retrieved text.
-  H14's success half — that demand-gating costs context without costing outcomes — needs a fixture where the gate
-  actually opens with a model in the seat, which neither `TwoLatches` nor the restore world provides.
+- **The agent-in-the-loop experiment has two decisive results and two open questions.** `TwoLatches` separates the
+  arms by withholding; `AskedWorld` separates them by asking, and arm E there is the first measurement in this line
+  of a seat changing what it does because of something it read. Still open: whether a seat thinks to ask when no
+  task text tells it asking is worth doing, and H14's success half — that demand-gating costs context without
+  costing outcomes — which needs a fixture where the gate actually opens with a model in the seat. Neither
+  `TwoLatches`, `AskedWorld` nor the restore world provides one.
 - **No dense retrieval.** Arm B is TF-IDF. H09 in particular should not be considered settled until it has been
   run against a vector arm.
 - **G15 to G20 are not implemented.** Model substitution and small-versus-large need models; consolidation,
@@ -260,7 +316,7 @@ effective sample size is 14 and no confidence interval is claimed.
 |---|---|
 | Milestone 4, fixtures and independent oracles | **PASS** — 14 scenarios, hidden ground truth, one shared answerer |
 | Milestone 5, the four arms | **PASS** — deterministic; no dense-retrieval arm |
-| Milestone 6, execute G01–G14 and publish | **PASS** for the retrieval-level harness; **PARTIAL** with a model in the seat — the pilot and `TwoLatches` above, one fixture, 6 repeats |
+| Milestone 6, execute G01–G14 and publish | **PASS** for the retrieval-level harness; with a model in the seat, **PASS** on two fixtures (`TwoLatches`, `AskedWorld`), 6 repeats each |
 | Milestone 7, model substitution and consolidation | **NOT TESTED** |
 | Milestone 8, recommend architecture and persistence | **PASS** — above |
 | Decision gate, zero critical security violations | **FAIL for B and D by design, PASS for C** |

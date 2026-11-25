@@ -12,8 +12,14 @@ using Creatura.Worlds;
 // benchmark is deterministic and offline; this puts a language model in the chair and asks whether structured
 // retrieval changes what an agent DOES, judged by world state and not by the agent's own account of itself.
 //
-//   dotnet run --project samples/GraphModelBench -- --smoke  --model deepseek-chat
-//   dotnet run --project samples/GraphModelBench -- --pilot  --model deepseek-chat --repeats 5
+//   dotnet run --project samples/GraphModelBench -- --smoke   --model deepseek-chat
+//   dotnet run --project samples/GraphModelBench -- --pilot   --model deepseek-chat --repeats 5
+//   dotnet run --project samples/GraphModelBench -- --latches --model deepseek-chat --repeats 6
+//   dotnet run --project samples/GraphModelBench -- --asked   --model deepseek-chat --repeats 6
+//
+// --latches is the fixture a constraint wins: a blockedBy edge withholds the fatal tool. --asked removes that route,
+// so the only way through is to call recall and act on the answer — the first comparison that can say whether
+// retrieved knowledge changes a decision rather than whether subtraction removes one.
 //
 // The pilot is deliberately one scenario and two arms. Before spending hours on a matrix it asks whether an effect
 // is detectable at all above the noise of a stochastic seat.
@@ -36,6 +42,7 @@ catch (Exception ex)
     return 2;
 }
 
+if (args.Contains("--asked")) return await Asked();
 if (args.Contains("--latches")) return await Latches();
 if (args.Contains("--pilot")) return await Pilot();
 return await Smoke();
@@ -186,6 +193,126 @@ string LatchMarkdown(List<LatchRow> rows)
     return sb.ToString();
 }
 
+// ---------------------------------------------------------------- asked
+
+/// <summary>
+/// The model-seat matrix over <see cref="AskedWorld"/>: <see cref="TwoLatches"/>' commitment with the
+/// <c>blockedBy</c> route removed, so the fatal tool stays on offer and the only way through is to ask and then act
+/// on the answer. This is the first fixture in this line that can measure whether retrieved knowledge changes a
+/// decision, rather than whether a constraint removes one — <see cref="CommitWorld"/> answers that second question
+/// and structurally cannot answer this one.
+/// <para>
+/// Three arms. A may ask but has no memory. C has the memory, is handed notes every tick, and may ask. E has the
+/// memory and may ask but is told nothing unless it loses the route, which it should not. **C against E is the
+/// question the notes channel has never been able to answer.**
+/// </para>
+/// </summary>
+async Task<int> Asked()
+{
+    Console.WriteLine($"asked latches: seat {model}, design {design}, {repeats} repeats per arm, ask then commit");
+    Console.WriteLine();
+    var arms = new (string Name, Func<(AskedWorld World, AgentOptions Options, GraphMemoryExtension? Graph)> Make)[]
+    {
+        ("A blind", () => (new AskedWorld(), AgentOptions.None, null)),
+        ("C ask+notes", () => WithKnowledge(GraphMemoryOptions.Default)),
+        ("E ask only", () => WithKnowledge(new GraphMemoryOptions { Trigger = GraphMemoryTrigger.OnDemand })),
+    };
+    var rows = new List<AskedRow>();
+    foreach (var (arm, make) in arms)
+    for (var repeat = 1; repeat <= repeats; repeat++)
+    {
+        // A fresh world and a fresh graph per repeat per arm: nothing carries in, so what an arm knows is what it
+        // was given and what it asked for.
+        var (world, options, graph) = make();
+        var clock = Stopwatch.StartNew();
+        string? fault = null;
+        AgentRun run;
+        try
+        {
+            run = await AgentCatalog.Make(design, policy, AskedWorld.Task, options, repeat).RunAsync(world, 10);
+        }
+        catch (Exception ex)
+        {
+            run = new AgentRun(design, false, 0, [], []);
+            fault = $"{ex.GetType().Name}: {ex.Message}";
+        }
+
+        clock.Stop();
+        var acted = run.Trace.Where(t => t.Level == "cell").Select(t => t.Action).ToList();
+        var open = world.Has(TwoLatches.Open);
+        var broken = world.Has(TwoLatches.Broken);
+        rows.Add(new AskedRow(arm, repeat, open, broken, acted.Count(a => a == AskedLatches.Recall),
+            acted.Count(a => a == "commit-left"), acted.Count(a => a == "commit-right"), run.Ticks,
+            graph?.NotesEmitted ?? 0, graph?.Retrievals ?? 0, graph?.GateOpenedAtTick ?? 0,
+            clock.Elapsed.TotalSeconds, fault));
+        Console.WriteLine($"  {arm,-11} r{repeat,2}  door={(open ? "OPEN" : "shut"),-4}  broken={(broken ? "yes" : "no"),-3}  " +
+                          $"asked={acted.Count(a => a == AskedLatches.Recall)}  left={acted.Count(a => a == "commit-left")} right={acted.Count(a => a == "commit-right")}  " +
+                          $"ticks={run.Ticks,2}  notes={graph?.NotesEmitted ?? 0,3}  {clock.Elapsed.TotalSeconds,5:F1}s{(fault is null ? "" : $"  FAULT {fault}")}");
+    }
+
+    (AskedWorld, AgentOptions, GraphMemoryExtension?) WithKnowledge(GraphMemoryOptions options)
+    {
+        var graph = AskedLatches.Knowledge(new GraphCaller(design));
+        var extension = new GraphMemoryExtension(graph, options);
+        return (new AskedWorld(AskedLatches.AnsweringFrom(graph)), AgentOptions.With(extension), extension);
+    }
+
+    var markdown = AskedMarkdown(rows);
+    Console.WriteLine();
+    Console.WriteLine(markdown);
+    Directory.CreateDirectory("experiments/graph-model");
+    File.WriteAllText(Path.Combine("experiments/graph-model", "asked-latches.md"), markdown);
+    return 0;
+}
+
+string AskedMarkdown(List<AskedRow> rows)
+{
+    var inv = CultureInfo.InvariantCulture;
+    var sb = new StringBuilder();
+    sb.Append("<!-- generated by samples/GraphModelBench; the hand-written account is docs/cognitive-graph/results.md -->\n");
+    sb.Append("# Asked latches, with a model in the seat\n\n");
+    sb.Append($"Seat `{model}`, design `{design}`, {repeats} repeats per arm. `TwoLatches`' commitment world with the\n");
+    sb.Append("`blockedBy` route removed: nothing in the graph uses the withholding convention, so the fatal tool\n");
+    sb.Append("stays on offer and the only way through is to call `recall` and then act on what comes back. The\n");
+    sb.Append("answer arrives as that action's observation, which the loop writes into the seat's history.\n\n");
+    sb.Append("Arm A may ask and has no memory. Arm C has the memory, is handed notes every tick, and may ask. Arm E\n");
+    sb.Append("has the memory and may ask but is told nothing unless it loses the route. C against E is the first\n");
+    sb.Append("comparison in this line that can say whether injected notes add anything to what an agent can fetch\n");
+    sb.Append("for itself.\n\n");
+    sb.Append("| arm | repeats | door opened | latch broken | asked | commit-left | mean ticks | mean notes | gate opened | mean wall s |\n|---|---|---|---|---|---|---|---|---|---|\n");
+    foreach (var arm in rows.Select(r => r.Arm).Distinct(StringComparer.Ordinal))
+    {
+        var g = rows.Where(r => r.Arm == arm).ToList();
+        sb.Append("| ").Append(arm)
+            .Append(" | ").Append(g.Count.ToString(inv))
+            .Append(" | ").Append(g.Count(r => r.Open).ToString(inv))
+            .Append(" | ").Append(g.Count(r => r.Broken).ToString(inv))
+            .Append(" | ").Append(g.Sum(r => r.Asked).ToString(inv))
+            .Append(" | ").Append(g.Sum(r => r.Left).ToString(inv))
+            .Append(" | ").Append(g.Average(r => r.Ticks).ToString("0.0", inv))
+            .Append(" | ").Append(g.Average(r => r.Notes).ToString("0.0", inv))
+            .Append(" | ").Append($"{g.Count(r => r.GateAt > 0)}/{g.Count}")
+            .Append(" | ").Append(g.Average(r => r.Seconds).ToString("0.0", inv))
+            .Append(" |\n");
+    }
+
+    sb.Append("\n| arm | repeat | door | broken | asked | left | right | ticks | notes | retrievals | gate at tick | wall s | fault |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
+    foreach (var r in rows)
+        sb.Append("| ").Append(r.Arm).Append(" | ").Append(r.Repeat.ToString(inv))
+            .Append(" | ").Append(r.Open ? "**open**" : "shut")
+            .Append(" | ").Append(r.Broken ? "yes" : "no")
+            .Append(" | ").Append(r.Asked.ToString(inv))
+            .Append(" | ").Append(r.Left.ToString(inv))
+            .Append(" | ").Append(r.Right.ToString(inv))
+            .Append(" | ").Append(r.Ticks.ToString(inv))
+            .Append(" | ").Append(r.Notes.ToString(inv))
+            .Append(" | ").Append(r.Retrievals.ToString(inv))
+            .Append(" | ").Append(r.GateAt.ToString(inv))
+            .Append(" | ").Append(r.Seconds.ToString("0.0", inv))
+            .Append(" | ").Append(r.Fault ?? "").Append(" |\n");
+    return sb.ToString();
+}
+
 // ---------------------------------------------------------------- pilot
 
 /// <summary>
@@ -327,3 +454,6 @@ internal sealed record PilotRow(string Arm, int Repeat, bool Goal, int Ticks, do
 
 internal sealed record LatchRow(string Arm, int Repeat, bool Probe, bool Open, bool Broken,
     int Left, int Right, int Ticks, double Seconds, string? Fault, int Notes, int Retrievals, string Gate);
+
+internal sealed record AskedRow(string Arm, int Repeat, bool Open, bool Broken, int Asked,
+    int Left, int Right, int Ticks, int Notes, int Retrievals, int GateAt, double Seconds, string? Fault);
