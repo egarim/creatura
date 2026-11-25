@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Creatura.Graph</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The cognitive graph: typed knowledge with provenance, validity and an access policy, bounded in memory
+         (docs/cognitive-graph/architecture.md, issue #109). No packages (CorePurityTest). Nothing here is required:
+         the Core has never heard of it, and an agent that loads no graph extension runs exactly as it did before.
+         The Cells reference is for two things the graph must not reinvent: Scrubber, so knowledge carries no secret
+         (there are already three redactors in this repository and a fourth would be one more place to get wrong), and
+         SignedEntry.Id, the "cell#sequence" a provenance points at when the knowledge came through a cell. -->
+    <ProjectReference Include="../Creatura/Creatura.csproj" />
+    <ProjectReference Include="../Creatura.Cells/Creatura.Cells.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -183,6 +183,7 @@ sample worlds are `Creatura.Worlds.Samples`; and `Creatura.Cli` is in `Creatura.
 | [Creatura.Bench/](src/Creatura.Bench) | the bench's protocols: oracle and outcome class, hypotheses, batteries, arms and rows, the trainer and the exam over the record store, the legacy CSV writers, the fine-tune seam | none; may do file IO |
 | [Creatura.Seats/](src/Creatura.Seats) | the model seats: IModelTransport (Ollama, OpenAI-compatible, Azure Foundry) over an injected HttpClient, ModelClient, ModelPolicy, ModelJudge, ModelCatalog from models.json, the seat's biology, SeatResolver, the call log and the scoreboard | none; may do file IO |
 | [Creatura.Worlds.Web/](src/Creatura.Worlds.Web) | web worlds: WebWorld over a real app in Chromium, the observation (visible text and numbered controls), a tool per control, the declarative data check, barriers by Playwright routing, the persona and script seats, the UX adapter format, the matrix, its report, compare and the gate, and the offline notes demo | Microsoft.Playwright; may do file IO |
+| [Creatura.Graph/](src/Creatura.Graph) | the optional cognitive graph: typed nodes and relationships in six categories, provenance and validity periods, a verification ladder and confidence as counts, contradiction and supersession, tenant and workspace scopes behind an access policy, bounded traversal, secret redaction, snapshot export, a deterministic line extractor, and the agent extension that retrieves through it (docs/cognitive-graph/architecture.md) | none; may do file IO |
 
 **The hosts** (`src/`)
 
@@ -228,6 +229,7 @@ sample worlds are `Creatura.Worlds.Samples`; and `Creatura.Cli` is in `Creatura.
 | [Creatura.Hosts.SemanticKernel.Tests/](tests/Creatura.Hosts.SemanticKernel.Tests) | the Semantic Kernel host's tests; it runs the Agent Framework host's goldens byte for byte |
 | [Creatura.Scenarios.Tests/](tests/Creatura.Scenarios.Tests) | the convoy, the model seat, the recorder, the networks, shared distrust |
 | [Creatura.Worlds.Web.Tests/](tests/Creatura.Worlds.Web.Tests) | web worlds: the check, the observation, the tools, the seats, and the demo in a real browser (skipped, saying why, when no Chromium is found) |
+| [Creatura.Graph.Tests/](tests/Creatura.Graph.Tests) | the cognitive graph: traversal and its bounds, cycles, temporal validity, contradictions, revision, deletion, tenant and workspace isolation, secret canaries, snapshots, the line extractor, and the extension against the real loop |
 
 ```sh
 dotnet build Creatura.slnx

@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared by every project under this folder. Version and package metadata only: each .csproj keeps its own
-       target framework, nullable and implicit-usings settings. CorePurityTest keeps the four package-free
-       projects (Creatura, Worlds, Bench, Seats) free of packages. A release sets the version from its tag. -->
+       target framework, nullable and implicit-usings settings. CorePurityTest keeps the six package-free projects
+       (Creatura, Worlds, Bench, Seats, Ratings, Graph) free of packages. A release sets the version from its tag. -->
   <PropertyGroup>
     <VersionPrefix>0.2.0</VersionPrefix>
     <Product>Creatura</Product>
