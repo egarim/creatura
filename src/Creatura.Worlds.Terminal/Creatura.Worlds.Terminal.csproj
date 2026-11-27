@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Creatura.Worlds.Terminal</RootNamespace>
+    <Description>Terminal worlds for Creatura: an agent drives a real terminal application through Sentiora's PTY runtime, reads the rendered screen as a report, and is judged by an independent check of the application's outcome, never by the screen or the runtime's word.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Terminal worlds (docs/design-terminal-worlds.md). Sentiora's C# client is vendored under Client/ unchanged, so
+         this project has one project reference and no package reference; PACKAGE.md says when that copy becomes a
+         package. The world may do file IO (the runtime process). -->
+    <ProjectReference Include="../Creatura/Creatura.csproj" />
+  </ItemGroup>
+
+</Project>

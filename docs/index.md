@@ -51,6 +51,9 @@ agent tools around it, as hosts and as cells.
 - [Web worlds](design-web-worlds.md): a persona uses a real web app through Playwright, sees only the visible text
   and the numbered controls, and is judged by the app's own data; barriers between the browser and the app (phase 1
   built, with an offline demo).
+- [Terminal worlds](design-terminal-worlds.md): an agent drives a real terminal application through Sentiora's PTY
+  runtime, sees the rendered screen as a report, and is judged by an independent check of the application's outcome;
+  a scripted terminal runs the scenarios offline (v1 built; not yet wired into `creatura run`).
 - [Setting up a model for the convoy](convoy-models.md).
 - [The replay format](replay-format.md): how a UI watches a run.
 - [Sources](sources.md): whose public work the designs read, in the author's words.

@@ -28,7 +28,7 @@ flowchart TB
     subgraph H["VIVARIUM · habitat and supervision"]
         subgraph V["VESSEL · computational host"]
             C["CREATURA<br/>Mind · goals · regulation"]
-            W["World adapter<br/>Creatura.Worlds.Terminal · planned"]
+            W["World adapter<br/>Creatura.Worlds.Terminal · v1, not wired"]
             subgraph S["SENTIORA TERMINAL · sensorimotor organ"]
                 P["Sensory<br/>Screen · cursor · revisions"]
                 M["Motor<br/>Text · keys · resize"]
@@ -53,7 +53,7 @@ flowchart TB
 
 **Creatura thinks. Sentiora senses and acts. The Vessel hosts. The World responds.**
 
-This is the intended embodiment architecture, not a claim that the integration is already shipped. Sentiora is an independent runtime; the World adapter and independent task judge belong to the Creatura integration. Vivarium represents the supervisory habitat, not a required runtime dependency.
+The v1 adapter (`Creatura.Worlds.Terminal`) is built and tested against the real runtime, with an offline simulated terminal; it has no `WorldManifest` yet, so `creatura run --world terminal` does not reach it. This is the intended embodiment architecture, not a claim that the integration is already shipped. Sentiora is an independent runtime; the World adapter and independent task judge belong to the Creatura integration. Vivarium represents the supervisory habitat, not a required runtime dependency.
 
 See [the integration design epic](https://github.com/egarim/creatura/issues/101) and [documentation plan](https://github.com/egarim/creatura/issues/105).
 
@@ -183,6 +183,7 @@ sample worlds are `Creatura.Worlds.Samples`; and `Creatura.Cli` is in `Creatura.
 | [Creatura.Bench/](src/Creatura.Bench) | the bench's protocols: oracle and outcome class, hypotheses, batteries, arms and rows, the trainer and the exam over the record store, the legacy CSV writers, the fine-tune seam | none; may do file IO |
 | [Creatura.Seats/](src/Creatura.Seats) | the model seats: IModelTransport (Ollama, OpenAI-compatible, Azure Foundry) over an injected HttpClient, ModelClient, ModelPolicy, ModelJudge, ModelCatalog from models.json, the seat's biology, SeatResolver, the call log and the scoreboard | none; may do file IO |
 | [Creatura.Worlds.Web/](src/Creatura.Worlds.Web) | web worlds: WebWorld over a real app in Chromium, the observation (visible text and numbered controls), a tool per control, the declarative data check, barriers by Playwright routing, the persona and script seats, the UX adapter format, the matrix, its report, compare and the gate, and the offline notes demo | Microsoft.Playwright; may do file IO |
+| [Creatura.Worlds.Terminal/](src/Creatura.Worlds.Terminal) | terminal worlds: a real terminal application over Sentiora's PTY runtime, the screen as the persona's report, a tool per action (read, type, line, key, wait, close, commit), and the done fact only from an independent check; a scripted simulated terminal for the offline scenarios (v1, not yet wired into `creatura run`) | none (Sentiora's client vendored); may do file IO |
 | [Creatura.Graph/](src/Creatura.Graph) | the optional cognitive graph: typed nodes and relationships in six categories, provenance and validity periods, a verification ladder and confidence as counts, contradiction and supersession, tenant and workspace scopes behind an access policy, bounded traversal, secret redaction, snapshot export, a deterministic line extractor, and the agent extension that retrieves through it (docs/cognitive-graph/architecture.md) | none; may do file IO |
 | [Creatura.Graph.Bench/](src/Creatura.Graph.Bench) | the cognitive graph benchmark: the G01–G14 fixtures with hidden ground truth, the four memory arms (none, text, graph, hybrid), the one answerer they are all scored by, the thirteen pre-registered hypotheses, and the JSONL and report writers (docs/cognitive-graph/results.md) | none; may do file IO |
 
