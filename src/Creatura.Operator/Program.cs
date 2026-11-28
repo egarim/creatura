@@ -335,7 +335,7 @@ namespace Creatura.Operator
             }
 
             hub ??= LastHub(root);
-            return new WebOptions(owner, note, hub is null ? null : hub.TrimEnd('/') + "/");
+            return new WebOptions(owner, note, hub is null ? null : hub.TrimEnd('/') + "/", root);
         }
 
         private static string? OwnerFingerprint(string root, string? creatura)

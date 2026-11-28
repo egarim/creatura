@@ -420,4 +420,26 @@ public class WebConsoleTests
             File.Delete(file);
         }
     }
+
+    [Fact]
+    public async Task ThePageHasThisComputersProgramsAlsoWithNoCells()
+    {
+        var home = Directory.CreateTempSubdirectory("creatura-page-");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(home.FullName, "status"));
+            File.WriteAllText(Path.Combine(home.FullName, "status", "a.json"), System.Text.Json.JsonSerializer.Serialize(
+                new { format = 1, name = "Vivarium", state = "working", line = "<b>T-1</b>", updatedAt = DateTimeOffset.UtcNow, lines = new[] { "x" }, link = "javascript:alert(1)" }));
+            await using var web = await WebConsole.StartAsync(null, new RunCatalog([]), options: new WebOptions(Root: home.FullName));
+            using var http = new HttpClient();
+            var programs = System.Text.Json.Nodes.JsonNode.Parse(await http.GetStringAsync(new Uri(web.Address, "api/state")))!["programs"]!.AsArray();
+            var p = Assert.Single(programs)!;
+            Assert.Equal(("Vivarium", "<b>T-1</b>", true), ((string)p["name"]!, (string)p["line"]!, (bool)p["working"]!));
+            Assert.Null(p["link"]);
+        }
+        finally
+        {
+            home.Delete(true);
+        }
+    }
 }
