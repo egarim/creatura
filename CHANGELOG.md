@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **`Creatura.Worlds.Terminal`: terminal worlds, judged outside the PTY** (issue #102). A new package that adapts
+  Sentiora Terminal — a Node.js runtime that speaks JSON-RPC 2.0 over stdio and exposes a real PTY — into a Creatura
+  world. The persona reads the rendered screen as a report and acts through seven stable tools (`read-screen`, `type`,
+  `line`, `key`, `wait-for-text`, `close`, `commit`); the facts are only what the world can prove (session, state,
+  revision, geometry, exit code) and `done:<task>`, which only an injected independent check grants, so an application
+  that says "Saved!" without writing cannot make the world say it landed. A scripted `SimulatedTerminal` runs the same
+  world offline, and one env-gated test drives the real runtime over a real PTY. Bounded everywhere: action, settle and
+  wait timeouts, a text budget, a key allow-list, and a human handoff for approval prompts. Sentiora's C# client
+  (commit `302d71f`) is vendored under `Client/` unchanged, so the project has no package references; it is to be
+  replaced by a `PackageReference` when Sentiora publishes one. No `WorldManifest` yet: `creatura run --world terminal`
+  is the thing that would need one. Docs: `docs/design-terminal-worlds.md`.
 - **`Creatura.Graph.Bench`: the G01–G14 benchmark, and what it found** (issue #110). The fourteen fixtures with
   hidden ground truth, the four memory arms issue #110 asks for (A no memory, B TF-IDF over the corpus lines, C the
   graph, D both over one budget), and one deterministic answerer shared by all four — so an arm can only win by
