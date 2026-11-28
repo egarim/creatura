@@ -2,6 +2,14 @@
 
 Status: proposed research architecture, 2026-11-28. This document consolidates the design discussion; it is not a claim of implemented functionality.
 
+## Founding principle
+
+> We should not program intelligence to improve itself by assuming what improvement looks like. We should give it the mechanisms to discover improvement and independently prove that it has occurred.
+
+**Hypothesis → Experiment → Evidence → Evolution.**
+
+This principle requires independently validated outcomes, explicit goals and constraints, and evidence that generalizes beyond the experiments used to generate a candidate. It does not mean that the system can redefine its own acceptance criteria or authority.
+
 ## Vision
 How can an agent become better at completing tasks as a consequence of its existence? Creatura is an artificial cognition framework, not merely an LLM orchestrator. The model is replaceable; identity, regulation, experience, skills, embodiment and acquired capabilities persist. Distinguish model weight training, harness optimization, individual adaptation and collective learning. No model training is required for the initial program.
 
